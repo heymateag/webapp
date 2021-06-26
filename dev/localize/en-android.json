@@ -12247,6 +12247,10 @@
     "key": "SaveToMusic",
     "value": "Save to music"
   },
+  "ManageOffers": {
+    "key": "ManageOffers",
+    "value": "Manage Offers"
+  },
   "SavedMessages": {
     "key": "SavedMessages",
     "value": "Saved Messages"

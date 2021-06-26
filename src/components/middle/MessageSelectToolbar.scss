@@ -29,7 +29,7 @@
 
   opacity: 1;
 
-  &-inner {
+  &.inner {
     transform: scaleX(1);
     transition: transform var(--select-transition), opacity var(--select-transition);
   }
@@ -51,7 +51,7 @@
     opacity: 0;
     pointer-events: none;
 
-    &-inner {
+    &.inner {
       transform: scaleX(var(--toolbar-hidden-scale, 1));
     }
 
@@ -72,7 +72,7 @@
     right: auto;
   }
 
-  &-inner {
+  &.inner {
     width: 100%;
     max-width: 32rem;
     display: flex;
@@ -100,7 +100,7 @@
     }
   }
 
-  &-count {
+  &.count {
     margin-left: 1rem;
     white-space: nowrap;
     overflow: hidden;
@@ -111,7 +111,7 @@
     }
   }
 
-  &-actions {
+  &.actions {
     margin-left: auto;
     display: flex;
 

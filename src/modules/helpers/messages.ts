@@ -258,6 +258,16 @@ export function isOwnMessage(message: ApiMessage) {
   return message.isOutgoing;
 }
 
+/**
+ * Is HeyMate Message
+ * @param message
+ */
+export function isHeyMate(message: ApiMessage) {
+  if (message.content.text) {
+    return message.content.text.text.includes('https://heymate.works');
+  }
+  return false;
+}
 export function isReplyMessage(message: ApiMessage) {
   return Boolean(message.replyToMessageId);
 }

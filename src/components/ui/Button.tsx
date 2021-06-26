@@ -16,7 +16,7 @@ export type OwnProps = {
   type?: 'button' | 'submit' | 'reset';
   children: any;
   size?: 'default' | 'smaller' | 'tiny';
-  color?: 'primary' | 'secondary' | 'gray' | 'danger' | 'translucent' | 'translucent-white' | 'dark';
+  color?: 'primary' | 'secondary' | 'gray' | 'danger' | 'translucent' | 'translucent-white' | 'dark' | 'hm-primary';
   className?: string;
   round?: boolean;
   pill?: boolean;

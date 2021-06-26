@@ -28,6 +28,111 @@
     body.animation-level-0 & {
       transition: none !important;
     }
+
+    .main-heymate-content {
+      display: flex;
+      justify-content: space-around;
+      flex-direction: row;
+      max-width: 450px;
+      .content-and-imgholder {
+        padding-bottom: 15px;
+        background-color: #ffffff;
+      }
+      .left-side {
+        width: 78%;
+        .img-holder {
+          position: relative;
+          width: 350px;
+          height: 215px;
+          .which-days-left {
+            position: absolute;
+            top: 0;
+            display: flex;
+            align-items: center;
+            right: 25px;
+            background-color: #00BDAE;
+            color: #fff;
+            padding: 5px 15px;
+            height: 38px;
+            border-bottom-left-radius: 18px;
+            border-bottom-right-radius: 18px;
+            font-size: 14px;
+          }
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          }
+        .content-holdr {
+          padding: 5px 15px;
+          display: flex;
+          flex-flow: row wrap;
+          width: 100%;
+          span {
+            display: block;
+            width: 100%;
+            &.caption {
+              font-size: 16px;
+            }
+            &.follo {
+              color: #ACB3BA;
+              font-size: 14px;
+            }
+          }
+          p {
+            max-width: 320px;
+            font-size: 13px;
+          }
+        }
+        .hey-actions {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          div {
+            display: flex;
+            flex-flow: row wrap;
+            span {
+              display: block;
+              width: 100%;
+              &.coloring {
+                color: #00BDAE;
+              }
+              &.backe-g {
+                color: #ACB3BA;
+                font-size: 14px;
+              }
+            }
+          }
+        }
+        .button-group {
+          padding: 15px 0;
+          display: flex;
+          width: 100%;
+          justify-content: space-between;
+          .btna {
+            width: 45%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 40px;
+            border-radius: 6px;
+            &.more {
+              color: #0f0f0f;
+              background-color: #ffffff;
+            }
+            &.book {
+              background-color: #00BDAE;
+              color: #ffffff;
+            }
+          }
+        }
+      }
+      .right-side {
+        width: 22%;
+        position: relative;
+      }
+    }
   }
 
   > .Avatar {
@@ -513,6 +618,7 @@
   }
 
   .message-action-button {
+
     position: absolute;
     bottom: 0;
     color: white;
@@ -520,7 +626,11 @@
 
     opacity: 0;
     transition: opacity .2s ease;
-
+    &.myac {
+      bottom: 71px;
+      left: 12px !important;
+      opacity: 1!important;
+    }
     @media (pointer: coarse) {
       opacity: 1 !important;
     }

@@ -19,6 +19,7 @@ import Checkbox from '../ui/Checkbox';
 import InputText from '../ui/InputText';
 import Loading from '../ui/Loading';
 import CountryCodeInput from './CountryCodeInput';
+import AuthOnBoarding from './AuthOnBoarding';
 
 type StateProps = Pick<GlobalState, (
   'connectionState' | 'authState' |
@@ -146,6 +147,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
 
   return (
     <div id="auth-phone-number-form" className="custom-scroll">
+      <AuthOnBoarding />
       <div className="auth-form">
         <div id="logo" />
         <h2>Sign in to Telegram</h2>

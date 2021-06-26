@@ -84,6 +84,7 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
 
     return [
       { title: 'All' },
+      { title: 'Hey Mate' },
       ...displayedFolders.map((folder) => ({
         title: folder.title,
         ...(folderCountersById && folderCountersById[folder.id]),

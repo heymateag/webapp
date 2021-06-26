@@ -73,7 +73,7 @@ const MessageSelectToolbar: FC<OwnProps & StateProps & DispatchProps> = ({
 
   return (
     <div className={className}>
-      <div className="MessageSelectToolbar-inner">
+      <div className="MessageSelectToolbar inner">
         <Button
           color="translucent"
           round
@@ -82,12 +82,12 @@ const MessageSelectToolbar: FC<OwnProps & StateProps & DispatchProps> = ({
         >
           <i className="icon-close" />
         </Button>
-        <span className="MessageSelectToolbar-count" title={formattedMessagesCount}>
+        <span className="MessageSelectToolbar count" title={formattedMessagesCount}>
           {formattedMessagesCount}
         </span>
 
         {!!selectedMessagesCount && (
-          <div className="MessageSelectToolbar-actions">
+          <div className="MessageSelectToolbar actions">
             {messageListType !== 'scheduled' && (
               <MenuItem
                 icon="forward"

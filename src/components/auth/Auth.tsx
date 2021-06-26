@@ -12,7 +12,7 @@ import AuthCode from './AuthCode.async';
 import AuthPassword from './AuthPassword.async';
 import AuthRegister from './AuthRegister.async';
 import AuthQrCode from './AuthQrCode.async';
-
+import AuthOnBoarding from './AuthOnBoarding';
 import './Auth.scss';
 
 type StateProps = Pick<GlobalState, 'authState'>;

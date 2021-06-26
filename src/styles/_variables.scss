@@ -14,6 +14,7 @@
 }
 
 $color-primary: #50a2e9;
+$color-heymate-primary: #36BBA9;
 
 $color-links: #52a1ef;
 
@@ -135,6 +136,8 @@ $color-user-8: #faa774;
   --color-user-6: #{$color-user-6};
   --color-user-7: #{$color-user-7};
   --color-user-8: #{$color-user-8};
+
+  --color-heymate-primary: #{$color-heymate-primary};
 
   --color-default-shadow: #72727240;
   --color-light-shadow: #7272722B;

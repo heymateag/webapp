@@ -70,7 +70,19 @@
       background: var(--color-primary-shade-darker);
     }
   }
+  &.hm-primary {
+    background: var(--color-heymate-primary);
+    color: var(--color-white);
+    --ripple-color: rgba(0, 0, 0, .08);
 
+    @include active-styles() {
+      background: var(--color-primary-shade);
+    }
+
+    @include no-ripple-styles() {
+      background: var(--color-primary-shade-darker);
+    }
+  }
   &.secondary {
     background: var(--color-background);
     color: rgba(var(--color-text-secondary-rgb), 0.75);

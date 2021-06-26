@@ -171,6 +171,12 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             icon="saved-messages"
             onClick={handleSelectSaved}
           >
+            {lang('ManageOffers')}
+          </MenuItem>
+          <MenuItem
+            icon="saved-messages"
+            onClick={handleSelectSaved}
+          >
             {lang('SavedMessages')}
           </MenuItem>
           <MenuItem

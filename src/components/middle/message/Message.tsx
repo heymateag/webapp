@@ -44,6 +44,7 @@ import {
 import {
   getMessageContent,
   isOwnMessage,
+  isHeyMate,
   isReplyMessage,
   isAnonymousOwnMessage,
   isChatPrivate,
@@ -244,7 +245,10 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const { transitionClassNames } = useShowTransition(isShown, undefined, noAppearanceAnimation, false);
 
   const { chatId, id: messageId, threadInfo } = message;
-
+  /**
+   * Detect Message Has HeyMate KeyWord or not ?
+   */
+  const isHeyMateType = isHeyMate(message);
   const isOwn = isOwnMessage(message);
   const isScheduled = messageListType === 'scheduled' || message.isScheduled;
   const hasReply = isReplyMessage(message) && !shouldHideReply;
@@ -483,7 +487,68 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
       />
     );
   }
-
+  function renderHMview() {
+    const className = buildClassName(
+      'content-inner hey-mate',
+      asForwarded && !customShape && 'forwarded-message',
+      hasReply && 'reply-message',
+    );
+    return (
+      <div className={className} onDoubleClick={handleContentDoubleClick}>
+        {renderSenderName()}
+        <div className="main-heymate-content">
+          <div className="left-side">
+            <div className="content-and-imgholder">
+              <div className="img-holder">
+                <div className="which-days-left">
+                  Only 5 Left
+                </div>
+                <img src="https://picsum.photos/350/215" alt="lorem" />
+              </div>
+              <div className="content-holdr">
+                <span className="caption">Nail Implants</span>
+                <span className="follo">Beauty salon</span>
+                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Atque, dolorum error exercitationem ...</p>
+              </div>
+              <div className="hey-actions">
+                <div className="left">
+                  <span>Fix</span>
+                  <span className="backe-g">1 hout session</span>
+                </div>
+                <div className="right">
+                  <span className="coloring">$50</span>
+                  <span className="backe-g">per session</span>
+                </div>
+              </div>
+            </div>
+            <div className="button-group">
+              <span className="btna more">More Details</span>
+              <span className="btna book">Book Now</span>
+            </div>
+          </div>
+          <div className="right-side">
+            <Button
+              className="message-action-button myac"
+              color="translucent-white"
+              round
+              size="tiny"
+              ariaLabel="Forward message"
+              onClick={isLastInDocumentGroup ? handleGroupForward : handleForward}
+            >
+              <i className="icon-share-filled" />
+            </Button>
+          </div>
+        </div>
+        {/* {!animatedEmoji && textParts && ( */}
+        {/*  <p className="text-content ahmad"> */}
+        {/*    <span>Hi You Have An Important MSG From HeyMate:</span> */}
+        {/*    <br /> */}
+        {/*    {textParts} */}
+        {/*  </p> */}
+        {/* )} */}
+      </div>
+    );
+  }
   function renderContent() {
     const className = buildClassName(
       'content-inner',
@@ -732,7 +797,12 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           {asForwarded && !customShape && (!isInDocumentGroup || isFirstInDocumentGroup) && (
             <div className="message-title">{lang('ForwardedMessage')}</div>
           )}
-          {renderContent()}
+          {
+            isHeyMateType && (renderHMview())
+          }
+          {
+            !isHeyMateType && (renderContent())
+          }
           {(!isInDocumentGroup || isLastInDocumentGroup) && (
             <MessageMeta
               message={message}
