@@ -4,7 +4,6 @@ import React, {
 } from '../../lib/teact/teact';
 import { withGlobal } from '../../lib/teact/teactn';
 
-import { ANIMATION_END_DELAY } from '../../config';
 import { IS_MOBILE_SCREEN } from '../../util/environment';
 import useForceUpdate from '../../hooks/useForceUpdate';
 import usePrevious from '../../hooks/usePrevious';
@@ -65,6 +64,7 @@ const Transition: FC<OwnProps & StateProps> = ({
   children,
   animationLevel,
 }) => {
+  const ANIMATION_END_DELAY = 100;
   // eslint-disable-next-line no-null/no-null
   let containerRef = useRef<HTMLDivElement>(null);
   if (ref) {

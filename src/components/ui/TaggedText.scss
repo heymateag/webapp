@@ -1,0 +1,22 @@
+.TaggedSpan {
+  display: inline-block;
+  padding: 2px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+  &.green {
+    background-color: var(--color-hm-green3) !important;
+    color: var(--color-hm-green2) !important;
+  }
+  &.yellow {
+    background-color: var(--color-hm-yellow5) !important;
+    color: var(--color-hm-yellow-primary) !important;
+  }
+  &.blue {
+    background-color: var(--color-heymate-primary6) !important;
+    color: var(--color-heymate-primary3) !important;
+  }
+  &.gray {
+    background-color: var(--color-hm-gray6) !important;
+    color: var(--color-hm-gray2) !important;
+  }
+}

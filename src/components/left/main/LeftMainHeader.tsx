@@ -34,6 +34,7 @@ type OwnProps = {
   onSelectSettings: () => void;
   onSelectContacts: () => void;
   onSelectArchived: () => void;
+  onSelectManageOffers: () => void;
   onReset: () => void;
 };
 
@@ -61,6 +62,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onSelectSettings,
   onSelectContacts,
   onSelectArchived,
+  onSelectManageOffers,
   setGlobalSearchChatId,
   onReset,
   searchQuery,
@@ -168,19 +170,19 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           footer={APP_INFO}
         >
           <MenuItem
-            icon="saved-messages"
-            onClick={handleSelectSaved}
+            icon="hm-manage-offers"
+            onClick={onSelectManageOffers}
           >
             {lang('ManageOffers')}
           </MenuItem>
           <MenuItem
-            icon="saved-messages"
+            icon="icon-saved-messages"
             onClick={handleSelectSaved}
           >
             {lang('SavedMessages')}
           </MenuItem>
           <MenuItem
-            icon="archive"
+            icon="icon-archive"
             onClick={onSelectArchived}
           >
             <span className="menu-item-name">{lang('ArchivedChats')}</span>
@@ -189,19 +191,19 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             )}
           </MenuItem>
           <MenuItem
-            icon="user"
+            icon="icon-user"
             onClick={onSelectContacts}
           >
             {lang('Contacts')}
           </MenuItem>
           <MenuItem
-            icon="settings"
+            icon="icon-settings"
             onClick={onSelectSettings}
           >
             {lang('Settings')}
           </MenuItem>
           <MenuItem
-            icon="darkmode"
+            icon="icon-darkmode"
             onClick={handleDarkModeToggle}
           >
             <span className="menu-item-name">Dark Mode</span>
@@ -212,7 +214,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             />
           </MenuItem>
           <MenuItem
-            icon="animations"
+            icon="icon-animations"
             onClick={handleAnimationLevelChange}
           >
             <span className="menu-item-name capitalize">{lang('Appearance.Animations').toLowerCase()}</span>
@@ -223,13 +225,13 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             />
           </MenuItem>
           <MenuItem
-            icon="help"
+            icon="icon-help"
             onClick={openTipsChat}
           >
             Telegram Features
           </MenuItem>
           <MenuItem
-            icon="bug"
+            icon="icon-bug"
             href={FEEDBACK_URL}
           >
             Report Bug

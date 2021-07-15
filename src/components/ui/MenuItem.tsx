@@ -67,7 +67,7 @@ const MenuItem: FC<OwnProps> = (props) => {
   const content = (
     <>
       {icon && (
-        <i className={`icon-${icon}`} />
+        <i className={icon} />
       )}
       {children}
     </>

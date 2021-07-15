@@ -65,6 +65,10 @@ const LeftMain: FC<OwnProps & StateProps> = ({
     onContentChange(LeftColumnContent.Archived);
   }, [onContentChange]);
 
+  const handleSelectManageOffers = useCallback(() => {
+    onContentChange(LeftColumnContent.Offers);
+  }, [onContentChange]);
+
   const handleMouseEnter = useCallback(() => {
     if (content !== LeftColumnContent.ChatList) {
       return;
@@ -119,6 +123,7 @@ const LeftMain: FC<OwnProps & StateProps> = ({
         onSelectSettings={handleSelectSettings}
         onSelectContacts={handleSelectContacts}
         onSelectArchived={handleSelectArchived}
+        onSelectManageOffers={handleSelectManageOffers}
         onReset={onReset}
       />
       <ConnectionState />

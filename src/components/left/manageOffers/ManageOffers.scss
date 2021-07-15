@@ -1,0 +1,17 @@
+.ManageOffers {
+    height: 100%;
+    .offer-scroll {
+      height: calc(100% - 127px);
+      overflow-y: scroll;
+    }
+  .page-caption {
+    display: block;
+    width: 100%;
+    font-weight: 500;
+    font-size: 14px;
+    margin-top: 24px;
+    margin-bottom: 24px;
+    margin-left: 16px;
+    color: var(--color-primary);
+  }
+}

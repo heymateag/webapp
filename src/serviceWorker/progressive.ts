@@ -147,6 +147,7 @@ async function requestPart(
 
   // eslint-disable-next-line no-restricted-globals
   const client = await self.clients.get(e.clientId);
+  console.log
   if (!client) {
     return undefined;
   }
