@@ -1,4 +1,5 @@
-import React, { FC, memo } from '../../../lib/teact/teact';
+// eslint-disable-next-line import/no-unresolved
+import React, { FC, memo } from 'teact/teact';
 
 import useLang from '../../../hooks/useLang';
 import './ManageOffers.scss';

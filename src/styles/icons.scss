@@ -426,6 +426,10 @@
 .icon-pinned-chat:before {
   content: "\e942";
 }
+/** ============== Heymate Font Icons*/
+.hm-date-time:before {
+  content: "\e900";
+}
 .hm-manage-offers:before {
   content: "\e901";
 }
@@ -435,8 +439,18 @@
 .hm-play:before {
   content: "\e903";
 }
-.hm-date-time:before {
-  content: "\e900";
+.hm-show:before {
+  content: "\e904";
 }
+.hm-circle-x:before {
+  content: "\e905";
+}
+.hm-calendar:before {
+  content: "\e906";
+}
+.hm-wallet:before {
+  content: "\e907";
+}
+
 
 

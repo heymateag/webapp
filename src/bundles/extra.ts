@@ -18,6 +18,7 @@ export { default as NewChatStep1 } from '../components/left/newChat/NewChatStep1
 export { default as NewChatStep2 } from '../components/left/newChat/NewChatStep2';
 export { default as ArchivedChats } from '../components/left/ArchivedChats';
 export { default as ManageOffers } from '../components/left/manageOffers/ManageOffers';
+export { default as Wallet } from '../components/left/wallet/Wallet';
 
 export { default as ContextMenuContainer } from '../components/middle/message/ContextMenuContainer';
 export { default as StickerSetModal } from '../components/common/StickerSetModal';

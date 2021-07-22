@@ -16,6 +16,8 @@ import Settings from './settings/Settings.async';
 import NewChat from './newChat/NewChat.async';
 import ArchivedChats from './ArchivedChats.async';
 import ManageOffers from './manageOffers/ManageOffers.async';
+import Wallet from './wallet/Wallet.async';
+
 
 import './LeftColumn.scss';
 
@@ -39,6 +41,7 @@ enum ContentType {
   // eslint-disable-next-line no-shadow
   NewChannel,
   Offers,
+  wallet,
 }
 
 const RENDER_COUNT = Object.keys(ContentType).length / 2;
@@ -71,6 +74,9 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
       break;
     case LeftColumnContent.Offers:
       contentType = ContentType.Offers;
+      break;
+    case LeftColumnContent.wallet:
+      contentType = ContentType.wallet;
       break;
     case LeftColumnContent.NewChannelStep1:
     case LeftColumnContent.NewChannelStep2:
@@ -272,6 +278,8 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
                 onReset={handleReset}
               />
             );
+          case ContentType.wallet:
+            return <Wallet onReset={handleReset} />;
           case ContentType.Offers:
             return (
               <ManageOffers

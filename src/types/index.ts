@@ -180,6 +180,7 @@ export enum LeftColumnContent {
   NewGroupStep1,
   NewGroupStep2,
   Offers,
+  wallet,
 }
 
 export enum GlobalSearchContent {

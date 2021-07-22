@@ -2,8 +2,7 @@ import './util/handleError';
 import './util/setupServiceWorker';
 
 import React, { getDispatch, getGlobal } from './lib/teact/teactn';
-import TeactDOM from './lib/teact/teact-dom';
-
+import TeactDOM from 'teact/teact-dom';
 import './global';
 
 import { DEBUG } from './config';

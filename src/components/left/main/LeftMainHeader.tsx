@@ -35,6 +35,7 @@ type OwnProps = {
   onSelectContacts: () => void;
   onSelectArchived: () => void;
   onSelectManageOffers: () => void;
+  onSelectWallet: () => void;
   onReset: () => void;
 };
 
@@ -63,6 +64,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onSelectContacts,
   onSelectArchived,
   onSelectManageOffers,
+  onSelectWallet,
   setGlobalSearchChatId,
   onReset,
   searchQuery,
@@ -169,6 +171,12 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           trigger={MainButton}
           footer={APP_INFO}
         >
+          <MenuItem
+            icon="hm-wallet"
+            onClick={onSelectWallet}
+          >
+            {lang('Wallet')}
+          </MenuItem>
           <MenuItem
             icon="hm-manage-offers"
             onClick={onSelectManageOffers}

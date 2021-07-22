@@ -69,6 +69,10 @@ const LeftMain: FC<OwnProps & StateProps> = ({
     onContentChange(LeftColumnContent.Offers);
   }, [onContentChange]);
 
+  const handleSelectWallet = useCallback(() => {
+    onContentChange(LeftColumnContent.wallet);
+  }, [onContentChange]);
+
   const handleMouseEnter = useCallback(() => {
     if (content !== LeftColumnContent.ChatList) {
       return;
@@ -124,6 +128,7 @@ const LeftMain: FC<OwnProps & StateProps> = ({
         onSelectContacts={handleSelectContacts}
         onSelectArchived={handleSelectArchived}
         onSelectManageOffers={handleSelectManageOffers}
+        onSelectWallet={handleSelectWallet}
         onReset={onReset}
       />
       <ConnectionState />

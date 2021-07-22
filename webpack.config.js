@@ -91,6 +91,12 @@ module.exports = (env = {}, argv = {}) => {
       ],
     },
     resolve: {
+      alias: {
+        teact: path.resolve(__dirname, 'src/lib/teact/'),
+        'teact-dom': 'teact/teact-dom',
+        react: 'teact/teact',
+        'react-dom': 'teact-dom',
+      },
       extensions: ['.js', '.ts', '.tsx'],
     },
     plugins: [
