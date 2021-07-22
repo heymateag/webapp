@@ -86,8 +86,14 @@ interface ComponentInstance {
   onUpdate?: () => void;
 }
 
-export type VirtualElement = VirtualElementEmpty | VirtualElementText | VirtualElementTag | VirtualElementComponent;
-export type VirtualRealElement = VirtualElementTag | VirtualElementComponent;
+export type VirtualElement =
+  VirtualElementEmpty
+  | VirtualElementText
+  | VirtualElementTag
+  | VirtualElementComponent;
+export type VirtualRealElement =
+  VirtualElementTag
+  | VirtualElementComponent;
 export type VirtualElementChildren = VirtualElement[];
 
 const Fragment = Symbol('Fragment');
@@ -546,7 +552,7 @@ export function useLayoutEffect(effect: () => Function | void, dependencies?: an
   return useLayoutEffectBase(onTickEnd, effect, dependencies);
 }
 
-export function useMemo<T extends any>(resolver: () => T, dependencies: any[]): T {
+export function useMemo<T extends any>(resolver: () => T, dependencies: any[], debugKey?: string): T {
   const { cursor, byCursor } = renderingInstance.hooks.memos;
   let { current } = byCursor[cursor] || {};
 
@@ -554,6 +560,16 @@ export function useMemo<T extends any>(resolver: () => T, dependencies: any[]): 
     byCursor[cursor] === undefined
     || dependencies.some((dependency, i) => dependency !== byCursor[cursor].dependencies[i])
   ) {
+    if (DEBUG && debugKey) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[Teact.useMemo] ${renderingInstance.name} (${debugKey}): Update is caused by:`,
+        byCursor[cursor]
+          ? getUnequalProps(dependencies, byCursor[cursor].dependencies).join(', ')
+          : '[first render]',
+      );
+    }
+
     current = resolver();
   }
 

@@ -19,6 +19,8 @@ import './EmojiTooltip.scss';
 
 const VIEWPORT_MARGIN = 8;
 const EMOJI_BUTTON_WIDTH = 44;
+const CLOSE_DURATION = 350;
+const NO_EMOJI_SELECTED_INDEX = -1;
 
 function setItemVisible(index: number, containerRef: Record<string, any>) {
   const container = containerRef.current!;
@@ -56,8 +58,6 @@ export type OwnProps = {
   emojis: Emoji[];
 };
 
-const CLOSE_DURATION = 350;
-
 const EmojiTooltip: FC<OwnProps> = ({
   isOpen,
   emojis,
@@ -70,7 +70,7 @@ const EmojiTooltip: FC<OwnProps> = ({
   const { shouldRender, transitionClassNames } = useShowTransition(isOpen, undefined, undefined, false);
   const listEmojis: Emoji[] = usePrevDuringAnimation(emojis.length ? emojis : undefined, CLOSE_DURATION) || [];
 
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useState(NO_EMOJI_SELECTED_INDEX);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -82,13 +82,12 @@ const EmojiTooltip: FC<OwnProps> = ({
 
   const getSelectedIndex = useCallback((newIndex: number) => {
     if (!emojis.length) {
-      return -1;
+      return NO_EMOJI_SELECTED_INDEX;
     }
 
     const emojisCount = emojis.length;
     return cycleRestrict(emojisCount, newIndex);
   }, [emojis]);
-
 
   const handleArrowKey = useCallback((value: number, e: KeyboardEvent) => {
     e.preventDefault();
@@ -96,7 +95,7 @@ const EmojiTooltip: FC<OwnProps> = ({
   }, [setSelectedIndex, getSelectedIndex]);
 
   const handleSelectEmoji = useCallback((e: KeyboardEvent) => {
-    if (emojis.length && selectedIndex > -1) {
+    if (emojis.length && selectedIndex > NO_EMOJI_SELECTED_INDEX) {
       const emoji = emojis[selectedIndex];
       if (emoji) {
         e.preventDefault();
@@ -105,6 +104,11 @@ const EmojiTooltip: FC<OwnProps> = ({
       }
     }
   }, [addRecentEmoji, emojis, onEmojiSelect, selectedIndex]);
+
+  const handleClick = useCallback((native: string, id: string) => {
+    onEmojiSelect(native);
+    addRecentEmoji({ emoji: id });
+  }, [addRecentEmoji, onEmojiSelect]);
 
   useEffect(() => (isOpen ? captureKeyboardListeners({
     onEsc: onClose,
@@ -139,7 +143,7 @@ const EmojiTooltip: FC<OwnProps> = ({
             key={emoji.id}
             emoji={emoji}
             focus={selectedIndex === index}
-            onClick={onEmojiSelect}
+            onClick={handleClick}
           />
         ))
       ) : shouldRender ? (

@@ -9,12 +9,12 @@ export {
 export {
   fetchChats, fetchFullChat, searchChats, requestChatUpdate,
   saveDraft, clearDraft, fetchChat, updateChatMutedState,
-  createChannel, joinChannel, leaveChannel, deleteChannel, createGroupChat, editChatPhoto,
+  createChannel, joinChannel, deleteChatUser, deleteChat, leaveChannel, deleteChannel, createGroupChat, editChatPhoto,
   toggleChatPinned, toggleChatArchived, toggleDialogUnread,
   fetchChatFolders, editChatFolder, deleteChatFolder, fetchRecommendedChatFolders,
   getChatByUsername, togglePreHistoryHidden, updateChatDefaultBannedRights, updateChatMemberBannedRights,
   updateChatTitle, updateChatAbout, toggleSignatures, updateChatAdmin, fetchGroupsForDiscussion, setDiscussionGroup,
-  migrateChat, openChatByInvite, fetchMembers,
+  migrateChat, openChatByInvite, fetchMembers, importChatInvite, addChatMembers, deleteChatMember,
 } from './chats';
 
 export {
@@ -22,7 +22,7 @@ export {
   markMessageListRead, markMessagesRead, requestThreadInfoUpdate, searchMessagesLocal, searchMessagesGlobal,
   fetchWebPagePreview, editMessage, forwardMessages, loadPollOptionResults, sendPollVote, findFirstMessageIdAfterDate,
   fetchPinnedMessages, fetchScheduledHistory, sendScheduledMessages, rescheduleMessage, deleteScheduledMessages,
-  fetchMessageLink,
+  fetchMessageLink, reportMessages,
 } from './messages';
 
 export {
@@ -34,7 +34,7 @@ export {
 export {
   fetchStickerSets, fetchRecentStickers, fetchFavoriteStickers, fetchFeaturedStickers,
   faveSticker, fetchStickers, fetchSavedGifs, searchStickers, installStickerSet, uninstallStickerSet,
-  searchGifs, fetchAnimatedEmojis, fetchStickersForEmoji,
+  searchGifs, fetchAnimatedEmojis, fetchStickersForEmoji, fetchEmojiKeywords,
 } from './symbols';
 
 export {
@@ -45,8 +45,9 @@ export {
   updateProfile, checkUsername, updateUsername, fetchBlockedContacts, blockContact, unblockContact,
   updateProfilePhoto, uploadProfilePhoto, fetchWallpapers, uploadWallpaper,
   fetchAuthorizations, terminateAuthorization, terminateAllAuthorizations,
-  loadNotificationsSettings, updateContactSignUpNotification, updateNotificationSettings,
+  fetchNotificationExceptions, fetchNotificationSettings, updateContactSignUpNotification, updateNotificationSettings,
   fetchLanguages, fetchLangPack, fetchPrivacySettings, setPrivacySettings, registerDevice, unregisterDevice,
+  updateIsOnline, fetchContentSettings, updateContentSettings,
 } from './settings';
 
 export {
@@ -54,7 +55,7 @@ export {
 } from './twoFaSettings';
 
 export {
-  answerCallbackButton,
+  answerCallbackButton, fetchTopInlineBots, fetchInlineBot, fetchInlineBotResults, sendInlineBotResult,
 } from './bots';
 
 export {

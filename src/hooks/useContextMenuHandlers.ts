@@ -2,7 +2,7 @@ import { RefObject } from 'react';
 import { useState, useEffect, useCallback } from '../lib/teact/teact';
 
 import { IAnchorPosition } from '../types';
-import { IS_TOUCH_ENV, IS_MOBILE_SCREEN } from '../util/environment';
+import { IS_TOUCH_ENV, IS_SINGLE_COLUMN_LAYOUT } from '../util/environment';
 
 const LONG_TAP_DURATION_MS = 250;
 const SELECTION_ANIMATION_DURATION_MS = 200;
@@ -10,13 +10,14 @@ const SELECTION_ANIMATION_DURATION_MS = 200;
 let contextMenuCounter = 0;
 
 function checkIsDisabledForMobile() {
-  return IS_MOBILE_SCREEN
+  return IS_SINGLE_COLUMN_LAYOUT
   && window.document.body.classList.contains('enable-symbol-menu-transforms');
 }
 
 export default (
   elementRef: RefObject<HTMLElement>,
   isMenuDisabled?: boolean,
+  shouldDisableOnLink?: boolean,
 ) => {
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<IAnchorPosition | undefined>(undefined);
@@ -28,11 +29,12 @@ export default (
   }, [isMenuDisabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (isMenuDisabled) {
+    document.body.classList.remove('no-selection');
+
+    if (isMenuDisabled || (shouldDisableOnLink && (e.target as HTMLElement).matches('a.text-entity-link[href]'))) {
       return;
     }
     e.preventDefault();
-    document.body.classList.remove('no-selection');
 
     if (contextMenuPosition) {
       return;
@@ -45,7 +47,7 @@ export default (
 
     setIsContextMenuOpen(true);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
-  }, [isMenuDisabled, contextMenuPosition]);
+  }, [isMenuDisabled, shouldDisableOnLink, contextMenuPosition]);
 
   const handleContextMenuClose = useCallback(() => {
     setIsContextMenuOpen(false);

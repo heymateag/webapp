@@ -7,11 +7,18 @@ import {
   MAIN_THREAD_ID,
 } from '../../api/types';
 
+import { NotifyException, NotifySettings } from '../../types';
+import { LangFn } from '../../hooks/useLang';
+
 import { ARCHIVED_FOLDER_ID } from '../../config';
 import { orderBy } from '../../util/iteratees';
 import { getUserFirstOrLastName } from './users';
-import { getTranslation } from '../../util/langProvider';
-import { LangFn } from '../../hooks/useLang';
+import { formatDateToString, formatTime } from '../../util/dateFormat';
+
+const FOREVER_BANNED_DATE = Date.now() / 1000 + 31622400; // 366 days
+
+const VERIFIED_PRIORITY_BASE = 3e9;
+const PINNED_PRIORITY_BASE = 3e8;
 
 export function isChatPrivate(chatId: number) {
   return chatId > 0;
@@ -59,11 +66,11 @@ export function getPrivateChatUserId(chat: ApiChat) {
 }
 
 // TODO Get rid of `user`
-export function getChatTitle(chat: ApiChat, user?: ApiUser, isSelf = false) {
+export function getChatTitle(lang: LangFn, chat: ApiChat, user?: ApiUser, isSelf = false) {
   if (isSelf || (user && chat.id === user.id && user.isSelf)) {
-    return getTranslation('SavedMessages');
+    return lang('SavedMessages');
   }
-  return chat.title || getTranslation('HiddenName');
+  return chat.title || lang('HiddenName');
 }
 
 export function getChatDescription(chat: ApiChat) {
@@ -75,13 +82,13 @@ export function getChatDescription(chat: ApiChat) {
 
 export function getChatLink(chat: ApiChat) {
   const { username } = chat;
-  const { inviteLink } = chat.fullInfo || {};
-
-  if (inviteLink && inviteLink.length) {
-    return inviteLink;
+  if (username) {
+    return `https://t.me/${username}`;
   }
 
-  return username ? `t.me/${username}` : '';
+  const { inviteLink } = chat.fullInfo || {};
+
+  return inviteLink;
 }
 
 export function getChatAvatarHash(
@@ -173,12 +180,24 @@ export function getAllowedAttachmentOptions(chat?: ApiChat, isChatWithBot = fals
   };
 }
 
-export function getMessageSendingRestrictionReason(chat: ApiChat) {
-  if (chat.currentUserBannedRights && chat.currentUserBannedRights.sendMessages) {
-    return 'You are not allowed to send messages in this chat.';
+export function getMessageSendingRestrictionReason(
+  lang: LangFn, currentUserBannedRights?: ApiChatBannedRights, defaultBannedRights?: ApiChatBannedRights,
+) {
+  if (currentUserBannedRights && currentUserBannedRights.sendMessages) {
+    const { untilDate } = currentUserBannedRights;
+    return untilDate && untilDate < FOREVER_BANNED_DATE
+      ? lang(
+        'Channel.Persmission.Denied.SendMessages.Until',
+        lang(
+          'formatDateAtTime',
+          [formatDateToString(new Date(untilDate * 1000), lang.code), formatTime(untilDate * 1000)],
+        ),
+      )
+      : lang('Channel.Persmission.Denied.SendMessages.Forever');
   }
-  if (chat.defaultBannedRights && chat.defaultBannedRights.sendMessages) {
-    return 'Sending messages is not allowed in this chat.';
+
+  if (defaultBannedRights && defaultBannedRights.sendMessages) {
+    return lang('Channel.Persmission.Denied.SendMessages.DefaultRestrictedText');
   }
 
   return undefined;
@@ -192,12 +211,28 @@ export function getChatSlowModeOptions(chat?: ApiChat) {
   return chat.fullInfo.slowMode;
 }
 
+
 export function getChatOrder(chat: ApiChat) {
-  return Math.max(chat.joinDate || 0, chat.lastMessage ? chat.lastMessage.date : 0);
+  return Math.max(
+    chat.joinDate || 0,
+    chat.draftDate || 0,
+    chat.lastMessage ? chat.lastMessage.date : 0,
+  );
 }
 
 export function isChatArchived(chat: ApiChat) {
   return chat.folderId === ARCHIVED_FOLDER_ID;
+}
+
+export function selectIsChatMuted(
+  chat: ApiChat, notifySettings: NotifySettings, notifyExceptions?: Record<number, NotifyException>,
+) {
+  return !(notifyExceptions && notifyExceptions[chat.id] && !notifyExceptions[chat.id].isMuted) && (
+    chat.isMuted
+    || (isChatPrivate(chat.id) && !notifySettings.hasPrivateChatsNotifications)
+    || (isChatChannel(chat) && !notifySettings.hasBroadcastNotifications)
+    || (isChatGroup(chat) && !notifySettings.hasGroupNotifications)
+  );
 }
 
 export function getCanDeleteChat(chat: ApiChat) {
@@ -208,6 +243,8 @@ export function prepareFolderListIds(
   chatsById: Record<number, ApiChat>,
   usersById: Record<number, ApiUser>,
   folder: ApiChatFolder,
+  notifySettings: NotifySettings,
+  notifyExceptions?: Record<number, NotifyException>,
   chatIdsCache?: number[],
 ) {
   const excludedChatIds = folder.excludedChatIds ? new Set(folder.excludedChatIds) : undefined;
@@ -216,7 +253,14 @@ export function prepareFolderListIds(
   const listIds = (chatIdsCache || Object.keys(chatsById).map(Number))
     .filter((id) => {
       return filterChatFolder(
-        chatsById[id], folder, usersById, excludedChatIds, includedChatIds, pinnedChatIds,
+        chatsById[id],
+        folder,
+        usersById,
+        notifySettings,
+        notifyExceptions,
+        excludedChatIds,
+        includedChatIds,
+        pinnedChatIds,
       );
     });
 
@@ -227,6 +271,8 @@ function filterChatFolder(
   chat: ApiChat,
   folder: ApiChatFolder,
   usersById: Record<number, ApiUser>,
+  notifySettings: NotifySettings,
+  notifyExceptions?: Record<number, NotifyException>,
   excludedChatIds?: Set<number>,
   includedChatIds?: Set<number>,
   pinnedChatIds?: Set<number>,
@@ -247,7 +293,7 @@ function filterChatFolder(
     return false;
   }
 
-  if (chat.isMuted && folder.excludeMuted) {
+  if (folder.excludeMuted && !chat.unreadMentionsCount && selectIsChatMuted(chat, notifySettings, notifyExceptions)) {
     return false;
   }
 
@@ -341,8 +387,10 @@ export function getFolderUnreadDialogs(
   usersById: Record<number, ApiUser>,
   folder: ApiChatFolder,
   chatIdsCache: number[],
+  notifySettings: NotifySettings,
+  notifyExceptions?: Record<number, NotifyException>,
 ) {
-  const [listIds] = prepareFolderListIds(chatsById, usersById, folder, chatIdsCache);
+  const [listIds] = prepareFolderListIds(chatsById, usersById, folder, notifySettings, notifyExceptions, chatIdsCache);
 
   const listedChats = listIds
     .map((id) => chatsById[id])
@@ -353,7 +401,7 @@ export function getFolderUnreadDialogs(
 
   const hasActiveDialogs = listedChats.some((chat) => (
     chat.unreadMentionsCount
-    || (!chat.isMuted && (chat.unreadCount || chat.hasUnreadMark))
+    || (!selectIsChatMuted(chat, notifySettings, notifyExceptions) && (chat.unreadCount || chat.hasUnreadMark))
   ));
 
   return {
@@ -363,11 +411,13 @@ export function getFolderUnreadDialogs(
 }
 
 export function getFolderDescriptionText(
+  lang: LangFn,
   chatsById: Record<number, ApiChat>,
   usersById: Record<number, ApiUser>,
   folder: ApiChatFolder,
   chatIdsCache: number[],
-  lang: LangFn,
+  notifySettings: NotifySettings,
+  notifyExceptions?: Record<number, NotifyException>,
 ) {
   const {
     id, title, emoticon, description, pinnedChatIds,
@@ -383,7 +433,7 @@ export function getFolderDescriptionText(
     || (excludedChatIds && excludedChatIds.length)
     || (includedChatIds && includedChatIds.length)
   ) {
-    const length = getFolderChatsCount(chatsById, usersById, folder, chatIdsCache);
+    const length = getFolderChatsCount(chatsById, usersById, folder, chatIdsCache, notifySettings, notifyExceptions);
     return lang('Chats', length);
   }
 
@@ -408,8 +458,12 @@ function getFolderChatsCount(
   usersById: Record<number, ApiUser>,
   folder: ApiChatFolder,
   chatIdsCache: number[],
+  notifySettings: NotifySettings,
+  notifyExceptions?: Record<number, NotifyException>,
 ) {
-  const [listIds, pinnedIds] = prepareFolderListIds(chatsById, usersById, folder, chatIdsCache);
+  const [listIds, pinnedIds] = prepareFolderListIds(
+    chatsById, usersById, folder, notifySettings, notifyExceptions, chatIdsCache,
+  );
   const { pinnedChats, otherChats } = prepareChatList(chatsById, listIds, pinnedIds, 'folder');
   return pinnedChats.length + otherChats.length;
 }
@@ -422,13 +476,13 @@ export function isChat(chatOrUser?: ApiUser | ApiChat): chatOrUser is ApiChat {
   return chatOrUser.id < 0;
 }
 
-export function getMessageSenderName(chatId: number, sender?: ApiUser) {
+export function getMessageSenderName(lang: LangFn, chatId: number, sender?: ApiUser) {
   if (!sender || isChatPrivate(chatId)) {
     return undefined;
   }
 
   if (sender.isSelf) {
-    return 'You';
+    return lang('FromYou');
   }
 
   return getUserFirstOrLastName(sender);
@@ -453,14 +507,11 @@ export function sortChatIds(
     }
 
     if (shouldPrioritizeVerified && chat.isVerified) {
-      priority += 3e9; // ~100 years in seconds
+      priority += VERIFIED_PRIORITY_BASE; // ~100 years in seconds
     }
 
     if (priorityIds && priorityIds.includes(id)) {
-      // Assuming that last message date can't be less than now,
-      // this should place prioritized on top of the list.
-      // Then we subtract index of `id` in `priorityIds` to preserve selected order
-      priority += Date.now() + (priorityIds.length - priorityIds.indexOf(id));
+      priority = Date.now() + PINNED_PRIORITY_BASE + (priorityIds.length - priorityIds.indexOf(id));
     }
 
     return priority;

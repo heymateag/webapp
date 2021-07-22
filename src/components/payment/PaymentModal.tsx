@@ -5,12 +5,12 @@ import { withGlobal } from '../../lib/teact/teactn';
 
 import { GlobalActions, GlobalState } from '../../global/types';
 import { PaymentStep, ShippingOption, Price } from '../../types';
-import { ApiError } from '../../api/types';
+import { ApiError, ApiInviteInfo } from '../../api/types';
 
 import { pick } from '../../util/iteratees';
 import { getCurrencySign } from '../middle/helpers/getCurrencySign';
 import { detectCardTypeText } from '../common/helpers/detectCardType';
-import { getShippingError } from '../../modules/helpers/payments';
+import { getShippingErrors } from '../../modules/helpers/payments';
 import usePaymentReducer, { FormState } from '../../hooks/reducers/usePaymentReducer';
 import useLang from '../../hooks/useLang';
 
@@ -46,7 +46,7 @@ type StateProps = {
   needCardholderName?: boolean;
   needCountry?: boolean;
   needZip?: boolean;
-  globalErrors?: ApiError[];
+  globalDialogs?: (ApiError | ApiInviteInfo)[];
 };
 
 type GlobalStateProps = Pick<GlobalState['payment'], 'step' | 'shippingOptions' |
@@ -79,7 +79,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
   needCountry,
   needZip,
   error,
-  globalErrors,
+  globalDialogs,
   validateRequestedInfo,
   sendPaymentForm,
   setPaymentStep,
@@ -92,10 +92,10 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
   const lang = useLang();
 
   useEffect(() => {
-    if (step || error || globalErrors) {
+    if (step || error || globalDialogs) {
       setIsLoading(false);
     }
-  }, [step, error, globalErrors]);
+  }, [step, error, globalDialogs]);
 
   useEffect(() => {
     if (error && error.field) {
@@ -107,8 +107,8 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
       });
       return;
     }
-    if (globalErrors && globalErrors.length) {
-      const errors = getShippingError(globalErrors);
+    if (globalDialogs && globalDialogs.length) {
+      const errors = getShippingErrors(globalDialogs);
       paymentDispatch({
         type: 'setFormErrors',
         payload: {
@@ -116,7 +116,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
         },
       });
     }
-  }, [error, globalErrors, paymentDispatch]);
+  }, [error, globalDialogs, paymentDispatch]);
 
   useEffect(() => {
     if (savedInfo) {
@@ -167,12 +167,12 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
         onClose={handleErrorModalClose}
       >
         <h4>{error.description || 'Error'}</h4>
-        {error.description || 'Error'}
+        <p>{error.description || 'Error'}</p>
         <Button
           isText
           onClick={clearPaymentError}
         >
-          OK
+          {lang('OK')}
         </Button>
       </Modal>
     );
@@ -287,11 +287,11 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
   const buttonText = useMemo(() => {
     switch (step) {
       case PaymentStep.Checkout:
-        return `Pay ${currencySign}${(totalPrice / 100).toFixed(2)}`;
+        return lang('Checkout.PayPrice', `${currencySign}${(totalPrice / 100).toFixed(2)}`);
       default:
-        return 'Next Step';
+        return lang('Next');
     }
-  }, [step, totalPrice, currencySign]);
+  }, [step, lang, currencySign, totalPrice]);
 
   if (isProviderError) {
     return (
@@ -300,13 +300,15 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
         isOpen={isOpen}
         onClose={onClose}
       >
-        Sorry, Telegram T doesn&apos;t support payments with this provider yet.
-         Please use one of our mobile apps to do this.
+        <p>
+          Sorry, Telegram WebZ doesn&apos;t support payments with this provider yet. <br />
+          Please use one of our mobile apps to do this.
+        </p>
         <Button
           isText
           onClick={onClose}
         >
-          OK
+          {lang('OK')}
         </Button>
       </Modal>
     );
@@ -318,7 +320,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
       isOpen={isOpen}
       onClose={onClose}
     >
-      <div className="header">
+      <div className="header" dir={lang.isRtl ? 'rtl' : undefined}>
         <Button
           className="close-button"
           color="translucent"
@@ -329,7 +331,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
         >
           <i className="icon-close" />
         </Button>
-        <h3>{ modalHeader }</h3>
+        <h3>{modalHeader}</h3>
       </div>
       {step !== undefined ? (
         <Transition name="slide" activeKey={step}>
@@ -410,7 +412,7 @@ export default memo(withGlobal<OwnProps>(
       needCountry,
       needZip,
       error,
-      globalErrors: global.errors,
+      globalDialogs: global.dialogs,
     };
   },
   (setGlobal, actions): DispatchProps => {

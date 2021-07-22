@@ -7,7 +7,7 @@ import { ApiUser, ApiChat, ApiMessage } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
 import { LoadMoreDirection } from '../../../types';
 
-import { IS_MOBILE_SCREEN } from '../../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import searchWords from '../../../util/searchWords';
 import { unique, pick } from '../../../util/iteratees';
 import { getUserFullName, getMessageSummaryText, sortChatIds } from '../../../modules/helpers';
@@ -23,7 +23,6 @@ import DateSuggest from './DateSuggest';
 import Link from '../../ui/Link';
 import NothingFound from '../../common/NothingFound';
 import PickerSelectedItem from '../../common/PickerSelectedItem';
-import { getTranslation } from '../../../util/langProvider';
 
 export type OwnProps = {
   searchQuery?: string;
@@ -63,6 +62,8 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
   foundIds, globalMessagesByChatId, chatsById, usersById, fetchingStatus, lastSyncTime,
   onReset, onSearchDateSelect, openChat, addRecentlyFoundChatId, searchMessagesGlobal, setGlobalSearchChatId,
 }) => {
+  const lang = useLang();
+
   const [shouldShowMoreLocal, setShouldShowMoreLocal] = useState<boolean>(false);
   const [shouldShowMoreGlobal, setShouldShowMoreGlobal] = useState<boolean>(false);
 
@@ -85,7 +86,7 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
         addRecentlyFoundChatId({ id });
       }
 
-      if (!IS_MOBILE_SCREEN) {
+      if (!IS_SINGLE_COLUMN_LAYOUT) {
         onReset();
       }
     },
@@ -114,21 +115,24 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
       : [];
 
     return [
-      ...(currentUserId && searchWords(getTranslation('SavedMessages'), searchQuery) ? [currentUserId] : []),
+      ...(currentUserId && searchWords(lang('SavedMessages'), searchQuery) ? [currentUserId] : []),
       ...sortChatIds(unique([
         ...foundContactIds,
         ...(localChatIds || []),
         ...(localUserIds || []),
       ]), chatsById),
     ];
-  }, [searchQuery, localContactIds, currentUserId, localChatIds, localUserIds, chatsById, usersById]);
+  }, [
+    searchQuery, localContactIds, currentUserId, lang, localChatIds, localUserIds, chatsById, usersById,
+  ]);
 
   const globalResults = useMemo(() => {
     if (!searchQuery || searchQuery.length < MIN_QUERY_LENGTH_FOR_GLOBAL_SEARCH || !globalChatIds || !globalUserIds) {
       return MEMO_EMPTY_ARRAY;
     }
 
-    return sortChatIds(unique([...globalChatIds, ...globalUserIds]), chatsById, true);
+    return sortChatIds(unique([...globalChatIds, ...globalUserIds]),
+      chatsById, true);
   }, [chatsById, globalChatIds, globalUserIds, searchQuery]);
 
   const foundMessages = useMemo(() => {
@@ -156,10 +160,8 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
     setShouldShowMoreGlobal(!shouldShowMoreGlobal);
   }, [shouldShowMoreGlobal]);
 
-  const lang = useLang();
-
   function renderFoundMessage(message: ApiMessage) {
-    const text = getMessageSummaryText(message);
+    const text = getMessageSummaryText(lang, message);
     const chat = chatsById[message.chatId];
 
     if (!text || !chat) {
@@ -187,6 +189,8 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
       className="LeftSearch custom-scroll"
       items={foundMessages}
       onLoadMore={handleLoadMore}
+      // To prevent scroll jumps caused by delayed local results rendering
+      noScrollRestoreOnTop
       noFastList
     >
       {dateSearchQuery && (
@@ -197,9 +201,14 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
           />
         </div>
       )}
-      {nothingFound && <NothingFound />}
+      {nothingFound && (
+        <NothingFound
+          text={lang('ChatList.Search.NoResults')}
+          description={lang('ChatList.Search.NoResultsDescription')}
+        />
+      )}
       {!!localResults.length && (
-        <div className="chat-selection no-selection no-scrollbar">
+        <div className="chat-selection no-selection no-scrollbar" dir={lang.isRtl ? 'rtl' : undefined}>
           {localResults.map((id) => (
             <PickerSelectedItem
               chatOrUserId={id}
@@ -211,11 +220,13 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
       )}
       {!!localResults.length && (
         <div className="search-section">
-          <h3 className="section-heading">
+          <h3 className="section-heading" dir={lang.isRtl ? 'auto' : undefined}>
             {localResults.length > LESS_LIST_ITEMS_AMOUNT && (
-              <Link onClick={handleClickShowMoreLocal}>{shouldShowMoreLocal ? 'Show less' : 'Show more'}</Link>
+              <Link onClick={handleClickShowMoreLocal}>
+                {lang(shouldShowMoreLocal ? 'ChatList.Search.ShowLess' : 'ChatList.Search.ShowMore')}
+              </Link>
             )}
-            Contacts and Chats
+            {lang('DialogList.SearchSectionDialogs')}
           </h3>
           {localResults.map((id, index) => {
             if (!shouldShowMoreLocal && index >= LESS_LIST_ITEMS_AMOUNT) {
@@ -233,11 +244,13 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
       )}
       {!!globalResults.length && (
         <div className="search-section">
-          <h3 className="section-heading">
+          <h3 className="section-heading" dir={lang.isRtl ? 'auto' : undefined}>
             {globalResults.length > LESS_LIST_ITEMS_AMOUNT && (
-              <Link onClick={handleClickShowMoreGlobal}>{shouldShowMoreGlobal ? 'Show less' : 'Show more'}</Link>
+              <Link onClick={handleClickShowMoreGlobal}>
+                {lang(shouldShowMoreGlobal ? 'ChatList.Search.ShowLess' : 'ChatList.Search.ShowMore')}
+              </Link>
             )}
-            Global Search
+            {lang('DialogList.SearchSectionGlobal')}
           </h3>
           {globalResults.map((id, index) => {
             if (!shouldShowMoreGlobal && index >= LESS_LIST_ITEMS_AMOUNT) {
@@ -256,7 +269,7 @@ const ChatResults: FC<OwnProps & StateProps & DispatchProps> = ({
       )}
       {!!foundMessages.length && (
         <div className="search-section">
-          <h3 className="section-heading">{lang('SearchMessages')}</h3>
+          <h3 className="section-heading" dir={lang.isRtl ? 'auto' : undefined}>{lang('SearchMessages')}</h3>
           {foundMessages.map(renderFoundMessage)}
         </div>
       )}
@@ -278,7 +291,9 @@ export default memo(withGlobal<OwnProps>(
       };
     }
 
-    const { currentUserId, messages, lastSyncTime } = global;
+    const {
+      currentUserId, messages, lastSyncTime,
+    } = global;
     const {
       fetchingStatus, globalResults, localResults, resultsByType,
     } = global.globalSearch;

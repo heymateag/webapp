@@ -5,7 +5,7 @@
   overflow: scroll;
   overflow-x: hidden;
   overflow-y: overlay;
-  margin-bottom: .3125rem;
+  margin-bottom: .5rem;
 
   .mask-image-enabled & {
     mask-image: linear-gradient(to top, transparent 0, #000 0.5rem);
@@ -48,23 +48,23 @@
     margin-bottom: 0;
 
     .last-in-list {
-      padding-bottom: 1rem;
-    }
-
-    &.type-pinned {
-      .last-in-list {
-        padding-bottom: 5rem;
-
-        @media (max-width: 600px) {
-          padding-bottom: 3.75rem;
-        }
-      }
+      margin-bottom: 1rem;
     }
   }
 
-  &.select-mode-active {
-    .messages-container {
-      padding-bottom: 4.75rem;
+  &.select-mode-active, &.type-pinned {
+    margin-bottom: 0;
+
+    .last-in-list {
+      margin-bottom: 5.625rem;
+
+      @media (max-width: 600px) {
+        margin-bottom: 4.25rem;
+      }
+
+      &.ActionMessage {
+        padding-bottom: 0.125rem;
+      }
     }
   }
 
@@ -90,8 +90,8 @@
     &::before {
       content: "";
       position: absolute;
-      top: -0.3125rem;
-      bottom: -0.3125rem;
+      top: -0.1875rem;
+      bottom: -0.1875rem;
       left: -50vw;
       right: -50vw;
       background: black;
@@ -186,16 +186,36 @@
 
     body:not(.is-scrolling-messages) &.stuck {
       opacity: 0;
+
+      span {
+        pointer-events: none;
+      }
     }
 
     body.animation-level-0 & {
       transition: none;
     }
+
+    &.interactive {
+      cursor: pointer;
+    }
+
+    span {
+      pointer-events: auto;
+    }
   }
 
-  &.scrolled .sticky-date {
+  &.scrolled:not(.is-animating) .sticky-date {
     position: sticky;
     top: 0.625rem;
+  }
+
+  &.is-animating {
+    overflow: hidden;
+  }
+
+  &.is-animating .message-select-control {
+    display: none !important;
   }
 
   .has-header-tools & .sticky-date {

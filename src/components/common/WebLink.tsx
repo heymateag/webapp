@@ -7,6 +7,7 @@ import buildClassName from '../../util/buildClassName';
 import trimText from '../../util/trimText';
 import renderText from './helpers/renderText';
 import { formatPastTimeShort } from '../../util/dateFormat';
+import useLang from '../../hooks/useLang';
 
 import Media from './Media';
 import Link from '../ui/Link';
@@ -23,13 +24,15 @@ type OwnProps = {
 };
 
 const WebLink: FC<OwnProps> = ({ message, senderTitle, onMessageClick }) => {
+  const lang = useLang();
+
   let linkData: ApiWebPage | undefined = getMessageWebPage(message);
 
   if (!linkData) {
     const link = getFirstLinkInMessage(message);
     if (link) {
       const { url, domain } = link;
-      const messageText = getMessageSummaryText(message);
+      const messageText = getMessageSummaryText(lang, message);
 
       linkData = {
         siteName: domain.replace(/^www./, ''),
@@ -54,32 +57,39 @@ const WebLink: FC<OwnProps> = ({ message, senderTitle, onMessageClick }) => {
     title,
     description,
     photo,
+    video,
   } = linkData;
 
   const truncatedDescription = !senderTitle && trimText(description, MAX_TEXT_LENGTH);
 
   const className = buildClassName(
     'WebLink scroll-item',
-    !photo && 'without-photo',
+    (!photo && !video) && 'without-media',
   );
 
   return (
     <div
       className={className}
       data-initial={(siteName || displayUrl)[0]}
+      dir={lang.isRtl ? 'rtl' : undefined}
     >
       {photo && (
         <Media message={message} />
       )}
       <div className="content">
-        <Link className="site-title" onClick={handleMessageClick}>{renderText(title || siteName || displayUrl)}</Link>
+        <Link isRtl={lang.isRtl} className="site-title" onClick={handleMessageClick}>
+          {renderText(title || siteName || displayUrl)}
+        </Link>
         {truncatedDescription && (
-          <Link className="site-description" onClick={handleMessageClick}>{renderText(truncatedDescription)}</Link>
+          <Link isRtl={lang.isRtl} className="site-description" onClick={handleMessageClick}>
+            {renderText(truncatedDescription)}
+          </Link>
         )}
         <SafeLink
           url={url}
           className="site-name"
           text=""
+          isRtl={lang.isRtl}
         >
           {url.replace('mailto:', '') || displayUrl}
         </SafeLink>
@@ -90,8 +100,9 @@ const WebLink: FC<OwnProps> = ({ message, senderTitle, onMessageClick }) => {
           <Link
             className="date"
             onClick={handleMessageClick}
+            isRtl={lang.isRtl}
           >
-            {formatPastTimeShort(message.date * 1000)}
+            {formatPastTimeShort(lang, message.date * 1000)}
           </Link>
         </div>
       )}

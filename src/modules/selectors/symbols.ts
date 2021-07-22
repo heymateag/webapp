@@ -39,7 +39,8 @@ export function selectAnimatedEmoji(global: GlobalState, emoji: string) {
     return undefined;
   }
 
-  emoji = emoji.replace('\ufe0f', '');
+  // Some emojis (❤️ for example) with a service symbol 'VARIATION SELECTOR-16' are not recognized as animated
+  const cleanedEmoji = emoji.replace('\ufe0f', '');
 
-  return animatedEmojis.stickers.find((sticker) => sticker.emoji === emoji);
+  return animatedEmojis.stickers.find((sticker) => sticker.emoji === emoji || sticker.emoji === cleanedEmoji);
 }

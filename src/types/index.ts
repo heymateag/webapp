@@ -1,5 +1,6 @@
 import {
-  ApiLanguage, ApiMessage, ApiStickerSet, ApiShippingAddress,
+  ApiBotInlineMediaResult, ApiBotInlineResult, ApiBotInlineSwitchPm,
+  ApiLanguage, ApiMessage, ApiShippingAddress, ApiStickerSet,
 } from '../api/types';
 
 export enum LoadMoreDirection {
@@ -20,14 +21,36 @@ export interface IAlbum {
   mainMessage: ApiMessage;
 }
 
-export interface ISettings extends Record<string, any> {
-  messageTextSize: number;
-  customBackground?: string;
+export type ThemeKey = 'light' | 'dark';
+
+export interface IThemeSettings {
+  background?: string;
+  backgroundColor?: string;
   patternColor?: string;
-  isBackgroundBlurred?: boolean;
+  isBlurred?: boolean;
+}
+
+export type NotifySettings = {
+  hasPrivateChatsNotifications?: boolean;
+  hasPrivateChatsMessagePreview?: boolean;
+  hasGroupNotifications?: boolean;
+  hasGroupMessagePreview?: boolean;
+  hasBroadcastNotifications?: boolean;
+  hasBroadcastMessagePreview?: boolean;
+  hasContactJoinedNotifications?: boolean;
+};
+
+export type LangCode = (
+  'en' | 'ar' | 'be' | 'ca' | 'nl' | 'fr' | 'de' | 'id' | 'it' | 'ko' | 'ms' | 'fa' | 'pl' | 'pt-br' | 'ru' | 'es'
+  | 'tr' | 'uk' | 'uz'
+);
+
+export interface ISettings extends NotifySettings, Record<string, any> {
+  theme: ThemeKey;
+  shouldUseSystemTheme: boolean;
+  messageTextSize: number;
   animationLevel: 0 | 1 | 2;
   messageSendKeyCombo: 'enter' | 'ctrl-enter';
-  theme: 'light' | 'dark';
   shouldAutoDownloadMediaFromContacts: boolean;
   shouldAutoDownloadMediaInPrivateChats: boolean;
   shouldAutoDownloadMediaInGroups: boolean;
@@ -37,15 +60,10 @@ export interface ISettings extends Record<string, any> {
   shouldSuggestStickers: boolean;
   shouldLoopStickers: boolean;
   hasPassword?: boolean;
-  hasPrivateChatsNotifications?: boolean;
-  hasPrivateChatsMessagePreview?: boolean;
-  hasGroupNotifications?: boolean;
-  hasGroupMessagePreview?: boolean;
-  hasBroadcastNotifications?: boolean;
-  hasBroadcastMessagePreview?: boolean;
-  hasContactJoinedNotifications?: boolean;
   languages?: ApiLanguage[];
-  language: 'en' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'es' | 'uk';
+  language: LangCode;
+  isSensitiveEnabled?: boolean;
+  canChangeSensitive?: boolean;
 }
 
 export interface ApiPrivacySettings {
@@ -200,6 +218,7 @@ export enum RightColumnContent {
   StickerSearch,
   GifSearch,
   PollResults,
+  AddingMembers,
 }
 
 export enum MediaViewerOrigin {
@@ -232,6 +251,12 @@ export enum ManagementProgress {
   InProgress,
   Complete,
   Error,
+}
+
+export enum NewChatMembersProgress {
+  Closed,
+  InProgress,
+  Loading,
 }
 
 export type ProfileTabType = 'members' | 'media' | 'documents' | 'links' | 'audio';
@@ -271,3 +296,26 @@ export enum ManagementScreens {
 }
 
 export type ManagementType = 'user' | 'group' | 'channel';
+
+export type NotifyException = {
+  isMuted: boolean;
+  isSilent?: boolean;
+  shouldShowPreviews?: boolean;
+};
+
+export type EmojiKeywords = {
+  isLoading?: boolean;
+  version: number;
+  keywords: Record<string, string[]>;
+};
+
+export type InlineBotSettings = {
+  id: number;
+  help?: string;
+  query?: string;
+  offset?: string;
+  canLoadMore?: boolean;
+  results?: (ApiBotInlineResult | ApiBotInlineMediaResult)[];
+  isGallery?: boolean;
+  switchPm?: ApiBotInlineSwitchPm;
+};

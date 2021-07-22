@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
@@ -8,7 +8,7 @@ import { GlobalActions, MessageListType } from '../../global/types';
 import { LoadMoreDirection } from '../../types';
 
 import { ANIMATION_END_DELAY, MESSAGE_LIST_SLICE, SCHEDULED_WHEN_ONLINE } from '../../config';
-import { IS_ANDROID, IS_IOS, IS_MOBILE_SCREEN } from '../../util/environment';
+import { IS_ANDROID, IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import {
   selectChatMessages,
   selectIsViewportNewest,
@@ -22,7 +22,8 @@ import {
   selectScrollOffset,
   selectThreadTopMessageId,
   selectFirstMessageId,
-  selectScheduledMessages, selectCurrentMessageIds,
+  selectScheduledMessages,
+  selectCurrentMessageIds,
 } from '../../modules/selectors';
 import {
   getMessageOriginalId,
@@ -38,12 +39,13 @@ import {
   pick,
 } from '../../util/iteratees';
 import {
-  fastRaf, debounce, throttleWithTickEnd, onTickEnd,
+  fastRaf, debounce, onTickEnd,
 } from '../../util/schedulers';
 import { formatHumanDate } from '../../util/dateFormat';
 import useLayoutEffectWithPrevDeps from '../../hooks/useLayoutEffectWithPrevDeps';
 import buildClassName from '../../util/buildClassName';
 import { groupMessages, MessageDateGroup, isAlbum } from './helpers/groupMessages';
+import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
 import { ObserveFn, useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import useOnChange from '../../hooks/useOnChange';
 import useStickyDates from './hooks/useStickyDates';
@@ -53,6 +55,7 @@ import fastSmoothScroll, { isAnimatingScroll } from '../../util/fastSmoothScroll
 import renderText from '../common/helpers/renderText';
 import useLang, { LangFn } from '../../hooks/useLang';
 import useWindowSize from '../../hooks/useWindowSize';
+import useBackgroundMode from '../../hooks/useBackgroundMode';
 
 import Loading from '../ui/Loading';
 import MessageScroll from './MessageScroll';
@@ -66,7 +69,9 @@ type OwnProps = {
   threadId: number;
   type: MessageListType;
   canPost: boolean;
-  onFabToggle: (show: boolean) => void;
+  isReady: boolean;
+  onFabToggle: (shouldShow: boolean) => void;
+  onNotchToggle: (shouldShow: boolean) => void;
   hasTools?: boolean;
 };
 
@@ -91,7 +96,7 @@ type StateProps = {
 };
 
 type DispatchProps = Pick<GlobalActions, (
-  'loadViewportMessages' | 'markMessageListRead' | 'markMessagesRead' | 'setScrollOffset'
+  'loadViewportMessages' | 'markMessageListRead' | 'markMessagesRead' | 'setScrollOffset' | 'openHistoryCalendar'
 )>;
 
 const BOTTOM_THRESHOLD = 100;
@@ -99,7 +104,7 @@ const UNREAD_DIVIDER_TOP = 10;
 const UNREAD_DIVIDER_TOP_WITH_TOOLS = 60;
 const SCROLL_DEBOUNCE = 200;
 const INTERSECTION_THROTTLE_FOR_MEDIA = IS_ANDROID ? 1000 : 350;
-const INTERSECTION_MARGIN_FOR_MEDIA = IS_MOBILE_SCREEN ? 300 : 500;
+const INTERSECTION_MARGIN_FOR_MEDIA = IS_SINGLE_COLUMN_LAYOUT ? 300 : 500;
 const FOCUSING_DURATION = 1000;
 const BOTTOM_FOCUS_MARGIN = 20;
 const SELECT_MODE_ANIMATION_DURATION = 200;
@@ -107,7 +112,6 @@ const FOCUSING_FADE_ANIMATION_DURATION = 200;
 const UNREAD_DIVIDER_CLASS = 'unread-divider';
 
 const runDebouncedForScroll = debounce((cb) => cb(), SCROLL_DEBOUNCE, false);
-const runThrottledOnTickEnd = throttleWithTickEnd((cb) => cb());
 
 const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   chatId,
@@ -115,9 +119,11 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   type,
   hasTools,
   onFabToggle,
+  onNotchToggle,
   isChatLoaded,
   isChannelChat,
   canPost,
+  isReady,
   isChatWithSelf,
   messageIds,
   messagesById,
@@ -137,6 +143,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   botDescription,
   threadTopMessageId,
   hasLinkedChat,
+  openHistoryCalendar,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -152,12 +159,13 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   const memoFirstUnreadIdRef = useRef<number>();
   const memoFocusingIdRef = useRef<number>();
   const isScrollTopJustUpdatedRef = useRef(false);
-  const shouldAnimateAppearanceRef = useRef(!messageIds);
+  const shouldAnimateAppearanceRef = useRef(Boolean(lastMessage));
 
   const [containerHeight, setContainerHeight] = useState<number | undefined>();
   const [hasFocusing, setHasFocusing] = useState<boolean>(Boolean(focusingId));
 
   const areMessagesLoaded = Boolean(messageIds);
+
   useOnChange(() => {
     // We only need it first time when message list appears
     if (areMessagesLoaded) {
@@ -177,7 +185,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [firstUnreadId]);
 
   const {
-    observe: observeIntersectionForMedia, freeze: freezeForMedia, unfreeze: unfreezeForMedia,
+    observe: observeIntersectionForMedia,
   } = useIntersectionObserver({
     rootRef: containerRef,
     throttleMs: INTERSECTION_THROTTLE_FOR_MEDIA,
@@ -224,16 +232,10 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   });
 
+  useBackgroundMode(freezeForReading, unfreezeForReading);
+
   useOnChange(() => {
     memoFocusingIdRef.current = focusingId;
-
-    if (focusingId) {
-      freezeForMedia();
-      freezeForReading();
-    } else {
-      unfreezeForReading();
-      unfreezeForMedia();
-    }
   }, [focusingId]);
 
   const { observe: observeIntersectionForAnimatedStickers } = useIntersectionObserver({
@@ -264,7 +266,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       return undefined;
     }
 
-    const listedMessages = viewportIds.map((id) => messagesById[id]);
+    const listedMessages = viewportIds.map((id) => messagesById[id]).filter(Boolean);
     return groupMessages(orderBy(listedMessages, ['date', 'id']), memoUnreadDividerBeforeIdRef.current);
   }, [messageIds, messagesById, threadFirstMessageId, threadTopMessageId]);
 
@@ -331,25 +333,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   // Memorize height for scroll animation
   const { height: windowHeight } = useWindowSize();
+
   useEffect(() => {
-    containerRef.current!.dataset.normalHeight = String(containerRef.current!.offsetHeight);
-  }, [windowHeight]);
-
-  // Workaround for an iOS bug when animated stickers sometimes disappear
-  useLayoutEffect(() => {
-    if (!IS_IOS) {
-      return;
+    if (isReady) {
+      containerRef.current!.dataset.normalHeight = String(containerRef.current!.offsetHeight);
     }
-
-    runThrottledOnTickEnd(() => {
-      if (!(containerRef.current as HTMLDivElement).querySelector('.AnimatedSticker.is-playing')) {
-        return;
-      }
-
-      const style = (containerRef.current as HTMLDivElement).style as any;
-      style.webkitOverflowScrolling = style.webkitOverflowScrolling === 'auto' ? '' : 'auto';
-    });
-  });
+  }, [windowHeight, isReady]);
 
   // Initial message loading
   useEffect(() => {
@@ -366,6 +355,27 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       loadMoreAround();
     }
   }, [isChatLoaded, messageIds, loadMoreAround, focusingId, isRestricted]);
+
+  // Remember scroll position before repositioning it
+  useOnChange(() => {
+    if (!messageIds || !listItemElementsRef.current || !isReady) {
+      return;
+    }
+
+    const preservedItemElements = listItemElementsRef.current
+      .filter((element) => messageIds.includes(Number(element.dataset.messageId)));
+
+    // We avoid the very first item as it may be a partly-loaded album
+    // and also because it may be removed when messages limit is reached
+    const anchor = preservedItemElements[1] || preservedItemElements[0];
+    if (!anchor) {
+      return;
+    }
+
+    anchorIdRef.current = anchor.id;
+    anchorTopRef.current = anchor.getBoundingClientRect().top;
+    // This should match deps for `useLayoutEffectWithPrevDeps` below
+  }, [messageIds, isViewportNewest, containerHeight, hasTools, isReady]);
 
   // Handles updated message list, takes care of scroll repositioning
   useLayoutEffectWithPrevDeps(([
@@ -468,7 +478,10 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       const newAnchorTop = anchor.getBoundingClientRect().top;
       newScrollTop = scrollTop + (newAnchorTop - (anchorTopRef.current || 0));
     } else if (unreadDivider) {
-      newScrollTop = unreadDivider.offsetTop - (hasTools ? UNREAD_DIVIDER_TOP_WITH_TOOLS : UNREAD_DIVIDER_TOP);
+      newScrollTop = Math.min(
+        unreadDivider.offsetTop - (hasTools ? UNREAD_DIVIDER_TOP_WITH_TOOLS : UNREAD_DIVIDER_TOP),
+        scrollHeight - scrollOffset,
+      );
     } else {
       newScrollTop = scrollHeight - scrollOffset;
     }
@@ -488,6 +501,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       // eslint-disable-next-line no-console
       console.timeEnd('scrollTop');
     }
+    // This should match deps for `useOnChange` above
   }, [messageIds, isViewportNewest, containerHeight, hasTools]);
 
   useEffect(() => {
@@ -500,20 +514,26 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const isPrivate = Boolean(chatId && isChatPrivate(chatId));
   const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf);
+  const noAvatars = Boolean(!withUsers || isChannelChat);
 
   const className = buildClassName(
     'MessageList custom-scroll',
-    !withUsers && 'no-avatars',
-    isChannelChat && 'no-avatars',
+    noAvatars && 'no-avatars',
     !canPost && 'no-composer',
     type === 'pinned' && 'type-pinned',
     isSelectModeActive && 'select-mode-active',
     hasFocusing && 'has-focusing',
     isScrolled && 'scrolled',
+    !isReady && 'is-animating',
   );
 
   return (
-    <div ref={containerRef} className={className} onScroll={handleScroll}>
+    <div
+      ref={containerRef}
+      className={className}
+      onScroll={handleScroll}
+      onMouseDown={preventMessageInputBlur}
+    >
       {isRestricted ? (
         <div className="empty">
           <span>
@@ -529,16 +549,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
           containerRef={containerRef}
           className="messages-container"
           messageIds={messageIds || [lastMessage!.id]}
-          containerHeight={containerHeight}
-          listItemElementsRef={listItemElementsRef}
-          focusingId={focusingId}
-          anchorIdRef={anchorIdRef}
-          anchorTopRef={anchorTopRef}
           loadMoreForwards={loadMoreForwards}
           loadMoreBackwards={loadMoreBackwards}
           isViewportNewest={isViewportNewest}
           firstUnreadId={firstUnreadId}
           onFabToggle={onFabToggle}
+          onNotchToggle={onNotchToggle}
         >
           {renderMessages(
             lang,
@@ -547,6 +563,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
             observeIntersectionForMedia,
             observeIntersectionForAnimatedStickers,
             withUsers,
+            noAvatars,
             anchorIdRef,
             memoUnreadDividerBeforeIdRef,
             threadId,
@@ -556,6 +573,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
             hasLinkedChat,
             messageGroups ? type === 'scheduled' : false,
             !messageGroups || !shouldAnimateAppearanceRef.current,
+            openHistoryCalendar,
           )}
         </MessageScroll>
       ) : (
@@ -572,15 +590,17 @@ function renderMessages(
   observeIntersectionForMedia: ObserveFn,
   observeIntersectionForAnimatedStickers: ObserveFn,
   withUsers: boolean,
+  noAvatars: boolean,
   currentAnchorIdRef: { current: string | undefined },
   memoFirstUnreadIdRef: { current: number | undefined },
   threadId: number,
   type: MessageListType,
-  threadTopMessageId?: number,
-  threadFirstMessageId?: number,
-  hasLinkedChat?: boolean,
-  isSchedule = false,
-  noAppearanceAnimation = false,
+  threadTopMessageId: number | undefined,
+  threadFirstMessageId: number | undefined,
+  hasLinkedChat: boolean | undefined,
+  isSchedule: boolean,
+  noAppearanceAnimation: boolean,
+  openHistoryCalendar: Function,
 ) {
   const unreadDivider = (
     <div className={buildClassName(UNREAD_DIVIDER_CLASS, 'local-action-message')} key="unread-messages">
@@ -605,6 +625,10 @@ function renderMessages(
     ) => {
       if (senderGroup.length === 1 && !isAlbum(senderGroup[0]) && isActionMessage(senderGroup[0])) {
         const message = senderGroup[0];
+        const isLastInList = (
+          senderGroupIndex === senderGroupsArray.length - 1
+          && dateGroupIndex === dateGroupsArray.length - 1
+        );
 
         return compact([
           message.id === memoFirstUnreadIdRef.current && unreadDivider,
@@ -613,6 +637,7 @@ function renderMessages(
             message={message}
             observeIntersection={observeIntersectionForReading}
             appearanceOrder={messageCountToAnimate - ++appearanceIndex}
+            isLastInList={isLastInList}
           />,
         ]);
       }
@@ -650,10 +675,6 @@ function renderMessages(
 
         currentDocumentGroupId = documentGroupId;
 
-        const shouldRenderUnreadDivider = (
-          (message.id === memoFirstUnreadIdRef.current && memoFirstUnreadIdRef.current !== threadFirstMessageId)
-          || (message.id === threadTopMessageId && memoFirstUnreadIdRef.current === threadFirstMessageId)
-        );
         const originalId = getMessageOriginalId(message);
         // Scheduled messages can have local IDs in the middle of the list,
         // and keys should be ordered, so we prefix it with a date.
@@ -661,7 +682,7 @@ function renderMessages(
         const key = type !== 'scheduled' ? originalId : `${message.date}_${originalId}`;
 
         return compact([
-          shouldRenderUnreadDivider && unreadDivider,
+          message.id === memoFirstUnreadIdRef.current ? unreadDivider : undefined,
           <Message
             key={key}
             message={message}
@@ -669,6 +690,7 @@ function renderMessages(
             observeIntersectionForMedia={observeIntersectionForMedia}
             observeIntersectionForAnimatedStickers={observeIntersectionForAnimatedStickers}
             album={album}
+            noAvatars={noAvatars}
             withAvatar={position.isLastInGroup && withUsers && !isOwn && !(message.id === threadTopMessageId)}
             withSenderName={position.isFirstInGroup && withUsers && !isOwn}
             threadId={threadId}
@@ -694,17 +716,23 @@ function renderMessages(
       <div
         className="message-date-group"
         key={dateGroup.datetime}
+        onMouseDown={preventMessageInputBlur}
         teactFastList
       >
-        <div className="sticky-date" key="date-header">
-          <span>
+        <div
+          className={buildClassName('sticky-date', !isSchedule && 'interactive')}
+          key="date-header"
+          onMouseDown={preventMessageInputBlur}
+          onClick={!isSchedule ? () => openHistoryCalendar({ selectedAt: dateGroup.datetime }) : undefined}
+        >
+          <span dir="auto">
             {isSchedule && dateGroup.originalDate === SCHEDULED_WHEN_ONLINE && (
               lang('MessageScheduledUntilOnline')
             )}
             {isSchedule && dateGroup.originalDate !== SCHEDULED_WHEN_ONLINE && (
-              lang('MessageScheduledOn', formatHumanDate(dateGroup.datetime, undefined, true))
+              lang('MessageScheduledOn', formatHumanDate(lang, dateGroup.datetime, undefined, true))
             )}
-            {!isSchedule && formatHumanDate(dateGroup.datetime)}
+            {!isSchedule && formatHumanDate(lang, dateGroup.datetime)}
           </span>
         </div>
         {flatten(senderGroups)}
@@ -780,5 +808,6 @@ export default memo(withGlobal<OwnProps>(
     'markMessageListRead',
     'markMessagesRead',
     'setScrollOffset',
+    'openHistoryCalendar',
   ]),
 )(MessageList));

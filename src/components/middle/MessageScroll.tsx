@@ -1,7 +1,5 @@
 import { MutableRefObject } from 'react';
-import React, {
-  FC, useCallback, useEffect, useRef,
-} from '../../lib/teact/teact';
+import React, { FC, useCallback, useRef } from '../../lib/teact/teact';
 
 import { MESSAGE_LIST_SENSITIVE_AREA } from '../../config';
 import resetScroll from '../../util/resetScroll';
@@ -12,39 +10,28 @@ type OwnProps = {
   containerRef: MutableRefObject<HTMLDivElement | null>;
   className: string;
   messageIds: number[];
-  containerHeight?: number;
-  listItemElementsRef: MutableRefObject<HTMLDivElement[] | undefined>;
-  anchorIdRef: MutableRefObject<string | undefined>;
-  anchorTopRef: MutableRefObject<number | undefined>;
   loadMoreForwards?: NoneToVoidFunction;
   loadMoreBackwards?: NoneToVoidFunction;
   isViewportNewest?: boolean;
   firstUnreadId?: number;
-  focusingId?: number;
   onFabToggle: AnyToVoidFunction;
+  onNotchToggle: AnyToVoidFunction;
   children: any;
 };
 
 const FAB_THRESHOLD = 50;
-const FAB_FREEZE_TIMEOUT = 100;
-
-// Local flag is used because `freeze/unfreeze` methods are controlled by heavy animation
-let isFabFrozen = false;
+const TOOLS_FREEZE_TIMEOUT = 100;
 
 const MessageScroll: FC<OwnProps> = ({
   containerRef,
   className,
   messageIds,
-  containerHeight,
-  listItemElementsRef,
-  focusingId,
-  anchorIdRef,
-  anchorTopRef,
   loadMoreForwards,
   loadMoreBackwards,
   isViewportNewest,
   firstUnreadId,
   onFabToggle,
+  onNotchToggle,
   children,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -54,33 +41,30 @@ const MessageScroll: FC<OwnProps> = ({
   // eslint-disable-next-line no-null/no-null
   const fabTriggerRef = useRef<HTMLDivElement>(null);
 
-  const updateFabVisibility = useCallback(() => {
-    if (isFabFrozen) {
-      return;
-    }
-
+  const toggleScrollTools = useCallback(() => {
     if (!messageIds || !messageIds.length) {
       onFabToggle(false);
+      onNotchToggle(false);
       return;
     }
 
     if (!isViewportNewest) {
       onFabToggle(true);
+      onNotchToggle(true);
       return;
     }
 
     const { offsetHeight, scrollHeight, scrollTop } = containerRef.current!;
     const scrollBottom = scrollHeight - scrollTop - offsetHeight;
     const isNearBottom = scrollBottom <= FAB_THRESHOLD;
-    const isAtBottom = scrollBottom === 0;
+    const isAtBottom = scrollBottom <= 0;
 
     onFabToggle(firstUnreadId ? !isAtBottom : !isNearBottom);
-  }, [messageIds, isViewportNewest, containerRef, onFabToggle, firstUnreadId]);
+    onNotchToggle(!isAtBottom);
+  }, [messageIds, isViewportNewest, containerRef, onFabToggle, firstUnreadId, onNotchToggle]);
 
   const {
     observe: observeIntersection,
-    freeze: freezeForLoadMore,
-    unfreeze: unfreezeForLoadMore,
   } = useIntersectionObserver({
     rootRef: containerRef,
     margin: MESSAGE_LIST_SENSITIVE_AREA,
@@ -99,7 +83,7 @@ const MessageScroll: FC<OwnProps> = ({
     if (target.className === 'backwards-trigger') {
       resetScroll(containerRef.current!);
       loadMoreBackwards();
-    } else if (target.className === 'forwards-trigger' && (target as HTMLDivElement).dataset.isActive) {
+    } else if (target.className === 'forwards-trigger') {
       resetScroll(containerRef.current!);
       loadMoreForwards();
     }
@@ -115,56 +99,30 @@ const MessageScroll: FC<OwnProps> = ({
   } = useIntersectionObserver({
     rootRef: containerRef,
     margin: FAB_THRESHOLD,
-  }, ([{ target }]) => {
-    if ((target as HTMLDivElement).dataset.isActive) {
-      updateFabVisibility();
-    }
-  });
+  }, toggleScrollTools);
 
   useOnIntersect(fabTriggerRef, observeIntersectionForFab);
 
-  // Do not load more and show FAB when focusing
+  const {
+    observe: observeIntersectionForNotch,
+    freeze: freezeForNotch,
+    unfreeze: unfreezeForNotch,
+  } = useIntersectionObserver({
+    rootRef: containerRef,
+  }, toggleScrollTools);
+
+  useOnIntersect(fabTriggerRef, observeIntersectionForNotch);
+
+  // Workaround for FAB and notch flickering with tall incoming message
   useOnChange(() => {
-    if (focusingId) {
-      freezeForLoadMore();
-      freezeForFab();
-    } else {
-      unfreezeForFab();
-      unfreezeForLoadMore();
-    }
-  }, [focusingId]);
-
-  // Remember scroll position before updating height
-  useOnChange(() => {
-    if (!listItemElementsRef.current) {
-      return;
-    }
-
-    const preservedItemElements = listItemElementsRef.current
-      .filter((element) => messageIds.includes(Number(element.dataset.messageId)));
-
-    // We avoid the very first item as it may be a partly-loaded album
-    // and also because it may be removed when messages limit is reached
-    const anchor = preservedItemElements[1] || preservedItemElements[0];
-    if (!anchor) {
-      return;
-    }
-
-    anchorIdRef.current = anchor.id;
-    anchorTopRef.current = anchor.getBoundingClientRect().top;
-  }, [messageIds, containerHeight]);
-
-  // Workaround for FAB flickering with tall incoming message
-  useOnChange(() => {
-    isFabFrozen = true;
+    freezeForFab();
+    freezeForNotch();
 
     setTimeout(() => {
-      isFabFrozen = false;
-    }, FAB_FREEZE_TIMEOUT);
+      unfreezeForNotch();
+      unfreezeForFab();
+    }, TOOLS_FREEZE_TIMEOUT);
   }, [messageIds]);
-
-  // Workaround for stuck FAB when many unread messages
-  useEffect(updateFabVisibility, [firstUnreadId]);
 
   return (
     <div className={className} teactFastList>
@@ -174,13 +132,11 @@ const MessageScroll: FC<OwnProps> = ({
         ref={forwardsTriggerRef}
         key="forwards-trigger"
         className="forwards-trigger"
-        data-is-active={!isViewportNewest}
       />
       <div
         ref={fabTriggerRef}
         key="fab-trigger"
         className="fab-trigger"
-        data-is-active={isViewportNewest}
       />
     </div>
   );

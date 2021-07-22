@@ -1,7 +1,8 @@
 export const PAGE_TITLE = 'Telegram';
 export const INACTIVE_MARKER = ' [Inactive]';
 
-export const APP_INFO = process.env.APP_INFO || 'Telegram T';
+export const APP_NAME = process.env.APP_NAME || 'Telegram WebZ';
+export const APP_VERSION = process.env.APP_VERSION || 'dev';
 
 export const DEBUG = (
   process.env.APP_ENV !== 'production' && process.env.APP_ENV !== 'perf' && process.env.APP_ENV !== 'test'
@@ -14,7 +15,8 @@ export const IS_PERF = process.env.APP_ENV === 'perf';
 export const DEBUG_ALERT_MSG = 'Shoot!\nSomething went wrong, please see the error details in Dev Tools Console.';
 export const DEBUG_GRAMJS = false;
 
-export const GRAMJS_SESSION_ID_KEY = 'GramJs:sessionId';
+export const SESSION_USER_KEY = 'user_auth';
+export const LEGACY_SESSION_KEY = 'GramJs:sessionId';
 
 export const GLOBAL_STATE_CACHE_DISABLED = false;
 export const GLOBAL_STATE_CACHE_KEY = 'tt-global-state';
@@ -28,13 +30,8 @@ export const MEDIA_PROGRESSIVE_CACHE_DISABLED = false;
 export const MEDIA_PROGRESSIVE_CACHE_NAME = 'tt-media-progressive';
 export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
-export const LANG_CACHE_NAME = 'tt-lang-packs';
+export const LANG_CACHE_NAME = 'tt-lang-packs-v5';
 export const ASSET_CACHE_NAME = 'tt-assets';
-
-export const API_UPDATE_THROTTLE = 300;
-export const API_THROTTLE_RESET_UPDATES = new Set([
-  'newMessage', 'newScheduledMessage', 'deleteMessages', 'deleteScheduledMessages', 'deleteHistory',
-]);
 
 export const DOWNLOAD_WORKERS = 16;
 export const UPLOAD_WORKERS = 16;
@@ -60,7 +57,7 @@ export const BLOCKED_LIST_LIMIT = 100;
 export const PROFILE_PHOTOS_LIMIT = 40;
 export const PROFILE_SENSITIVE_AREA = 500;
 
-export const TOP_CHAT_MESSAGES_PRELOAD_LIMIT = 25;
+export const TOP_CHAT_MESSAGES_PRELOAD_LIMIT = 20;
 export const ALL_CHATS_PRELOAD_DISABLED = false;
 
 export const ANIMATION_LEVEL_MIN = 0;
@@ -90,6 +87,17 @@ export const LOCAL_MESSAGE_ID_BASE = 1e9;
 
 export const ANIMATION_END_DELAY = 100;
 
+export const FAST_SMOOTH_MAX_DISTANCE = 1500;
+export const FAST_SMOOTH_MIN_DURATION = 250;
+export const FAST_SMOOTH_MAX_DURATION = 600;
+export const FAST_SMOOTH_SHORT_TRANSITION_MAX_DISTANCE = 500; // px
+
+// Average duration of message sending animation
+export const API_UPDATE_THROTTLE = Math.round((FAST_SMOOTH_MIN_DURATION + FAST_SMOOTH_MAX_DURATION) / 2);
+export const API_THROTTLE_RESET_UPDATES = new Set([
+  'newMessage', 'newScheduledMessage', 'deleteMessages', 'deleteScheduledMessages', 'deleteHistory',
+]);
+
 export const STICKER_SIZE_INLINE_DESKTOP_FACTOR = 13;
 export const STICKER_SIZE_INLINE_MOBILE_FACTOR = 11;
 export const STICKER_SIZE_AUTH = 160;
@@ -102,18 +110,24 @@ export const STICKER_SIZE_MODAL = 64;
 export const STICKER_SIZE_TWO_FA = 160;
 export const STICKER_SIZE_DISCUSSION_GROUPS = 140;
 export const STICKER_SIZE_FOLDER_SETTINGS = 80;
+export const STICKER_SIZE_INLINE_BOT_RESULT = 100;
+export const RECENT_STICKERS_LIMIT = 20;
 export const MEMOJI_STICKER_ID = 'MEMOJI_STICKER';
+
+export const BASE_EMOJI_KEYWORD_LANG = 'en';
 
 export const MENU_TRANSITION_DURATION = 200;
 export const SLIDE_TRANSITION_DURATION = 450;
-export const LAYERS_TRANSITION_DURATION = 450;
 
-export const CONTENT_TYPES_FOR_QUICK_UPLOAD = 'image/png,image/gif,image/jpeg,video/mp4,video/avi,video/quicktime';
+export const CONTENT_TYPES_FOR_QUICK_UPLOAD = new Set([
+  'image/png', 'image/gif', 'image/jpeg', 'video/mp4', 'video/avi', 'video/quicktime',
+]);
 
 // eslint-disable-next-line max-len
-export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6})\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)';
+export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,63})\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)';
+export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
 export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?$/gm;
-export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_]+)?$/gm;
+export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_-]+)?$/gm;
 
 // MTProto constants
 export const SERVICE_NOTIFICATIONS_USER_ID = 777000;
@@ -124,9 +138,10 @@ export const MAX_MEDIA_FILES_FOR_ALBUM = 10;
 export const MAX_ACTIVE_PINNED_CHATS = 5;
 export const SCHEDULED_WHEN_ONLINE = 0x7FFFFFFE;
 export const DEFAULT_LANG_PACK = 'android';
-export const LANG_PACKS = ['android', 'ios'];
+export const LANG_PACKS = ['android', 'ios', 'tdesktop', 'macos'];
 export const TIPS_USERNAME = 'TelegramTips';
 export const FEEDBACK_URL = 'https://bugs.telegram.org/?tag_ids=41&sort=time';
+export const LIGHT_THEME_BG_COLOR = '#A2AF8E';
 export const DARK_THEME_BG_COLOR = '#0F0F0F';
 export const DARK_THEME_PATTERN_COLOR = '#0a0a0a8c';
 export const DEFAULT_PATTERN_COLOR = 'rgba(90, 110, 70, 0.6)';

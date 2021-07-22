@@ -9,8 +9,9 @@ import {
   ApiMessage,
   ApiChat,
   ApiTypingStatus,
-  MAIN_THREAD_ID,
+  MAIN_THREAD_ID, ApiUser,
 } from '../../api/types';
+import { NotifyException, NotifySettings } from '../../types';
 
 import {
   MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN,
@@ -20,13 +21,14 @@ import {
   SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   SAFE_SCREEN_WIDTH_FOR_CHAT_INFO,
 } from '../../config';
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT, IS_TABLET_COLUMN_LAYOUT } from '../../util/environment';
 import {
   isChatPrivate,
   isChatArchived,
   getMessageKey,
   getChatTitle,
   getSenderTitle,
+  selectIsChatMuted,
 } from '../../modules/helpers';
 import {
   selectChat,
@@ -43,6 +45,8 @@ import {
   selectScheduledIds,
   selectIsInSelectMode,
   selectIsChatWithBot,
+  selectNotifySettings,
+  selectNotifyExceptions,
 } from '../../modules/selectors';
 import useEnsureMessage from '../../hooks/useEnsureMessage';
 import useWindowSize from '../../hooks/useWindowSize';
@@ -69,25 +73,29 @@ type OwnProps = {
   chatId: number;
   threadId: number;
   messageListType: MessageListType;
+  isReady?: boolean;
 };
 
 type StateProps = {
+  chat?: ApiChat;
   pinnedMessageIds?: number[] | number;
   messagesById?: Record<number, ApiMessage>;
   canUnpin?: boolean;
-  topMessageTitle?: string;
+  topMessageSender?: ApiChat | ApiUser;
   typingStatus?: ApiTypingStatus;
   isSelectModeActive?: boolean;
   isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
   audioMessage?: ApiMessage;
-  chatTitleLength?: number;
   chatsById?: Record<number, ApiChat>;
   originChatId: number;
   messagesCount?: number;
   isChatWithSelf?: boolean;
   isChatWithBot?: boolean;
   lastSyncTime?: number;
+  notifySettings: NotifySettings;
+  notifyExceptions?: Record<number, NotifyException>;
+  shouldSkipHistoryAnimations?: boolean;
 };
 
 type DispatchProps = Pick<GlobalActions, (
@@ -99,22 +107,26 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   chatId,
   threadId,
   messageListType,
+  isReady,
   pinnedMessageIds,
   messagesById,
   canUnpin,
-  topMessageTitle,
+  topMessageSender,
   typingStatus,
   isSelectModeActive,
   isLeftColumnShown,
   isRightColumnShown,
   audioMessage,
-  chatTitleLength,
+  chat,
   chatsById,
   originChatId,
   messagesCount,
   isChatWithSelf,
   isChatWithBot,
   lastSyncTime,
+  notifySettings,
+  notifyExceptions,
+  shouldSkipHistoryAnimations,
   openChatWithInfo,
   pinMessage,
   focusMessage,
@@ -123,32 +135,32 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   toggleLeftColumn,
   exitMessageSelectMode,
 }) => {
+  const lang = useLang();
+
   const [pinnedMessageIndex, setPinnedMessageIndex] = useState(0);
   const pinnedMessageId = Array.isArray(pinnedMessageIds) ? pinnedMessageIds[pinnedMessageIndex] : pinnedMessageIds;
   const pinnedMessage = messagesById && pinnedMessageId ? messagesById[pinnedMessageId] : undefined;
   const pinnedMessagesCount = Array.isArray(pinnedMessageIds) ? pinnedMessageIds.length : (pinnedMessageIds ? 1 : 0);
+  const chatTitleLength = chat && getChatTitle(lang, chat).length;
+  const topMessageTitle = topMessageSender ? getSenderTitle(lang, topMessageSender) : undefined;
 
   useEffect(() => {
-    if (threadId === MAIN_THREAD_ID && lastSyncTime) {
+    if (threadId === MAIN_THREAD_ID && lastSyncTime && isReady) {
       loadPinnedMessages({ chatId });
     }
-  }, [chatId, loadPinnedMessages, lastSyncTime, threadId]);
+  }, [chatId, loadPinnedMessages, lastSyncTime, threadId, isReady]);
 
+  // Reset pinned index when switching chats and pinning/unpinning
   useEffect(() => {
     setPinnedMessageIndex(0);
-  }, [chatId]);
-
-  // Modify index after unpinning
-  useEffect(() => {
-    setPinnedMessageIndex(pinnedMessagesCount ? cycleRestrict(pinnedMessagesCount, pinnedMessageIndex) : -1);
-  }, [pinnedMessagesCount, pinnedMessageIndex]);
+  }, [pinnedMessageIds]);
 
   useEnsureMessage(chatId, pinnedMessageId, pinnedMessage);
 
   const { width: windowWidth } = useWindowSize();
 
   const isLeftColumnHideable = windowWidth <= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN;
-  const shouldShowCloseButton = windowWidth >= MOBILE_SCREEN_MAX_WIDTH && isLeftColumnShown;
+  const shouldShowCloseButton = IS_TABLET_COLUMN_LAYOUT && isLeftColumnShown;
 
   // eslint-disable-next-line no-null/no-null
   const componentRef = useRef<HTMLDivElement>(null);
@@ -175,15 +187,16 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     openChat({ id: chatId, threadId: MAIN_THREAD_ID, type: 'pinned' });
   }, [openChat, chatId]);
 
-  const handleBackClick = useCallback(() => {
-    if (IS_MOBILE_SCREEN) {
+  const handleBackClick = useCallback((e: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    if (IS_SINGLE_COLUMN_LAYOUT) {
       const messageInput = document.getElementById(EDITABLE_INPUT_ID);
       if (messageInput) {
         messageInput.blur();
       }
     }
     if (threadId === MAIN_THREAD_ID && messageListType === 'thread') {
-      if (IS_MOBILE_SCREEN) {
+      if (IS_SINGLE_COLUMN_LAYOUT || shouldShowCloseButton) {
+        e.stopPropagation(); // Stop propagation to prevent chat re-opening on tablets
         openChat({ id: undefined });
       } else {
         toggleLeftColumn();
@@ -195,8 +208,12 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     if (messageListType === 'scheduled' && isSelectModeActive) {
       exitMessageSelectMode();
     }
+
     openChat({ id: originChatId, threadId: MAIN_THREAD_ID });
-  }, [openChat, originChatId, threadId, messageListType, toggleLeftColumn, isSelectModeActive, exitMessageSelectMode]);
+  }, [
+    openChat, originChatId, threadId, messageListType, toggleLeftColumn, isSelectModeActive, exitMessageSelectMode,
+    shouldShowCloseButton,
+  ]);
 
   const unreadCount = useMemo(() => {
     if (!isLeftColumnHideable || !chatsById) {
@@ -205,13 +222,15 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 
     let isActive = false;
 
-    const totalCount = Object.values(chatsById).reduce((total, chat) => {
-      if (isChatArchived(chat)) {
+    const totalCount = Object.values(chatsById).reduce((total, currentChat) => {
+      if (isChatArchived(currentChat)) {
         return total;
       }
 
-      const count = chat.unreadCount || 0;
-      if (count && (!chat.isMuted || chat.unreadMentionsCount)) {
+      const count = currentChat.unreadCount || 0;
+      if (
+        count && (!selectIsChatMuted(currentChat, notifySettings, notifyExceptions) || currentChat.unreadMentionsCount)
+      ) {
         isActive = true;
       }
 
@@ -226,7 +245,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       isActive,
       totalCount,
     };
-  }, [isLeftColumnHideable, chatsById]);
+  }, [isLeftColumnHideable, chatsById, notifySettings, notifyExceptions]);
 
   const canToolsCollideWithChatInfo = (
     windowWidth >= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN
@@ -288,8 +307,6 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [shouldUseStackedToolsClass, canRevealTools, canToolsCollideWithChatInfo, isRightColumnShown]);
 
-  const lang = useLang();
-
   function renderInfo() {
     return (
       messageListType === 'thread' && threadId === MAIN_THREAD_ID ? (
@@ -331,11 +348,13 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
               withFullInfo={isChatWithBot}
               withMediaViewer
               withUpdatingStatus
+              noRtl
             />
           ) : (
             <GroupChatInfo
               chatId={chatId}
               typingStatus={typingStatus}
+              noRtl
               withMediaViewer
               withFullInfo
               withUpdatingStatus
@@ -369,7 +388,10 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 
   return (
     <div className="MiddleHeader" ref={componentRef}>
-      <Transition name="slide-fade" activeKey={messageListType === 'thread' ? threadId : 1}>
+      <Transition
+        name={shouldSkipHistoryAnimations ? 'none' : 'slide-fade'}
+        activeKey={messageListType === 'thread' ? threadId : 1}
+      >
         {renderInfo}
       </Transition>
 
@@ -406,7 +428,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(withGlobal<OwnProps>(
   (global, { chatId, threadId, messageListType }): StateProps => {
-    const { isLeftColumnShown, lastSyncTime } = global;
+    const { isLeftColumnShown, lastSyncTime, shouldSkipHistoryAnimations } = global;
     const { byId: chatsById } = global.chats;
     const chat = selectChat(global, chatId);
 
@@ -433,52 +455,56 @@ export default memo(withGlobal<OwnProps>(
       }
     }
 
-    let state: StateProps = {
+    const state: StateProps = {
       typingStatus,
       isLeftColumnShown,
       isRightColumnShown: selectIsRightColumnShown(global),
       isSelectModeActive: selectIsInSelectMode(global),
       audioMessage,
-      chatTitleLength: chat && getChatTitle(chat).length,
+      chat,
       chatsById,
       originChatId: originChat ? originChat.id : chatId,
       messagesCount,
       isChatWithSelf: selectIsChatWithSelf(global, chatId),
       isChatWithBot: chat && selectIsChatWithBot(global, chat),
       lastSyncTime,
+      notifySettings: selectNotifySettings(global),
+      notifyExceptions: selectNotifyExceptions(global),
+      shouldSkipHistoryAnimations,
     };
 
     const messagesById = selectChatMessages(global, chatId);
-    if (messageListType === 'thread' && messagesById) {
-      if (threadId === MAIN_THREAD_ID) {
-        const pinnedMessageIds = selectPinnedIds(global, chatId);
+    if (messageListType !== 'thread' || !messagesById) {
+      return state;
+    }
 
-        if (pinnedMessageIds && pinnedMessageIds.length) {
-          const firstPinnedMessage = messagesById[pinnedMessageIds[0]];
-          const {
-            canUnpin,
-          } = (firstPinnedMessage && selectAllowedMessageActions(global, firstPinnedMessage, threadId)) || {};
-          state = {
-            ...state,
-            pinnedMessageIds,
-            messagesById,
-            canUnpin,
-          };
-        }
-      } else {
-        const pinnedMessageId = selectThreadTopMessageId(global, chatId, threadId);
-        const message = pinnedMessageId ? selectChatMessage(global, chatId, pinnedMessageId) : undefined;
-        const sender = message ? selectForwardedSender(global, message) : undefined;
-        const topMessageTitle = sender ? getSenderTitle(sender) : undefined;
+    Object.assign(state, { messagesById });
 
-        state = {
-          ...state,
-          pinnedMessageIds: pinnedMessageId,
-          messagesById,
-          canUnpin: false,
-          topMessageTitle,
-        };
-      }
+    if (threadId !== MAIN_THREAD_ID) {
+      const pinnedMessageId = selectThreadTopMessageId(global, chatId, threadId);
+      const message = pinnedMessageId ? selectChatMessage(global, chatId, pinnedMessageId) : undefined;
+      const topMessageSender = message ? selectForwardedSender(global, message) : undefined;
+
+      return {
+        ...state,
+        pinnedMessageIds: pinnedMessageId,
+        canUnpin: false,
+        topMessageSender,
+      };
+    }
+
+    const pinnedMessageIds = selectPinnedIds(global, chatId);
+    if (pinnedMessageIds && pinnedMessageIds.length) {
+      const firstPinnedMessage = messagesById[pinnedMessageIds[0]];
+      const {
+        canUnpin,
+      } = (firstPinnedMessage && selectAllowedMessageActions(global, firstPinnedMessage, threadId)) || {};
+
+      return {
+        ...state,
+        pinnedMessageIds,
+        canUnpin,
+      };
     }
 
     return state;

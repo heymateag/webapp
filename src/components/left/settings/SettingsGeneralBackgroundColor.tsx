@@ -5,29 +5,34 @@ import React, {
 import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
-import { SettingsScreens } from '../../../types';
+import { SettingsScreens, ThemeKey } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
 import {
   getPatternColor, hex2rgb, hsb2rgb, rgb2hex, rgb2hsb,
 } from '../../../util/colors';
 import { captureEvents, RealTouchEvent } from '../../../util/captureEvents';
+import { selectTheme } from '../../../modules/selectors';
 import useFlag from '../../../hooks/useFlag';
 import buildClassName from '../../../util/buildClassName';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import InputText from '../../ui/InputText';
 
 import './SettingsGeneralBackgroundColor.scss';
 
 type OwnProps = {
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
 type StateProps = {
-  customBackground?: string;
+  backgroundColor?: string;
+  theme: ThemeKey;
 };
 
-type DispatchProps = Pick<GlobalActions, 'setSettingOption'>;
+type DispatchProps = Pick<GlobalActions, 'setThemeSettings'>;
 
 interface CanvasRects {
   colorRect: {
@@ -49,9 +54,15 @@ const PREDEFINED_COLORS = [
 ];
 
 const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
-  customBackground,
-  setSettingOption,
+  isActive,
+  onScreenSelect,
+  onReset,
+  theme,
+  backgroundColor,
+  setThemeSettings,
 }) => {
+  const themeRef = useRef<string>();
+  themeRef.current = theme;
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
@@ -60,7 +71,7 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
   const huePickerRef = useRef<HTMLDivElement>(null);
   const isFirstRunRef = useRef(true);
 
-  const [hsb, setHsb] = useState(getInitialHsb(customBackground));
+  const [hsb, setHsb] = useState(getInitialHsb(backgroundColor));
   // Cache for drag handlers
   const hsbRef = useRef(hsb);
   useEffect(() => {
@@ -139,13 +150,16 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
     setHexInput(color);
 
     if (!isFirstRunRef.current) {
-      setSettingOption({
-        customBackground: color,
-        patternColor: getPatternColor(rgb),
+      const patternColor = getPatternColor(rgb);
+      setThemeSettings({
+        theme: themeRef.current,
+        background: undefined,
+        backgroundColor: color,
+        patternColor,
       });
     }
     isFirstRunRef.current = false;
-  }, [hsb, setSettingOption]);
+  }, [hsb, setThemeSettings]);
 
   // Redraw color picker when hue changes
   useEffect(() => {
@@ -187,6 +201,8 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
     isDragging && 'is-dragging',
   );
 
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.GeneralChatBackgroundColor);
+
   return (
     <div ref={containerRef} className={className}>
       <div className="settings-item pt-3">
@@ -226,9 +242,9 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-function getInitialHsb(customBackground?: string) {
-  return customBackground && customBackground.startsWith('#')
-    ? rgb2hsb(hex2rgb(customBackground.replace('#', '')))
+function getInitialHsb(backgroundColor?: string) {
+  return backgroundColor && backgroundColor.startsWith('#')
+    ? rgb2hsb(hex2rgb(backgroundColor.replace('#', '')))
     : DEFAULT_HSB;
 }
 
@@ -329,9 +345,12 @@ function drawHue(canvas: HTMLCanvasElement) {
 
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
+    const theme = selectTheme(global);
+    const { backgroundColor } = global.settings.themes[theme] || {};
     return {
-      customBackground: global.settings.byKey.customBackground,
+      backgroundColor,
+      theme,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['setSettingOption']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setThemeSettings']),
 )(SettingsGeneralBackground));

@@ -1,7 +1,7 @@
 import { GlobalState } from '../../global/types';
-import { RightColumnContent } from '../../types';
+import { NewChatMembersProgress, RightColumnContent } from '../../types';
 
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { getSystemTheme, IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { selectCurrentMessageList, selectIsPollResultsOpen } from './messages';
 import { selectCurrentTextSearch } from './localSearch';
 import { selectCurrentStickerSearch, selectCurrentGifSearch } from './symbols';
@@ -17,10 +17,12 @@ export function selectRightColumnContentKey(global: GlobalState) {
   const {
     users,
     isChatInfoShown,
+    newChatMembersProgress,
   } = global;
 
+  const isAddingChatMembersShown = newChatMembersProgress !== NewChatMembersProgress.Closed;
   const isPollResults = selectIsPollResultsOpen(global);
-  const isSearch = Boolean(!IS_MOBILE_SCREEN && selectCurrentTextSearch(global));
+  const isSearch = Boolean(!IS_SINGLE_COLUMN_LAYOUT && selectCurrentTextSearch(global));
   const isManagement = selectCurrentManagement(global);
   const stickerSearch = selectCurrentStickerSearch(global);
   const isStickerSearch = stickerSearch.query !== undefined;
@@ -43,6 +45,8 @@ export function selectRightColumnContentKey(global: GlobalState) {
     RightColumnContent.StickerSearch
   ) : isGifSearch ? (
     RightColumnContent.GifSearch
+  ) : isAddingChatMembersShown ? (
+    RightColumnContent.AddingMembers
   ) : isUserInfo ? (
     RightColumnContent.UserInfo
   ) : isChatInfo ? (
@@ -52,4 +56,10 @@ export function selectRightColumnContentKey(global: GlobalState) {
 
 export function selectIsRightColumnShown(global: GlobalState) {
   return selectRightColumnContentKey(global) !== undefined;
+}
+
+export function selectTheme(global: GlobalState) {
+  const { theme, shouldUseSystemTheme } = global.settings.byKey;
+
+  return shouldUseSystemTheme ? getSystemTheme() : theme;
 }

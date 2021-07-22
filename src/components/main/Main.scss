@@ -81,10 +81,11 @@
       }
     }
 
-    // @optimization
-    #Main.middle-column-open & {
-      .custom-scroll {
-        overflow: hidden;
+    #Main.history-animation-disabled & {
+      transition: none;
+
+      &:after {
+        transition: none;
       }
     }
   }
@@ -104,6 +105,18 @@
   @media (max-width: 600px) {
     height: calc(var(--vh, 1vh) * 100 + 1px);
   }
+
+  #Main.history-animation-disabled & {
+    transition: none;
+
+    .overlay-backdrop {
+      transition: none;
+    }
+  }
+}
+
+#Main.history-animation-disabled .overlay-backdrop {
+  transition: none;
 }
 
 #MiddleColumn {
@@ -155,18 +168,60 @@
       transform: translate3d(-20vw, 0, 0);
     }
   }
-}
 
-.SymbolMenu {
-  @media (max-width: 600px) {
-    transition: transform var(--layer-transition);
+  #Main.history-animation-disabled & {
+    transition: none;
 
-    body.animation-level-0 & {
+    &:after {
       transition: none;
     }
+  }
+}
 
-    body:not(.is-middle-column-open) & {
-      transform: translate3d(100vw, 0, 0) !important;
+body.is-android.animation-level-1 {
+  --layer-transition: 250ms ease-in-out;
+
+  #LeftColumn, #MiddleColumn, #RightColumn {
+    transition: transform var(--layer-transition), opacity var(--layer-transition);
+  }
+
+  #Main:not(.middle-column-shown) {
+    #MiddleColumn {
+      display: none;
+    }
+  }
+
+  #Main:not(.middle-column-open) {
+    #MiddleColumn {
+      transform: translate3d(10vw, 0, 0);
+      opacity: 0;
+    }
+  }
+
+  #Main.middle-column-open {
+    #LeftColumn {
+      transform: translate3d(0, 0, 0);
+      opacity: 0;
+    }
+  }
+
+  #Main:not(.right-column-shown) {
+    #RightColumn {
+      display: none;
+    }
+  }
+
+  #Main:not(.right-column-open) {
+    #RightColumn {
+      transform: translate3d(10vw, 0, 0);
+      opacity: 0;
+    }
+  }
+
+  #Main.right-column-open {
+    #MiddleColumn {
+      transform: translate3d(0, 0, 0);
+      opacity: 0;
     }
   }
 }

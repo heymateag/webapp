@@ -6,13 +6,16 @@ import { SettingsScreens } from '../../../../types';
 
 import { selectAnimatedEmoji } from '../../../../modules/selectors';
 import useLang from '../../../../hooks/useLang';
+import useHistoryBack from '../../../../hooks/useHistoryBack';
 
 import ListItem from '../../../ui/ListItem';
 import AnimatedEmoji from '../../../common/AnimatedEmoji';
 import renderText from '../../../common/helpers/renderText';
 
 type OwnProps = {
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
 type StateProps = {
@@ -20,16 +23,18 @@ type StateProps = {
 };
 
 const SettingsTwoFaEnabled: FC<OwnProps & StateProps> = ({
-  animatedEmoji, onScreenSelect,
+  isActive, onReset, animatedEmoji, onScreenSelect,
 }) => {
   const lang = useLang();
+
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.TwoFaEnabled);
 
   return (
     <div className="settings-content two-fa custom-scroll">
       <div className="settings-content-header">
         <AnimatedEmoji sticker={animatedEmoji} />
 
-        <p className="settings-item-description mb-3">
+        <p className="settings-item-description mb-3" dir="auto">
           {renderText(lang('EnabledPasswordText'), ['br'])}
         </p>
       </div>

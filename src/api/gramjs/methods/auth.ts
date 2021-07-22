@@ -105,11 +105,8 @@ export function onAuthError(err: Error) {
   });
 }
 
-export function onAuthReady(sessionId: string) {
-  onUpdate({
-    ...buildAuthStateUpdate('authorizationStateReady'),
-    sessionId,
-  });
+export function onAuthReady() {
+  onUpdate(buildAuthStateUpdate('authorizationStateReady'));
 }
 
 export function onCurrentUserUpdate(currentUser: ApiUser) {

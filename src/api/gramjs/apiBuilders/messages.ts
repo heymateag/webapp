@@ -27,7 +27,7 @@ import { DELETED_COMMENTS_CHANNEL_ID, LOCAL_MESSAGE_ID_BASE, SERVICE_NOTIFICATIO
 import { pick } from '../../../util/iteratees';
 import { getApiChatIdFromMtpPeer } from './chats';
 import { buildStickerFromDocument } from './symbols';
-import { buildApiPhoto, buildApiThumbnailFromStripped, buildApiPhotoSize } from './common';
+import { buildApiPhoto, buildApiThumbnailFromStripped } from './common';
 import { interpolateArray } from '../../../util/waveform';
 import { getCurrencySign } from '../../../components/middle/helpers/getCurrencySign';
 import { buildPeer } from '../gramjsBuilders';
@@ -96,7 +96,7 @@ export function buildApiMessageFromNotification(
   return {
     id: localId,
     chatId: SERVICE_NOTIFICATIONS_USER_ID,
-    date: notification.inboxDate || (currentDate / 1000),
+    date: notification.inboxDate || currentDate,
     content,
     isOutgoing: false,
   };
@@ -184,13 +184,18 @@ export function buildMessageTextContent(
 }
 
 export function buildMessageDraft(draft: GramJs.TypeDraftMessage) {
-  if (draft instanceof GramJs.DraftMessageEmpty || !draft.message) {
+  if (draft instanceof GramJs.DraftMessageEmpty) {
     return undefined;
   }
 
+  const {
+    message, entities, replyToMsgId, date,
+  } = draft;
+
   return {
-    formattedText: buildMessageTextContent(draft.message, draft.entities),
-    replyingToId: draft.replyToMsgId,
+    formattedText: message ? buildMessageTextContent(message, entities) : undefined,
+    replyingToId: replyToMsgId,
+    date,
   };
 }
 
@@ -390,10 +395,37 @@ export function buildApiDocument(document: GramJs.TypeDocument): ApiDocument | u
   }
 
   const {
-    id, size, mimeType, date, thumbs,
+    id, size, mimeType, date, thumbs, attributes,
   } = document;
 
   const thumbnail = thumbs && buildApiThumbnailFromStripped(thumbs);
+
+  let mediaType: ApiDocument['mediaType'] | undefined;
+  let mediaSize: ApiDocument['mediaSize'] | undefined;
+  const photoSize = thumbs && thumbs.find((s: any): s is GramJs.PhotoSize => s instanceof GramJs.PhotoSize);
+  if (photoSize) {
+    mediaSize = {
+      width: photoSize.w,
+      height: photoSize.h,
+    };
+
+    if (mimeType.startsWith('image/')) {
+      mediaType = 'photo';
+
+      const imageAttribute = attributes
+        .find((a: any): a is GramJs.DocumentAttributeImageSize => a instanceof GramJs.DocumentAttributeImageSize);
+
+      if (imageAttribute) {
+        const { w: width, h: height } = imageAttribute;
+        mediaSize = {
+          width,
+          height,
+        };
+      }
+    } else if (mimeType.startsWith('video/')) {
+      mediaType = 'video';
+    }
+  }
 
   return {
     id: String(id),
@@ -402,6 +434,8 @@ export function buildApiDocument(document: GramJs.TypeDocument): ApiDocument | u
     timestamp: date,
     fileName: getFilenameFromDocument(document),
     thumbnail,
+    mediaType,
+    mediaSize,
   };
 }
 
@@ -506,26 +540,25 @@ export function buildWebPage(media: GramJs.TypeMessageMedia): ApiWebPage | undef
 
   const { id, photo, document } = media.webpage;
 
+  let video;
+  if (document instanceof GramJs.Document && document.mimeType.startsWith('video/')) {
+    video = buildVideoFromDocument(document);
+  }
+
   return {
     id: Number(id),
     ...pick(media.webpage, [
       'url',
       'displayUrl',
+      'type',
       'siteName',
       'title',
       'description',
+      'duration',
     ]),
-    photo: photo && photo instanceof GramJs.Photo
-      ? {
-        id: String(photo.id),
-        thumbnail: buildApiThumbnailFromStripped(photo.sizes),
-        sizes: photo.sizes
-          .filter((s: any): s is GramJs.PhotoSize => s instanceof GramJs.PhotoSize)
-          .map(buildApiPhotoSize),
-      }
-      : undefined,
-    // TODO support video and embed
-    ...(document && { hasDocument: true }),
+    photo: photo instanceof GramJs.Photo ? buildApiPhoto(photo) : undefined,
+    document: !video && document ? buildApiDocument(document) : undefined,
+    video,
   };
 }
 
@@ -540,67 +573,104 @@ function buildAction(
   }
 
   let text = '';
+  const translationValues = [];
   let type: ApiAction['type'] = 'other';
   let photo: ApiPhoto | undefined;
 
-  const targetUserId = 'users' in action
-    // Api returns array of userIds, but no action currently has multiple users in it
-    ? action.users && action.users[0]
-    : ('userId' in action && action.userId) || undefined;
+  const targetUserIds = 'users' in action
+    ? action.users && action.users
+    : ('userId' in action && [action.userId]) || [];
   let targetChatId: number | undefined;
 
   if (action instanceof GramJs.MessageActionChatCreate) {
-    text = `%action_origin% created the group «${action.title}»`;
+    text = 'Notification.CreatedChatWithTitle';
+    translationValues.push('%action_origin%', action.title);
   } else if (action instanceof GramJs.MessageActionChatEditTitle) {
-    text = isChannelPost
-      ? `Channel renamed to «${action.title}»`
-      : `%action_origin% changed group name to «${action.title}»`;
+    if (isChannelPost) {
+      text = 'Channel.MessageTitleUpdated';
+      translationValues.push(action.title);
+    } else {
+      text = 'Notification.ChangedGroupName';
+      translationValues.push('%action_origin%', action.title);
+    }
   } else if (action instanceof GramJs.MessageActionChatEditPhoto) {
-    text = isChannelPost
-      ? 'Channel photo updated'
-      : '%action_origin% updated group photo';
+    if (isChannelPost) {
+      text = 'Channel.MessagePhotoUpdated';
+    } else {
+      text = 'Notification.ChangedGroupPhoto';
+      translationValues.push('%action_origin%');
+    }
   } else if (action instanceof GramJs.MessageActionChatDeletePhoto) {
-    text = isChannelPost
-      ? 'Channel photo was deleted'
-      : 'Chat photo was deleted';
+    if (isChannelPost) {
+      text = 'Channel.MessagePhotoRemoved';
+    } else {
+      text = 'Group.MessagePhotoRemoved';
+    }
   } else if (action instanceof GramJs.MessageActionChatAddUser) {
-    text = !senderId || senderId === targetUserId
-      ? '%target_user% joined the group'
-      : '%action_origin% added %target_user% to the group';
+    if (!senderId || targetUserIds.includes(senderId)) {
+      text = 'Notification.JoinedChat';
+      translationValues.push('%target_user%');
+    } else {
+      text = 'Notification.Invited';
+      translationValues.push('%action_origin%', '%target_user%');
+    }
   } else if (action instanceof GramJs.MessageActionChatDeleteUser) {
-    text = !senderId || senderId === targetUserId
-      ? '%target_user% left the group'
-      : '%action_origin% removed %target_user% from the group';
+    if (!senderId || targetUserIds.includes(senderId)) {
+      text = 'Notification.LeftChat';
+      translationValues.push('%target_user%');
+    } else {
+      text = 'Notification.Kicked';
+      translationValues.push('%action_origin%', '%target_user%');
+    }
   } else if (action instanceof GramJs.MessageActionChatJoinedByLink) {
-    text = '%action_origin% joined the chat from invitation link';
+    text = 'Notification.JoinedGroupByLink';
+    translationValues.push('%action_origin%');
   } else if (action instanceof GramJs.MessageActionChannelCreate) {
-    text = 'Channel created';
+    text = 'Notification.CreatedChannel';
   } else if (action instanceof GramJs.MessageActionChatMigrateTo) {
+    targetChatId = getApiChatIdFromMtpPeer(action);
     text = 'Migrated to %target_chat%';
-    targetChatId = getApiChatIdFromMtpPeer(action);
+    translationValues.push('%target_chat%');
   } else if (action instanceof GramJs.MessageActionChannelMigrateFrom) {
-    text = 'Migrated from %target_chat%';
     targetChatId = getApiChatIdFromMtpPeer(action);
+    text = 'Migrated from %target_chat%';
+    translationValues.push('%target_chat%');
   } else if (action instanceof GramJs.MessageActionPinMessage) {
-    text = '%action_origin% pinned %message%';
+    text = 'Notification.PinnedTextMessage';
+    translationValues.push('%action_origin%', '%message%');
   } else if (action instanceof GramJs.MessageActionHistoryClear) {
-    text = 'Chat history was cleared';
+    text = 'HistoryCleared';
     type = 'historyClear';
   } else if (action instanceof GramJs.MessageActionPhoneCall) {
-    text = `${isOutgoing ? 'Outgoing' : 'Incoming'} ${action.video ? 'Video' : 'Phone'} Call`;
+    const withDuration = Boolean(action.duration);
+    text = [
+      withDuration ? 'ChatList.Service' : 'Chat',
+      action.video ? 'VideoCall' : 'Call',
+      isOutgoing ? (withDuration ? 'outgoing' : 'Outgoing') : (withDuration ? 'incoming' : 'Incoming'),
+    ].join('.');
 
-    if (action.duration) {
-      const mins = Math.max(Math.round(action.duration / 60), 1);
-      text += ` (${mins} min${mins > 1 ? 's' : ''})`;
+    if (withDuration) {
+      const mins = Math.max(Math.round(action.duration! / 60), 1);
+      translationValues.push(`${mins} min${mins > 1 ? 's' : ''}`);
     }
   } else if (action instanceof GramJs.MessageActionContactSignUp) {
-    text = '%action_origin% joined Telegram';
+    text = 'Notification.Joined';
+    translationValues.push('%action_origin%');
   } else if (action instanceof GramJs.MessageActionPaymentSent) {
     const currencySign = getCurrencySign(action.currency);
     const amount = (Number(action.totalAmount) / 100).toFixed(2);
-    text = `You successfully transferred ${currencySign}${amount} to shop for %product%`;
+    text = 'Notification.PaymentSent';
+    translationValues.push(currencySign, amount, '%product%');
+  } else if (action instanceof GramJs.MessageActionGroupCall) {
+    if (action.duration) {
+      const mins = Math.max(Math.round(action.duration / 60), 1);
+      text = 'Notification.VoiceChatEnded';
+      translationValues.push(`${mins} min${mins > 1 ? 's' : ''}`);
+    } else {
+      text = 'Notification.VoiceChatStartedChannel';
+    }
   } else {
-    text = '%ACTION_NOT_IMPLEMENTED%';
+    text = 'ChatList.UnsupportedMessage';
   }
 
   if ('photo' in action && action.photo instanceof GramJs.Photo) {
@@ -611,9 +681,10 @@ function buildAction(
   return {
     text,
     type,
-    targetUserId,
+    targetUserIds,
     targetChatId,
     photo, // TODO Only used internally now, will be used for the UI in future
+    translationValues,
   };
 }
 
@@ -708,6 +779,7 @@ export function buildLocalMessage(
   poll?: ApiNewPoll,
   groupedId?: string,
   scheduledAt?: number,
+  serverTimeOffset = 0,
 ): ApiMessage {
   const localId = localMessageCounter++;
   const media = attachment && buildUploadingMedia(attachment);
@@ -728,7 +800,7 @@ export function buildLocalMessage(
       ...(gif && { video: gif }),
       ...(poll && buildNewPoll(poll, localId)),
     },
-    date: scheduledAt || Math.round(Date.now() / 1000),
+    date: scheduledAt || Math.round(Date.now() / 1000) + serverTimeOffset,
     isOutgoing: !isChannel,
     senderId: currentUserId,
     ...(replyingTo && { replyToMessageId: replyingTo }),
@@ -743,6 +815,7 @@ export function buildLocalMessage(
 export function buildForwardedMessage(
   toChat: ApiChat,
   message: ApiMessage,
+  serverTimeOffset: number,
 ): ApiMessage {
   const localId = localMessageCounter++;
   const {
@@ -763,7 +836,7 @@ export function buildForwardedMessage(
     id: localId,
     chatId: toChat.id,
     content,
-    date: Math.round(Date.now() / 1000),
+    date: Math.round(Date.now() / 1000) + serverTimeOffset,
     isOutgoing: !asIncomingInChatWithSelf && toChat.type !== 'chatTypeChannel',
     senderId: currentUserId,
     sendingState: 'messageSendingStatePending',

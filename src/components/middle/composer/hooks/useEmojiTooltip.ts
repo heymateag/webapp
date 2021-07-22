@@ -3,19 +3,31 @@ import {
 } from '../../../../lib/teact/teact';
 
 import { EDITABLE_INPUT_ID } from '../../../../config';
-import { IS_MOBILE_SCREEN } from '../../../../util/environment';
+import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
 import {
   EmojiData, EmojiModule, EmojiRawData, uncompressEmoji,
 } from '../../../../util/emoji';
-import useFlag from '../../../../hooks/useFlag';
 import focusEditableElement from '../../../../util/focusEditableElement';
+import {
+  buildCollectionByKey, flatten, mapValues, pickTruthy, unique,
+} from '../../../../util/iteratees';
+import useFlag from '../../../../hooks/useFlag';
 
 let emojiDataPromise: Promise<EmojiModule>;
 let emojiRawData: EmojiRawData;
 let emojiData: EmojiData;
 
-const RE_NOT_EMOJI_SEARCH = /[^-:_a-z\d]+/i;
+let RE_EMOJI_SEARCH: RegExp;
 const EMOJIS_LIMIT = 36;
+const FILTER_MIN_LENGTH = 2;
+const RE_BR = /(<br>|<br\s?\/>)/g;
+
+try {
+  RE_EMOJI_SEARCH = new RegExp('(^|\\s):[-+_:\\p{L}\\p{N}]*$', 'gui');
+} catch (e) {
+  // Support for older versions of firefox
+  RE_EMOJI_SEARCH = new RegExp('(^|\\s):[-+_:\\d\\wа-яё]*$', 'gi');
+}
 
 export default function useEmojiTooltip(
   isAllowed: boolean,
@@ -23,28 +35,37 @@ export default function useEmojiTooltip(
   recentEmojiIds: string[],
   inputId = EDITABLE_INPUT_ID,
   onUpdateHtml: (html: string) => void,
+  baseEmojiKeywords?: Record<string, string[]>,
+  emojiKeywords?: Record<string, string[]>,
+  isDisabled = false,
 ) {
   const [isOpen, markIsOpen, unmarkIsOpen] = useFlag();
-  const [emojiIds, setEmojiIds] = useState<string[]>([]);
-  const [filteredEmojis, setFilteredEmojis] = useState<Emoji[]>([]);
+
+  const [byId, setById] = useState<Record<string, Emoji> | undefined>();
+  const [keywords, setKeywords] = useState<string[]>();
+  const [byKeyword, setByKeyword] = useState<Record<string, Emoji[]>>({});
+  const [names, setNames] = useState<string[]>();
+  const [byName, setByName] = useState<Record<string, Emoji[]>>({});
+  const [shouldForceInsertEmoji, setShouldForceInsertEmoji] = useState(false);
+
+  const [filteredEmojis, setFilteredEmojis] = useState<Emoji[]>(MEMO_EMPTY_ARRAY);
 
   const recentEmojis = useMemo(
     () => {
-      if (!emojiIds.length || !recentEmojiIds.length) {
+      if (!byId || !recentEmojiIds.length) {
         return [];
       }
 
-      return recentEmojiIds
-        .map((emojiId) => emojiData.emojis[emojiId])
-        .filter<Emoji>(Boolean as any);
+      return Object.values(pickTruthy(byId, recentEmojiIds));
     },
-    [emojiIds, recentEmojiIds],
+    [byId, recentEmojiIds],
   );
 
   // Initialize data on first render.
   useEffect(() => {
+    if (isDisabled) return;
     const exec = () => {
-      setEmojiIds(Object.keys(emojiData.emojis));
+      setById(emojiData.emojis);
     };
 
     if (emojiData) {
@@ -53,51 +74,108 @@ export default function useEmojiTooltip(
       ensureEmojiData()
         .then(exec);
     }
-  }, []);
+  }, [isDisabled]);
 
   useEffect(() => {
-    if (!html || !emojiIds.length) {
+    if (!byId || isDisabled) {
+      return;
+    }
+
+    const emojis = Object.values(byId);
+
+    const byNative = buildCollectionByKey(emojis, 'native');
+    const baseEmojisByKeyword = baseEmojiKeywords
+      ? mapValues(baseEmojiKeywords, (natives) => {
+        return Object.values(pickTruthy(byNative, natives));
+      })
+      : {};
+    const emojisByKeyword = emojiKeywords
+      ? mapValues(emojiKeywords, (natives) => {
+        return Object.values(pickTruthy(byNative, natives));
+      })
+      : {};
+
+    setByKeyword({ ...baseEmojisByKeyword, ...emojisByKeyword });
+    setKeywords([...Object.keys(baseEmojisByKeyword), ...Object.keys(emojisByKeyword)]);
+
+    const emojisByName = emojis.reduce((result, emoji) => {
+      emoji.names.forEach((name) => {
+        if (!result[name]) {
+          result[name] = [];
+        }
+
+        result[name].push(emoji);
+      });
+
+      return result;
+    }, {} as Record<string, Emoji[]>);
+    setByName(emojisByName);
+    setNames(Object.keys(emojisByName));
+  }, [isDisabled, baseEmojiKeywords, byId, emojiKeywords]);
+
+  useEffect(() => {
+    if (!isAllowed || !html || !byId || !keywords || !keywords.length) {
       unmarkIsOpen();
       return;
     }
 
-    const code = getEmojiCode(html);
+    const code = html.includes(':') && getEmojiCode(html);
     if (!code) {
-      setFilteredEmojis([]);
+      setFilteredEmojis(MEMO_EMPTY_ARRAY);
       unmarkIsOpen();
       return;
     }
 
-    const filter = code.substr(1);
-    const matched = filter === ''
-      ? recentEmojis
-      : emojiIds
-        .filter((emojiId) => emojiData.emojis[emojiId].names.find((name) => name.includes(filter)))
-        .slice(0, EMOJIS_LIMIT)
-        .map((emojiId) => emojiData.emojis[emojiId]);
+    const forceSend = code.length > 2 && code.endsWith(':');
+    const filter = code.substr(1, forceSend ? code.length - 2 : undefined);
+    let matched: Emoji[] = [];
+
+    setShouldForceInsertEmoji(forceSend);
+
+    if (!filter) {
+      matched = recentEmojis;
+    } else if (filter.length >= FILTER_MIN_LENGTH) {
+      const matchedKeywords = keywords.filter((keyword) => keyword.startsWith(filter)).sort();
+      matched = matched.concat(flatten(Object.values(pickTruthy(byKeyword, matchedKeywords))));
+
+      // Also search by names, which is useful for non-English languages
+      const matchedNames = names.filter((name) => name.startsWith(filter));
+      matched = matched.concat(flatten(Object.values(pickTruthy(byName, matchedNames))));
+
+      matched = unique(matched);
+    }
 
     if (matched.length) {
-      markIsOpen();
-      setFilteredEmojis(matched);
+      if (!forceSend) {
+        markIsOpen();
+      }
+      setFilteredEmojis(matched.slice(0, EMOJIS_LIMIT));
     } else {
       unmarkIsOpen();
     }
-  }, [emojiIds, html, markIsOpen, recentEmojis, unmarkIsOpen]);
+  }, [
+    byId, byKeyword, keywords, byName, names, html, isAllowed, markIsOpen,
+    recentEmojis, unmarkIsOpen, setShouldForceInsertEmoji,
+  ]);
 
-  const insertEmoji = useCallback((textEmoji: string) => {
-    const atIndex = html.lastIndexOf(':');
+  const insertEmoji = useCallback((textEmoji: string, isForce?: boolean) => {
+    const atIndex = html.lastIndexOf(':', isForce ? html.lastIndexOf(':') - 1 : undefined);
     if (atIndex !== -1) {
       onUpdateHtml(`${html.substr(0, atIndex)}${textEmoji}`);
       const messageInput = document.getElementById(inputId)!;
-      if (!IS_MOBILE_SCREEN) {
-        requestAnimationFrame(() => {
-          focusEditableElement(messageInput, true);
-        });
-      }
+      requestAnimationFrame(() => {
+        focusEditableElement(messageInput, true);
+      });
     }
 
     unmarkIsOpen();
   }, [html, inputId, onUpdateHtml, unmarkIsOpen]);
+
+  useEffect(() => {
+    if (isOpen && shouldForceInsertEmoji && filteredEmojis.length) {
+      insertEmoji(filteredEmojis[0].native, true);
+    }
+  }, [filteredEmojis, insertEmoji, isOpen, shouldForceInsertEmoji]);
 
   return {
     isEmojiTooltipOpen: isOpen,
@@ -108,21 +186,9 @@ export default function useEmojiTooltip(
 }
 
 function getEmojiCode(html: string) {
-  const tempEl = document.createElement('div');
-  tempEl.innerHTML = html;
-  const text = tempEl.innerText;
+  const emojis = html.replace(RE_BR, '\n').replace(/\n$/i, '').match(RE_EMOJI_SEARCH);
 
-  const lastSymbol = text[text.length - 1];
-  const lastWord = text.split(RE_NOT_EMOJI_SEARCH).pop();
-
-  if (
-    !text.length || RE_NOT_EMOJI_SEARCH.test(lastSymbol)
-    || !lastWord || !lastWord.startsWith(':')
-  ) {
-    return undefined;
-  }
-
-  return lastWord.toLowerCase();
+  return emojis ? emojis[0].trim() : undefined;
 }
 
 async function ensureEmojiData() {

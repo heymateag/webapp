@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, RefObject } from 'react';
 import React, { FC, memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
+import useLang from '../../hooks/useLang';
 
 type OwnProps = {
   ref?: RefObject<HTMLInputElement>;
@@ -22,6 +23,7 @@ type OwnProps = {
   onKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 };
 
 const InputText: FC<OwnProps> = ({
@@ -43,7 +45,9 @@ const InputText: FC<OwnProps> = ({
   onKeyPress,
   onKeyDown,
   onBlur,
+  onPaste,
 }) => {
+  const lang = useLang();
   const labelText = error || success || label;
   const fullClassName = buildClassName(
     'input-group',
@@ -56,12 +60,13 @@ const InputText: FC<OwnProps> = ({
   );
 
   return (
-    <div className={fullClassName}>
+    <div className={fullClassName} dir={lang.isRtl ? 'rtl' : undefined}>
       <input
         ref={ref}
         className="form-control"
         type="text"
         id={id}
+        dir="auto"
         value={value || ''}
         placeholder={placeholder}
         maxLength={maxLength}
@@ -74,6 +79,7 @@ const InputText: FC<OwnProps> = ({
         onKeyPress={onKeyPress}
         onKeyDown={onKeyDown}
         onBlur={onBlur}
+        onPaste={onPaste}
       />
       {labelText && (
         <label htmlFor={id}>{labelText}</label>

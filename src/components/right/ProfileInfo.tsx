@@ -34,6 +34,7 @@ type StateProps = {
   chat?: ApiChat;
   isSavedMessages?: boolean;
   animationLevel: 0 | 1 | 2;
+  serverTimeOffset: number;
 } & Pick<GlobalState, 'lastSyncTime'>;
 
 type DispatchProps = Pick<GlobalActions, 'loadFullUser' | 'openMediaViewer'>;
@@ -46,6 +47,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   animationLevel,
   loadFullUser,
   openMediaViewer,
+  serverTimeOffset,
 }) => {
   const { id: userId } = user || {};
   const { id: chatId } = chat || {};
@@ -157,13 +159,13 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
     if (user) {
       return (
         <div className={`status ${isUserOnline(user) ? 'online' : ''}`}>
-          <span className="user-status">{getUserStatus(user, lang)}</span>
+          <span className="user-status" dir="auto">{getUserStatus(lang, user, serverTimeOffset)}</span>
         </div>
       );
     }
 
     return (
-      <span className="status">{
+      <span className="status" dir="auto">{
         isChatChannel(chat!)
           ? lang('Subscribers', chat!.membersCount, 'i')
           : lang('Members', chat!.membersCount, 'i')
@@ -175,7 +177,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   const isVerifiedIconShown = (user && user.isVerified) || (chat && chat.isVerified);
 
   return (
-    <div className="ProfileInfo">
+    <div className="ProfileInfo" dir={lang.isRtl ? 'rtl' : undefined}>
       <div className="photo-wrapper">
         {renderPhotoTabs()}
         <Transition activeKey={currentPhotoIndex} name={slideAnimation} className="profile-slide-container">
@@ -200,14 +202,14 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
         )}
       </div>
 
-      <div className="info">
+      <div className="info" dir={lang.isRtl ? 'rtl' : 'auto'}>
         {isSavedMessages ? (
           <div className="title">
-            <h3>{lang('SavedMessages')}</h3>
+            <h3 dir="auto">{lang('SavedMessages')}</h3>
           </div>
         ) : (
           <div className="title">
-            <h3>{fullName && renderText(fullName)}</h3>
+            <h3 dir="auto">{fullName && renderText(fullName)}</h3>
             {isVerifiedIconShown && <VerifiedIcon />}
           </div>
         )}
@@ -219,16 +221,14 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(withGlobal<OwnProps>(
   (global, { userId, forceShowSelf }): StateProps => {
-    const { lastSyncTime } = global;
+    const { lastSyncTime, serverTimeOffset } = global;
     const user = selectUser(global, userId);
     const chat = selectChat(global, userId);
     const isSavedMessages = !forceShowSelf && user && user.isSelf;
-    const {
-      animationLevel,
-    } = global.settings.byKey;
+    const { animationLevel } = global.settings.byKey;
 
     return {
-      lastSyncTime, user, chat, isSavedMessages, animationLevel,
+      lastSyncTime, user, chat, isSavedMessages, animationLevel, serverTimeOffset,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, ['loadFullUser', 'openMediaViewer']),

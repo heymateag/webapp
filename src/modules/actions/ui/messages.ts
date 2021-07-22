@@ -3,6 +3,8 @@ import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 import { MAIN_THREAD_ID } from '../../../api/types';
 import { FocusDirection } from '../../../types';
 
+import { ANIMATION_END_DELAY, FAST_SMOOTH_MAX_DURATION } from '../../../config';
+import { IS_TOUCH_ENV } from '../../../util/environment';
 import {
   enterMessageSelectMode,
   toggleMessageSelection,
@@ -22,10 +24,14 @@ import {
   selectAllowedMessageActions,
   selectMessageIdsByGroupId,
   selectForwardedMessageIdsByGroupId,
+  selectIsViewportNewest,
+  selectReplyingToId,
+  selectReplyStack,
 } from '../../selectors';
 import { findLast } from '../../../util/iteratees';
 
-const FOCUS_DURATION = 2000;
+const FOCUS_DURATION = 1500;
+const FOCUS_NO_HIGHLIGHT_DURATION = FAST_SMOOTH_MAX_DURATION + ANIMATION_END_DELAY;
 const POLL_RESULT_OPEN_DELAY_MS = 450;
 
 let blurTimeout: number | undefined;
@@ -81,6 +87,48 @@ addReducer('editLastMessage', (global) => {
   }
 
   return replaceThreadParam(global, chatId, threadId, 'editingId', lastOwnEditableMessageId);
+});
+
+addReducer('replyToNextMessage', (global, actions, payload) => {
+  const { targetIndexDelta } = payload;
+  const { chatId, threadId } = selectCurrentMessageList(global) || {};
+  if (!chatId || !threadId) {
+    return;
+  }
+
+  const chatMessages = selectChatMessages(global, chatId);
+  const viewportIds = selectViewportIds(global, chatId, threadId);
+  if (!chatMessages || !viewportIds) {
+    return;
+  }
+
+  const replyingToId = selectReplyingToId(global, chatId, threadId);
+  const isLatest = selectIsViewportNewest(global, chatId, threadId);
+
+  let messageId: number | undefined;
+
+  if (!isLatest || !replyingToId) {
+    if (threadId === MAIN_THREAD_ID) {
+      const chat = selectChat(global, chatId);
+
+      messageId = chat && chat.lastMessage ? chat.lastMessage.id : undefined;
+    } else {
+      const threadInfo = selectThreadInfo(global, chatId, threadId);
+
+      messageId = threadInfo ? threadInfo.lastMessageId : undefined;
+    }
+  } else {
+    const chatMessageKeys = Object.keys(chatMessages);
+    const indexOfCurrent = chatMessageKeys.indexOf(replyingToId.toString());
+    const newIndex = indexOfCurrent + targetIndexDelta;
+    messageId = newIndex <= chatMessageKeys.length + 1 && newIndex >= 0
+      ? Number(chatMessageKeys[newIndex])
+      : undefined;
+  }
+  actions.setReplyingToId({ messageId });
+  actions.focusMessage({
+    chatId, threadId, messageId,
+  });
 });
 
 addReducer('openMediaViewer', (global, actions, payload) => {
@@ -196,9 +244,39 @@ addReducer('focusLastMessage', (global, actions) => {
   });
 });
 
+addReducer('focusNextReply', (global, actions) => {
+  const currentMessageList = selectCurrentMessageList(global);
+  if (!currentMessageList) {
+    return undefined;
+  }
+
+  const { chatId, threadId } = currentMessageList;
+
+  const replyStack = selectReplyStack(global, chatId, threadId);
+
+  if (!replyStack || replyStack.length === 0) {
+    actions.focusLastMessage();
+  } else {
+    const messageId = replyStack.pop();
+
+    global = replaceThreadParam(global, chatId, threadId, 'replyStack', [...replyStack]);
+
+    setGlobal(global);
+
+    actions.focusMessage({
+      chatId,
+      threadId,
+      messageId,
+    });
+  }
+
+  return undefined;
+});
+
 addReducer('focusMessage', (global, actions, payload) => {
   const {
     chatId, threadId = MAIN_THREAD_ID, messageListType = 'thread', noHighlight, groupedId, groupedChatId,
+    replyMessageId,
   } = payload!;
 
   let { messageId } = payload!;
@@ -226,10 +304,15 @@ addReducer('focusMessage', (global, actions, payload) => {
     newGlobal = updateFocusedMessage(newGlobal);
     newGlobal = updateFocusDirection(newGlobal);
     setGlobal(newGlobal);
-  }, FOCUS_DURATION);
+  }, noHighlight ? FOCUS_NO_HIGHLIGHT_DURATION : FOCUS_DURATION);
 
   global = updateFocusedMessage(global, chatId, messageId, noHighlight);
   global = updateFocusDirection(global, undefined);
+
+  if (replyMessageId) {
+    const replyStack = selectReplyStack(global, chatId, threadId) || [];
+    global = replaceThreadParam(global, chatId, threadId, 'replyStack', [...replyStack, replyMessageId]);
+  }
 
   if (shouldSwitchChat) {
     global = updateFocusDirection(global, FocusDirection.Static);
@@ -297,6 +380,7 @@ addReducer('setForwardChatId', (global, actions, payload) => {
 
   actions.openChat({ id });
   actions.closeMediaViewer();
+  actions.exitMessageSelectMode();
 });
 
 addReducer('openForwardMenuForSelectedMessages', (global, actions) => {
@@ -328,16 +412,36 @@ addReducer('toggleMessageSelection', (global, actions, payload) => {
   } = payload!;
   const currentMessageList = selectCurrentMessageList(global);
   if (!currentMessageList) {
-    return undefined;
+    return;
   }
 
   const { chatId, threadId, type: messageListType } = currentMessageList;
 
-  return toggleMessageSelection(
+  global = toggleMessageSelection(
     global, chatId, threadId, messageListType, messageId, groupedId, childMessageIds, withShift,
   );
+
+  setGlobal(global);
+
+  if (global.shouldShowContextMenuHint) {
+    actions.disableContextMenuHint();
+    actions.showNotification({
+      // eslint-disable-next-line max-len
+      message: `To **edit** or **reply**, close this menu. Then ${IS_TOUCH_ENV ? 'long tap' : 'right click'} on a message.`,
+    });
+  }
 });
 
+addReducer('disableContextMenuHint', (global) => {
+  if (!global.shouldShowContextMenuHint) {
+    return undefined;
+  }
+
+  return {
+    ...global,
+    shouldShowContextMenuHint: false,
+  };
+});
 
 addReducer('exitMessageSelectMode', exitMessageSelectMode);
 

@@ -1,13 +1,14 @@
-export interface ApiPhotoSize {
-  type: 's' | 'm' | 'x' | 'y' | 'z';
+export interface ApiDimensions {
   width: number;
   height: number;
 }
 
-export interface ApiThumbnail {
+export interface ApiPhotoSize extends ApiDimensions {
+  type: 's' | 'm' | 'x' | 'y' | 'z';
+}
+
+export interface ApiThumbnail extends ApiDimensions {
   dataUri: string;
-  height: number;
-  width: number;
 }
 
 export interface ApiPhoto {
@@ -20,8 +21,8 @@ export interface ApiPhoto {
 export interface ApiSticker {
   id: string;
   stickerSetId: string;
-  stickerSetAccessHash: string;
-  emoji: string;
+  stickerSetAccessHash?: string;
+  emoji?: string;
   isAnimated: boolean;
   width?: number;
   height?: number;
@@ -81,6 +82,8 @@ export interface ApiDocument {
   mimeType: string;
   thumbnail?: ApiThumbnail;
   previewBlobUrl?: string;
+  mediaType?: 'photo' | 'video';
+  mediaSize?: ApiDimensions;
 }
 
 export interface ApiContact {
@@ -142,21 +145,25 @@ export type ApiNewPoll = {
 
 export interface ApiAction {
   text: string;
-  targetUserId?: number;
+  targetUserIds?: number[];
   targetChatId?: number;
   type: 'historyClear' | 'other';
   photo?: ApiPhoto;
+  translationValues: string[];
 }
 
 export interface ApiWebPage {
   id: number;
   url: string;
   displayUrl: string;
+  type?: string;
   siteName?: string;
   title?: string;
   description?: string;
   photo?: ApiPhoto;
-  hasDocument?: true;
+  duration?: number;
+  document?: ApiDocument;
+  video?: ApiVideo;
 }
 
 export interface ApiMessageForwardInfo {
@@ -268,6 +275,9 @@ export type ApiKeyboardButtons = ApiKeyboardButton[][];
 
 export type ApiMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'profilePhoto';
 export type ApiGlobalMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
+
+export type ApiReportReason = 'spam' | 'violence' | 'pornography' | 'childAbuse'
+| 'copyright' | 'geoIrrelevant' | 'fake' | 'other';
 
 export const MAIN_THREAD_ID = -1;
 

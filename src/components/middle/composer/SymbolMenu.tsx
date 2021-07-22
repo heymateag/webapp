@@ -1,11 +1,12 @@
 import React, {
   FC, memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
 } from '../../../lib/teact/teact';
+import { withGlobal } from '../../../lib/teact/teactn';
 
 import { ApiSticker, ApiVideo } from '../../../api/types';
 
 import { IAllowedAttachmentOptions } from '../../../modules/helpers';
-import { IS_MOBILE_SCREEN, IS_TOUCH_ENV } from '../../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../../util/environment';
 import { fastRaf } from '../../../util/schedulers';
 import buildClassName from '../../../util/buildClassName';
 import useShowTransition from '../../../hooks/useShowTransition';
@@ -31,17 +32,21 @@ export type OwnProps = {
   onLoad: () => void;
   onClose: () => void;
   onEmojiSelect: (emoji: string) => void;
-  onStickerSelect: (sticker: ApiSticker) => void;
+  onStickerSelect: (sticker: ApiSticker, shouldPreserveInput?: boolean) => void;
   onGifSelect: (gif: ApiVideo) => void;
   onRemoveSymbol: () => void;
   onSearchOpen: (type: 'stickers' | 'gifs') => void;
   addRecentEmoji: AnyToVoidFunction;
 };
 
+type StateProps = {
+  isLeftColumnShown: boolean;
+};
+
 let isActivated = false;
 
-const SymbolMenu: FC<OwnProps> = ({
-  isOpen, allowedAttachmentOptions,
+const SymbolMenu: FC<OwnProps & StateProps> = ({
+  isOpen, allowedAttachmentOptions, isLeftColumnShown,
   onLoad, onClose,
   onEmojiSelect, onStickerSelect, onGifSelect,
   onRemoveSymbol, onSearchOpen, addRecentEmoji,
@@ -49,7 +54,7 @@ const SymbolMenu: FC<OwnProps> = ({
   const [activeTab, setActiveTab] = useState<number>(0);
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
 
-  const [handleMouseEnter, handleMouseLeave] = useMouseInside(isOpen, onClose);
+  const [handleMouseEnter, handleMouseLeave] = useMouseInside(isOpen, onClose, undefined, IS_SINGLE_COLUMN_LAYOUT);
   const { shouldRender, transitionClassNames } = useShowTransition(isOpen, onClose, false, false);
 
   if (!isActivated && isOpen) {
@@ -61,7 +66,7 @@ const SymbolMenu: FC<OwnProps> = ({
   }, [onLoad]);
 
   useLayoutEffect(() => {
-    if (!IS_MOBILE_SCREEN) {
+    if (!IS_SINGLE_COLUMN_LAYOUT) {
       return undefined;
     }
 
@@ -109,6 +114,10 @@ const SymbolMenu: FC<OwnProps> = ({
     onSearchOpen(type);
   }, [onClose, onSearchOpen]);
 
+  const handleStickerSelect = useCallback((sticker: ApiSticker) => {
+    onStickerSelect(sticker, true);
+  }, [onStickerSelect]);
+
   const lang = useLang();
 
   const { canSendStickers, canSendGifs } = allowedAttachmentOptions;
@@ -128,7 +137,7 @@ const SymbolMenu: FC<OwnProps> = ({
             className="picker-tab"
             loadAndPlay={canSendStickers ? isOpen && (isActive || isFrom) : false}
             canSendStickers={canSendStickers}
-            onStickerSelect={onStickerSelect}
+            onStickerSelect={handleStickerSelect}
           />
         );
       case SymbolMenuTabs.GIFs:
@@ -158,7 +167,7 @@ const SymbolMenu: FC<OwnProps> = ({
           </Transition>
         )}
       </div>
-      {IS_MOBILE_SCREEN && (
+      {IS_SINGLE_COLUMN_LAYOUT && (
         <Button
           round
           faded
@@ -180,7 +189,7 @@ const SymbolMenu: FC<OwnProps> = ({
     </>
   );
 
-  if (IS_MOBILE_SCREEN) {
+  if (IS_SINGLE_COLUMN_LAYOUT) {
     if (!shouldRender) {
       return undefined;
     }
@@ -188,6 +197,7 @@ const SymbolMenu: FC<OwnProps> = ({
     const className = buildClassName(
       'SymbolMenu mobile-menu',
       transitionClassNames,
+      !isLeftColumnShown && 'middle-column-open',
     );
 
     return (
@@ -216,4 +226,10 @@ const SymbolMenu: FC<OwnProps> = ({
   );
 };
 
-export default memo(SymbolMenu);
+export default memo(withGlobal<OwnProps>(
+  (global): StateProps => {
+    return {
+      isLeftColumnShown: global.isLeftColumnShown,
+    };
+  },
+)(SymbolMenu));

@@ -18,7 +18,7 @@ import { pick } from '../../../util/iteratees';
 import renderText from '../../common/helpers/renderText';
 import { renderTextWithEntities } from '../../common/helpers/renderMessageText';
 import { formatMediaDuration } from '../../../util/dateFormat';
-import useLang from '../../../hooks/useLang';
+import useLang, { LangFn } from '../../../hooks/useLang';
 
 import CheckboxGroup from '../../ui/CheckboxGroup';
 import RadioGroup from '../../ui/RadioGroup';
@@ -38,10 +38,12 @@ type OwnProps = {
 type StateProps = {
   recentVoterIds?: number[];
   usersById: Record<number, ApiUser>;
+  serverTimeOffset: number;
 };
 
 type DispatchProps = Pick<GlobalActions, ('loadMessage' | 'openPollResults')>;
 
+const SOLUTION_CONTAINER_ID = '#middle-column-portals';
 const SOLUTION_DURATION = 5000;
 const NBSP = '\u00A0';
 
@@ -53,6 +55,7 @@ const Poll: FC<OwnProps & StateProps & DispatchProps> = ({
   loadMessage,
   onSendVote,
   openPollResults,
+  serverTimeOffset,
 }) => {
   const { id: messageId, chatId } = message;
   const { summary, results } = poll;
@@ -62,7 +65,7 @@ const Poll: FC<OwnProps & StateProps & DispatchProps> = ({
   const [wasSubmitted, setWasSubmitted] = useState<boolean>(false);
   const [closePeriod, setClosePeriod] = useState<number>(
     !summary.closed && summary.closeDate && summary.closeDate > 0
-      ? Math.min(summary.closeDate - Math.floor(Date.now() / 1000), summary.closePeriod!)
+      ? Math.min(summary.closeDate - Math.floor(Date.now() / 1000) + serverTimeOffset, summary.closePeriod!)
       : 0,
   );
   // eslint-disable-next-line no-null/no-null
@@ -248,17 +251,18 @@ const Poll: FC<OwnProps & StateProps & DispatchProps> = ({
           message={renderTextWithEntities(poll.results.solution, poll.results.solutionEntities)}
           duration={SOLUTION_DURATION}
           onDismiss={handleSolutionHide}
+          containerId={SOLUTION_CONTAINER_ID}
         />
       )
     );
   }
 
   return (
-    <div className="Poll">
+    <div className="Poll" dir={lang.isRtl ? 'auto' : 'ltr'}>
       {renderSolution()}
       <div className="poll-question">{renderText(summary.question)}</div>
       <div className="poll-type">
-        {getPollTypeString(summary)}
+        {lang(getPollTypeString(summary))}
         {renderRecentVoters()}
         {closePeriod > 0 && canVote && <div ref={countdownRef} className="poll-countdown" />}
         {summary.quiz && poll.results.solution && !canVote && (
@@ -304,7 +308,7 @@ const Poll: FC<OwnProps & StateProps & DispatchProps> = ({
         </div>
       )}
       {!canViewResult && !isMultiple && (
-        <div className="poll-voters-count">{getReadableVotersCount(summary.quiz, results.totalVoters)}</div>
+        <div className="poll-voters-count">{getReadableVotersCount(lang, summary.quiz, results.totalVoters)}</div>
       )}
       {isMultiple && (
         <Button
@@ -336,28 +340,28 @@ function getPollTypeString(summary: ApiPoll['summary']) {
   }
 
   if (summary.quiz) {
-    return summary.isPublic ? 'Quiz' : 'Anonymous Quiz';
+    return summary.isPublic ? 'QuizPoll' : 'AnonymousQuizPoll';
   }
 
   if (summary.closed) {
-    return 'Final results';
+    return 'FinalResults';
   }
 
-  return summary.isPublic ? 'Poll' : 'Anonymous Poll';
+  return summary.isPublic ? 'PublicPoll' : 'AnonymousPoll';
 }
 
-function getReadableVotersCount(isQuiz: true | undefined, count?: number) {
+function getReadableVotersCount(lang: LangFn, isQuiz: true | undefined, count?: number) {
   if (!count) {
-    return isQuiz ? 'No answers yet' : 'No voters yet';
+    return lang(isQuiz ? 'Chat.Quiz.TotalVotesEmpty' : 'Chat.Poll.TotalVotesResultEmpty');
   }
 
-  return isQuiz ? `${count} answered` : `${count} voted`;
+  return lang(isQuiz ? 'Answer' : 'Vote', count, 'i');
 }
 
 export default memo(withGlobal<OwnProps>(
   (global, { poll }) => {
     const { recentVoterIds } = poll.results;
-    const { byId: usersById } = global.users;
+    const { serverTimeOffset, users: { byId: usersById } } = global;
     if (!recentVoterIds || recentVoterIds.length === 0) {
       return {};
     }
@@ -365,6 +369,7 @@ export default memo(withGlobal<OwnProps>(
     return {
       recentVoterIds,
       usersById,
+      serverTimeOffset,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, ['loadMessage', 'openPollResults']),

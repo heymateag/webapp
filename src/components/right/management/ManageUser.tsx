@@ -9,9 +9,13 @@ import { ApiChat, ApiUser } from '../../../api/types';
 import { ManagementProgress } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
-import { selectChat, selectUser } from '../../../modules/selectors';
+import {
+  selectChat, selectNotifyExceptions, selectNotifySettings, selectUser,
+} from '../../../modules/selectors';
+import { selectIsChatMuted } from '../../../modules/helpers';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import InputText from '../../ui/InputText';
 import ListItem from '../../ui/ListItem';
@@ -25,12 +29,15 @@ import './Management.scss';
 
 type OwnProps = {
   userId: number;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
   user?: ApiUser;
   chat: ApiChat;
   progress?: ManagementProgress;
+  isMuted?: boolean;
 };
 
 type DispatchProps = Pick<GlobalActions, (
@@ -44,28 +51,32 @@ const ManageUser: FC<OwnProps & StateProps & DispatchProps> = ({
   user,
   chat,
   progress,
+  isMuted,
   updateContact,
   deleteUser,
   deleteHistory,
   closeManagement,
   openChat,
+  onClose,
+  isActive,
 }) => {
   const [isDeleteDialogOpen, openDeleteDialog, closeDeleteDialog] = useFlag();
   const [isProfileFieldsTouched, setIsProfileFieldsTouched] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const lang = useLang();
 
+  useHistoryBack(isActive, onClose);
+
   const currentFirstName = user ? (user.firstName || '') : '';
   const currentLastName = user ? (user.lastName || '') : '';
-  const currentIsMuted = chat ? chat.isMuted : undefined;
 
   const [firstName, setFirstName] = useState(currentFirstName);
   const [lastName, setLastName] = useState(currentLastName);
-  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(!currentIsMuted);
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(!isMuted);
 
   useEffect(() => {
-    setIsNotificationsEnabled(!currentIsMuted);
-  }, [currentIsMuted]);
+    setIsNotificationsEnabled(!isMuted);
+  }, [isMuted]);
 
   useEffect(() => {
     setIsProfileFieldsTouched(false);
@@ -117,18 +128,15 @@ const ManageUser: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [firstName, lastName, updateContact, userId, isNotificationsEnabled]);
 
   const handleDeleteContact = useCallback(() => {
-    if (chat.lastMessage) {
-      deleteHistory({
-        chatId: chat.id,
-        maxId: chat.lastMessage!.id,
-        shouldDeleteForAll: false,
-      });
-    }
+    deleteHistory({
+      chatId: chat.id,
+      shouldDeleteForAll: false,
+    });
     deleteUser({ userId });
     closeDeleteDialog();
     closeManagement();
     openChat({ id: undefined });
-  }, [chat.id, chat.lastMessage, closeDeleteDialog, closeManagement, deleteHistory, deleteUser, openChat, userId]);
+  }, [chat.id, closeDeleteDialog, closeManagement, deleteHistory, deleteUser, openChat, userId]);
 
   if (!user) {
     return undefined;
@@ -205,8 +213,11 @@ export default memo(withGlobal<OwnProps>(
     const user = selectUser(global, userId);
     const chat = selectChat(global, userId)!;
     const { progress } = global.management;
+    const isMuted = selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global));
 
-    return { user, chat, progress };
+    return {
+      user, chat, progress, isMuted,
+    };
   },
   (global, actions): DispatchProps => pick(actions, [
     'updateContact', 'deleteUser', 'closeManagement', 'openChat', 'deleteHistory',

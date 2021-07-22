@@ -8,6 +8,7 @@ import { ChatCreationProgress } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import InputText from '../../ui/InputText';
 import FloatingActionButton from '../../ui/FloatingActionButton';
@@ -19,6 +20,7 @@ import PrivateChatInfo from '../../common/PrivateChatInfo';
 
 export type OwnProps = {
   isChannel?: boolean;
+  isActive: boolean;
   memberIds: number[];
   onReset: (forceReturnToChatList?: boolean) => void;
 };
@@ -35,6 +37,7 @@ const MAX_USERS_FOR_LEGACY_CHAT = 199; // Accounting for current user
 
 const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
   isChannel,
+  isActive,
   memberIds,
   onReset,
   creationProgress,
@@ -43,6 +46,8 @@ const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
   createChannel,
 }) => {
   const lang = useLang();
+
+  useHistoryBack(isActive, onReset);
 
   const [title, setTitle] = useState('');
   const [about, setAbout] = useState('');
@@ -154,15 +159,19 @@ const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
           <p className="error">{renderedError}</p>
         )}
 
-        <h3 className="chat-members-heading">{lang('GroupInfo.ParticipantCount', memberIds.length, 'i')}</h3>
+        {memberIds.length > 0 && (
+          <>
+            <h3 className="chat-members-heading">{lang('GroupInfo.ParticipantCount', memberIds.length, 'i')}</h3>
 
-        <div className="chat-members-list custom-scroll">
-          {memberIds.map((id) => (
-            <ListItem inactive className="chat-item-clickable">
-              <PrivateChatInfo userId={id} />
-            </ListItem>
-          ))}
-        </div>
+            <div className="chat-members-list custom-scroll">
+              {memberIds.map((id) => (
+                <ListItem inactive className="chat-item-clickable">
+                  <PrivateChatInfo userId={id} />
+                </ListItem>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <FloatingActionButton

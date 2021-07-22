@@ -31,20 +31,17 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-[class^="hm-"], [class*=" hm-"] {
-  /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'heymate-icon' !important;
-  speak: none;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
 
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+[class^="icon-char-"], [class*=" icon-char-"] {
+  &::before {
+    font-family: Roboto, "Helvetica Neue", sans-serif;
+    content: attr(data-char);
+    width: 1.5rem;
+    text-align: center;
+    display: block;
+  }
 }
+
 .icon-bug:before {
   content: "\e97e";
 }

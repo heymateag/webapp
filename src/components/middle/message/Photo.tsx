@@ -16,8 +16,8 @@ import { ObserveFn, useIsIntersecting } from '../../../hooks/useIntersectionObse
 import useMediaWithDownloadProgress from '../../../hooks/useMediaWithDownloadProgress';
 import useTransitionForMedia from '../../../hooks/useTransitionForMedia';
 import useShowTransition from '../../../hooks/useShowTransition';
+import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 import usePrevious from '../../../hooks/usePrevious';
-import useBlurredMediaThumb from './hooks/useBlurredMediaThumb';
 import buildClassName from '../../../util/buildClassName';
 import getCustomAppendixBg from './helpers/getCustomAppendixBg';
 import { calculateMediaDimensions } from './helpers/mediaDimensions';
@@ -28,6 +28,7 @@ export type OwnProps = {
   id?: string;
   message: ApiMessage;
   observeIntersection?: ObserveFn;
+  noAvatars?: boolean;
   shouldAutoLoad?: boolean;
   isInSelectMode?: boolean;
   isSelected?: boolean;
@@ -35,6 +36,7 @@ export type OwnProps = {
   size?: 'inline' | 'pictogram';
   shouldAffectAppendix?: boolean;
   dimensions?: IMediaDimensions & { isSmall?: boolean };
+  nonInteractive?: boolean;
   onClick?: (id: number) => void;
   onCancelUpload?: (message: ApiMessage) => void;
 };
@@ -45,12 +47,14 @@ const Photo: FC<OwnProps> = ({
   id,
   message,
   observeIntersection,
+  noAvatars,
   shouldAutoLoad,
   isInSelectMode,
   isSelected,
   uploadProgress,
   size = 'inline',
   dimensions,
+  nonInteractive,
   shouldAffectAppendix,
   onClick,
   onCancelUpload,
@@ -69,7 +73,7 @@ const Photo: FC<OwnProps> = ({
     mediaData, downloadProgress,
   } = useMediaWithDownloadProgress(getMessageMediaHash(message, size), !shouldDownload);
   const fullMediaData = localBlobUrl || mediaData;
-  const thumbDataUri = useBlurredMediaThumb(message, fullMediaData);
+  const thumbRef = useBlurredMediaThumbRef(message, fullMediaData);
 
   const {
     isUploading, isTransferring, transferProgress,
@@ -113,18 +117,13 @@ const Photo: FC<OwnProps> = ({
     }
   }, [fullMediaData, isOwn, shouldAffectAppendix, isInSelectMode, isSelected]);
 
-  const { width, height, isSmall } = dimensions || calculateMediaDimensions(message);
+  const { width, height, isSmall } = dimensions || calculateMediaDimensions(message, noAvatars);
 
   const className = buildClassName(
     'media-inner',
-    !isUploading && 'interactive',
+    !isUploading && !nonInteractive && 'interactive',
     isSmall && 'small-image',
     width === height && 'square-image',
-  );
-
-  const thumbClassName = buildClassName(
-    'thumbnail',
-    !thumbDataUri && 'empty',
   );
 
   const style = dimensions
@@ -141,12 +140,11 @@ const Photo: FC<OwnProps> = ({
       onClick={isUploading ? undefined : handleClick}
     >
       {shouldRenderThumb && (
-        <img
-          src={thumbDataUri}
-          className={thumbClassName}
-          width={width}
-          height={height}
-          alt=""
+        <canvas
+          ref={thumbRef}
+          className="thumbnail"
+          // @ts-ignore teact feature
+          style={`width: ${width}px; height: ${height}px`}
         />
       )}
       {shouldRenderFullMedia && (

@@ -1,4 +1,6 @@
-import React, { FC, useMemo, memo } from '../../lib/teact/teact';
+import React, {
+  FC, useMemo, memo, useRef,
+} from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import { ApiMessage, ApiUser, ApiChat } from '../../api/types';
@@ -17,8 +19,11 @@ import {
   isChatChannel,
 } from '../../modules/helpers';
 import renderText from '../common/helpers/renderText';
+import useLang from '../../hooks/useLang';
 import { orderBy, pick } from '../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
+import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
+import useHistoryBack from '../../hooks/useHistoryBack';
 
 import InfiniteScroll from '../ui/InfiniteScroll';
 import ListItem from '../ui/ListItem';
@@ -30,6 +35,8 @@ import './RightSearch.scss';
 export type OwnProps = {
   chatId: number;
   threadId: number;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
@@ -52,6 +59,8 @@ interface Result {
 const RightSearch: FC<OwnProps & StateProps & DispatchProps> = ({
   chatId,
   threadId,
+  onClose,
+  isActive,
   chat,
   messagesById,
   query,
@@ -60,6 +69,8 @@ const RightSearch: FC<OwnProps & StateProps & DispatchProps> = ({
   searchTextMessagesLocal,
   focusMessage,
 }) => {
+  const lang = useLang();
+
   const foundResults = useMemo(() => {
     if (!query || !foundIds || !foundIds.length || !messagesById) {
       return MEMO_EMPTY_ARRAY;
@@ -97,24 +108,38 @@ const RightSearch: FC<OwnProps & StateProps & DispatchProps> = ({
   const renderSearchResult = ({
     message, senderUser, senderChat, onClick,
   }: Result) => {
-    const title = senderChat ? getChatTitle(senderChat) : getUserFullName(senderUser);
-    const text = getMessageSummaryText(message);
+    const title = senderChat ? getChatTitle(lang, senderChat) : getUserFullName(senderUser);
+    const text = getMessageSummaryText(lang, message);
 
     return (
-      <ListItem className="chat-item-clickable search-result-message m-0" onClick={onClick}>
+      <ListItem
+        className="chat-item-clickable search-result-message m-0"
+        onClick={onClick}
+      >
         <Avatar chat={senderChat} user={senderUser} />
         <div className="info">
           <div className="title">
-            <h3>{title && renderText(title)}</h3>
+            <h3 dir="auto">{title && renderText(title)}</h3>
             <LastMessageMeta message={message} />
           </div>
-          <div className="subtitle">
+          <div className="subtitle" dir="auto">
             {renderText(text, ['emoji', 'highlight'], { highlight: query })}
           </div>
         </div>
       </ListItem>
     );
   };
+
+  useHistoryBack(isActive, onClose);
+
+  // eslint-disable-next-line no-null/no-null
+  const containerRef = useRef<HTMLDivElement>(null);
+  const handleKeyDown = useKeyboardListNavigation(containerRef, true, (index) => {
+    const foundResult = foundResults && foundResults[index === -1 ? 0 : index];
+    if (foundResult) {
+      foundResult.onClick();
+    }
+  }, '.ListItem-button', true);
 
   return (
     <InfiniteScroll
@@ -123,14 +148,18 @@ const RightSearch: FC<OwnProps & StateProps & DispatchProps> = ({
       preloadBackwards={0}
       onLoadMore={searchTextMessagesLocal}
       noFastList
+      onKeyDown={handleKeyDown}
+      ref={containerRef}
     >
-      <p className="helper-text">
+      <p className="helper-text" dir="auto">
         {!query ? (
-          'Search messages'
+          lang('lng_dlg_search_for_messages')
+        ) : (totalCount === 0 || !foundResults.length) ? (
+          lang('lng_search_no_results')
         ) : totalCount === 1 ? (
           '1 message found'
         ) : (
-          `${(foundResults.length && (totalCount || foundResults.length)) || 'No'} messages found`
+          `${(foundResults.length && (totalCount || foundResults.length))} messages found`
         )}
       </p>
       {foundResults.map(renderSearchResult)}

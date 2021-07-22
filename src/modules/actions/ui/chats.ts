@@ -1,25 +1,14 @@
-import { addReducer, getDispatch, setGlobal } from '../../../lib/teact/teactn';
+import { addReducer, setGlobal } from '../../../lib/teact/teactn';
+
 import {
-  exitMessageSelectMode,
-  updateCurrentMessageList,
+  exitMessageSelectMode, replaceThreadParam, updateCurrentMessageList,
 } from '../../reducers';
 import { selectCurrentMessageList } from '../../selectors';
-
-window.addEventListener('popstate', (e) => {
-  if (!e.state) {
-    return;
-  }
-
-  const { chatId: id, threadId, messageListType: type } = e.state;
-
-  getDispatch().openChat({
-    id, threadId, type, noPushState: true,
-  });
-});
+import { closeLocalTextSearch } from './localSearch';
 
 addReducer('openChat', (global, actions, payload) => {
   const {
-    id, threadId = -1, type = 'thread', noPushState,
+    id, threadId = -1, type = 'thread',
   } = payload!;
 
   const currentMessageList = selectCurrentMessageList(global);
@@ -30,7 +19,9 @@ addReducer('openChat', (global, actions, payload) => {
       || currentMessageList.threadId !== threadId
       || currentMessageList.type !== type
     )) {
+    global = replaceThreadParam(global, id, threadId, 'replyStack', []);
     global = exitMessageSelectMode(global);
+    global = closeLocalTextSearch(global);
 
     global = {
       ...global,
@@ -44,10 +35,6 @@ addReducer('openChat', (global, actions, payload) => {
     };
 
     setGlobal(global);
-
-    if (!noPushState) {
-      window.history.pushState({ chatId: id, threadId, messageListType: type }, '');
-    }
   }
 
   return updateCurrentMessageList(global, id, threadId, type);
@@ -67,4 +54,31 @@ addReducer('resetChatCreation', (global) => {
     ...global,
     chatCreation: undefined,
   };
+});
+
+addReducer('setNewChatMembersDialogState', (global, actions, payload) => {
+  return {
+    ...global,
+    newChatMembersProgress: payload,
+  };
+});
+
+addReducer('openNextChat', (global, actions, payload) => {
+  const { targetIndexDelta, orderedIds } = payload;
+
+  const { chatId } = selectCurrentMessageList(global) || {};
+
+  if (!chatId) {
+    actions.openChat({ id: orderedIds[0] });
+    return;
+  }
+
+  const position = orderedIds.indexOf(chatId);
+
+  if (position === -1) {
+    return;
+  }
+  const nextId = orderedIds[position + targetIndexDelta];
+
+  actions.openChat({ id: nextId });
 });

@@ -3,12 +3,19 @@ const AuthKey = require('../crypto/AuthKey');
 const utils = require('../Utils');
 
 const STORAGE_KEY_BASE = 'GramJs-session-';
+const SESSION_DATA_PREFIX = 'session:';
 
 class StorageSession extends MemorySession {
-    constructor(sessionId) {
+    constructor(sessionInfo) {
         super();
-        this._storageKey = sessionId;
+
         this._authKeys = {};
+
+        if (sessionInfo && sessionInfo.startsWith(SESSION_DATA_PREFIX)) {
+            this._sessionString = sessionInfo;
+        } else if (sessionInfo) {
+            this._storageKey = sessionInfo;
+        }
     }
 
     get authKey() {
@@ -20,6 +27,11 @@ class StorageSession extends MemorySession {
     }
 
     async load() {
+        if (this._sessionString) {
+            await this._loadFromSessionString();
+            return;
+        }
+
         if (!this._storageKey) {
             return;
         }
@@ -48,7 +60,9 @@ class StorageSession extends MemorySession {
                     }
                 });
         } catch (err) {
+            // eslint-disable-next-line no-console
             console.warn('Failed to retrieve or parse session from storage');
+            // eslint-disable-next-line no-console
             console.warn(err);
         }
     }
@@ -85,28 +99,50 @@ class StorageSession extends MemorySession {
         void this._updateStorage();
     }
 
-    async _updateStorage() {
-        if (!this._storageKey) {
-            return;
-        }
-
+    getSessionData(asHex) {
         const sessionData = {
             mainDcId: this._dcId,
             keys: {},
             hashes: {},
         };
 
-        Object.keys(this._authKeys)
-            .map((dcId) => {
+        Object
+            .keys(this._authKeys)
+            .forEach((dcId) => {
                 const authKey = this._authKeys[dcId];
-                sessionData.keys[dcId] = authKey._key;
-                sessionData.hashes[dcId] = authKey._hash;
+                if (!authKey._key) return;
+
+                sessionData.keys[dcId] = asHex ? authKey._key.toString('hex') : authKey._key;
+                sessionData.hashes[dcId] = asHex ? authKey._hash.toString('hex') : authKey._hash;
             });
 
+        return sessionData;
+    }
+
+    async _loadFromSessionString() {
+        const [, mainDcIdStr, mainDcKey] = this._sessionString.split(':');
+        const mainDcId = Number(mainDcIdStr);
+        const {
+            ipAddress,
+            port,
+        } = utils.getDC(mainDcId);
+        this.setDC(mainDcId, ipAddress, port);
+        const authKey = new AuthKey();
+        await authKey.setKey(Buffer.from(mainDcKey, 'hex'), true);
+        this.setAuthKey(authKey, mainDcId);
+    }
+
+    async _updateStorage() {
+        if (!this._storageKey) {
+            return;
+        }
+
         try {
-            await this._saveToCache(JSON.stringify(sessionData));
+            await this._saveToCache(JSON.stringify(this.getSessionData()));
         } catch (err) {
+            // eslint-disable-next-line no-console
             console.warn('Failed to update session in storage');
+            // eslint-disable-next-line no-console
             console.warn(err);
         }
     }
@@ -115,23 +151,27 @@ class StorageSession extends MemorySession {
         try {
             return await this._delete();
         } catch (err) {
+            // eslint-disable-next-line no-console
             console.warn('Failed to delete session from storage');
+            // eslint-disable-next-line no-console
             console.warn(err);
         }
+        return undefined;
     }
 
     // @abstract
-    async _delete() {
+    _delete() {
         throw new Error('Not Implemented');
     }
 
     // @abstract
-    async _fetchFromCache() {
+    _fetchFromCache() {
         throw new Error('Not Implemented');
     }
 
     // @abstract
-    async _saveToCache(data) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _saveToCache(data) {
         throw new Error('Not Implemented');
     }
 }

@@ -7,6 +7,9 @@
 
   .content-inner & {
     min-width: 14rem;
+    @media (max-width: 340px) {
+      min-width: 11rem;
+    }
   }
 
   display: flex;
@@ -21,7 +24,7 @@
   .file-preview {
     width: 3.375rem;
     height: 3.375rem;
-    margin-right: .75rem;
+    margin-inline-end: .75rem;
     border-radius: var(--border-radius-messages-small);
     background: var(--color-primary);
     display: flex;
@@ -67,7 +70,7 @@
     background: transparent;
     overflow: hidden;
 
-    & + .icon-download,
+    & + .action-icon,
     & + .file-progress {
       background: rgba(black, 0.5);
       border-radius: var(--border-radius-messages-small);
@@ -78,12 +81,12 @@
     }
   }
 
-  .icon-download {
+  .action-icon {
     color: #fff;
     font-size: 1.5rem;
     position: absolute;
     top: 0;
-    left: 0;
+    start: 0;
     width: 3.375rem;
     height: 3.375rem;
     display: flex;
@@ -101,7 +104,7 @@
         border-width: 0;
       }
 
-      .icon-download {
+      .action-icon {
         opacity: 1;
 
         &.hidden {
@@ -161,7 +164,7 @@
     --background-color: var(--color-background);
     --border-radius-messages-small: .3125rem;
 
-    .icon-download,
+    .action-icon,
     .file-progress,
     .file-icon,
     .file-preview {
@@ -187,6 +190,30 @@
 
     .file-subtitle {
       line-height: 1rem;
+    }
+  }
+
+  &:dir(rtl),
+  &[dir=rtl] {
+    .file-progress,
+    .file-icon,
+    .file-preview {
+      margin-left: .75rem;
+      margin-right: 0;
+    }
+
+    .file-info {
+      text-align: right;
+
+      & + .Link {
+        padding-left: 0;
+        padding-right: 1rem;
+      }
+    }
+
+    .action-icon {
+      left: auto;
+      right: 0;
     }
   }
 }

@@ -5,14 +5,22 @@ import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
 import { ApiSession } from '../../../api/types';
+import { SettingsScreens } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
 import { formatPastTimeShort } from '../../../util/dateFormat';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import ConfirmDialog from '../../ui/ConfirmDialog';
+
+type OwnProps = {
+  isActive?: boolean;
+  onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
+};
 
 type StateProps = {
   activeSessions: ApiSession[];
@@ -22,7 +30,10 @@ type DispatchProps = Pick<GlobalActions, (
   'loadAuthorizations' | 'terminateAuthorization' | 'terminateAllAuthorizations'
 )>;
 
-const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
+const SettingsPrivacyActiveSessions: FC<OwnProps & StateProps & DispatchProps> = ({
+  isActive,
+  onScreenSelect,
+  onReset,
   activeSessions,
   loadAuthorizations,
   terminateAuthorization,
@@ -52,14 +63,18 @@ const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
 
   const lang = useLang();
 
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.PrivacyActiveSessions);
+
   function renderCurrentSession(session: ApiSession) {
     return (
       <div className="settings-item">
-        <h4 className="settings-item-header mb-4">{lang('AuthSessions.CurrentSession')}</h4>
+        <h4 className="settings-item-header mb-4" dir={lang.isRtl ? 'rtl' : undefined}>
+          {lang('AuthSessions.CurrentSession')}
+        </h4>
 
         <ListItem narrow inactive>
-          <div className="multiline-menu-item">
-            <span className="title">{session.appName}</span>
+          <div className="multiline-menu-item" dir="auto">
+            <span className="title" dir="auto">{session.appName}</span>
             <span className="subtitle black tight">{getDeviceEnvironment(session)}</span>
             <span className="subtitle">{session.ip} - {getLocation(session)}</span>
           </div>
@@ -81,7 +96,7 @@ const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
   function renderOtherSessions(sessions: ApiSession[]) {
     return (
       <div className="settings-item">
-        <h4 className="settings-item-header mb-4">Other Sessions</h4>
+        <h4 className="settings-item-header mb-4" dir={lang.isRtl ? 'rtl' : undefined}>Other Sessions</h4>
 
         {sessions.map(renderSession)}
       </div>
@@ -102,8 +117,8 @@ const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
           },
         }]}
       >
-        <div className="multiline-menu-item full-size">
-          <span className="date">{formatPastTimeShort(session.dateActive * 1000)}</span>
+        <div className="multiline-menu-item full-size" dir="auto">
+          <span className="date">{formatPastTimeShort(lang, session.dateActive * 1000)}</span>
           <span className="title">{session.appName}</span>
           <span className="subtitle black tight">{getDeviceEnvironment(session)}</span>
           <span className="subtitle">{session.ip} - {getLocation(session)}</span>
@@ -115,9 +130,7 @@ const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
   return (
     <div className="settings-content custom-scroll">
       {currentSession && renderCurrentSession(currentSession)}
-
       {otherSessions && renderOtherSessions(otherSessions)}
-
       {otherSessions && (
         <ConfirmDialog
           isOpen={isConfirmTerminateAllDialogOpen}
@@ -127,7 +140,7 @@ const SettingsPrivacyActiveSessions: FC<StateProps & DispatchProps> = ({
           confirmHandler={handleTerminateAllSessions}
           confirmIsDestructive
         />
-      )};
+      )}
     </div>
   );
 };
@@ -140,8 +153,12 @@ function getDeviceEnvironment(session: ApiSession) {
   return `${session.deviceModel}${session.deviceModel ? ', ' : ''} ${session.platform} ${session.systemVersion}`;
 }
 
-export default memo(withGlobal(
-  (global): StateProps => ({ activeSessions: global.activeSessions }),
+export default memo(withGlobal<OwnProps>(
+  (global): StateProps => {
+    return {
+      activeSessions: global.activeSessions,
+    };
+  },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'loadAuthorizations', 'terminateAuthorization', 'terminateAllAuthorizations',
   ]),

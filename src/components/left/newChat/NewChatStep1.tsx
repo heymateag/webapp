@@ -9,8 +9,9 @@ import { ApiChat, ApiUser } from '../../../api/types';
 import { pick, unique } from '../../../util/iteratees';
 import { throttle } from '../../../util/schedulers';
 import searchWords from '../../../util/searchWords';
-import { getUserFullName, sortChatIds } from '../../../modules/helpers';
+import { getUserFullName, isUserBot, sortChatIds } from '../../../modules/helpers';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import Picker from '../../common/Picker';
 import FloatingActionButton from '../../ui/FloatingActionButton';
@@ -18,6 +19,7 @@ import Button from '../../ui/Button';
 
 export type OwnProps = {
   isChannel?: boolean;
+  isActive: boolean;
   selectedMemberIds: number[];
   onSelectedMemberIdsChange: (ids: number[]) => void;
   onNextStep: () => void;
@@ -41,6 +43,7 @@ const runThrottled = throttle((cb) => cb(), 60000, true);
 
 const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
   isChannel,
+  isActive,
   selectedMemberIds,
   onSelectedMemberIdsChange,
   onNextStep,
@@ -63,6 +66,10 @@ const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
       loadContactList();
     });
   });
+
+  const lang = useLang();
+
+  useHistoryBack(isActive, onReset);
 
   const handleFilterChange = useCallback((query: string) => {
     setGlobalSearchQuery({ query });
@@ -91,23 +98,26 @@ const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
         ...foundContactIds,
         ...(localUserIds || []),
         ...(globalUserIds || []),
-      ]),
+      ]).filter((contactId) => {
+        const user = usersById[contactId];
+
+        return !user || !isUserBot(user) || user.canBeInvitedToGroup;
+      }),
       chatsById,
       false,
       selectedMemberIds,
     );
   }, [
-    localContactIds, searchQuery, localUserIds, globalUserIds, usersById, chatsById, selectedMemberIds, currentUserId,
+    localContactIds, chatsById, searchQuery, localUserIds, globalUserIds, selectedMemberIds,
+    currentUserId, usersById,
   ]);
 
   const handleNextStep = useCallback(() => {
-    if (selectedMemberIds.length) {
+    if (selectedMemberIds.length || isChannel) {
       setGlobalSearchQuery({ query: '' });
       onNextStep();
     }
-  }, [selectedMemberIds, setGlobalSearchQuery, onNextStep]);
-
-  const lang = useLang();
+  }, [selectedMemberIds.length, isChannel, setGlobalSearchQuery, onNextStep]);
 
   return (
     <div className="NewChat step-1">
@@ -136,7 +146,7 @@ const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
         />
 
         <FloatingActionButton
-          isShown={Boolean(selectedMemberIds.length)}
+          isShown={Boolean(selectedMemberIds.length || isChannel)}
           onClick={handleNextStep}
           ariaLabel={isChannel ? 'Continue To Channel Info' : 'Continue To Group Info'}
         >

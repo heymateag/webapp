@@ -6,7 +6,7 @@ import { withGlobal } from '../../../lib/teact/teactn';
 import { GlobalActions } from '../../../global/types';
 import { SettingsScreens } from '../../../types';
 
-import { IS_MOBILE_SCREEN } from '../../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import { pick } from '../../../util/iteratees';
 import useLang from '../../../hooks/useLang';
 
@@ -66,7 +66,7 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
     return ({ onTrigger, isOpen }) => (
       <Button
         round
-        ripple={!IS_MOBILE_SCREEN}
+        ripple={!IS_SINGLE_COLUMN_LAYOUT}
         size="smaller"
         color="translucent"
         className={isOpen ? 'active' : ''}
@@ -83,7 +83,7 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
   function renderHeaderContent() {
     switch (currentScreen) {
       case SettingsScreens.EditProfile:
-        return <h3>{lang('EditProfile')}</h3>;
+        return <h3>{lang('lng_settings_information')}</h3>;
       case SettingsScreens.General:
         return <h3>{lang('General')}</h3>;
       case SettingsScreens.Notifications:
@@ -132,7 +132,7 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
       case SettingsScreens.TwoFaNewPassword:
       case SettingsScreens.TwoFaChangePasswordNew:
       case SettingsScreens.TwoFaChangePasswordConfirm:
-        return <h3>{lang('EnterPassword')}</h3>;
+        return <h3>{lang('PleaseEnterCurrentPassword')}</h3>;
       case SettingsScreens.TwoFaNewPasswordConfirm:
         return <h3>{lang('PleaseReEnterPassword')}</h3>;
       case SettingsScreens.TwoFaNewPasswordHint:
@@ -166,7 +166,9 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
                 trigger={SettingsMenuButton}
                 positionX="right"
               >
-                <MenuItem icon="delete" destructive onClick={openDeleteFolderConfirmation}>Delete Folder</MenuItem>
+                <MenuItem icon="delete" destructive onClick={openDeleteFolderConfirmation}>
+                  Delete Folder
+                </MenuItem>
               </DropdownMenu>
             )}
           </div>

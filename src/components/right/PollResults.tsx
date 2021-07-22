@@ -5,11 +5,18 @@ import { ApiMessage, ApiChat } from '../../api/types';
 import { selectChat, selectChatMessage } from '../../modules/selectors';
 import { buildCollectionByKey } from '../../util/iteratees';
 import { getMessagePoll } from '../../modules/helpers';
+import useLang from '../../hooks/useLang';
+import useHistoryBack from '../../hooks/useHistoryBack';
 
 import PollAnswerResults from './PollAnswerResults';
 import Loading from '../ui/Loading';
 
 import './PollResults.scss';
+
+type OwnProps = {
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
+};
 
 type StateProps = {
   chat?: ApiChat;
@@ -17,11 +24,16 @@ type StateProps = {
   lastSyncTime?: number;
 };
 
-const PollResults: FC<StateProps> = ({
+const PollResults: FC<OwnProps & StateProps> = ({
+  onClose,
+  isActive,
   chat,
   message,
   lastSyncTime,
 }) => {
+  const lang = useLang();
+  useHistoryBack(isActive, onClose);
+
   if (!message || !chat) {
     return <Loading />;
   }
@@ -34,8 +46,8 @@ const PollResults: FC<StateProps> = ({
   const resultsByOption = buildCollectionByKey(results.results, 'option');
 
   return (
-    <div className="PollResults">
-      <h3 className="poll-question">{summary.question}</h3>
+    <div className="PollResults" dir={lang.isRtl ? 'rtl' : undefined}>
+      <h3 className="poll-question" dir="auto">{summary.question}</h3>
       <div className="poll-results-list custom-scroll">
         {lastSyncTime && summary.answers.map((answer) => (
           <PollAnswerResults

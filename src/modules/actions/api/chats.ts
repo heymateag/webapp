@@ -5,7 +5,7 @@ import {
 import {
   ApiChat, ApiUser, ApiChatFolder, MAIN_THREAD_ID,
 } from '../../../api/types';
-import { ChatCreationProgress, ManagementProgress } from '../../../types';
+import { NewChatMembersProgress, ChatCreationProgress, ManagementProgress } from '../../../types';
 import { GlobalActions } from '../../../global/types';
 
 import {
@@ -16,7 +16,6 @@ import {
   RE_TME_LINK,
   TIPS_USERNAME,
 } from '../../../config';
-import { IS_TOUCH_ENV } from '../../../util/environment';
 import { callApi } from '../../../api/gramjs';
 import {
   addChats,
@@ -46,7 +45,7 @@ import {
   isChatSummaryOnly, isChatArchived, prepareChatList, isChatBasicGroup,
 } from '../../helpers';
 
-const TOP_CHATS_PRELOAD_PAUSE = 200;
+const TOP_CHATS_PRELOAD_PAUSE = 100;
 // We expect this ID does not exist
 const TMP_CHAT_ID = -1;
 
@@ -81,10 +80,6 @@ addReducer('preloadTopChatMessages', (global, actions) => {
       preloadedChatIds.push(chatToPreload.id);
 
       actions.loadViewportMessages({ chatId: chatToPreload.id, threadId: MAIN_THREAD_ID });
-
-      if (IS_TOUCH_ENV) {
-        actions.loadPinnedMessages({ chatId: chatToPreload.id });
-      }
     }
   })();
 });
@@ -182,23 +177,29 @@ addReducer('loadTopChats', () => {
 });
 
 addReducer('requestChatUpdate', (global, actions, payload) => {
+  const { serverTimeOffset } = global;
   const { chatId } = payload!;
   const chat = selectChat(global, chatId);
   if (!chat) {
     return;
   }
 
-  void callApi('requestChatUpdate', chat);
+  void callApi('requestChatUpdate', {
+    chat,
+    serverTimeOffset,
+  });
 });
 
 addReducer('updateChatMutedState', (global, actions, payload) => {
+  const { serverTimeOffset } = global;
   const { chatId, isMuted } = payload!;
   const chat = selectChat(global, chatId);
   if (!chat) {
     return;
   }
 
-  void callApi('updateChatMutedState', { chat, isMuted });
+  setGlobal(updateChat(global, chatId, { isMuted }));
+  void callApi('updateChatMutedState', { chat, isMuted, serverTimeOffset });
 });
 
 addReducer('createChannel', (global, actions, payload) => {
@@ -227,32 +228,79 @@ addReducer('joinChannel', (global, actions, payload) => {
   }
 });
 
+addReducer('deleteChatUser', (global, actions, payload) => {
+  (async () => {
+    const { chatId, userId } : {chatId: number; userId: number} = payload!;
+    const chat = selectChat(global, chatId);
+    const user = selectUser(global, userId);
+    if (!chat || !user) {
+      return;
+    }
+    await callApi('deleteChatUser', { chat, user });
+
+    const activeChat = selectCurrentMessageList(global);
+    if (activeChat && activeChat.chatId === chatId && global.currentUserId === userId) {
+      actions.openChat({ id: undefined });
+    }
+  })();
+});
+
+addReducer('deleteChat', (global, actions, payload) => {
+  (async () => {
+    const { chatId } : {chatId: number } = payload!;
+    const chat = selectChat(global, chatId);
+    if (!chat) {
+      return;
+    }
+    await callApi('deleteChat', { chatId: chat.id });
+
+    const activeChat = selectCurrentMessageList(global);
+    if (activeChat && activeChat.chatId === chatId) {
+      actions.openChat({ id: undefined });
+    }
+  })();
+});
+
 addReducer('leaveChannel', (global, actions, payload) => {
-  const { chatId } = payload!;
-  const chat = selectChat(global, chatId);
-  if (!chat) {
-    return;
-  }
+  (async () => {
+    const { chatId } = payload!;
+    const chat = selectChat(global, chatId);
+    if (!chat) {
+      return;
+    }
 
-  const { id: channelId, accessHash } = chat;
+    const { id: channelId, accessHash } = chat;
 
-  if (channelId && accessHash) {
-    void callApi('leaveChannel', { channelId, accessHash });
-  }
+    if (channelId && accessHash) {
+      await callApi('leaveChannel', { channelId, accessHash });
+    }
+
+    const activeChannel = selectCurrentMessageList(global);
+    if (activeChannel && activeChannel.chatId === chatId) {
+      actions.openChat({ id: undefined });
+    }
+  })();
 });
 
 addReducer('deleteChannel', (global, actions, payload) => {
-  const { chatId } = payload!;
-  const chat = selectChat(global, chatId);
-  if (!chat) {
-    return;
-  }
+  (async () => {
+    const { chatId } = payload!;
+    const chat = selectChat(global, chatId);
+    if (!chat) {
+      return;
+    }
 
-  const { id: channelId, accessHash } = chat;
+    const { id: channelId, accessHash } = chat;
 
-  if (channelId && accessHash) {
-    void callApi('deleteChannel', { channelId, accessHash });
-  }
+    if (channelId && accessHash) {
+      await callApi('deleteChannel', { channelId, accessHash });
+    }
+
+    const activeChannel = selectCurrentMessageList(global);
+    if (activeChannel && activeChannel.chatId === chatId) {
+      actions.openChat({ id: undefined });
+    }
+  })();
 });
 
 addReducer('createGroupChat', (global, actions, payload) => {
@@ -355,10 +403,11 @@ addReducer('deleteChatFolder', (global, actions, payload) => {
 
 addReducer('toggleChatUnread', (global, actions, payload) => {
   const { id } = payload!;
+  const { serverTimeOffset } = global;
   const chat = selectChat(global, id);
   if (chat) {
     if (chat.unreadCount) {
-      void callApi('markMessageListRead', { chat, threadId: MAIN_THREAD_ID });
+      void callApi('markMessageListRead', { serverTimeOffset, chat, threadId: MAIN_THREAD_ID });
     } else {
       void callApi('toggleDialogUnread', {
         chat,
@@ -376,13 +425,12 @@ addReducer('openTelegramLink', (global, actions, payload) => {
     const hash = match[1];
 
     (async () => {
-      const chat = await callApi('openChatByInvite', hash);
-
-      if (!chat) {
+      const result = await callApi('openChatByInvite', hash);
+      if (!result) {
         return;
       }
 
-      actions.openChat({ id: chat.id });
+      actions.openChat({ id: result.chatId });
     })();
   } else {
     match = RE_TME_LINK.exec(url)!;
@@ -392,6 +440,18 @@ addReducer('openTelegramLink', (global, actions, payload) => {
 
     void openChatByUsername(actions, username, channelPostId);
   }
+});
+
+addReducer('acceptInviteConfirmation', (global, actions, payload) => {
+  const { hash } = payload!;
+  (async () => {
+    const result = await callApi('importChatInvite', { hash });
+    if (!result) {
+      return;
+    }
+
+    actions.openChat({ id: result.id });
+  })();
 });
 
 addReducer('openChatByUsername', (global, actions, payload) => {
@@ -669,6 +729,17 @@ addReducer('unlinkDiscussionGroup', (global, actions, payload) => {
   })();
 });
 
+
+addReducer('setActiveChatFolder', (global, actions, payload) => {
+  return {
+    ...global,
+    chatFolders: {
+      ...global.chatFolders,
+      activeChatFolder: payload,
+    },
+  };
+});
+
 addReducer('loadMoreMembers', (global) => {
   (async () => {
     const { chatId } = selectCurrentMessageList(global) || {};
@@ -703,12 +774,45 @@ addReducer('loadMoreMembers', (global) => {
   })();
 });
 
+addReducer('addChatMembers', (global, actions, payload) => {
+  const { chatId, memberIds } = payload;
+  const chat = selectChat(global, chatId);
+  const users = (memberIds as number[]).map((userId) => selectUser(global, userId)).filter<ApiUser>(Boolean as any);
+
+  if (!chat || !users.length) {
+    return;
+  }
+
+  actions.setNewChatMembersDialogState(NewChatMembersProgress.Loading);
+  (async () => {
+    await callApi('addChatMembers', chat, users);
+    actions.setNewChatMembersDialogState(NewChatMembersProgress.Closed);
+    loadFullChat(chat);
+  })();
+});
+
+addReducer('deleteChatMember', (global, actions, payload) => {
+  const { chatId, userId } = payload;
+  const chat = selectChat(global, chatId);
+  const user = selectUser(global, userId);
+
+  if (!chat || !user) {
+    return;
+  }
+
+  (async () => {
+    await callApi('deleteChatMember', chat, user);
+    loadFullChat(chat);
+  })();
+});
+
 async function loadChats(listType: 'active' | 'archived', offsetId?: number, offsetDate?: number) {
   const result = await callApi('fetchChats', {
     limit: CHAT_LIST_LOAD_SLICE,
     offsetDate,
     archived: listType === 'archived',
     withPinned: getGlobal().chats.orderedPinnedIds[listType] === undefined,
+    serverTimeOffset: getGlobal().serverTimeOffset,
   });
 
   if (!result) {

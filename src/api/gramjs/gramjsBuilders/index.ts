@@ -13,6 +13,7 @@ import {
   ApiChatFolder,
   ApiChatBannedRights,
   ApiChatAdminRights,
+  ApiReportReason,
 } from '../../types';
 import localDb from '../localDb';
 import { pick } from '../../../util/iteratees';
@@ -292,7 +293,12 @@ export function isMessageWithMedia(message: GramJs.Message | GramJs.UpdateServic
     || (
       media instanceof GramJs.MessageMediaWebPage
       && media.webpage instanceof GramJs.WebPage
-      && media.webpage.photo instanceof GramJs.Photo
+      && (
+        media.webpage.photo instanceof GramJs.Photo || (
+          media.webpage.document instanceof GramJs.Document
+          && media.webpage.document.mimeType.startsWith('video')
+        )
+      )
     )
   );
 }
@@ -306,27 +312,11 @@ export function buildChatPhotoForLocalDb(photo: GramJs.TypePhoto) {
     return new GramJs.ChatPhotoEmpty();
   }
 
-  const { dcId } = photo;
-  const nonStrippedSizes = photo.sizes
-    .filter((s: any): s is (GramJs.PhotoSize | GramJs.PhotoCachedSize) => {
-      return s instanceof GramJs.PhotoSize || s instanceof GramJs.PhotoCachedSize;
-    });
-
-  if (!nonStrippedSizes.length) {
-    return new GramJs.ChatPhotoEmpty();
-  }
-
-  const smallSize = nonStrippedSizes.find((s) => s.type === 'a');
-  const largeSize = nonStrippedSizes.find((s) => s.type === 'c') || nonStrippedSizes.find((s) => s.type === 'b');
-
-  if (!smallSize || !largeSize) {
-    return new GramJs.ChatPhotoEmpty();
-  }
+  const { dcId, id: photoId } = photo;
 
   return new GramJs.ChatPhoto({
     dcId,
-    photoSmall: smallSize && smallSize.location,
-    photoBig: largeSize && largeSize.location,
+    photoId,
   });
 }
 
@@ -389,6 +379,29 @@ export function buildInputPrivacyKey(privacyKey: ApiPrivacyKey) {
 
     case 'chatInvite':
       return new GramJs.InputPrivacyKeyChatInvite();
+  }
+
+  return undefined;
+}
+
+export function buildInputReportReason(reason: ApiReportReason) {
+  switch (reason) {
+    case 'spam':
+      return new GramJs.InputReportReasonSpam();
+    case 'violence':
+      return new GramJs.InputReportReasonViolence();
+    case 'childAbuse':
+      return new GramJs.InputReportReasonChildAbuse();
+    case 'pornography':
+      return new GramJs.InputReportReasonPornography();
+    case 'copyright':
+      return new GramJs.InputReportReasonCopyright();
+    case 'fake':
+      return new GramJs.InputReportReasonFake();
+    case 'geoIrrelevant':
+      return new GramJs.InputReportReasonGeoIrrelevant();
+    case 'other':
+      return new GramJs.InputReportReasonOther();
   }
 
   return undefined;

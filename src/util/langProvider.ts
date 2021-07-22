@@ -1,26 +1,21 @@
 import { ApiLangPack } from '../api/types';
 
-import { DEBUG, LANG_CACHE_NAME, LANG_PACKS } from '../config';
+import { LANG_CACHE_NAME, LANG_PACKS } from '../config';
 import * as cacheApi from './cacheApi';
 import { callApi } from '../api/gramjs';
 import { createCallbackManager } from './callbacks';
-import { mapValues } from './iteratees';
-
-import enExtraJson from '../assets/lang/en-extra.json';
-import esExtraJson from '../assets/lang/es-extra.json';
-import itExtraJson from '../assets/lang/it-extra.json';
-import plExtraJson from '../assets/lang/pl-extra.json';
-import ruExtraJson from '../assets/lang/ru-extra.json';
 import { formatInteger } from './textFormat';
+import { getGlobal } from '../lib/teact/teactn';
 
-const EXTRA_PACK_PATHS: Record<string, string> = {
-  en: enExtraJson as unknown as string,
-  es: esExtraJson as unknown as string,
-  it: itExtraJson as unknown as string,
-  pl: plExtraJson as unknown as string,
-  ru: ruExtraJson as unknown as string,
-};
+interface LangFn {
+  (key: string, value?: any, format?: 'i'): any;
 
+  isRtl?: boolean;
+  code?: string;
+}
+
+const FALLBACK_LANG_CODE = 'en';
+const SUBSTITUTION_REGEX = /%\d?\$?[sdf@]/g;
 const PLURAL_OPTIONS = ['value', 'zeroValue', 'oneValue', 'twoValue', 'fewValue', 'manyValue', 'otherValue'] as const;
 const PLURAL_RULES = {
   /* eslint-disable max-len */
@@ -47,7 +42,8 @@ const PLURAL_RULES = {
 
 const cache = new Map<string, string>();
 
-let langPack: ApiLangPack;
+let langPack: ApiLangPack | undefined;
+let fallbackLangPack: ApiLangPack | undefined;
 
 const {
   addCallback,
@@ -59,63 +55,25 @@ export { addCallback, removeCallback };
 
 let currentLangCode: string | undefined;
 
-export async function setLanguage(langCode: string, callback?: NoneToVoidFunction) {
-  if (langPack && langCode === currentLangCode) {
-    document.documentElement.lang = langCode;
-    if (callback) {
-      callback();
-    }
-
-    return;
-  }
-
-  const newLangPack = await fetchFromCacheOrRemote(langCode);
-  if (!newLangPack) {
-    return;
-  }
-
-  if (EXTRA_PACK_PATHS[langCode]) {
-    try {
-      const response = await fetch(EXTRA_PACK_PATHS[langCode]);
-      const pairs = await response.json();
-      const extraLangPack = mapValues(pairs, (value, key) => ({ key, value }));
-
-      Object.assign(newLangPack, extraLangPack);
-    } catch (err) {
-      if (DEBUG) {
-        // eslint-disable-next-line no-console
-        console.error(err);
-      }
-    }
-  }
-
-  cache.clear();
-
-  currentLangCode = langCode;
-  langPack = newLangPack;
-  document.documentElement.lang = langCode;
-
-  if (callback) {
-    callback();
-  }
-
-  runCallbacks(langPack);
-}
-
-export function getTranslation(key: string, value?: any, format?: 'i') {
+export const getTranslation: LangFn = (key: string, value?: any, format?: 'i') => {
   if (value !== undefined) {
-    const cached = cache.get(`${key}_${value}_${format}`);
+    const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
+    const cached = cache.get(`${key}_${cacheValue}_${format}`);
     if (cached) {
       return cached;
     }
   }
 
-  if (!langPack) {
+  if (!langPack && !fallbackLangPack) {
     return key;
   }
 
-  const langString = langPack[key];
+  const langString = (langPack && langPack[key]) || (fallbackLangPack && fallbackLangPack[key]);
   if (!langString) {
+    if (!fallbackLangPack) {
+      void importFallbackLangPack();
+    }
+
     return key;
   }
 
@@ -129,19 +87,63 @@ export function getTranslation(key: string, value?: any, format?: 'i') {
   if (value !== undefined) {
     const formattedValue = format === 'i' ? formatInteger(value) : value;
     const result = processTemplate(template, formattedValue);
-    cache.set(`${key}_${value}_${format}`, result);
+    const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
+    cache.set(`${key}_${cacheValue}_${format}`, result);
     return result;
   }
 
   return template;
-}
+};
 
-async function fetchFromCacheOrRemote(langCode: string): Promise<ApiLangPack | undefined> {
-  const cached = await cacheApi.fetch(LANG_CACHE_NAME, langCode, cacheApi.Type.Json);
-  if (cached) {
-    return cached;
+export async function setLanguage(langCode: string, callback?: NoneToVoidFunction, withFallback = false) {
+  if (langPack && langCode === currentLangCode) {
+    if (callback) {
+      callback();
+    }
+
+    return;
   }
 
+  let newLangPack = await cacheApi.fetch(LANG_CACHE_NAME, langCode, cacheApi.Type.Json);
+  if (!newLangPack) {
+    if (withFallback) {
+      await importFallbackLangPack();
+    }
+
+    newLangPack = await fetchRemote(langCode);
+    if (!newLangPack) {
+      return;
+    }
+  }
+
+  cache.clear();
+
+  currentLangCode = langCode;
+  langPack = newLangPack;
+  document.documentElement.lang = langCode;
+
+  const { languages } = getGlobal().settings.byKey;
+  const langInfo = languages ? languages.find((l) => l.langCode === langCode) : undefined;
+  getTranslation.isRtl = Boolean(langInfo && langInfo.rtl);
+  getTranslation.code = langCode;
+
+  if (callback) {
+    callback();
+  }
+
+  runCallbacks();
+}
+
+async function importFallbackLangPack() {
+  if (fallbackLangPack) {
+    return;
+  }
+
+  fallbackLangPack = (await import('./fallbackLangPack')).default;
+  runCallbacks();
+}
+
+async function fetchRemote(langCode: string): Promise<ApiLangPack | undefined> {
   const remote = await callApi('fetchLangPack', { sourceLangPacks: LANG_PACKS, langCode });
   if (remote) {
     await cacheApi.save(LANG_CACHE_NAME, langCode, remote.langPack);
@@ -152,13 +154,20 @@ async function fetchFromCacheOrRemote(langCode: string): Promise<ApiLangPack | u
 }
 
 function getPluralOption(amount: number) {
-  const optionIndex = currentLangCode && PLURAL_RULES[currentLangCode as keyof typeof PLURAL_RULES]
-    ? PLURAL_RULES[currentLangCode as keyof typeof PLURAL_RULES](amount)
+  const langCode = currentLangCode || FALLBACK_LANG_CODE;
+  const optionIndex = PLURAL_RULES[langCode as keyof typeof PLURAL_RULES]
+    ? PLURAL_RULES[langCode as keyof typeof PLURAL_RULES](amount)
     : 0;
 
   return PLURAL_OPTIONS[optionIndex];
 }
 
 function processTemplate(template: string, value: any) {
-  return template.replace(/%\d?\$?[sdf@]/, String(value));
+  value = Array.isArray(value) ? value : [value];
+  const translationSlices = template.split(SUBSTITUTION_REGEX);
+  const initialValue = translationSlices.shift();
+
+  return translationSlices.reduce((result, str, index) => {
+    return `${result}${String(value[index] || '')}${str}`;
+  }, initialValue || '');
 }

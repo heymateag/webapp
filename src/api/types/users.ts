@@ -15,6 +15,8 @@ export interface ApiUser {
   accessHash?: string;
   avatarHash?: string;
   photos?: ApiPhoto[];
+  botPlaceholder?: string;
+  canBeInvitedToGroup?: boolean;
 
   // Obtained from GetFullUser / UserFullInfo
   fullInfo?: ApiUserFullInfo;
@@ -25,7 +27,6 @@ export interface ApiUserFullInfo {
   commonChatsCount?: number;
   botDescription?: string;
   pinnedMessageId?: number;
-  isMuted?: boolean;
 }
 
 export type ApiUserType = 'userTypeBot' | 'userTypeRegular' | 'userTypeDeleted' | 'userTypeUnknown';

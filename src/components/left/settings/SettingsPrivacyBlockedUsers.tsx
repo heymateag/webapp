@@ -5,6 +5,7 @@ import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
 import { ApiChat, ApiUser } from '../../../api/types';
+import { SettingsScreens } from '../../../types';
 
 import { CHAT_HEIGHT_PX } from '../../../config';
 import { formatPhoneNumberWithCode } from '../../../util/phoneNumber';
@@ -15,11 +16,18 @@ import {
 import renderText from '../../common/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import FloatingActionButton from '../../ui/FloatingActionButton';
 import Avatar from '../../common/Avatar';
 import Loading from '../../ui/Loading';
+
+type OwnProps = {
+  isActive?: boolean;
+  onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
+};
 
 type StateProps = {
   chatsByIds: Record<number, ApiChat>;
@@ -29,7 +37,10 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, 'unblockContact'>;
 
-const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
+const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = ({
+  isActive,
+  onScreenSelect,
+  onReset,
   chatsByIds,
   usersByIds,
   blockedIds,
@@ -40,6 +51,8 @@ const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
   }, [unblockContact]);
 
   const lang = useLang();
+
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.PrivacyBlockedUsers);
 
   function renderContact(contactId: number, i: number, viewportOffset: number) {
     const isPrivate = isChatPrivate(contactId);
@@ -67,13 +80,13 @@ const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
         style={`top: ${(viewportOffset + i) * CHAT_HEIGHT_PX}px;`}
       >
         <Avatar size="medium" user={user} chat={chat} />
-        <div className="contact-info">
-          <h3>{renderText((isPrivate ? getUserFullName(user) : getChatTitle(chat!)) || '')}</h3>
+        <div className="contact-info" dir="auto">
+          <h3 dir="auto">{renderText((isPrivate ? getUserFullName(user) : getChatTitle(lang, chat!)) || '')}</h3>
           {user && user.phoneNumber && (
-            <div className="contact-phone">{formatPhoneNumberWithCode(user.phoneNumber)}</div>
+            <div className="contact-phone" dir="auto">{formatPhoneNumberWithCode(user.phoneNumber)}</div>
           )}
           {user && !user.phoneNumber && user.username && (
-            <div className="contact-username">@{user.username}</div>
+            <div className="contact-username" dir="auto">@{user.username}</div>
           )}
         </div>
       </ListItem>
@@ -84,7 +97,7 @@ const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
     <div className="settings-fab-wrapper">
       <div className="settings-content infinite-scroll">
         <div className="settings-item">
-          <p className="settings-item-description-larger mt-0 mb-2">
+          <p className="settings-item-description-larger mt-0 mb-2" dir={lang.isRtl ? 'rtl' : undefined}>
             {lang('BlockedUsersInfo')}
           </p>
         </div>
@@ -95,7 +108,7 @@ const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
               {blockedIds!.map((contactId, i) => renderContact(contactId, i, 0))}
             </div>
           ) : blockedIds && !blockedIds.length ? (
-            <div className="no-results">
+            <div className="no-results" dir="auto">
               List is empty
             </div>
           ) : (
@@ -118,7 +131,7 @@ const SettingsPrivacyBlockedUsers: FC<StateProps & DispatchProps> = ({
 };
 
 
-export default memo(withGlobal(
+export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const {
       chats: {

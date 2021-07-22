@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-named-default
 import { default as Api } from '../tl/api';
 import TelegramClient from './TelegramClient';
 import utils from '../Utils';
@@ -12,6 +13,7 @@ export interface UserAuthParams {
     qrCode: (qrCode: { token: Buffer; expires: number }) => Promise<void>;
     onError: (err: Error) => void;
     forceSMS?: boolean;
+    initialMethod?: 'phoneNumber' | 'qrCode';
 }
 
 export interface BotAuthParams {
@@ -23,6 +25,7 @@ interface ApiCredentials {
     apiHash: string;
 }
 
+const DEFAULT_INITIAL_METHOD = 'phoneNumber';
 const QR_CODE_TIMEOUT = 30000;
 
 export async function authFlow(
@@ -30,11 +33,20 @@ export async function authFlow(
     apiCredentials: ApiCredentials,
     authParams: UserAuthParams | BotAuthParams,
 ) {
-    const me = 'phoneNumber' in authParams
-        ? await signInUser(client, apiCredentials, authParams)
-        : await signInBot(client, apiCredentials, authParams);
+    let me: Api.TypeUser;
 
-    // TODO @logger
+    if ('botAuthToken' in authParams) {
+        me = await signInBot(client, apiCredentials, authParams);
+    } else {
+        const { initialMethod = DEFAULT_INITIAL_METHOD } = authParams;
+
+        if (initialMethod === 'phoneNumber') {
+            me = await signInUser(client, apiCredentials, authParams);
+        } else {
+            me = await signInUserWithQrCode(client, apiCredentials, authParams);
+        }
+    }
+
     client._log.info('Signed in successfully as', utils.getDisplayName(me));
 }
 
@@ -44,6 +56,7 @@ export async function checkAuthorization(client: TelegramClient) {
         await client.invoke(new Api.updates.GetState());
         return true;
     } catch (e) {
+        if (e.message === 'Disconnect') throw e;
         return false;
     }
 }
@@ -55,7 +68,8 @@ async function signInUser(
     let phoneCodeHash;
     let isCodeViaApp = false;
 
-    while (1) {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
         try {
             if (typeof authParams.phoneNumber === 'function') {
                 try {
@@ -92,6 +106,7 @@ async function signInUser(
     let isRegistrationRequired = false;
     let termsOfService;
 
+    // eslint-disable-next-line no-constant-condition
     while (1) {
         try {
             try {
@@ -132,6 +147,7 @@ async function signInUser(
     }
 
     if (isRegistrationRequired) {
+        // eslint-disable-next-line no-constant-condition
         while (1) {
             try {
                 const [firstName, lastName] = await authParams.firstAndLastNames();
@@ -168,6 +184,7 @@ async function signInUserWithQrCode(
     let isScanningComplete = false;
 
     const inputPromise = (async () => {
+        // eslint-disable-next-line no-constant-condition
         while (1) {
             if (isScanningComplete) {
                 break;
@@ -228,7 +245,8 @@ async function signInUserWithQrCode(
                 token: result2.token,
             }));
 
-            if (migratedResult instanceof Api.auth.LoginTokenSuccess && migratedResult.authorization instanceof Api.auth.Authorization) {
+            if (migratedResult instanceof Api.auth.LoginTokenSuccess
+                && migratedResult.authorization instanceof Api.auth.Authorization) {
                 return migratedResult.authorization.user;
             }
         }
@@ -241,6 +259,7 @@ async function signInUserWithQrCode(
     }
 
     // This is a workaround for TypeScript (never actually reached)
+    // eslint-disable-next-line no-throw-literal
     throw undefined;
 }
 
@@ -288,6 +307,7 @@ async function sendCode(
 async function signInWithPassword(
     client: TelegramClient, apiCredentials: ApiCredentials, authParams: UserAuthParams,
 ): Promise<Api.TypeUser> {
+    // eslint-disable-next-line no-constant-condition
     while (1) {
         try {
             const passwordSrpResult = await client.invoke(new Api.account.GetPassword());
@@ -307,6 +327,7 @@ async function signInWithPassword(
         }
     }
 
+    // eslint-disable-next-line no-unreachable
     return undefined!; // Never reached (TypeScript fix)
 }
 

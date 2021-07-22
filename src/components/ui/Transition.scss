@@ -19,6 +19,10 @@
     }
   }
 
+  &.skip-slide-transition {
+    transition: none !important;
+  }
+
   /*
    * scroll-slide
    */
@@ -77,6 +81,39 @@
 
       > .to {
         animation: slide-out-backwards var(--slide-transition);
+      }
+    }
+  }
+
+
+  &.slide-reversed {
+    > .to {
+      transform: translateX(-100%);
+    }
+
+    &.animating {
+      > .from {
+        animation: slide-out var(--slide-transition);
+      }
+
+      > .to {
+        animation: slide-in var(--slide-transition);
+      }
+    }
+
+    &.backwards {
+      > .to {
+        transform: translateX(100%);
+      }
+
+      &.animating {
+        > .from {
+          animation: slide-in-backwards var(--slide-transition);
+        }
+
+        > .to {
+          animation: slide-out-backwards var(--slide-transition);
+        }
       }
     }
   }

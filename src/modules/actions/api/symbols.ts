@@ -1,6 +1,7 @@
 import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 
 import { ApiSticker } from '../../../api/types';
+import { LangCode } from '../../../types';
 import { callApi } from '../../../api/gramjs';
 import { pause, throttle } from '../../../util/schedulers';
 import {
@@ -107,6 +108,66 @@ addReducer('toggleStickerSet', (global, actions, payload) => {
   const { accessHash, installedDate } = stickerSet;
 
   void callApi(!installedDate ? 'installStickerSet' : 'uninstallStickerSet', { stickerSetId, accessHash });
+});
+
+addReducer('loadEmojiKeywords', (global, actions, payload: { language: LangCode }) => {
+  const { language } = payload;
+
+  let currentEmojiKeywords = global.emojiKeywords[language];
+  if (currentEmojiKeywords && currentEmojiKeywords.isLoading) {
+    return;
+  }
+
+  setGlobal({
+    ...global,
+    emojiKeywords: {
+      ...global.emojiKeywords,
+      [language]: {
+        ...currentEmojiKeywords,
+        isLoading: true,
+      },
+    },
+  });
+
+  (async () => {
+    const emojiKeywords = await callApi('fetchEmojiKeywords', {
+      language,
+      fromVersion: currentEmojiKeywords ? currentEmojiKeywords.version : 0,
+    });
+
+    global = getGlobal();
+    currentEmojiKeywords = global.emojiKeywords[language];
+
+    if (!emojiKeywords) {
+      setGlobal({
+        ...global,
+        emojiKeywords: {
+          ...global.emojiKeywords,
+          [language]: {
+            ...currentEmojiKeywords,
+            isLoading: false,
+          },
+        },
+      });
+
+      return;
+    }
+
+    setGlobal({
+      ...global,
+      emojiKeywords: {
+        ...global.emojiKeywords,
+        [language]: {
+          isLoading: false,
+          version: emojiKeywords.version,
+          keywords: {
+            ...(currentEmojiKeywords && currentEmojiKeywords.keywords),
+            ...emojiKeywords.keywords,
+          },
+        },
+      },
+    });
+  })();
 });
 
 async function loadStickerSets(hash = 0) {

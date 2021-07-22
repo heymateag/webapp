@@ -2,12 +2,14 @@ import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
 
 import {
-  ApiChat, ApiLangString, ApiLanguage, ApiUser, ApiWallpaper,
+  ApiChat, ApiLangString, ApiLanguage, ApiNotifyException, ApiUser, ApiWallpaper,
 } from '../../types';
 import { ApiPrivacyKey, IInputPrivacyRules } from '../../../types';
 
 import { BLOCKED_LIST_LIMIT, DEFAULT_LANG_PACK } from '../../../config';
-import { buildApiWallpaper, buildApiSession, buildPrivacyRules } from '../apiBuilders/misc';
+import {
+  buildApiWallpaper, buildApiSession, buildPrivacyRules, buildApiNotifyException,
+} from '../apiBuilders/misc';
 
 import { buildApiUser } from '../apiBuilders/users';
 import { buildApiChatFromPreview, getApiChatIdFromMtpPeer } from '../apiBuilders/chats';
@@ -18,6 +20,7 @@ import { buildCollectionByKey } from '../../../util/iteratees';
 import localDb from '../localDb';
 
 const MAX_INT_32 = 2 ** 31 - 1;
+const BETA_LANG_CODES = ['ar', 'fa'];
 
 export function updateProfile({
   firstName,
@@ -155,7 +158,31 @@ export function terminateAllAuthorizations() {
   return invokeRequest(new GramJs.auth.ResetAuthorizations());
 }
 
-export async function loadNotificationsSettings() {
+export async function fetchNotificationExceptions({
+  serverTimeOffset,
+}: { serverTimeOffset: number }) {
+  const result = await invokeRequest(new GramJs.account.GetNotifyExceptions({ compareSound: true }));
+
+  if (!(result instanceof GramJs.Updates || result instanceof GramJs.UpdatesCombined)) {
+    return undefined;
+  }
+
+  updateLocalDb(result);
+
+  return result.updates.reduce((acc, update) => {
+    if (!(update instanceof GramJs.UpdateNotifySettings && update.peer instanceof GramJs.NotifyPeer)) {
+      return acc;
+    }
+
+    acc.push(buildApiNotifyException(update.notifySettings, update.peer.peer, serverTimeOffset));
+
+    return acc;
+  }, [] as ApiNotifyException[]);
+}
+
+export async function fetchNotificationSettings({
+  serverTimeOffset,
+}: { serverTimeOffset: number }) {
   const [
     isMutedContactSignUpNotification,
     privateContactNotificationsSettings,
@@ -191,15 +218,18 @@ export async function loadNotificationsSettings() {
   return {
     hasContactJoinedNotifications: !isMutedContactSignUpNotification,
     hasPrivateChatsNotifications: !(
-      privateSilent || (typeof privateMuteUntil === 'number' && Date.now() < privateMuteUntil * 1000)
+      privateSilent
+      || (typeof privateMuteUntil === 'number' && Date.now() + serverTimeOffset * 1000 < privateMuteUntil * 1000)
     ),
     hasPrivateChatsMessagePreview: privateShowPreviews,
     hasGroupNotifications: !(
-      groupSilent || (typeof groupMuteUntil === 'number' && Date.now() < groupMuteUntil * 1000)
+      groupSilent || (typeof groupMuteUntil === 'number'
+        && Date.now() + serverTimeOffset * 1000 < groupMuteUntil * 1000)
     ),
     hasGroupMessagePreview: groupShowPreviews,
     hasBroadcastNotifications: !(
-      broadcastSilent || (typeof broadcastMuteUntil === 'number' && Date.now() < broadcastMuteUntil * 1000)
+      broadcastSilent || (typeof broadcastMuteUntil === 'number'
+        && Date.now() + serverTimeOffset * 1000 < broadcastMuteUntil * 1000)
     ),
     hasBroadcastMessagePreview: broadcastShowPreviews,
   };
@@ -211,10 +241,10 @@ export function updateContactSignUpNotification(isSilent: boolean) {
 
 export function updateNotificationSettings(peerType: 'contact' | 'group' | 'broadcast', {
   isSilent,
-  isShowPreviews,
+  shouldShowPreviews,
 }: {
   isSilent: boolean;
-  isShowPreviews: boolean;
+  shouldShowPreviews: boolean;
 }) {
   let peer: GramJs.TypeInputNotifyPeer;
   if (peerType === 'contact') {
@@ -226,9 +256,9 @@ export function updateNotificationSettings(peerType: 'contact' | 'group' | 'broa
   }
 
   const settings = {
-    showPreviews: isShowPreviews,
+    showPreviews: shouldShowPreviews,
     silent: isSilent,
-    muteUntil: isSilent ? MAX_INT_32 : undefined,
+    muteUntil: isSilent ? MAX_INT_32 : 0,
   };
 
   return invokeRequest(new GramJs.account.UpdateNotifySettings({
@@ -250,7 +280,10 @@ export async function fetchLanguages(): Promise<ApiLanguage[] | undefined> {
 
 export async function fetchLangPack({ sourceLangPacks, langCode }: { sourceLangPacks: string[]; langCode: string }) {
   const results = await Promise.all(sourceLangPacks.map((langPack) => {
-    return invokeRequest(new GramJs.langpack.GetLangPack({ langPack, langCode }));
+    return invokeRequest(new GramJs.langpack.GetLangPack({
+      langPack,
+      langCode: BETA_LANG_CODES.includes(langCode) ? `${langCode}-raw` : langCode,
+    }));
   }));
 
   const collections = results
@@ -354,7 +387,34 @@ export async function setPrivacySettings(
   return buildPrivacyRules(result.rules);
 }
 
-function updateLocalDb(result: GramJs.account.PrivacyRules | GramJs.contacts.Blocked | GramJs.contacts.BlockedSlice) {
+export async function updateIsOnline(isOnline: boolean) {
+  await invokeRequest(new GramJs.account.UpdateStatus({ offline: !isOnline }));
+}
+
+export async function fetchContentSettings() {
+  const result = await invokeRequest(new GramJs.account.GetContentSettings());
+  if (!result) {
+    return undefined;
+  }
+
+  return {
+    isSensitiveEnabled: Boolean(result.sensitiveEnabled),
+    canChangeSensitive: Boolean(result.sensitiveCanChange),
+  };
+}
+
+export function updateContentSettings(isEnabled: boolean) {
+  return invokeRequest(new GramJs.account.SetContentSettings({
+    sensitiveEnabled: isEnabled || undefined,
+  }));
+}
+
+function updateLocalDb(
+  result: (
+    GramJs.account.PrivacyRules | GramJs.contacts.Blocked | GramJs.contacts.BlockedSlice |
+    GramJs.Updates | GramJs.UpdatesCombined
+  ),
+) {
   result.users.forEach((user) => {
     if (user instanceof GramJs.User) {
       localDb.users[user.id] = user;

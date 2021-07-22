@@ -4,10 +4,16 @@ import {
 import { Logger as GramJsLogger } from '../../../lib/gramjs/extensions/index';
 import { TwoFaParams } from '../../../lib/gramjs/client/2fa';
 
-import { ApiMediaFormat, ApiOnProgress, OnApiUpdate } from '../../types';
+import {
+  ApiInitialArgs,
+  ApiMediaFormat,
+  ApiOnProgress,
+  ApiSessionData,
+  OnApiUpdate,
+} from '../../types';
 
 import {
-  DEBUG, DEBUG_GRAMJS, UPLOAD_WORKERS, IS_TEST,
+  DEBUG, DEBUG_GRAMJS, UPLOAD_WORKERS, IS_TEST, APP_VERSION,
 } from '../../../config';
 import {
   onRequestPhoneNumber, onRequestCode, onRequestPassword, onRequestRegistration,
@@ -19,6 +25,9 @@ import downloadMediaWithClient from './media';
 import { buildApiUserFromFull } from '../apiBuilders/users';
 import localDb from '../localDb';
 
+const DEFAULT_USER_AGENT = 'Unknown UserAgent';
+const APP_CODE_NAME = 'Z';
+
 GramJsLogger.setLevel(DEBUG_GRAMJS ? 'debug' : 'warn');
 
 const gramJsUpdateEventBuilder = { build: (update: object) => update };
@@ -27,23 +36,24 @@ let onUpdate: OnApiUpdate;
 let client: TelegramClient;
 let isConnected = false;
 
-export async function init(sessionId: string, _onUpdate: OnApiUpdate) {
-  onUpdate = _onUpdate;
-
+export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
   if (DEBUG) {
     // eslint-disable-next-line no-console
     console.log('>>> START INIT API');
   }
 
-  const session = IS_TEST
-    ? new sessions.LocalStorageSession(sessionId)
-    : new sessions.IdbSession(sessionId);
+  onUpdate = _onUpdate;
+
+  const { userAgent, platform, sessionData } = initialArgs;
+  const session = new sessions.CallbackSession(sessionData, onSessionUpdate);
 
   client = new TelegramClient(
     session,
     process.env.TELEGRAM_T_API_ID,
     process.env.TELEGRAM_T_API_HASH,
     {
+      deviceModel: navigator.userAgent || userAgent || DEFAULT_USER_AGENT,
+      appVersion: `${APP_VERSION} ${APP_CODE_NAME}`,
       useWSS: true,
       additionalDcsDisabled: IS_TEST,
     } as any,
@@ -58,25 +68,37 @@ export async function init(sessionId: string, _onUpdate: OnApiUpdate) {
       console.log('[GramJs/client] CONNECTING');
     }
 
-    await client.start({
-      phoneNumber: onRequestPhoneNumber,
-      phoneCode: onRequestCode,
-      password: onRequestPassword,
-      firstAndLastNames: onRequestRegistration,
-      qrCode: onRequestQrCode,
-      onError: onAuthError,
-    });
+    try {
+      await client.start({
+        phoneNumber: onRequestPhoneNumber,
+        phoneCode: onRequestCode,
+        password: onRequestPassword,
+        firstAndLastNames: onRequestRegistration,
+        qrCode: onRequestQrCode,
+        onError: onAuthError,
+        initialMethod: platform === 'iOS' || platform === 'Android' ? 'phoneNumber' : 'qrCode',
+      });
+    } catch (err) {
+      // TODO Investigate which request causes this exception
+      if (err.message !== 'Disconnect') {
+        onUpdate({
+          '@type': 'updateConnectionState',
+          connectionState: 'connectionStateBroken',
+        });
 
-    const newSessionId = await session.save();
+        return;
+      }
+    }
 
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.log('>>> FINISH INIT API');
       // eslint-disable-next-line no-console
-      console.log('[GramJs/client] CONNECTED as ', newSessionId);
+      console.log('[GramJs/client] CONNECTED');
     }
 
-    onAuthReady(newSessionId);
+    onAuthReady();
+    onSessionUpdate(session.getSessionData());
     onUpdate({ '@type': 'updateApiReady' });
 
     void fetchCurrentUser();
@@ -103,11 +125,23 @@ export function getClient() {
   return client;
 }
 
+function onSessionUpdate(sessionData: ApiSessionData) {
+  onUpdate({
+    '@type': 'updateSession',
+    sessionData,
+  });
+}
+
 function handleGramJsUpdate(update: any) {
   if (update instanceof connection.UpdateConnectionState) {
     isConnected = update.state === connection.UpdateConnectionState.connected;
   } else if (update instanceof GramJs.UpdatesTooLong) {
     void handleTerminatedSession();
+  } else if (update instanceof connection.UpdateServerTimeOffset) {
+    onUpdate({
+      '@type': 'updateServerTimeOffset',
+      serverTimeOffset: update.timeOffset,
+    });
   }
 }
 
@@ -119,7 +153,7 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
   if (!isConnected) {
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.warn(`[GramJs/client] INVOKE ${request.className} ERROR: Client is not connected`);
+      console.warn(`[GramJs/client] INVOKE ERROR ${request.className}: Client is not connected`);
     }
 
     return undefined;
@@ -139,7 +173,9 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
     }
 
     if (shouldHandleUpdates) {
-      type ResultWithUpdates = typeof result & { updates?: GramJs.Updates | GramJs.UpdatesCombined };
+      type ResultWithUpdates =
+        typeof result
+        & { updates?: GramJs.Updates | GramJs.UpdatesCombined };
 
       let updatesContainer;
       if (result instanceof GramJs.Updates || result instanceof GramJs.UpdatesCombined) {
@@ -228,6 +264,7 @@ export function dispatchErrorUpdate<T extends GramJs.AnyRequest>(err: Error, req
     error: {
       message,
       isSlowMode,
+      hasErrorKey: true,
     },
   });
 }

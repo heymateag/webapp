@@ -21,16 +21,16 @@ import './UiLoader.scss';
 import telegramLogoPath from '../../assets/telegram-logo.svg';
 // @ts-ignore
 import monkeyPath from '../../assets/monkey.svg';
-import { selectIsRightColumnShown } from '../../modules/selectors';
+import { selectIsRightColumnShown, selectTheme } from '../../modules/selectors';
 
 type OwnProps = {
   page: 'main' | 'authCode' | 'authPassword' | 'authPhoneNumber' | 'authQrCode';
   children: any;
 };
 
-type StateProps = Pick<GlobalState, 'uiReadyState'> & {
+type StateProps = Pick<GlobalState, 'uiReadyState' | 'shouldSkipHistoryAnimations'> & {
   hasCustomBackground?: boolean;
-  isCustomBackgroundColor: boolean;
+  hasCustomBackgroundColor: boolean;
   isRightColumnShown?: boolean;
 };
 
@@ -80,8 +80,9 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
   page,
   children,
   hasCustomBackground,
-  isCustomBackgroundColor,
+  hasCustomBackgroundColor,
   isRightColumnShown,
+  shouldSkipHistoryAnimations,
   setIsUiReady,
 }) => {
   const [isReady, markReady] = useFlag();
@@ -92,9 +93,17 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
   useEffect(() => {
     let timeout: number | undefined;
 
+    const safePreload = async () => {
+      try {
+        await preloadTasks[page]();
+      } catch (err) {
+        // Do nothing
+      }
+    };
+
     Promise.race([
       pause(MAX_PRELOAD_DELAY),
-      preloadTasks[page](),
+      safePreload(),
     ]).then(() => {
       markReady();
       setIsUiReady({ uiReadyState: 1 });
@@ -118,7 +127,7 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
   return (
     <div id="UiLoader">
       {children}
-      {shouldRenderMask && (
+      {shouldRenderMask && !shouldSkipHistoryAnimations && (
         <div className={buildClassName('mask', transitionClassNames)}>
           {page === 'main' ? (
             <>
@@ -126,8 +135,8 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
               <div
                 className={buildClassName(
                   'middle',
-                  hasCustomBackground && !isCustomBackgroundColor && 'custom-bg-image',
-                  hasCustomBackground && isCustomBackgroundColor && 'custom-bg-color',
+                  hasCustomBackground && 'custom-bg-image',
+                  hasCustomBackgroundColor && 'custom-bg-color',
                   isRightColumnShown && 'with-right-column',
                 )}
               />
@@ -144,10 +153,14 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default withGlobal<OwnProps>(
   (global): StateProps => {
+    const theme = selectTheme(global);
+    const { background, backgroundColor } = global.settings.themes[theme] || {};
+
     return {
+      shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
       uiReadyState: global.uiReadyState,
-      hasCustomBackground: Boolean(global.settings.byKey.customBackground),
-      isCustomBackgroundColor: Boolean((global.settings.byKey.customBackground || '').match(/^#[a-f\d]{6,8}$/i)),
+      hasCustomBackground: Boolean(background),
+      hasCustomBackgroundColor: Boolean(backgroundColor),
       isRightColumnShown: selectIsRightColumnShown(global),
     };
   },

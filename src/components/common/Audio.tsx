@@ -1,18 +1,18 @@
 import React, {
   FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
 
 import {
   ApiAudio, ApiMessage, ApiVoice,
 } from '../../api/types';
 import { ISettings } from '../../types';
 
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { formatMediaDateTime, formatMediaDuration, formatPastTimeShort } from '../../util/dateFormat';
 import {
   getMediaDuration,
   getMediaTransferState,
+  getMessageAudioCaption,
   getMessageKey,
   getMessageMediaFormat,
   getMessageMediaHash,
@@ -27,7 +27,8 @@ import useMediaWithDownloadProgress from '../../hooks/useMediaWithDownloadProgre
 import useShowTransition from '../../hooks/useShowTransition';
 import useBuffering from '../../hooks/useBuffering';
 import useAudioPlayer from '../../hooks/useAudioPlayer';
-import useLang from '../../hooks/useLang';
+import useMediaDownload from '../../hooks/useMediaDownload';
+import useLang, { LangFn } from '../../hooks/useLang';
 
 import Button from '../ui/Button';
 import ProgressSpinner from '../ui/ProgressSpinner';
@@ -36,10 +37,11 @@ import Link from '../ui/Link';
 import './Audio.scss';
 
 type OwnProps = {
+  theme: ISettings['theme'];
   message: ApiMessage;
   senderTitle?: string;
   uploadProgress?: number;
-  renderingFor?: 'searchResult' | 'sharedMedia';
+  target?: 'searchResult' | 'sharedMedia';
   date?: number;
   lastSyncTime?: number;
   className?: string;
@@ -51,10 +53,6 @@ type OwnProps = {
   onDateClick?: (messageId: number, chatId: number) => void;
 };
 
-type StateProps = {
-  theme: ISettings['theme'];
-};
-
 interface ISeekMethods {
   handleStartSeek: (e: React.MouseEvent<HTMLElement>) => void;
   handleSeek: (e: React.MouseEvent<HTMLElement>) => void;
@@ -62,17 +60,17 @@ interface ISeekMethods {
 }
 
 const AVG_VOICE_DURATION = 30;
-const MIN_SPIKES = IS_MOBILE_SCREEN ? 20 : 25;
-const MAX_SPIKES = IS_MOBILE_SCREEN ? 50 : 75;
+const MIN_SPIKES = IS_SINGLE_COLUMN_LAYOUT ? 20 : 25;
+const MAX_SPIKES = IS_SINGLE_COLUMN_LAYOUT ? 50 : 75;
 // This is needed for browsers requiring user interaction before playing.
 const PRELOAD = true;
 
-const Audio: FC<OwnProps & StateProps> = ({
+const Audio: FC<OwnProps> = ({
   theme,
   message,
   senderTitle,
   uploadProgress,
-  renderingFor,
+  target,
   date,
   lastSyncTime,
   className,
@@ -86,6 +84,7 @@ const Audio: FC<OwnProps & StateProps> = ({
   const { content: { audio, voice }, isMediaUnread } = message;
   const isVoice = Boolean(voice);
   const isSeeking = useRef<boolean>(false);
+  const lang = useLang();
 
   const [isActivated, setIsActivated] = useState(false);
   const shouldDownload = (isActivated || PRELOAD) && lastSyncTime;
@@ -123,8 +122,20 @@ const Audio: FC<OwnProps & StateProps> = ({
   }, [isPlaying]);
 
   const {
+    isDownloadStarted,
+    downloadProgress: directDownloadProgress,
+    handleDownloadClick,
+  } = useMediaDownload(getMessageMediaHash(message, 'download'), getMessageAudioCaption(message));
+
+  const isLoadingForPlaying = isActivated && !isBuffered;
+
+  const {
     isUploading, isTransferring, transferProgress,
-  } = getMediaTransferState(message, uploadProgress || downloadProgress, isActivated && !isBuffered);
+  } = getMediaTransferState(
+    message,
+    isDownloadStarted ? directDownloadProgress : (uploadProgress || downloadProgress),
+    isLoadingForPlaying || isDownloadStarted,
+  );
 
   const {
     shouldRender: shouldRenderSpinner,
@@ -177,8 +188,6 @@ const Audio: FC<OwnProps & StateProps> = ({
     onDateClick!(message.id, message.chatId);
   }, [onDateClick, message.id, message.chatId]);
 
-  useLang();
-
   function getFirstLine() {
     if (isVoice) {
       return senderTitle || 'Voice';
@@ -215,13 +224,13 @@ const Audio: FC<OwnProps & StateProps> = ({
   const fullClassName = buildClassName(
     'Audio media-inner',
     className,
-    isOwn && !renderingFor && 'own',
-    renderingFor && 'bigger',
+    isOwn && !target && 'own',
+    target && 'bigger',
     isSelected && 'audio-is-selected',
   );
 
   const buttonClassNames = ['toggle-play'];
-  if (shouldRenderSpinner) {
+  if (isLoadingForPlaying) {
     buttonClassNames.push('loading');
   } else if (isPlaying) {
     buttonClassNames.push('pause');
@@ -237,7 +246,7 @@ const Audio: FC<OwnProps & StateProps> = ({
       <>
         <div className={contentClassName}>
           <div className="content-row">
-            <p className="title">{renderText(getFirstLine())}</p>
+            <p className="title" dir="auto">{renderText(getFirstLine())}</p>
 
             <div className="message-date">
               {date && (
@@ -245,7 +254,7 @@ const Audio: FC<OwnProps & StateProps> = ({
                   className="date"
                   onClick={handleDateClick}
                 >
-                  {formatPastTimeShort(date * 1000)}
+                  {formatPastTimeShort(lang, date * 1000)}
                 </Link>
               )}
             </div>
@@ -253,7 +262,7 @@ const Audio: FC<OwnProps & StateProps> = ({
 
           {showSeekline && renderSeekline(playProgress, bufferedProgress, seekHandlers)}
           {!showSeekline && (
-            <p className="duration">
+            <p className="duration" dir="auto">
               {playProgress > 0 ? `${formatMediaDuration(duration * playProgress)} / ` : undefined}
               {getSecondLine()}
             </p>
@@ -264,7 +273,7 @@ const Audio: FC<OwnProps & StateProps> = ({
   }
 
   return (
-    <div className={fullClassName}>
+    <div className={fullClassName} dir={lang.isRtl ? 'rtl' : undefined}>
       {isSelectable && (
         <div className="message-select-control">
           {isSelected && <i className="icon-select" />}
@@ -272,43 +281,57 @@ const Audio: FC<OwnProps & StateProps> = ({
       )}
       <Button
         round
-        ripple={!IS_MOBILE_SCREEN}
-        size={renderingFor ? 'smaller' : 'tiny'}
+        ripple={!IS_SINGLE_COLUMN_LAYOUT}
+        size={target ? 'smaller' : 'tiny'}
         className={buttonClassNames.join(' ')}
         ariaLabel={isPlaying ? 'Pause audio' : 'Play audio'}
         onClick={handleButtonClick}
+        isRtl={lang.isRtl}
       >
         <i className="icon-play" />
         <i className="icon-pause" />
       </Button>
       {shouldRenderSpinner && (
-        <div className={buildClassName('media-loading', spinnerClassNames)}>
+        <div className={buildClassName('media-loading', spinnerClassNames, isLoadingForPlaying && 'interactive')}>
           <ProgressSpinner
             progress={transferProgress}
             transparent
-            size={renderingFor ? 'm' : 's'}
-            onClick={handleButtonClick}
+            size={target ? 'm' : 's'}
+            onClick={isLoadingForPlaying ? handleButtonClick : undefined}
+            noCross={!isLoadingForPlaying}
           />
         </div>
       )}
-      {renderingFor === 'searchResult' && renderSearchResult()}
-      {renderingFor !== 'searchResult' && audio && renderAudio(
-        audio, isPlaying, playProgress, bufferedProgress, seekHandlers, date,
+      {audio && (
+        <Button
+          round
+          size="tiny"
+          className="download-button"
+          ariaLabel={isDownloadStarted ? 'Cancel download' : 'Download'}
+          onClick={handleDownloadClick}
+        >
+          <i className={isDownloadStarted ? 'icon-close' : 'icon-arrow-down'} />
+        </Button>
+      )}
+      {target === 'searchResult' && renderSearchResult()}
+      {target !== 'searchResult' && audio && renderAudio(
+        lang, audio, isPlaying, playProgress, bufferedProgress, seekHandlers, date,
         onDateClick ? handleDateClick : undefined,
       )}
-      {renderingFor !== 'searchResult' && voice && renderVoice(voice, renderedWaveform, isMediaUnread)}
+      {target !== 'searchResult' && voice && renderVoice(voice, renderedWaveform, isMediaUnread)}
     </div>
   );
 };
 
 function renderAudio(
+  lang: LangFn,
   audio: ApiAudio,
   isPlaying: boolean,
   playProgress: number,
   bufferedProgress: number,
   seekHandlers: ISeekMethods,
   date?: number,
-  handleDateClick?: () => void,
+  handleDateClick?: NoneToVoidFunction,
 ) {
   const {
     title, performer, duration, fileName,
@@ -317,22 +340,22 @@ function renderAudio(
 
   return (
     <div className="content">
-      <p className="title">{renderText(title || fileName)}</p>
+      <p className="title" dir="auto">{renderText(title || fileName)}</p>
       {showSeekline && renderSeekline(playProgress, bufferedProgress, seekHandlers)}
       {!showSeekline && (
-        <div className="meta">
+        <div className="meta" dir="auto">
           <span className="performer">{renderText(performer || 'Unknown')}</span>
           {date && (
             <>
               {' '}
               &bull;
               {' '}
-              <Link className="date" onClick={handleDateClick}>{formatMediaDateTime(date * 1000)}</Link>
+              <Link className="date" onClick={handleDateClick}>{formatMediaDateTime(lang, date * 1000)}</Link>
             </>
           )}
         </div>
       )}
-      <p className="duration">
+      <p className="duration" dir="auto">
         {playProgress > 0 ? `${formatMediaDuration(duration * playProgress)} / ` : undefined}
         {formatMediaDuration(duration)}
       </p>
@@ -344,7 +367,7 @@ function renderVoice(voice: ApiVoice, renderedWaveform: any, isMediaUnread?: boo
   return (
     <div className="content">
       {renderedWaveform}
-      <p className="voice-duration">
+      <p className="voice-duration" dir="auto">
         {formatMediaDuration(voice.duration)}
         {isMediaUnread && <span>&bull;</span>}
       </p>
@@ -366,7 +389,7 @@ function renderWaveform(
   }
 
   const fillColor = theme === 'dark' ? '#494B75' : '#CBCBCB';
-  const fillOwnColor = theme === 'dark' ? '#C69C85' : '#B0DEA6';
+  const fillOwnColor = theme === 'dark' ? '#C0BBED' : '#B0DEA6';
   const progressFillColor = theme === 'dark' ? '#868DF5' : '#54a3e6';
   const progressFillOwnColor = theme === 'dark' ? '#FFFFFF' : '#53ad53';
   const durationFactor = Math.min(duration / AVG_VOICE_DURATION, 1);
@@ -429,4 +452,4 @@ function renderSeekline(
   );
 }
 
-export default memo(withGlobal<OwnProps>((global) => ({ theme: global.settings.byKey.theme }))(Audio));
+export default memo(Audio);

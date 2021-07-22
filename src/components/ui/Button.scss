@@ -1,7 +1,12 @@
 @mixin active-styles() {
   &:not(.disabled):not(:disabled) {
-    &:hover, &:active, &.active, &:focus {
+    &:active, &.active, &:focus {
       @content;
+    }
+    @media (hover:hover) {
+      &:hover {
+        @content;
+      }
     }
   }
 }
@@ -189,10 +194,10 @@
     background-color: transparent;
     color: var(--color-text-secondary);
 
-    --ripple-color: rgba(var(--color-text-secondary-rgb), 0.08);
+    --ripple-color: var(--color-interactive-element-hover);
 
     @include active-styles() {
-      background-color: rgba(var(--color-text-secondary-rgb), 0.08);
+      background-color: var(--color-interactive-element-hover);
     }
 
     @include no-ripple-styles() {
@@ -255,6 +260,16 @@
       i {
         font-size: 1.5rem;
         margin-right: 0.5rem;
+      }
+
+      &[dir=rtl] {
+        padding-left: 1.25rem;
+        padding-right: 0.75rem;
+
+        i {
+          margin-left: 0.5rem;
+          margin-right: 0;
+        }
       }
     }
 

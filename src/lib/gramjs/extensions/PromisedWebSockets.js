@@ -15,12 +15,13 @@ class PromisedWebSockets {
             process.__nwjs
 
          */
-        this.client = null;
+        this.client = undefined;
         this.closed = true;
     }
 
     async readExactly(number) {
         let readData = Buffer.alloc(0);
+        // eslint-disable-next-line no-constant-condition
         while (true) {
             const thisTime = await this.read(number);
             readData = Buffer.concat([readData, thisTime]);
@@ -71,7 +72,7 @@ class PromisedWebSockets {
         }
     }
 
-    async connect(port, ip) {
+    connect(port, ip) {
         this.stream = Buffer.alloc(0);
         this.canRead = new Promise((resolve) => {
             this.resolveRead = resolve;
@@ -87,12 +88,16 @@ class PromisedWebSockets {
             this.client.onerror = (error) => {
                 reject(error);
             };
-            this.client.onclose = () => {
+            this.client.onclose = (event) => {
+                const { code, reason, wasClean } = event;
+                // eslint-disable-next-line no-console
+                console.error(`Socket ${ip} closed. Code: ${code}, reason: ${reason}, was clean: ${wasClean}`);
                 this.resolveRead(false);
                 this.closed = true;
             };
             // CONTEST
             // Seems to not be working, at least in a web worker
+            // eslint-disable-next-line no-restricted-globals
             self.addEventListener('offline', async () => {
                 await this.close();
                 this.resolveRead(false);
@@ -112,7 +117,7 @@ class PromisedWebSockets {
         this.closed = true;
     }
 
-    async receive() {
+    receive() {
         this.client.onmessage = async (message) => {
             const release = await mutex.acquire();
             try {

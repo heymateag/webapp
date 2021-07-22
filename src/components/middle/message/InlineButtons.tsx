@@ -2,6 +2,9 @@ import React, { FC } from '../../../lib/teact/teact';
 
 import { ApiKeyboardButton, ApiMessage } from '../../../api/types';
 
+import { RE_TME_LINK } from '../../../config';
+import renderText from '../../common/helpers/renderText';
+
 import Button from '../../ui/Button';
 
 import './InlineButtons.scss';
@@ -23,7 +26,8 @@ const InlineButtons: FC<OwnProps> = ({ message, onClick }) => {
               disabled={button.type === 'NOT_SUPPORTED'}
               onClick={() => onClick({ button })}
             >
-              {button.text}
+              {renderText(button.text)}
+              {button.type === 'url' && !button.value!.match(RE_TME_LINK) && <i className="icon-arrow-right" />}
             </Button>
           ))}
         </div>

@@ -9,16 +9,17 @@ import { pick } from '../../util/iteratees';
 
 import Loading from '../ui/Loading';
 import Button from '../ui/Button';
-import buildClassName from '../../util/buildClassName';
-import useHistoryBack from '../../hooks/useHistoryBack';
 
-type StateProps = Pick<GlobalState, 'connectionState' | 'authQrCode'>;
+type StateProps = Pick<GlobalState, 'connectionState' | 'authState' | 'authQrCode'>;
 type DispatchProps = Pick<GlobalActions, 'returnToAuthPhoneNumber'>;
 
 const DATA_PREFIX = 'tg://login?token=';
 
 const AuthCode: FC<StateProps & DispatchProps> = ({
-  connectionState, authQrCode, returnToAuthPhoneNumber,
+  connectionState,
+  authState,
+  authQrCode,
+  returnToAuthPhoneNumber,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
@@ -32,6 +33,7 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
 
     container.innerHTML = '';
     container.classList.remove('pre-animate');
+
     QrCreator.render({
       text: `${DATA_PREFIX}${authQrCode.token}`,
       radius: 0.5,
@@ -41,27 +43,31 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
     }, container);
   }, [connectionState, authQrCode]);
 
-  useHistoryBack(returnToAuthPhoneNumber);
+  const isAuthReady = authState === 'authorizationStateWaitQrCode';
 
   return (
     <div id="auth-qr-form" className="custom-scroll">
-      <div className="auth-form">
-        <div className={buildClassName('qr-container', authQrCode && 'pre-animate')} ref={qrCodeRef}>
-          {!authQrCode && <Loading />}
-        </div>
-        <h3> Log in to Telegram by QR Code</h3>
+      <div className="auth-form qr">
+        {authQrCode ? (
+          <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        ) : (
+          <div key="qr-loading" className="qr-loading"><Loading /></div>
+        )}
+        <h3>Log in to Telegram by QR Code</h3>
         <ol>
           <li><span>Open Telegram on your phone</span></li>
           <li><span>Go to&nbsp;<b>Settings</b>&nbsp;&gt;&nbsp;<b>Devices</b>&nbsp;&gt;&nbsp;<b>Scan QR</b></span></li>
           <li><span>Point your phone at this screen to confirm login</span></li>
         </ol>
-        <Button isText onClick={returnToAuthPhoneNumber}>Log in by phone number</Button>
+        {isAuthReady && (
+          <Button isText onClick={returnToAuthPhoneNumber}>Log in by phone number</Button>
+        )}
       </div>
     </div>
   );
 };
 
 export default memo(withGlobal(
-  (global): StateProps => pick(global, ['connectionState', 'authQrCode']),
+  (global): StateProps => pick(global, ['connectionState', 'authState', 'authQrCode']),
   (setGlobal, actions): DispatchProps => pick(actions, ['returnToAuthPhoneNumber']),
 )(AuthCode));

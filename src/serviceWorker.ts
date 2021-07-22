@@ -5,7 +5,7 @@ import { handlePush, handleNotificationClick, handleClientMessage } from './serv
 
 declare const self: ServiceWorkerGlobalScope;
 
-const ASSET_CACHE_PATTERN = /[0-9a-f]{20}.*\.(js|css|woff2?|svg|png|jpg|json|wasm)$/;
+const ASSET_CACHE_PATTERN = /[0-9a-f]{20}.*\.(js|css|woff2?|svg|png|jpg|jpeg|json|wasm)$/;
 
 self.addEventListener('install', (e) => {
   if (DEBUG) {
@@ -44,7 +44,6 @@ self.addEventListener('fetch', (e: FetchEvent) => {
     return fetch(e.request);
   })());
 });
-
 
 self.addEventListener('push', handlePush);
 self.addEventListener('notificationclick', handleNotificationClick);

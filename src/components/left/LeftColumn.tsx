@@ -6,7 +6,7 @@ import { withGlobal } from '../../lib/teact/teactn';
 import { GlobalActions } from '../../global/types';
 import { LeftColumnContent, SettingsScreens } from '../../types';
 
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { LAYERS_ANIMATION_NAME } from '../../util/environment';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { pick } from '../../util/iteratees';
 
@@ -24,6 +24,8 @@ import './LeftColumn.scss';
 type StateProps = {
   searchQuery?: string;
   searchDate?: number;
+  activeChatFolder: number;
+  shouldSkipHistoryAnimations?: boolean;
 };
 
 type DispatchProps = Pick<GlobalActions, (
@@ -50,6 +52,8 @@ const RESET_TRANSITION_DELAY_MS = 250;
 const LeftColumn: FC<StateProps & DispatchProps> = ({
   searchQuery,
   searchDate,
+  activeChatFolder,
+  shouldSkipHistoryAnimations,
   setGlobalSearchQuery,
   setGlobalSearchChatId,
   resetChatCreation,
@@ -89,11 +93,17 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
   }
 
   const handleReset = useCallback((forceReturnToChatList?: boolean) => {
-    if (
-      content === LeftColumnContent.NewGroupStep2
+    if (content === LeftColumnContent.NewGroupStep2
       && !forceReturnToChatList
     ) {
       setContent(LeftColumnContent.NewGroupStep1);
+      return;
+    }
+
+    if (content === LeftColumnContent.NewChannelStep2
+      && !forceReturnToChatList
+    ) {
+      setContent(LeftColumnContent.NewChannelStep1);
       return;
     }
 
@@ -199,6 +209,11 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
       }
     }
 
+    if (content === LeftColumnContent.ChatList && activeChatFolder === 0) {
+      setContent(LeftColumnContent.GlobalSearch);
+      return;
+    }
+
     setContent(LeftColumnContent.ChatList);
     setContactsFilter('');
     setGlobalSearchQuery({ query: '' });
@@ -208,7 +223,10 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
     setTimeout(() => {
       setLastResetTime(Date.now());
     }, RESET_TRANSITION_DELAY_MS);
-  }, [content, setGlobalSearchQuery, setGlobalSearchChatId, setGlobalSearchDate, resetChatCreation, settingsScreen]);
+  }, [
+    content, activeChatFolder, settingsScreen, setGlobalSearchQuery, setGlobalSearchDate, setGlobalSearchChatId,
+    resetChatCreation,
+  ]);
 
   const handleSearchQuery = useCallback((query: string) => {
     if (content === LeftColumnContent.Contacts) {
@@ -221,11 +239,13 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
     if (query !== searchQuery) {
       setGlobalSearchQuery({ query });
     }
-  }, [content, setGlobalSearchQuery, searchQuery]);
+  }, [content, searchQuery, setGlobalSearchQuery]);
 
   useEffect(
-    () => (content !== LeftColumnContent.ChatList ? captureEscKeyListener(() => handleReset()) : undefined),
-    [content, handleReset],
+    () => (content !== LeftColumnContent.ChatList || activeChatFolder === 0
+      ? captureEscKeyListener(() => handleReset())
+      : undefined),
+    [activeChatFolder, content, handleReset],
   );
 
   useEffect(() => {
@@ -236,33 +256,45 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
     }
   }, [clearTwoFaError, loadPasswordInfo, settingsScreen]);
 
+  const handleSettingsScreenSelect = (screen: SettingsScreens) => {
+    setContent(LeftColumnContent.Settings);
+    setSettingsScreen(screen);
+  };
+
   return (
     <Transition
       id="LeftColumn"
-      name={IS_MOBILE_SCREEN ? 'slide-layers' : 'push-slide'}
+      name={shouldSkipHistoryAnimations ? 'none' : LAYERS_ANIMATION_NAME}
       renderCount={RENDER_COUNT}
       activeKey={contentType}
+      shouldCleanup
+      cleanupExceptionKey={ContentType.Main}
     >
-      {() => {
+      {(isActive) => {
         switch (contentType) {
           case ContentType.Archived:
             return (
               <ArchivedChats
+                isActive={isActive}
                 onReset={handleReset}
+                onContentChange={setContent}
               />
             );
           case ContentType.Settings:
             return (
               <Settings
+                isActive={isActive}
                 currentScreen={settingsScreen}
-                onScreenSelect={setSettingsScreen}
+                onScreenSelect={handleSettingsScreenSelect}
                 onReset={handleReset}
+                shouldSkipTransition={shouldSkipHistoryAnimations}
               />
             );
           case ContentType.NewChannel:
             return (
               <NewChat
                 key={lastResetTime}
+                isActive={isActive}
                 isChannel
                 content={content}
                 onContentChange={setContent}
@@ -273,6 +305,7 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
             return (
               <NewChat
                 key={lastResetTime}
+                isActive={isActive}
                 content={content}
                 onContentChange={setContent}
                 onReset={handleReset}
@@ -296,6 +329,7 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
                 onContentChange={setContent}
                 onSearchQuery={handleSearchQuery}
                 onReset={handleReset}
+                shouldSkipTransition={shouldSkipHistoryAnimations}
               />
             );
         }
@@ -306,8 +340,19 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
 
 export default memo(withGlobal(
   (global): StateProps => {
-    const { query, date } = global.globalSearch;
-    return { searchQuery: query, searchDate: date };
+    const {
+      globalSearch: {
+        query,
+        date,
+      },
+      chatFolders: {
+        activeChatFolder,
+      },
+      shouldSkipHistoryAnimations,
+    } = global;
+    return {
+      searchQuery: query, searchDate: date, activeChatFolder, shouldSkipHistoryAnimations,
+    };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'setGlobalSearchQuery', 'setGlobalSearchChatId', 'resetChatCreation', 'setGlobalSearchDate',

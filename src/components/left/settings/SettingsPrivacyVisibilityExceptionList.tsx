@@ -14,6 +14,7 @@ import { getPrivacyKey } from './helper/privacy';
 import {
   getChatTitle, isChatGroup, isChatPrivate, prepareChatList,
 } from '../../../modules/helpers';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import Picker from '../../common/Picker';
 import FloatingActionButton from '../../ui/FloatingActionButton';
@@ -21,7 +22,9 @@ import FloatingActionButton from '../../ui/FloatingActionButton';
 export type OwnProps = {
   isAllowList?: boolean;
   screen: SettingsScreens;
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
 type StateProps = {
@@ -47,8 +50,12 @@ const SettingsPrivacyVisibilityExceptionList: FC<OwnProps & StateProps & Dispatc
   archivedListIds,
   archivedPinnedIds,
   setPrivacySettings,
+  isActive,
   onScreenSelect,
+  onReset,
 }) => {
+  const lang = useLang();
+
   const selectedContactIds = useMemo(() => {
     if (!settings) {
       return [];
@@ -98,12 +105,12 @@ const SettingsPrivacyVisibilityExceptionList: FC<OwnProps & StateProps & Dispatc
         ((isChatPrivate(chat.id) && chat.id !== currentUserId) || isChatGroup(chat))
         && (
           !searchQuery
-        || searchWords(getChatTitle(chat), searchQuery)
+        || searchWords(getChatTitle(lang, chat), searchQuery)
         || selectedContactIds.includes(chat.id)
         )
       ))
       .map(({ id }) => id);
-  }, [chats, currentUserId, searchQuery, selectedContactIds]);
+  }, [chats, currentUserId, lang, searchQuery, selectedContactIds]);
 
   const handleSelectedContactIdsChange = useCallback((value: number[]) => {
     setNewSelectedContactIds(value);
@@ -120,7 +127,8 @@ const SettingsPrivacyVisibilityExceptionList: FC<OwnProps & StateProps & Dispatc
     onScreenSelect(SettingsScreens.Privacy);
   }, [isAllowList, newSelectedContactIds, onScreenSelect, screen, setPrivacySettings]);
 
-  const lang = useLang();
+  useHistoryBack(isActive, onReset, onScreenSelect, screen);
+
 
   return (
     <div className="NewChat-inner step-1">

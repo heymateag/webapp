@@ -46,6 +46,11 @@
     }
   }
 
+  &.with-video .media-inner{
+    margin-top: 0.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+
   &.with-square-photo {
     display: flex;
     margin-bottom: 1rem;
@@ -59,6 +64,12 @@
       order: 2;
       flex-shrink: 0;
     }
+
+    &:dir(rtl) {
+      .WebPage-text {
+        padding-inline-end: 1rem;
+      }
+    }
   }
 
   &:not(.with-square-photo) {
@@ -69,7 +80,8 @@
         content: '';
         display: inline-block;
         width: var(--meta-safe-area-size);
-        height: 0.5rem;
+        height: 0.75rem;
+        float: right;
       }
     }
   }
@@ -78,6 +90,7 @@
   .site-description,
   .site-title {
     word-break: break-word;
+    max-width: 100%;
   }
 
   .site-name {
@@ -94,6 +107,15 @@
   .site-description {
     line-height: 1rem;
     margin-bottom: 0;
+  }
+
+  &:dir(rtl) {
+    padding-inline-start: .625rem;
+
+    &::before {
+      left: auto;
+      right: 0;
+    }
   }
 }
 

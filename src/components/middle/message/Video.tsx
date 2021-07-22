@@ -9,10 +9,11 @@ import { formatMediaDuration } from '../../../util/dateFormat';
 import buildClassName from '../../../util/buildClassName';
 import { calculateVideoDimensions } from '../../common/helpers/mediaDimensions';
 import {
-  canMessagePlayVideoInline,
   getMediaTransferState,
   getMessageMediaFormat,
   getMessageMediaHash,
+  getMessageVideo,
+  getMessageWebPageVideo,
   isForwardedMessage,
   isOwnMessage,
 } from '../../../modules/helpers';
@@ -24,9 +25,9 @@ import useTransitionForMedia from '../../../hooks/useTransitionForMedia';
 import usePrevious from '../../../hooks/usePrevious';
 import useBuffering from '../../../hooks/useBuffering';
 import useHeavyAnimationCheckForVideo from '../../../hooks/useHeavyAnimationCheckForVideo';
-import useBlurredMediaThumb from './hooks/useBlurredMediaThumb';
 import useVideoCleanup from '../../../hooks/useVideoCleanup';
 import usePauseOnInactive from './hooks/usePauseOnInactive';
+import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 
 import ProgressSpinner from '../../ui/ProgressSpinner';
 
@@ -34,6 +35,7 @@ export type OwnProps = {
   id?: string;
   message: ApiMessage;
   observeIntersection: ObserveFn;
+  noAvatars?: boolean;
   shouldAutoLoad?: boolean;
   shouldAutoPlay?: boolean;
   uploadProgress?: number;
@@ -47,6 +49,7 @@ const Video: FC<OwnProps> = ({
   id,
   message,
   observeIntersection,
+  noAvatars,
   shouldAutoLoad,
   shouldAutoPlay,
   uploadProgress,
@@ -60,9 +63,8 @@ const Video: FC<OwnProps> = ({
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const video = message.content.video!;
+  const video = (getMessageVideo(message) || getMessageWebPageVideo(message))!;
   const localBlobUrl = video.blobUrl;
-  const canPlayInline = Boolean(localBlobUrl) || canMessagePlayVideoInline(video);
 
   const isIntersecting = useIsIntersecting(ref, observeIntersection);
 
@@ -76,44 +78,43 @@ const Video: FC<OwnProps> = ({
     getMessageMediaFormat(message, 'pictogram'),
     lastSyncTime,
   );
-  const thumbDataUri = useBlurredMediaThumb(message, previewBlobUrl);
   const { mediaData, downloadProgress } = useMediaWithDownloadProgress(
     getMessageMediaHash(message, 'inline'),
     !shouldDownload,
     getMessageMediaFormat(message, 'inline'),
     lastSyncTime,
   );
-
-  const previewMediaData = previewBlobUrl || thumbDataUri;
   const fullMediaData = localBlobUrl || mediaData;
-  const isInline = Boolean(canPlayInline && isIntersecting && fullMediaData);
+  const isInline = Boolean(isIntersecting && fullMediaData);
+  // Thumbnail is always rendered so we can only disable blur if we have preview
+  const thumbRef = useBlurredMediaThumbRef(message, previewBlobUrl);
 
   const { isBuffered, bufferingHandlers } = useBuffering(!shouldAutoLoad);
   const { isUploading, isTransferring, transferProgress } = getMediaTransferState(
     message,
     uploadProgress || downloadProgress,
-    shouldDownload && (canPlayInline && !isBuffered),
+    shouldDownload && !isBuffered,
   );
   const wasDownloadDisabled = usePrevious(isDownloadAllowed) === false;
   const {
     shouldRender: shouldRenderSpinner,
     transitionClassNames: spinnerClassNames,
   } = useShowTransition(isTransferring, undefined, wasDownloadDisabled);
-  const { shouldRenderThumb, transitionClassNames } = useTransitionForMedia(fullMediaData, 'slow');
+  const { transitionClassNames } = useTransitionForMedia(fullMediaData, 'slow');
 
   const [playProgress, setPlayProgress] = useState<number>(0);
   const handleTimeUpdate = useCallback((e: React.SyntheticEvent<HTMLVideoElement>) => {
     setPlayProgress(Math.max(0, e.currentTarget.currentTime - 1));
   }, []);
 
+  const duration = (videoRef.current && videoRef.current.duration) || video.duration || 0;
+
   const isOwn = isOwnMessage(message);
   const isForwarded = isForwardedMessage(message);
-  const { width, height } = dimensions || calculateVideoDimensions(video, isOwn, isForwarded);
+  const { width, height } = dimensions || calculateVideoDimensions(video, isOwn, isForwarded, noAvatars);
 
   useHeavyAnimationCheckForVideo(videoRef, Boolean(isInline && shouldAutoPlay));
-
   usePauseOnInactive(videoRef, isPlayAllowed);
-
   useVideoCleanup(videoRef, [isInline]);
 
   const handleClick = useCallback(() => {
@@ -121,29 +122,22 @@ const Video: FC<OwnProps> = ({
       if (onCancelUpload) {
         onCancelUpload(message);
       }
-    } else if (canPlayInline && !fullMediaData) {
+    } else if (!fullMediaData) {
       setIsDownloadAllowed((isAllowed) => !isAllowed);
-    } else if (canPlayInline && fullMediaData && !isPlayAllowed) {
+    } else if (fullMediaData && !isPlayAllowed) {
       setIsPlayAllowed(true);
       videoRef.current!.play();
     } else if (onClick) {
       onClick(message.id);
     }
-  }, [isUploading, canPlayInline, fullMediaData, isPlayAllowed, onClick, onCancelUpload, message]);
+  }, [isUploading, fullMediaData, isPlayAllowed, onClick, onCancelUpload, message]);
 
   const className = buildClassName('media-inner dark', !isUploading && 'interactive');
-  const thumbClassName = buildClassName('thumbnail', !previewMediaData && 'empty');
   const videoClassName = buildClassName('full-media', transitionClassNames);
-  const videoStyle = previewMediaData ? `background-image: url(${previewMediaData}); background-size: cover` : '';
 
   const style = dimensions
     ? `width: ${width}px; height: ${height}px; left: ${dimensions.x}px; top: ${dimensions.y}px;`
     : '';
-
-  const shouldRenderInlineVideo = isInline;
-  const shouldRenderHqPreview = !canPlayInline && mediaData;
-  const shouldRenderPlayButton = !canPlayInline || (isDownloadAllowed && !isPlayAllowed && !shouldRenderSpinner);
-  const shouldRenderDownloadButton = canPlayInline && !isDownloadAllowed;
 
   return (
     <div
@@ -154,16 +148,24 @@ const Video: FC<OwnProps> = ({
       style={style}
       onClick={isUploading ? undefined : handleClick}
     >
-      {(shouldRenderThumb || !isInline) && (
+      {!previewBlobUrl && (
+        <canvas
+          ref={thumbRef}
+          className="thumbnail"
+          // @ts-ignore teact feature
+          style={`width: ${width}px; height: ${height}px;`}
+        />
+      )}
+      {previewBlobUrl && (
         <img
-          src={previewMediaData}
-          className={thumbClassName}
-          width={width}
-          height={height}
+          src={previewBlobUrl}
+          className="thumbnail"
+          // @ts-ignore teact feature
+          style={`width: ${width}px; height: ${height}px;`}
           alt=""
         />
       )}
-      {shouldRenderInlineVideo && (
+      {isInline && (
         <video
           ref={videoRef}
           className={videoClassName}
@@ -173,8 +175,6 @@ const Video: FC<OwnProps> = ({
           muted
           loop
           playsInline
-          // @ts-ignore teact feature
-          style={videoStyle}
           // eslint-disable-next-line react/jsx-props-no-spreading
           {...bufferingHandlers}
           onTimeUpdate={handleTimeUpdate}
@@ -182,16 +182,7 @@ const Video: FC<OwnProps> = ({
           <source src={fullMediaData} />
         </video>
       )}
-      {shouldRenderHqPreview && (
-        <img
-          src={mediaData}
-          className={`full-media ${transitionClassNames}`}
-          width={width}
-          height={height}
-          alt=""
-        />
-      )}
-      {shouldRenderPlayButton && (
+      {(isDownloadAllowed && !isPlayAllowed && !shouldRenderSpinner) && (
         <i className="icon-large-play" />
       )}
       {shouldRenderSpinner && (
@@ -199,16 +190,14 @@ const Video: FC<OwnProps> = ({
           <ProgressSpinner progress={transferProgress} onClick={isUploading ? handleClick : undefined} />
         </div>
       )}
-      {shouldRenderDownloadButton && (
+      {!isDownloadAllowed && (
         <i className="icon-download" />
       )}
-      {isTransferring && !canPlayInline ? (
-        <span className="message-upload-progress">{Math.round(transferProgress * 100)}%</span>
-      ) : isTransferring && canPlayInline ? (
+      {isTransferring ? (
         <span className="message-upload-progress">...</span>
       ) : (
         <div className="message-media-duration">
-          {video.isGif ? 'GIF' : formatMediaDuration(video.duration - playProgress)}
+          {video.isGif ? 'GIF' : formatMediaDuration(Math.max(duration - playProgress, 0))}
         </div>
       )}
     </div>

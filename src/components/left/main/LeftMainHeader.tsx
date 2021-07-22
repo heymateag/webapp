@@ -8,15 +8,17 @@ import { LeftColumnContent, ISettings } from '../../../types';
 import { ApiChat } from '../../../api/types';
 
 import {
-  APP_INFO, DEFAULT_PATTERN_COLOR, FEEDBACK_URL, DARK_THEME_BG_COLOR, DARK_THEME_PATTERN_COLOR,
+  ANIMATION_LEVEL_MAX, APP_NAME, APP_VERSION, FEEDBACK_URL,
 } from '../../../config';
-import { IS_MOBILE_SCREEN } from '../../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import buildClassName from '../../../util/buildClassName';
 import { pick } from '../../../util/iteratees';
 import { isChatArchived } from '../../../modules/helpers';
 import { formatDateToString } from '../../../util/dateFormat';
+import { selectTheme } from '../../../modules/selectors';
 import switchTheme from '../../../util/switchTheme';
 import useLang from '../../../hooks/useLang';
+import { disableHistoryBack } from '../../../hooks/useHistoryBack';
 
 import DropdownMenu from '../../ui/DropdownMenu';
 import MenuItem from '../../ui/MenuItem';
@@ -30,6 +32,7 @@ import './LeftMainHeader.scss';
 type OwnProps = {
   content: LeftColumnContent;
   contactsFilter: string;
+  shouldSkipTransition?: boolean;
   onSearchQuery: (query: string) => void;
   onSelectSettings: () => void;
   onSelectContacts: () => void;
@@ -56,6 +59,11 @@ type DispatchProps = Pick<GlobalActions, (
 
 const ANIMATION_LEVEL_OPTIONS = [0, 1, 2];
 
+const PRODUCTION_HOSTNAME = 'web.telegram.org';
+const LEGACY_VERSION_URL = 'https://web.telegram.org/?legacy=1';
+const WEBK_VERSION_URL = 'https://web.telegram.org/k/';
+const PERMANENT_VERSION_KEY = 'kz_version';
+
 const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   content,
   contactsFilter,
@@ -69,6 +77,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   searchQuery,
   isLoading,
+  shouldSkipTransition,
   currentUserId,
   globalSearchChatId,
   searchDate,
@@ -80,6 +89,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   setGlobalSearchDate,
   setSettingOption,
 }) => {
+  const lang = useLang();
   const hasMenu = content === LeftColumnContent.ChatList;
   const clearedDateSearchParam = { date: undefined };
   const clearedChatSearchParam = { id: undefined };
@@ -102,21 +112,28 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     }, 0);
   }, [hasMenu, chatsById]);
 
+  const withOtherVersions = window.location.hostname === PRODUCTION_HOSTNAME;
+
   const MainButton: FC<{ onTrigger: () => void; isOpen?: boolean }> = useMemo(() => {
     return ({ onTrigger, isOpen }) => (
       <Button
         round
-        ripple={hasMenu && !IS_MOBILE_SCREEN}
+        ripple={hasMenu && !IS_SINGLE_COLUMN_LAYOUT}
         size="smaller"
         color="translucent"
         className={isOpen ? 'active' : ''}
         onClick={hasMenu ? onTrigger : () => onReset()}
-        ariaLabel={hasMenu ? 'Open menu' : 'Return to chat list'}
+        ariaLabel={hasMenu ? lang('AccDescrOpenMenu2') : 'Return to chat list'}
       >
-        <div className={buildClassName('animated-menu-icon', !hasMenu && 'state-back')} />
+        <div className={buildClassName(
+          'animated-menu-icon',
+          !hasMenu && 'state-back',
+          shouldSkipTransition && 'no-animation',
+        )}
+        />
       </Button>
     );
-  }, [hasMenu, onReset]);
+  }, [hasMenu, lang, onReset, shouldSkipTransition]);
 
   const handleSearchFocus = useCallback(() => {
     if (!searchQuery) {
@@ -128,20 +145,16 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     openChat({ id: currentUserId });
   }, [currentUserId, openChat]);
 
-  const handleDarkModeToggle = useCallback((e: React.SyntheticEvent<HTMLDivElement>) => {
+  const handleDarkModeToggle = useCallback((e: React.SyntheticEvent<HTMLElement>) => {
     e.stopPropagation();
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    const isNewThemeDark = newTheme === 'dark';
 
-    setSettingOption({
-      theme: newTheme,
-      customBackground: isNewThemeDark ? DARK_THEME_BG_COLOR : undefined,
-      patternColor: isNewThemeDark ? DARK_THEME_PATTERN_COLOR : DEFAULT_PATTERN_COLOR,
-    });
-    switchTheme(newTheme, animationLevel > 0);
+    setSettingOption({ theme: newTheme });
+    setSettingOption({ shouldUseSystemTheme: false });
+    switchTheme(newTheme, animationLevel === ANIMATION_LEVEL_MAX);
   }, [animationLevel, setSettingOption, theme]);
 
-  const handleAnimationLevelChange = useCallback((e: React.SyntheticEvent<HTMLDivElement>) => {
+  const handleAnimationLevelChange = useCallback((e: React.SyntheticEvent<HTMLElement>) => {
     e.stopPropagation();
 
     const newLevel = animationLevel === 0 ? 2 : 0;
@@ -152,7 +165,10 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     setSettingOption({ animationLevel: newLevel });
   }, [animationLevel, setSettingOption]);
 
-  const lang = useLang();
+  const handleSwitchToWebK = () => {
+    localStorage.setItem(PERMANENT_VERSION_KEY, JSON.stringify('K'));
+    disableHistoryBack();
+  };
 
   const isSearchFocused = (
     Boolean(globalSearchChatId)
@@ -169,7 +185,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       <div id="LeftMainHeader" className="left-header">
         <DropdownMenu
           trigger={MainButton}
-          footer={APP_INFO}
+          footer={`${APP_NAME} alpha ${APP_VERSION}`}
         >
           <MenuItem
             icon="hm-wallet"
@@ -214,11 +230,12 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             icon="icon-darkmode"
             onClick={handleDarkModeToggle}
           >
-            <span className="menu-item-name">Dark Mode</span>
+            <span className="menu-item-name">{lang('lng_menu_night_mode')}</span>
             <Switcher
               id="darkmode"
-              label="Toggle Dark Mode"
+              label={lang(theme === 'dark' ? 'lng_settings_disable_night_theme' : 'lng_settings_enable_night_theme')}
               checked={theme === 'dark'}
+              noAnimation
             />
           </MenuItem>
           <MenuItem
@@ -236,7 +253,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             icon="icon-help"
             onClick={openTipsChat}
           >
-            Telegram Features
+            {lang('TelegramFeatures')}
           </MenuItem>
           <MenuItem
             icon="icon-bug"
@@ -244,14 +261,34 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           >
             Report Bug
           </MenuItem>
+          {withOtherVersions && (
+            <>
+              <MenuItem
+                icon="char-K"
+                href={WEBK_VERSION_URL}
+                onClick={handleSwitchToWebK}
+              >
+                Switch to K Version
+              </MenuItem>
+              <MenuItem
+                icon="char-W"
+                href={LEGACY_VERSION_URL}
+                onClick={disableHistoryBack}
+              >
+                Switch to Old Version
+              </MenuItem>
+            </>
+          )}
         </DropdownMenu>
         <SearchInput
           inputId="telegram-search-input"
+          parentContainerClassName="LeftSearch"
           className={globalSearchChatId || searchDate ? 'with-picker-item' : ''}
           value={contactsFilter || searchQuery}
           focused={isSearchFocused}
           isLoading={isLoading}
           placeholder={searchInputPlaceholder}
+          autoComplete="off"
           canClose={Boolean(globalSearchChatId || searchDate)}
           onChange={onSearchQuery}
           onReset={onReset}
@@ -289,7 +326,7 @@ export default memo(withGlobal<OwnProps>(
     } = global.globalSearch;
     const { currentUserId } = global;
     const { byId: chatsById } = global.chats;
-    const { theme, animationLevel } = global.settings.byKey;
+    const { animationLevel } = global.settings.byKey;
 
     return {
       searchQuery,
@@ -298,7 +335,7 @@ export default memo(withGlobal<OwnProps>(
       chatsById,
       globalSearchChatId: chatId,
       searchDate: date,
-      theme,
+      theme: selectTheme(global),
       animationLevel,
     };
   },

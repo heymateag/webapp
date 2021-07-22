@@ -13,12 +13,13 @@ import Auth from './components/auth/Auth';
 import UiLoader from './components/common/UiLoader';
 import Main from './components/main/Main.async';
 import AppInactive from './components/main/AppInactive';
+import { hasStoredSession } from './util/sessions';
 // import Test from './components/test/TestNoRedundancy';
 
-type StateProps = Pick<GlobalState, 'authState' | 'authIsSessionRemembered'>;
+type StateProps = Pick<GlobalState, 'authState'>;
 type DispatchProps = Pick<GlobalActions, 'disconnect'>;
 
-const App: FC<StateProps & DispatchProps> = ({ authState, authIsSessionRemembered, disconnect }) => {
+const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
   const [isInactive, markInactive] = useFlag(false);
 
   useEffect(() => {
@@ -53,7 +54,7 @@ const App: FC<StateProps & DispatchProps> = ({ authState, authIsSessionRemembere
     }
   }
 
-  return authIsSessionRemembered ? renderMain() : <Auth />;
+  return hasStoredSession(true) ? renderMain() : <Auth />;
 };
 
 function renderMain() {
@@ -65,6 +66,6 @@ function renderMain() {
 }
 
 export default withGlobal(
-  (global): StateProps => pick(global, ['authState', 'authIsSessionRemembered']),
+  (global): StateProps => pick(global, ['authState']),
   (setGlobal, actions): DispatchProps => pick(actions, ['disconnect']),
 )(App);

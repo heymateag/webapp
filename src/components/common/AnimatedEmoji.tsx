@@ -5,7 +5,7 @@ import React, {
 import { ApiMediaFormat, ApiSticker } from '../../api/types';
 
 import { STICKER_SIZE_TWO_FA } from '../../config';
-import { getStickerDimensions } from './helpers/mediaDimensions';
+import { getStickerDimensions, LIKE_STICKER_ID } from './helpers/mediaDimensions';
 import { ObserveFn, useIsIntersecting } from '../../hooks/useIntersectionObserver';
 import useMedia from '../../hooks/useMedia';
 import useTransitionForMedia from '../../hooks/useTransitionForMedia';
@@ -20,13 +20,14 @@ type OwnProps = {
   observeIntersection?: ObserveFn;
   isInline?: boolean;
   lastSyncTime?: number;
+  forceLoadPreview?: boolean;
 };
 
 const QUALITY = 1;
 const RESIZE_FACTOR = 0.5;
 
 const AnimatedEmoji: FC<OwnProps> = ({
-  sticker, isInline = false, observeIntersection, lastSyncTime,
+  sticker, isInline = false, observeIntersection, lastSyncTime, forceLoadPreview,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -36,7 +37,13 @@ const AnimatedEmoji: FC<OwnProps> = ({
 
   const isIntersecting = useIsIntersecting(ref, observeIntersection);
 
-  const previewBlobUrl = useMedia(`${localMediaHash}?size=m`, !isIntersecting, ApiMediaFormat.BlobUrl, lastSyncTime);
+  const thumbDataUri = sticker.thumbnail && sticker.thumbnail.dataUri;
+  const previewBlobUrl = useMedia(
+    `${localMediaHash}?size=m`,
+    !isIntersecting && !forceLoadPreview,
+    ApiMediaFormat.BlobUrl,
+    lastSyncTime,
+  );
   const { transitionClassNames } = useTransitionForMedia(previewBlobUrl, 'slow');
 
   const mediaData = useMedia(localMediaHash, !isIntersecting, ApiMediaFormat.Lottie, lastSyncTime);
@@ -64,7 +71,10 @@ const AnimatedEmoji: FC<OwnProps> = ({
       style={style}
       onClick={handleClick}
     >
-      {previewBlobUrl && !isAnimationLoaded && (
+      {!isAnimationLoaded && thumbDataUri && (
+        <img src={thumbDataUri} className={sticker.id === LIKE_STICKER_ID ? 'like-sticker-thumb' : undefined} alt="" />
+      )}
+      {!isAnimationLoaded && previewBlobUrl && (
         <img src={previewBlobUrl} className={transitionClassNames} alt="" />
       )}
       {isMediaLoaded && (

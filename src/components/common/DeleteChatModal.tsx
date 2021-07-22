@@ -16,6 +16,7 @@ import {
 } from '../../modules/helpers';
 import { pick } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
+import renderText from './helpers/renderText';
 
 import Avatar from './Avatar';
 import Modal from '../ui/Modal';
@@ -27,6 +28,7 @@ export type OwnProps = {
   isOpen: boolean;
   chat: ApiChat;
   onClose: () => void;
+  onCloseAnimationEnd?: () => void;
 };
 
 type StateProps = {
@@ -35,12 +37,12 @@ type StateProps = {
   isPrivateChat: boolean;
   isBasicGroup: boolean;
   isSuperGroup: boolean;
+  currentUserId: number | undefined;
   canDeleteForAll?: boolean;
-  chatTitle: string;
   contactName?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, 'leaveChannel' | 'deleteHistory' | 'deleteChannel'>;
+type DispatchProps = Pick<GlobalActions, 'leaveChannel' | 'deleteHistory' | 'deleteChannel' | 'deleteChatUser'>;
 
 const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
   isOpen,
@@ -50,22 +52,31 @@ const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
   isChatWithSelf,
   isBasicGroup,
   isSuperGroup,
+  currentUserId,
   canDeleteForAll,
-  chatTitle,
   contactName,
   onClose,
+  onCloseAnimationEnd,
   leaveChannel,
   deleteHistory,
   deleteChannel,
+  deleteChatUser,
 }) => {
+  const lang = useLang();
+  const chatTitle = getChatTitle(lang, chat);
+
   const handleDeleteMessageForAll = useCallback(() => {
-    deleteHistory({ chatId: chat.id, maxId: chat.lastMessage!.id, shouldDeleteForAll: true });
+    deleteHistory({ chatId: chat.id, shouldDeleteForAll: true });
+
     onClose();
-  }, [deleteHistory, chat.id, chat.lastMessage, onClose]);
+  }, [deleteHistory, chat.id, onClose]);
 
   const handleDeleteChat = useCallback(() => {
-    if (isPrivateChat || isBasicGroup) {
-      deleteHistory({ chatId: chat.id, maxId: chat.lastMessage!.id, shouldDeleteForAll: false });
+    if (isPrivateChat) {
+      deleteHistory({ chatId: chat.id, shouldDeleteForAll: false });
+    } else if (isBasicGroup) {
+      deleteChatUser({ chatId: chat.id, userId: currentUserId });
+      deleteHistory({ chatId: chat.id, shouldDeleteForAll: false });
     } else if ((isChannel || isSuperGroup) && !chat.isCreator) {
       leaveChannel({ chatId: chat.id });
     } else if ((isChannel || isSuperGroup) && chat.isCreator) {
@@ -77,91 +88,88 @@ const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
     isBasicGroup,
     isChannel,
     isSuperGroup,
+    currentUserId,
     chat.isCreator,
-    chat.lastMessage,
     chat.id,
     onClose,
     deleteHistory,
+    deleteChatUser,
     leaveChannel,
     deleteChannel,
   ]);
 
-  const lang = useLang();
-
   function renderHeader() {
     return (
-      <div className="modal-header">
+      <div className="modal-header" dir={lang.isRtl ? 'rtl' : undefined}>
         <Avatar
           size="tiny"
           chat={chat}
           isSavedMessages={isChatWithSelf}
         />
-        <h3 className="modal-title">{renderTitle()}</h3>
+        <h3 className="modal-title">{lang(renderTitle())}</h3>
       </div>
     );
   }
 
   function renderTitle() {
     if (isChannel && !chat.isCreator) {
-      return 'Leave Channel?';
+      return 'LeaveChannel';
     }
 
     if (isChannel && chat.isCreator) {
-      return 'Delete and Leave Channel?';
+      return 'ChannelDelete';
     }
 
     if (isBasicGroup || isSuperGroup) {
-      return 'Leave Group?';
+      return 'Group.LeaveGroup';
     }
 
-    return 'Delete Chat?';
+    return 'DeleteChatUser';
   }
 
   function renderMessage() {
-    if (isChannel && !chat.isCreator) {
-      return <p>Are you sure you want to leave channel <strong>{chatTitle}</strong>?</p>;
-    }
     if (isChannel && chat.isCreator) {
-      return <p>Are you sure you want to delete and leave channel <strong>{chatTitle}</strong>?</p>;
+      return <p>{renderText(lang('ChatList.DeleteAndLeaveGroupConfirmation', chatTitle), ['simple_markdown'])}</p>;
     }
 
-    if (isBasicGroup || isSuperGroup) {
-      return <p>Are you sure you want to leave group <strong>{chatTitle}</strong>?</p>;
+    if ((isChannel && !chat.isCreator) || isBasicGroup || isSuperGroup) {
+      return <p>{renderText(lang('ChannelLeaveAlertWithName', chatTitle), ['simple_markdown'])}</p>;
     }
 
-    return <p>Are you sure you want to delete chat with <strong>{contactName}</strong>?</p>;
+    return <p>{renderText(lang('ChatList.DeleteChatConfirmation', contactName), ['simple_markdown'])}</p>;
   }
 
   function renderActionText() {
     if (isChannel && !chat.isCreator) {
-      return 'Leave Channel';
+      return 'LeaveChannel';
     }
     if (isChannel && chat.isCreator) {
-      return 'Delete and Leave Channel';
+      return 'Chat.Input.Delete';
     }
 
     if (isBasicGroup || isSuperGroup) {
-      return 'Leave Group';
+      return 'Group.LeaveGroup';
     }
 
-    return `Delete${canDeleteForAll ? ' just for me' : ''}`;
+    return canDeleteForAll ? 'ChatList.DeleteForCurrentUser' : 'Delete';
   }
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
       className="DeleteChatModal"
       header={renderHeader()}
+      onClose={onClose}
+      onCloseAnimationEnd={onCloseAnimationEnd}
     >
       {renderMessage()}
       {canDeleteForAll && (
         <Button color="danger" className="confirm-dialog-button" isText onClick={handleDeleteMessageForAll}>
-          Delete for {contactName ? `me and ${contactName}` : 'Everyone'}
+          {contactName ? renderText(lang('ChatList.DeleteForEveryone', contactName)) : lang('DeleteForAll')}
         </Button>
       )}
       <Button color="danger" className="confirm-dialog-button" isText onClick={handleDeleteChat}>
-        {renderActionText()}
+        {lang(renderActionText())}
       </Button>
       <Button className="confirm-dialog-button" isText onClick={onClose}>{lang('Cancel')}</Button>
     </Modal>
@@ -183,10 +191,11 @@ export default memo(withGlobal<OwnProps>(
       isChannel: isChatChannel(chat),
       isBasicGroup: isChatBasicGroup(chat),
       isSuperGroup: isChatSuperGroup(chat),
+      currentUserId: global.currentUserId,
       canDeleteForAll,
-      chatTitle: getChatTitle(chat),
       contactName,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['leaveChannel', 'deleteHistory', 'deleteChannel']),
+  (setGlobal, actions): DispatchProps => pick(actions,
+    ['leaveChannel', 'deleteHistory', 'deleteChannel', 'deleteChatUser']),
 )(DeleteChatModal));

@@ -2,6 +2,11 @@ const MessageContainer = require('../tl/core/MessageContainer');
 const TLMessage = require('../tl/core/TLMessage');
 const BinaryWriter = require('../extensions/BinaryWriter');
 
+const USE_INVOKE_AFTER_WITH = [
+    'messages.SendMessage', 'messages.SendMedia', 'messages.SendMultiMedia',
+    'messages.ForwardMessages', 'messages.SendInlineBotResult',
+];
+
 class MessagePacker {
     constructor(state, logger) {
         this._state = state;
@@ -18,6 +23,19 @@ class MessagePacker {
     }
 
     append(state) {
+        // we need to check if there is already a request with the same name that we should send after.
+        if (state && USE_INVOKE_AFTER_WITH.includes(state.request.className)) {
+            // we now need to check if there is any request in queue already.
+            // we loop backwards since the latest request is the most recent
+            for (let i = this._queue.length - 1; i >= 0; i--) {
+                if (USE_INVOKE_AFTER_WITH.includes(this._queue[i].request.className)) {
+                    state.after = this._queue[i];
+                    break;
+                }
+            }
+        }
+
+
         this._queue.push(state);
         this.setReady(true);
 
@@ -49,7 +67,7 @@ class MessagePacker {
         }
         if (!this._queue[this._queue.length - 1]) {
             this._queue = [];
-            return;
+            return undefined;
         }
         let data;
         let buffer = new BinaryWriter(Buffer.alloc(0));
@@ -69,7 +87,8 @@ class MessagePacker {
                     buffer, state.data, state.request.classType === 'request',
                     afterId,
                 );
-                this._log.debug(`Assigned msgId = ${state.msgId} to ${state.request.className || state.request.constructor.name}`);
+                this._log.debug(`Assigned msgId = ${state.msgId} to ${state.request.className
+                || state.request.constructor.name}`);
                 batch.push(state);
                 continue;
             }
@@ -77,12 +96,13 @@ class MessagePacker {
                 this._queue.unshift(state);
                 break;
             }
-            this._log.warn(`Message payload for ${state.request.className || state.request.constructor.name} is too long ${state.data.length} and cannot be sent`);
+            this._log.warn(`Message payload for ${state.request.className
+            || state.request.constructor.name} is too long ${state.data.length} and cannot be sent`);
             state.reject('Request Payload is too big');
             size = 0;
         }
         if (!batch.length) {
-            return null;
+            return undefined;
         }
         if (batch.length > 1) {
             const b = Buffer.alloc(8);

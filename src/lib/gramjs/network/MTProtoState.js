@@ -1,3 +1,5 @@
+const BigInt = require('big-integer');
+
 const Helpers = require('../Helpers');
 const IGE = require('../crypto/IGE');
 const BinaryReader = require('../extensions/BinaryReader');
@@ -8,12 +10,9 @@ const {
     InvalidBufferError,
 } = require('../errors/Common');
 const { InvokeAfterMsg } = require('../tl').requests;
-const BigInt = require('big-integer');
 const {
     toSignedLittleBuffer,
-    readBufferFromBigInt,
 } = require('../Helpers');
-const { readBigIntFromBuffer } = require('../Helpers');
 
 class MTProtoState {
     /**
@@ -47,7 +46,9 @@ class MTProtoState {
         this.timeOffset = 0;
         this.salt = 0;
 
-        this.id = this._sequence = this._lastMsgId = null;
+        this.id = undefined;
+        this._sequence = undefined;
+        this._lastMsgId = undefined;
         this.reset();
     }
 
@@ -106,7 +107,12 @@ class MTProtoState {
         if (!afterId) {
             body = await GZIPPacked.gzipIfSmaller(contentRelated, data);
         } else {
-            body = await GZIPPacked.gzipIfSmaller(contentRelated, new InvokeAfterMsg(afterId, data).getBytes());
+            // Invoke query expects a query with a getBytes func
+            body = await GZIPPacked.gzipIfSmaller(contentRelated, new InvokeAfterMsg(afterId, {
+                getBytes() {
+                    return data;
+                },
+            }).getBytes());
         }
         const s = Buffer.alloc(4);
         s.writeInt32LE(seqNo, 0);

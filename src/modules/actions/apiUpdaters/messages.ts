@@ -33,6 +33,9 @@ import {
   isMessageInCurrentMessageList,
   selectScheduledIds,
   selectCurrentMessageList,
+  selectViewportIds,
+  selectFirstUnreadId,
+  selectChat,
 } from '../../selectors';
 import { getMessageContent, isChatPrivate, isMessageLocal } from '../../helpers';
 
@@ -78,7 +81,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
         }
 
         // @perf Wait until scroll animation finishes or simply rely on delivery status update (which is itself delayed)
-        if (!message.isOutgoing) {
+        if (!isMessageLocal(message as ApiMessage)) {
           setTimeout(() => {
             setGlobal(updateChatLastMessage(getGlobal(), chatId, newMessage));
           }, ANIMATION_DELAY);
@@ -201,7 +204,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
 
       const currentPinnedIds = selectPinnedIds(global, chatId) || [];
       const newPinnedIds = isPinned
-        ? [...currentPinnedIds, ...messageIds]
+        ? [...currentPinnedIds, ...messageIds].sort((a, b) => b - a)
         : currentPinnedIds.filter((id) => !messageIds.includes(id));
 
       setGlobal(replaceThreadParam(global, chatId, MAIN_THREAD_ID, 'pinnedIds', newPinnedIds));
@@ -264,9 +267,14 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
 
     case 'deleteHistory': {
       const { chatId } = update;
-      const ids = Object.keys(global.messages.byChatId[chatId].byId).map(Number);
+      const chatMessages = global.messages.byChatId[chatId];
+      if (chatMessages) {
+        const ids = Object.keys(chatMessages.byId).map(Number);
+        deleteMessages(chatId, ids, actions, global);
+      } else {
+        actions.requestChatUpdate({ chatId });
+      }
 
-      deleteMessages(chatId, ids, actions, global);
       break;
     }
 
@@ -424,10 +432,23 @@ function updateWithLocalMedia(
 function updateListedAndViewportIds(global: GlobalState, message: ApiMessage) {
   const { id, chatId } = message;
 
+  const chat = selectChat(global, chatId);
+  const isUnreadChatNotLoaded = chat && chat.unreadCount && !selectListedIds(global, chatId, MAIN_THREAD_ID);
+  if (isUnreadChatNotLoaded) {
+    return global;
+  }
+
   global = updateListedIds(global, chatId, MAIN_THREAD_ID, [id]);
 
   if (selectIsViewportNewest(global, chatId, MAIN_THREAD_ID)) {
-    global = addViewportId(global, chatId, MAIN_THREAD_ID, id);
+    // Always keep the first uread message in the viewport list
+    const firstUnreadId = selectFirstUnreadId(global, chatId, MAIN_THREAD_ID);
+    const newGlobal = addViewportId(global, chatId, MAIN_THREAD_ID, id);
+    const newViewportIds = selectViewportIds(newGlobal, chatId, MAIN_THREAD_ID);
+
+    if (!firstUnreadId || newViewportIds!.includes(firstUnreadId)) {
+      global = newGlobal;
+    }
   }
 
   const { threadInfo, firstMessageId } = selectThreadByMessage(global, chatId, message) || {};

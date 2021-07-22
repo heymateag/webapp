@@ -6,9 +6,10 @@ import {
   ApiChatFolder,
 } from './chats';
 import {
-  ApiMessage, ApiPhoto, ApiPoll, ApiStickerSet, ApiThreadInfo,
+  ApiFormattedText, ApiMessage, ApiPhoto, ApiPoll, ApiStickerSet, ApiThreadInfo,
 } from './messages';
 import { ApiUser, ApiUserFullInfo, ApiUserStatus } from './users';
+import { ApiNotifyException, ApiSessionData } from './misc';
 
 export type ApiUpdateReady = {
   '@type': 'updateApiReady';
@@ -35,10 +36,14 @@ export type ApiUpdateConnectionStateType = (
 export type ApiUpdateAuthorizationState = {
   '@type': 'updateAuthorizationState';
   authorizationState: ApiUpdateAuthorizationStateType;
-  sessionId?: string;
   isCodeViaApp?: boolean;
   hint?: string;
   qrCode?: { token: string; expires: number };
+};
+
+export type ApiUpdateSession = {
+  '@type': 'updateSession';
+  sessionData?: ApiSessionData;
 };
 
 export type ApiUpdateAuthorizationError = {
@@ -67,6 +72,11 @@ export type ApiUpdateChat = {
 export type ApiUpdateChatJoin = {
   '@type': 'updateChatJoin';
   id: number;
+};
+
+export type ApiUpdateShowInvite = {
+  '@type': 'showInvite';
+  data: ApiInviteInfo;
 };
 
 export type ApiUpdateChatLeave = {
@@ -254,6 +264,14 @@ export type ApiUpdateResetMessages = {
   id: number;
 };
 
+export type ApiUpdateDraftMessage = {
+  '@type': 'draftMessage';
+  chatId: number;
+  formattedText?: ApiFormattedText;
+  date?: number;
+  replyingToId?: number;
+};
+
 export type ApiDeleteUser = {
   '@type': 'deleteUser';
   id: number;
@@ -295,8 +313,16 @@ export type ApiNotification = {
 
 export type ApiError = {
   message: string;
+  hasErrorKey?: boolean;
   isSlowMode?: boolean;
   textParams?: Record<string, string>;
+};
+
+export type ApiInviteInfo = {
+  title: string;
+  hash: string;
+  isChannel?: boolean;
+  participantsCount?: number;
 };
 
 export type ApiUpdateError = {
@@ -327,8 +353,12 @@ export type ApiUpdateNotifySettings = {
   '@type': 'updateNotifySettings';
   peerType: 'contact' | 'group' | 'broadcast';
   isSilent: boolean;
-  isShowPreviews: boolean;
+  shouldShowPreviews: boolean;
 };
+
+export type ApiUpdateNotifyExceptions = {
+  '@type': 'updateNotifyExceptions';
+} & ApiNotifyException;
 
 export type updateTwoFaStateWaitCode = {
   '@type': 'updateTwoFaStateWaitCode';
@@ -353,8 +383,14 @@ export type ApiUpdatePrivacy = {
   };
 };
 
+export type ApiUpdateServerTimeOffset = {
+  '@type': 'updateServerTimeOffset';
+  serverTimeOffset: number;
+};
+
+
 export type ApiUpdate = (
-  ApiUpdateReady |
+  ApiUpdateReady | ApiUpdateSession |
   ApiUpdateAuthorizationState | ApiUpdateAuthorizationError | ApiUpdateConnectionState | ApiUpdateCurrentUser |
   ApiUpdateChat | ApiUpdateChatInbox | ApiUpdateChatTypingStatus | ApiUpdateChatFullInfo | ApiUpdatePinnedChatIds |
   ApiUpdateChatMembers | ApiUpdateChatJoin | ApiUpdateChatLeave | ApiUpdateChatPinned | ApiUpdatePinnedMessageIds |
@@ -363,13 +399,14 @@ export type ApiUpdate = (
   ApiUpdateDeleteMessages | ApiUpdateMessagePoll | ApiUpdateMessagePollVote | ApiUpdateDeleteHistory |
   ApiUpdateMessageSendSucceeded | ApiUpdateMessageSendFailed |
   ApiDeleteUser | ApiUpdateUser | ApiUpdateUserStatus | ApiUpdateUserFullInfo | ApiUpdateDeleteProfilePhotos |
-  ApiUpdateAvatar | ApiUpdateMessageImage |
+  ApiUpdateAvatar | ApiUpdateMessageImage | ApiUpdateDraftMessage |
   ApiUpdateError | ApiUpdateResetContacts |
   ApiUpdateFavoriteStickers | ApiUpdateStickerSet |
   ApiUpdateNewScheduledMessage | ApiUpdateScheduledMessageSendSucceeded | ApiUpdateScheduledMessage |
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages |
   ApiUpdateTwoFaError | updateTwoFaStateWaitCode |
-  ApiUpdateNotifySettings | ApiUpdatePeerBlocked | ApiUpdatePrivacy
+  ApiUpdateNotifySettings | ApiUpdateNotifyExceptions | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
+  ApiUpdateServerTimeOffset | ApiUpdateShowInvite
 );
 
 export type OnApiUpdate = (update: ApiUpdate) => void;

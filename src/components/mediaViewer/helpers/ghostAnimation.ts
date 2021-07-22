@@ -1,22 +1,25 @@
-import { ApiMessage } from '../../../api/types';
+import { ApiMessage, ApiDimensions } from '../../../api/types';
+
 import { MediaViewerOrigin } from '../../../types';
 
 import { ANIMATION_END_DELAY } from '../../../config';
-import { getMessageContent, getPhotoFullDimensions, getVideoDimensions } from '../../../modules/helpers';
 import {
-  AVATAR_FULL_DIMENSIONS,
   calculateDimensions,
   getMediaViewerAvailableDimensions,
   MEDIA_VIEWER_MEDIA_QUERY,
   REM,
 } from '../../common/helpers/mediaDimensions';
-
 import windowSize from '../../../util/windowSize';
 
 const ANIMATION_DURATION = 200;
 
 export function animateOpening(
-  hasFooter: boolean, origin: MediaViewerOrigin, bestImageData: string, message?: ApiMessage,
+  hasFooter: boolean,
+  origin: MediaViewerOrigin,
+  bestImageData: string,
+  dimensions: ApiDimensions,
+  isVideo: boolean,
+  message?: ApiMessage,
 ) {
   const { mediaEl: fromImage } = getNodes(origin, message);
   if (!fromImage) {
@@ -24,23 +27,11 @@ export function animateOpening(
   }
 
   const { width: windowWidth } = windowSize.get();
-
-  let isVideo = false;
-  let mediaSize;
-  if (message) {
-    const { photo, video, webPage } = getMessageContent(message);
-    isVideo = Boolean(video);
-    mediaSize = video ? getVideoDimensions(video)! : getPhotoFullDimensions((photo || webPage!.photo)!)!;
-  } else {
-    mediaSize = AVATAR_FULL_DIMENSIONS;
-  }
-
-  // eslint-disable-next-line max-len
   const {
     width: availableWidth, height: availableHeight,
   } = getMediaViewerAvailableDimensions(hasFooter, isVideo);
   const { width: toWidth, height: toHeight } = calculateDimensions(
-    availableWidth, availableHeight, mediaSize.width, mediaSize.height,
+    availableWidth, availableHeight, dimensions.width, dimensions.height,
   );
   const toLeft = (windowWidth - toWidth) / 2;
   const toTop = getTopOffset(hasFooter) + (availableHeight - toHeight) / 2;
@@ -88,7 +79,9 @@ export function animateOpening(
 
       setTimeout(() => {
         requestAnimationFrame(() => {
-          document.body.removeChild(ghost);
+          if (document.body.contains(ghost)) {
+            document.body.removeChild(ghost);
+          }
           document.body.classList.remove('ghost-animating');
         });
       }, ANIMATION_DURATION + ANIMATION_END_DELAY);
@@ -148,21 +141,50 @@ export function animateClosing(origin: MediaViewerOrigin, bestImageData: string,
     }
   }
 
-  const ghost = createGhost(bestImageData || toImage, origin === MediaViewerOrigin.ProfileAvatar);
-  applyStyles(ghost, {
-    top: `${toTop}px`,
-    left: `${toLeft}px`,
-    width: `${toWidth}px`,
-    height: `${toHeight}px`,
-    transform: `translate3d(${fromTranslateX}px, ${fromTranslateY}px, 0) scale(${fromScaleX}, ${fromScaleY})`,
-  });
+  const existingGhost = document.getElementsByClassName('ghost')[0] as HTMLDivElement;
+
+  const ghost = existingGhost || createGhost(bestImageData || toImage, origin === MediaViewerOrigin.ProfileAvatar);
+  if (!existingGhost) {
+    applyStyles(ghost, {
+      top: `${toTop}px`,
+      left: `${toLeft}px`,
+      width: `${toWidth}px`,
+      height: `${toHeight}px`,
+      transform: `translate3d(${fromTranslateX}px, ${fromTranslateY}px, 0) scale(${fromScaleX}, ${fromScaleY})`,
+    });
+  }
 
   requestAnimationFrame(() => {
+    if (existingGhost) {
+      const {
+        top,
+        left,
+        width,
+        height,
+      } = existingGhost.getBoundingClientRect();
+      const scaleX = width / toWidth;
+      const scaleY = height / toHeight;
+
+      applyStyles(ghost, {
+        transition: 'none',
+        top: `${toTop}px`,
+        left: `${toLeft}px`,
+        transformOrigin: 'top left',
+        transform: `translate3d(${left - toLeft}px, ${top - toTop}px, 0) scale(${scaleX}, ${scaleY})`,
+        width: `${toWidth}px`,
+        height: `${toHeight}px`,
+      });
+    }
     document.body.classList.add('ghost-animating');
-    document.body.appendChild(ghost);
+    if (!existingGhost) document.body.appendChild(ghost);
 
     requestAnimationFrame(() => {
+      if (existingGhost) {
+        existingGhost.style.transition = '';
+      }
+
       ghost.style.transform = '';
+
       if (shouldFadeOut) {
         ghost.style.opacity = '0';
       }
@@ -171,7 +193,9 @@ export function animateClosing(origin: MediaViewerOrigin, bestImageData: string,
 
       setTimeout(() => {
         requestAnimationFrame(() => {
-          document.body.removeChild(ghost);
+          if (document.body.contains(ghost)) {
+            document.body.removeChild(ghost);
+          }
           document.body.classList.remove('ghost-animating');
         });
       }, ANIMATION_DURATION + ANIMATION_END_DELAY);

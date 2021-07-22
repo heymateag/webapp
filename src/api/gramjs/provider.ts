@@ -1,4 +1,9 @@
-import { ApiOnProgress, ApiUpdate, OnApiUpdate } from '../types';
+import {
+  OnApiUpdate,
+  ApiInitialArgs,
+  ApiUpdate,
+  ApiOnProgress,
+} from '../types';
 import { Methods, MethodArgs, MethodResponse } from './methods/types';
 
 import { API_THROTTLE_RESET_UPDATES, API_UPDATE_THROTTLE } from '../../config';
@@ -16,7 +21,7 @@ import * as methods from './methods';
 
 let onUpdate: OnApiUpdate;
 
-export async function initApi(_onUpdate: OnApiUpdate, sessionId = '') {
+export async function initApi(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
   onUpdate = _onUpdate;
 
   initUpdater(handleUpdate);
@@ -28,7 +33,7 @@ export async function initApi(_onUpdate: OnApiUpdate, sessionId = '') {
   initManagement(handleUpdate);
   initTwoFaSettings(handleUpdate);
 
-  await initClient(sessionId, handleUpdate);
+  await initClient(handleUpdate, initialArgs);
 }
 
 export function callApi<T extends keyof Methods>(fnName: T, ...args: MethodArgs<T>): MethodResponse<T> {

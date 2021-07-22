@@ -31,10 +31,11 @@ type OwnProps = {
 const HeaderPinnedMessage: FC<OwnProps> = ({
   message, count, index, customTitle, className, onUnpinMessage, onClick, onAllPinnedClick,
 }) => {
+  const lang = useLang();
   const mediaThumbnail = useWebpThumbnail(message);
   const mediaBlobUrl = useMedia(getMessageMediaHash(message, 'pictogram'));
 
-  const text = getMessageSummaryText(message, Boolean(mediaThumbnail));
+  const text = getMessageSummaryText(lang, message, Boolean(mediaThumbnail));
   const [isUnpinDialogOpen, openUnpinDialog, closeUnpinDialog] = useFlag();
 
   const handleUnpinMessage = useCallback(() => {
@@ -44,8 +45,6 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
       onUnpinMessage(message.id);
     }
   }, [closeUnpinDialog, onUnpinMessage, message.id]);
-
-  const lang = useLang();
 
   return (
     <div className={buildClassName('HeaderPinnedMessage-wrapper', className)}>
@@ -80,17 +79,17 @@ const HeaderPinnedMessage: FC<OwnProps> = ({
         confirmLabel="Unpin"
         confirmHandler={handleUnpinMessage}
       />
-      <div className="HeaderPinnedMessage" onClick={onClick}>
+      <div className="HeaderPinnedMessage" onClick={onClick} dir={lang.isRtl ? 'rtl' : undefined}>
         <PinnedMessageNavigation
           count={count}
           index={index}
         />
         {mediaThumbnail && renderPictogram(mediaThumbnail, mediaBlobUrl)}
         <div className="message-text">
-          <div className="title">
+          <div className="title" dir="auto">
             {customTitle || `${lang('PinnedMessage')} ${index > 0 ? `#${count - index}` : ''}`}
           </div>
-          <p>{renderText(text)}</p>
+          <p dir="auto">{renderText(text)}</p>
         </div>
 
         <RippleEffect />

@@ -4,7 +4,7 @@ import buildClassName from '../../util/buildClassName';
 
 import './MenuItem.scss';
 
-type OnClickHandler = (e: React.SyntheticEvent<HTMLDivElement>) => void;
+type OnClickHandler = (e: React.SyntheticEvent<HTMLDivElement | HTMLAnchorElement>) => void;
 
 type OwnProps = {
   icon?: string;
@@ -31,6 +31,7 @@ const MenuItem: FC<OwnProps> = (props) => {
     ariaLabel,
   } = props;
 
+  const lang = useLang();
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled || !onClick) {
       e.stopPropagation();
@@ -67,7 +68,7 @@ const MenuItem: FC<OwnProps> = (props) => {
   const content = (
     <>
       {icon && (
-        <i className={icon} />
+        <i className={icon} data-char={icon.startsWith('char-') ? icon.replace('char-', '') : undefined} />
       )}
       {children}
     </>
@@ -82,7 +83,7 @@ const MenuItem: FC<OwnProps> = (props) => {
         download={download}
         aria-label={ariaLabel}
         title={ariaLabel}
-        target="_blank"
+        target={href.startsWith(window.location.origin) ? '_self' : '_blank'}
         rel="noopener noreferrer"
       >
         {content}
@@ -99,6 +100,7 @@ const MenuItem: FC<OwnProps> = (props) => {
       onKeyDown={handleKeyDown}
       aria-label={ariaLabel}
       title={ariaLabel}
+      dir={lang.isRtl ? 'rtl' : undefined}
     >
       {content}
     </div>

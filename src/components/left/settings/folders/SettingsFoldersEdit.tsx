@@ -1,22 +1,24 @@
 import React, {
-  FC, memo, useCallback, useState, useEffect, useMemo,
+  FC, memo, useCallback, useEffect, useMemo, useState,
 } from '../../../../lib/teact/teact';
 import { withGlobal } from '../../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../../global/types';
+import { SettingsScreens } from '../../../../types';
 
 import { STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
-import { pick, findIntersectionWithSet } from '../../../../util/iteratees';
+import { findIntersectionWithSet, pick } from '../../../../util/iteratees';
 import { isChatPrivate } from '../../../../modules/helpers';
 import getAnimationData from '../../../common/helpers/animatedAssets';
 import {
-  FoldersState,
-  FolderEditDispatch,
-  INCLUDED_CHAT_TYPES,
   EXCLUDED_CHAT_TYPES,
+  FolderEditDispatch,
+  FoldersState,
+  INCLUDED_CHAT_TYPES,
   selectChatFilters,
 } from '../../../../hooks/reducers/useFoldersReducer';
 import useLang from '../../../../hooks/useLang';
+import useHistoryBack from '../../../../hooks/useHistoryBack';
 
 import ListItem from '../../../ui/ListItem';
 import AnimatedSticker from '../../../common/AnimatedSticker';
@@ -32,7 +34,10 @@ type OwnProps = {
   dispatch: FolderEditDispatch;
   onAddIncludedChats: () => void;
   onAddExcludedChats: () => void;
+  isActive?: boolean;
+  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
+  onBack: () => void;
 };
 
 type StateProps = {
@@ -54,7 +59,10 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
   dispatch,
   onAddIncludedChats,
   onAddExcludedChats,
+  isActive,
+  onScreenSelect,
   onReset,
+  onBack,
   loadedActiveChatIds,
   loadedArchivedChatIds,
   editChatFolder,
@@ -127,6 +135,10 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
   ]);
 
   const lang = useLang();
+
+  useHistoryBack(isActive, onBack, onScreenSelect, state.mode === 'edit'
+    ? SettingsScreens.FoldersEditFolder
+    : SettingsScreens.FoldersCreateFolder);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const { currentTarget } = event;
@@ -236,7 +248,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
           </div>
 
           {state.mode === 'create' && (
-            <p className="settings-item-description mb-3">
+            <p className="settings-item-description mb-3" dir={lang.isRtl ? 'rtl' : undefined}>
               {lang('FilterIncludeInfo')}
             </p>
           )}
@@ -252,12 +264,12 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
 
         <div className="settings-item no-border pt-3">
           {state.error && state.error === ERROR_NO_CHATS && (
-            <p className="settings-item-description color-danger mb-2">
+            <p className="settings-item-description color-danger mb-2" dir={lang.isRtl ? 'rtl' : undefined}>
               {state.error}
             </p>
           )}
 
-          <h4 className="settings-item-header mb-3">{lang('FilterInclude')}</h4>
+          <h4 className="settings-item-header mb-3" dir={lang.isRtl ? 'rtl' : undefined}>{lang('FilterInclude')}</h4>
 
           <ListItem
             className="settings-folders-list-item color-primary mb-0"
@@ -271,7 +283,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
         </div>
 
         <div className="settings-item no-border pt-3">
-          <h4 className="settings-item-header mb-3">{lang('FilterExclude')}</h4>
+          <h4 className="settings-item-header mb-3" dir={lang.isRtl ? 'rtl' : undefined}>{lang('FilterExclude')}</h4>
 
           <ListItem
             className="settings-folders-list-item color-primary mb-0"

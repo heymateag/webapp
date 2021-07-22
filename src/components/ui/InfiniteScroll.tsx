@@ -11,13 +11,15 @@ import resetScroll from '../../util/resetScroll';
 type OwnProps = {
   ref?: RefObject<HTMLDivElement>;
   className?: string;
-  onLoadMore?: ({ direction }: { direction: LoadMoreDirection }) => void;
+  onLoadMore?: ({ direction }: { direction: LoadMoreDirection; noScroll?: boolean }) => void;
   onScroll?: (e: UIEvent<HTMLDivElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<any>) => void;
   items?: any[];
   itemSelector?: string;
   preloadBackwards?: number;
   sensitiveArea?: number;
   noScrollRestore?: boolean;
+  noScrollRestoreOnTop?: boolean;
   noFastList?: boolean;
   cacheBuster?: any;
   children: any;
@@ -32,12 +34,14 @@ const InfiniteScroll: FC<OwnProps> = ({
   className,
   onLoadMore,
   onScroll,
+  onKeyDown,
   items,
   itemSelector = DEFAULT_LIST_SELECTOR,
   preloadBackwards = DEFAULT_PRELOAD_BACKWARDS,
   sensitiveArea = DEFAULT_SENSITIVE_AREA,
   // Used to turn off restoring scroll position (e.g. for frequently re-ordered chat or user lists)
   noScrollRestore = false,
+  noScrollRestoreOnTop = false,
   noFastList,
   // Used to re-query `listItemElements` if rendering is delayed by transition
   cacheBuster,
@@ -62,8 +66,12 @@ const InfiniteScroll: FC<OwnProps> = ({
     }
 
     return [
-      debounce(() => onLoadMore({ direction: LoadMoreDirection.Backwards }), 1000, true, false),
-      debounce(() => onLoadMore({ direction: LoadMoreDirection.Forwards }), 1000, true, false),
+      debounce((noScroll = false) => {
+        onLoadMore({ direction: LoadMoreDirection.Backwards, noScroll });
+      }, 1000, true, false),
+      debounce(() => {
+        onLoadMore({ direction: LoadMoreDirection.Forwards });
+      }, 1000, true, false),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onLoadMore, items]);
@@ -75,7 +83,7 @@ const InfiniteScroll: FC<OwnProps> = ({
     }
 
     if (preloadBackwards > 0 && (!items || items.length < preloadBackwards)) {
-      loadMoreBackwards();
+      loadMoreBackwards(true);
       return;
     }
 
@@ -110,10 +118,14 @@ const InfiniteScroll: FC<OwnProps> = ({
       return;
     }
 
+    if (noScrollRestoreOnTop && container.scrollTop === 0) {
+      return;
+    }
+
     resetScroll(container, newScrollTop);
 
     state.isScrollTopJustUpdated = true;
-  }, [noScrollRestore, itemSelector, items, cacheBuster]);
+  }, [items, itemSelector, noScrollRestore, noScrollRestoreOnTop, cacheBuster]);
 
   const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     if (loadMoreForwards && loadMoreBackwards) {
@@ -199,7 +211,13 @@ const InfiniteScroll: FC<OwnProps> = ({
   }, [loadMoreBackwards, loadMoreForwards, onScroll, sensitiveArea]);
 
   return (
-    <div ref={containerRef} className={className} onScroll={handleScroll} teactFastList={!noFastList}>
+    <div
+      ref={containerRef}
+      className={className}
+      onScroll={handleScroll}
+      teactFastList={!noFastList}
+      onKeyDown={onKeyDown}
+    >
       {children}
     </div>
   );

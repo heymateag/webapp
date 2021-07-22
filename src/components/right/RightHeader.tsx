@@ -6,7 +6,7 @@ import { withGlobal } from '../../lib/teact/teactn';
 import { GlobalActions } from '../../global/types';
 import { ManagementScreens, ProfileState } from '../../types';
 
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { debounce } from '../../util/schedulers';
 import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
@@ -19,14 +19,13 @@ import {
 } from '../../modules/selectors';
 import { isChatAdmin, isChatChannel, isChatPrivate } from '../../modules/helpers';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
-import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 
-import CalendarModal from '../common/CalendarModal.async';
 import SearchInput from '../ui/SearchInput';
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
 import './RightHeader.scss';
+import { getDayStartAt } from '../../util/dateFormat';
 
 type OwnProps = {
   chatId?: number;
@@ -37,6 +36,8 @@ type OwnProps = {
   isStickerSearch?: boolean;
   isGifSearch?: boolean;
   isPollResults?: boolean;
+  isAddingChatMembers?: boolean;
+  shouldSkipAnimation?: boolean;
   profileState?: ProfileState;
   managementScreen?: ManagementScreens;
   onClose: () => void;
@@ -52,7 +53,7 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, (
   'setLocalTextSearchQuery' | 'setStickerSearchQuery' | 'setGifSearchQuery' |
-  'searchTextMessagesLocal' | 'toggleManagement' | 'searchMessagesByDate'
+  'searchTextMessagesLocal' | 'toggleManagement' | 'openHistoryCalendar'
 )>;
 
 const COLUMN_CLOSE_DELAY_MS = 300;
@@ -79,6 +80,7 @@ enum HeaderContent {
   StickerSearch,
   GifSearch,
   PollResults,
+  AddingMembers,
 }
 
 const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
@@ -89,6 +91,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   isStickerSearch,
   isGifSearch,
   isPollResults,
+  isAddingChatMembers,
   profileState,
   managementScreen,
   canManage,
@@ -102,12 +105,11 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   setGifSearchQuery,
   searchTextMessagesLocal,
   toggleManagement,
-  searchMessagesByDate,
+  openHistoryCalendar,
+  shouldSkipAnimation,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const backButtonRef = useRef<HTMLDivElement>(null);
-
-  const [isCalendarOpen, openCalendar, closeCalendar] = useFlag();
 
   const handleMessageSearchQueryChange = useCallback((query: string) => {
     setLocalTextSearchQuery({ query });
@@ -116,11 +118,6 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       runDebouncedForSearch(searchTextMessagesLocal);
     }
   }, [searchTextMessagesLocal, setLocalTextSearchQuery]);
-
-  const handleJumpToDate = useCallback((date: Date) => {
-    searchMessagesByDate({ timestamp: date.valueOf() / 1000 });
-    closeCalendar();
-  }, [closeCalendar, searchMessagesByDate]);
 
   const handleStickerSearchQueryChange = useCallback((query: string) => {
     setStickerSearchQuery({ query });
@@ -155,6 +152,8 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     HeaderContent.StickerSearch
   ) : isGifSearch ? (
     HeaderContent.GifSearch
+  ) : isAddingChatMembers ? (
+    HeaderContent.AddingMembers
   ) : isManagement ? (
     managementScreen === ManagementScreens.Initial ? (
       HeaderContent.ManageInitial
@@ -197,6 +196,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         return (
           <>
             <SearchInput
+              parentContainerClassName="RightSearch"
               value={messageSearchQuery}
               onChange={handleMessageSearchQueryChange}
             />
@@ -204,13 +204,15 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
               round
               size="smaller"
               color="translucent"
-              onClick={openCalendar}
+              onClick={() => openHistoryCalendar({ selectedAt: getDayStartAt(Date.now()) })}
               ariaLabel="Search messages by date"
             >
               <i className="icon-calendar" />
             </Button>
           </>
         );
+      case HeaderContent.AddingMembers:
+        return <h3>{lang('GroupAddMembers')}</h3>;
       case HeaderContent.ManageInitial:
         return <h3>{lang('Edit')}</h3>;
       case HeaderContent.ManageChatPrivacyType:
@@ -235,7 +237,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         return (
           <SearchInput
             value={stickerSearchQuery}
-            placeholder="Search Stickers"
+            placeholder={lang('SearchStickersHint')}
             onChange={handleStickerSearchQueryChange}
           />
         );
@@ -277,15 +279,16 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   }
 
   const isBackButton = (
-    IS_MOBILE_SCREEN
+    IS_SINGLE_COLUMN_LAYOUT
     || contentKey === HeaderContent.SharedMedia
     || contentKey === HeaderContent.MemberList
+    || contentKey === HeaderContent.AddingMembers
     || isManagement
   );
 
   const buttonClassName = buildClassName(
     'animated-close-icon',
-    shouldSkipTransition && 'no-transition',
+    (shouldSkipTransition || shouldSkipAnimation) && 'no-transition',
   );
 
   // Add class in the next AF to synchronize with animation with Transition components
@@ -306,20 +309,11 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         <div ref={backButtonRef} className={buttonClassName} />
       </Button>
       <Transition
-        name={shouldSkipTransition ? 'none' : 'slide-fade'}
+        name={(shouldSkipTransition || shouldSkipAnimation) ? 'none' : 'slide-fade'}
         activeKey={renderingContentKey}
       >
         {renderHeaderContent}
       </Transition>
-      {!IS_MOBILE_SCREEN && (
-        <CalendarModal
-          isOpen={isCalendarOpen}
-          isPastMode
-          submitButtonLabel={lang('JumpToDate')}
-          onClose={closeCalendar}
-          onSubmit={handleJumpToDate}
-        />
-      )}
     </div>
   );
 };
@@ -355,6 +349,6 @@ export default memo(withGlobal<OwnProps>(
     'setGifSearchQuery',
     'searchTextMessagesLocal',
     'toggleManagement',
-    'searchMessagesByDate',
+    'openHistoryCalendar',
   ]),
 )(RightHeader));

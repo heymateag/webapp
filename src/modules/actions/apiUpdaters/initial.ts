@@ -9,16 +9,17 @@ import {
   ApiUpdateAuthorizationState,
   ApiUpdateAuthorizationError,
   ApiUpdateConnectionState,
-  ApiUpdateCurrentUser,
+  ApiUpdateSession,
+  ApiUpdateCurrentUser, ApiUpdateServerTimeOffset,
 } from '../../../api/types';
-import { DEBUG } from '../../../config';
+import { DEBUG, SESSION_USER_KEY } from '../../../config';
 import { subscribe } from '../../../util/notifications';
 import { updateUser } from '../../reducers';
 import { setLanguage } from '../../../util/langProvider';
 
 addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
   if (DEBUG) {
-    if (update['@type'] !== 'updateUserStatus') {
+    if (update['@type'] !== 'updateUserStatus' && update['@type'] !== 'updateServerTimeOffset') {
       // eslint-disable-next-line no-console
       console.log('[GramJs] UPDATE', update['@type'], { update });
     }
@@ -41,6 +42,14 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       onUpdateConnectionState(update);
       break;
 
+    case 'updateSession':
+      onUpdateSession(update);
+      break;
+
+    case 'updateServerTimeOffset':
+      onUpdateServerTimeOffset(update);
+      break;
+
     case 'updateCurrentUser':
       onUpdateCurrentUser(update);
       break;
@@ -50,7 +59,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
         actions.signOut();
       }
 
-      actions.showError({ error: update.error });
+      actions.showDialog({ data: { ...update.error, hasErrorKey: true } });
 
       break;
   }
@@ -112,11 +121,6 @@ function onUpdateAuthorizationState(update: ApiUpdateAuthorizationState) {
         lastSyncTime: Date.now(),
       });
 
-      const { sessionId } = update;
-      if (sessionId && global.authRememberMe) {
-        getDispatch().saveSession({ sessionId });
-      }
-
       break;
     }
   }
@@ -145,6 +149,31 @@ function onUpdateConnectionState(update: ApiUpdateConnectionState) {
   }
 }
 
+function onUpdateSession(update: ApiUpdateSession) {
+  const { sessionData } = update;
+  const { authRememberMe, authState } = getGlobal();
+  const isEmpty = !sessionData || !sessionData.mainDcId;
+
+  if (!authRememberMe || authState !== 'authorizationStateReady' || isEmpty) {
+    return;
+  }
+
+  getDispatch().saveSession({ sessionData });
+}
+
+function onUpdateServerTimeOffset(update: ApiUpdateServerTimeOffset) {
+  const global = getGlobal();
+
+  if (global.serverTimeOffset === update.serverTimeOffset) {
+    return;
+  }
+
+  setGlobal({
+    ...global,
+    serverTimeOffset: update.serverTimeOffset,
+  });
+}
+
 function onUpdateCurrentUser(update: ApiUpdateCurrentUser) {
   const { currentUser } = update;
 
@@ -152,4 +181,16 @@ function onUpdateCurrentUser(update: ApiUpdateCurrentUser) {
     ...updateUser(getGlobal(), currentUser.id, currentUser),
     currentUserId: currentUser.id,
   });
+
+  updateSessionUserId(currentUser.id);
+}
+
+function updateSessionUserId(currentUserId: number) {
+  const sessionUserAuth = localStorage.getItem(SESSION_USER_KEY);
+  if (!sessionUserAuth) return;
+
+  const userAuth = JSON.parse(sessionUserAuth);
+  userAuth.id = currentUserId;
+
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(userAuth));
 }

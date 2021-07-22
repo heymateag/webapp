@@ -11,6 +11,7 @@ import buildClassName from '../../../util/buildClassName';
 
 import SafeLink from '../../common/SafeLink';
 import Photo from './Photo';
+import Video from './Video';
 
 import './WebPage.scss';
 
@@ -19,8 +20,11 @@ const MAX_TEXT_LENGTH = 170; // symbols
 type OwnProps = {
   message: ApiMessage;
   observeIntersection?: ObserveFn;
+  noAvatars?: boolean;
   shouldAutoLoad?: boolean;
+  shouldAutoPlay?: boolean;
   inPreview?: boolean;
+  lastSyncTime?: number;
   onMediaClick?: () => void;
   onCancelMediaTransfer?: () => void;
 };
@@ -28,26 +32,25 @@ type OwnProps = {
 const WebPage: FC<OwnProps> = ({
   message,
   observeIntersection,
+  noAvatars,
   shouldAutoLoad,
+  shouldAutoPlay,
   inPreview,
+  lastSyncTime,
   onMediaClick,
   onCancelMediaTransfer,
 }) => {
   const webPage = getMessageWebPage(message);
 
   let isSquarePhoto = false;
-  if (webPage && webPage.photo) {
+  if (webPage && webPage.photo && !webPage.video) {
     const { width, height } = calculateMediaDimensions(message);
     isSquarePhoto = width === height;
   }
 
   const handleMediaClick = useCallback(() => {
-    if (webPage && (isSquarePhoto || webPage.hasDocument)) {
-      window.open(webPage.url);
-    } else if (onMediaClick) {
-      onMediaClick();
-    }
-  }, [webPage, isSquarePhoto, onMediaClick]);
+    onMediaClick!();
+  }, [onMediaClick]);
 
   if (!webPage) {
     return undefined;
@@ -60,29 +63,33 @@ const WebPage: FC<OwnProps> = ({
     title,
     description,
     photo,
+    video,
   } = webPage;
-
+  const isMediaInteractive = (photo || video) && onMediaClick && !isSquarePhoto;
   const truncatedDescription = trimText(description, MAX_TEXT_LENGTH);
 
   const className = buildClassName(
     'WebPage',
-    photo
-      ? (isSquarePhoto && 'with-square-photo')
-      : (!inPreview && 'without-photo'),
+    isSquarePhoto && 'with-square-photo',
+    !photo && !video && !inPreview && 'without-media',
+    video && 'with-video',
   );
 
   return (
     <div
       className={className}
       data-initial={(siteName || displayUrl)[0]}
+      dir="auto"
     >
-      {photo && (
+      {photo && !video && (
         <Photo
           message={message}
           observeIntersection={observeIntersection}
+          noAvatars={noAvatars}
           shouldAutoLoad={shouldAutoLoad}
           size={isSquarePhoto ? 'pictogram' : 'inline'}
-          onClick={handleMediaClick}
+          nonInteractive={!isMediaInteractive}
+          onClick={isMediaInteractive ? handleMediaClick : undefined}
           onCancelUpload={onCancelMediaTransfer}
         />
       )}
@@ -95,6 +102,18 @@ const WebPage: FC<OwnProps> = ({
           <p className="site-description">{renderText(truncatedDescription, ['emoji', 'br'])}</p>
         )}
       </div>
+      {!inPreview && video && (
+        <Video
+          message={message}
+          observeIntersection={observeIntersection!}
+          noAvatars={noAvatars}
+          shouldAutoLoad={shouldAutoLoad}
+          shouldAutoPlay={shouldAutoPlay}
+          lastSyncTime={lastSyncTime}
+          onClick={isMediaInteractive ? handleMediaClick : undefined}
+          onCancelUpload={onCancelMediaTransfer}
+        />
+      )}
     </div>
   );
 };

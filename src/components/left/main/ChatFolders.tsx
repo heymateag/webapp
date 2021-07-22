@@ -1,19 +1,23 @@
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useMemo, useRef,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
 import { ApiChat, ApiChatFolder, ApiUser } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
+import { NotifyException, NotifySettings } from '../../../types';
 
 import { IS_TOUCH_ENV } from '../../../util/environment';
 import { buildCollectionByKey, pick } from '../../../util/iteratees';
 import { captureEvents, SwipeDirection } from '../../../util/captureEvents';
 import { getFolderUnreadDialogs } from '../../../modules/helpers';
+import { selectNotifyExceptions, selectNotifySettings } from '../../../modules/selectors';
 import useShowTransition from '../../../hooks/useShowTransition';
 import buildClassName from '../../../util/buildClassName';
 import useThrottledMemo from '../../../hooks/useThrottledMemo';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
+import captureEscKeyListener from '../../../util/captureEscKeyListener';
 
 import Transition from '../../ui/Transition';
 import TabList from '../../ui/TabList';
@@ -23,26 +27,37 @@ type StateProps = {
   chatsById: Record<number, ApiChat>;
   usersById: Record<number, ApiUser>;
   chatFoldersById: Record<number, ApiChatFolder>;
+  notifySettings: NotifySettings;
+  notifyExceptions?: Record<number, NotifyException>;
   orderedFolderIds?: number[];
+  activeChatFolder: number;
+  currentUserId?: number;
   lastSyncTime?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadChatFolders'>;
+type DispatchProps = Pick<GlobalActions, 'loadChatFolders' | 'setActiveChatFolder' | 'openChat'>;
 
 const INFO_THROTTLE = 3000;
+const SAVED_MESSAGES_HOTKEY = '0';
 
 const ChatFolders: FC<StateProps & DispatchProps> = ({
   chatsById,
   usersById,
   chatFoldersById,
+  notifySettings,
+  notifyExceptions,
   orderedFolderIds,
+  activeChatFolder,
+  currentUserId,
   lastSyncTime,
   loadChatFolders,
+  setActiveChatFolder,
+  openChat,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const transitionRef = useRef<HTMLDivElement>(null);
 
-  const [activeTab, setActiveTab] = useState(0);
+  const lang = useLang();
 
   useEffect(() => {
     if (lastSyncTime) {
@@ -65,7 +80,7 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
     const counters = displayedFolders.map((folder) => {
       const {
         unreadDialogsCount, hasActiveDialogs,
-      } = getFolderUnreadDialogs(chatsById, usersById, folder, chatIds) || {};
+      } = getFolderUnreadDialogs(chatsById, usersById, folder, chatIds, notifySettings, notifyExceptions) || {};
 
       return {
         id: folder.id,
@@ -75,7 +90,7 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
     });
 
     return buildCollectionByKey(counters, 'id');
-  }, INFO_THROTTLE, [displayedFolders, chatsById, usersById]);
+  }, INFO_THROTTLE, [displayedFolders, chatsById, usersById, notifySettings, notifyExceptions]);
 
   const folderTabs = useMemo(() => {
     if (!displayedFolders || !displayedFolders.length) {
@@ -83,18 +98,17 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
     }
 
     return [
-      { title: 'All' },
-      { title: 'Shops' },
+      { title: lang('FilterAllChats') },
       ...displayedFolders.map((folder) => ({
         title: folder.title,
         ...(folderCountersById && folderCountersById[folder.id]),
       })),
     ];
-  }, [displayedFolders, folderCountersById]);
+  }, [displayedFolders, folderCountersById, lang]);
 
   const handleSwitchTab = useCallback((index: number) => {
-    setActiveTab(index);
-  }, []);
+    setActiveChatFolder(index);
+  }, [setActiveChatFolder]);
 
   // Prevent `activeTab` pointing at non-existing folder after update
   useEffect(() => {
@@ -102,10 +116,10 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
       return;
     }
 
-    if (activeTab >= folderTabs.length) {
-      setActiveTab(0);
+    if (activeChatFolder >= folderTabs.length) {
+      setActiveChatFolder(0);
     }
-  }, [activeTab, folderTabs]);
+  }, [activeChatFolder, folderTabs, setActiveChatFolder]);
 
   useEffect(() => {
     if (!transitionRef.current || !IS_TOUCH_ENV || !folderTabs || !folderTabs.length) {
@@ -115,42 +129,83 @@ const ChatFolders: FC<StateProps & DispatchProps> = ({
     return captureEvents(transitionRef.current, {
       onSwipe: ((e, direction) => {
         if (direction === SwipeDirection.Left) {
-          setActiveTab(Math.min(activeTab + 1, folderTabs.length - 1));
+          setActiveChatFolder(Math.min(activeChatFolder + 1, folderTabs.length - 1));
         } else if (direction === SwipeDirection.Right) {
-          setActiveTab(Math.max(0, activeTab - 1));
+          setActiveChatFolder(Math.max(0, activeChatFolder - 1));
         }
       }),
     });
-  }, [activeTab, folderTabs]);
+  }, [activeChatFolder, folderTabs, setActiveChatFolder]);
+
+  const isNotInAllTabRef = useRef();
+  isNotInAllTabRef.current = activeChatFolder !== 0;
+  useEffect(() => (isNotInAllTabRef.current ? captureEscKeyListener(() => {
+    if (isNotInAllTabRef.current) {
+      setActiveChatFolder(0);
+    }
+  }) : undefined), [activeChatFolder, setActiveChatFolder]);
+
+  useHistoryBack(activeChatFolder !== 0, () => setActiveChatFolder(0));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.code.startsWith('Digit') && folderTabs) {
+        const [, digit] = e.code.match(/Digit(\d)/) || [];
+        if (!digit) return;
+
+        if (digit === SAVED_MESSAGES_HOTKEY) {
+          openChat({ id: currentUserId });
+          return;
+        }
+
+        const folder = Number(digit) - 1;
+        if (folder > folderTabs.length - 1) return;
+
+        setActiveChatFolder(folder);
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  });
 
   const {
     shouldRender: shouldRenderPlaceholder, transitionClassNames,
   } = useShowTransition(!orderedFolderIds, undefined, true);
 
-  const lang = useLang();
-
-  function renderCurrentTab() {
+  function renderCurrentTab(isActive: boolean) {
     const activeFolder = Object.values(chatFoldersById)
-      .find(({ title }) => title === folderTabs![activeTab].title);
+      .find(({ title }) => title === folderTabs![activeChatFolder].title);
 
-    if (!activeFolder || activeTab === 0) {
-      return <ChatList folderType="all" />;
+    if (!activeFolder || activeChatFolder === 0) {
+      return <ChatList folderType="all" isActive={isActive} />;
     }
 
-    return <ChatList folderType="folder" folderId={activeFolder.id} noChatsText={lang('FilterNoChatsToDisplay')} />;
+    return (
+      <ChatList
+        folderType="folder"
+        folderId={activeFolder.id}
+        noChatsText={lang('FilterNoChatsToDisplay')}
+        isActive={isActive}
+      />
+    );
   }
 
   return (
     <div className="ChatFolders">
       {folderTabs && folderTabs.length ? (
-        <TabList tabs={folderTabs} activeTab={activeTab} onSwitchTab={handleSwitchTab} />
+        <TabList tabs={folderTabs} activeTab={activeChatFolder} onSwitchTab={handleSwitchTab} />
       ) : shouldRenderPlaceholder ? (
         <div className={buildClassName('tabs-placeholder', transitionClassNames)} />
       ) : undefined}
       <Transition
         ref={transitionRef}
-        name="slide"
-        activeKey={activeTab}
+        name={lang.isRtl ? 'slide-reversed' : 'slide'}
+        activeKey={activeChatFolder}
         renderCount={folderTabs ? folderTabs.length : undefined}
       >
         {renderCurrentTab}
@@ -167,7 +222,9 @@ export default memo(withGlobal(
       chatFolders: {
         byId: chatFoldersById,
         orderedIds: orderedFolderIds,
+        activeChatFolder,
       },
+      currentUserId,
       lastSyncTime,
     } = global;
 
@@ -177,7 +234,15 @@ export default memo(withGlobal(
       chatFoldersById,
       orderedFolderIds,
       lastSyncTime,
+      notifySettings: selectNotifySettings(global),
+      notifyExceptions: selectNotifyExceptions(global),
+      activeChatFolder,
+      currentUserId,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadChatFolders']),
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'loadChatFolders',
+    'setActiveChatFolder',
+    'openChat',
+  ]),
 )(ChatFolders));

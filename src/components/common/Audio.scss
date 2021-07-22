@@ -13,7 +13,7 @@
     --color-interactive-buffered: rgba(var(--color-text-green-rgb), 0.4); // Overlays underlying inactive color
 
     .theme-dark & {
-      --color-text-green-rgb: 255,255,255;
+      --color-text-green-rgb: 255, 255, 255;
       --color-text-green: var(--color-white);
     }
 
@@ -31,12 +31,12 @@
   }
 
   .toggle-play {
-    margin-right: .5rem;
+    margin-inline-end: .5rem;
 
     &.smaller {
       width: 3rem;
       height: 3rem;
-      margin-right: .75rem;
+      margin-inline-end: .75rem;
 
       i {
         font-size: 1.625rem;
@@ -70,10 +70,40 @@
     }
   }
 
+  .media-loading {
+    pointer-events: none;
+
+    .interactive {
+      pointer-events: auto;
+    }
+  }
+
+  .download-button {
+    position: absolute;
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    padding: 0;
+    left: 1.5rem;
+    top: 1.5rem;
+    border: .125rem solid var(--background-color);
+    z-index: 1;
+
+    i {
+      font-size: 0.8125rem;
+    }
+  }
+
+  &.bigger .download-button {
+    left: 2rem;
+    top: 2rem;
+    border: .125rem solid var(--color-background);
+  }
+
   .content {
     align-self: center;
     min-width: 0;
     flex-grow: 1;
+    text-align: initial;
   }
 
   .content-row {
@@ -231,10 +261,39 @@
       top: 0.1875rem;
       left: 0.1875rem;
     }
+
+    &[dir=rtl] {
+      .media-loading {
+        left: auto !important;
+        right: 0;
+      }
+    }
   }
 
   .ProgressSpinner.size-s svg {
     width: 2.25rem;
     height: 2.25rem;
+  }
+
+  &[dir=rtl] {
+    .toggle-play {
+      margin-left: .5rem;
+      margin-right: 0;
+
+      &.smaller {
+        margin-left: .75rem;
+        margin-right: 0;
+      }
+    }
+
+    .content,
+    .duration {
+      text-align: right;
+    }
+
+    .download-button {
+      left: auto;
+      right: 1.5rem;
+    }
   }
 }

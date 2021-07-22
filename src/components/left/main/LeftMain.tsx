@@ -1,10 +1,18 @@
 import React, {
-  FC, memo, useState, useRef, useCallback, useEffect,
+  FC, useState, useRef, useCallback, useEffect,
 } from '../../../lib/teact/teact';
+import { withGlobal } from '../../../lib/teact/teactn';
 
+import { GlobalState } from '../../../global/types';
 import { LeftColumnContent } from '../../../types';
 
 import { IS_TOUCH_ENV } from '../../../util/environment';
+import { pick } from '../../../util/iteratees';
+import buildClassName from '../../../util/buildClassName';
+import useBrowserOnline from '../../../hooks/useBrowserOnline';
+import useFlag from '../../../hooks/useFlag';
+import useShowTransition from '../../../hooks/useShowTransition';
+import useLang from '../../../hooks/useLang';
 
 import Transition from '../../ui/Transition';
 import LeftMainHeader from './LeftMainHeader';
@@ -13,6 +21,8 @@ import ChatFolders from './ChatFolders';
 import LeftSearch from '../search/LeftSearch.async';
 import ContactList from './ContactList.async';
 import NewChatButton from '../NewChatButton';
+import ShowTransition from '../../ui/ShowTransition';
+import Button from '../../ui/Button';
 
 import './LeftMain.scss';
 
@@ -21,15 +31,18 @@ type OwnProps = {
   searchQuery?: string;
   searchDate?: number;
   contactsFilter: string;
+  shouldSkipTransition?: boolean;
   onSearchQuery: (query: string) => void;
   onContentChange: (content: LeftColumnContent) => void;
   onReset: () => void;
 };
 
-type StateProps = {};
+type StateProps = Pick<GlobalState, 'connectionState'>;
 
 const TRANSITION_RENDER_COUNT = Object.keys(LeftColumnContent).length / 2;
 const BUTTON_CLOSE_DELAY_MS = 250;
+const APP_OUTDATED_TIMEOUT = 3 * 24 * 60 * 60 * 1000; // 3 days
+
 let closeTimeout: number | undefined;
 
 const LeftMain: FC<OwnProps & StateProps> = ({
@@ -37,11 +50,16 @@ const LeftMain: FC<OwnProps & StateProps> = ({
   searchQuery,
   searchDate,
   contactsFilter,
+  shouldSkipTransition,
   onSearchQuery,
   onContentChange,
   onReset,
+  connectionState,
 }) => {
   const [isNewChatButtonShown, setIsNewChatButtonShown] = useState(IS_TOUCH_ENV);
+
+  const isBrowserOnline = useBrowserOnline();
+  const isConnecting = !isBrowserOnline || connectionState === 'connectionStateConnecting';
 
   const isMouseInside = useRef(false);
 
@@ -114,6 +132,10 @@ const LeftMain: FC<OwnProps & StateProps> = ({
     };
   }, [content]);
 
+  const [shouldRenderUpdateButton, updateButtonClassNames, handleUpdateClick] = useAppOutdatedCheck();
+
+  const lang = useLang();
+
   return (
     <div
       id="LeftColumn-main"
@@ -130,10 +152,20 @@ const LeftMain: FC<OwnProps & StateProps> = ({
         onSelectManageOffers={handleSelectManageOffers}
         onSelectWallet={handleSelectWallet}
         onReset={onReset}
+        shouldSkipTransition={shouldSkipTransition}
       />
-      <ConnectionState />
-      <Transition name="zoom-fade" renderCount={TRANSITION_RENDER_COUNT} activeKey={content}>
-        {() => {
+      <ShowTransition isOpen={isConnecting} isCustom className="connection-state-wrapper opacity-transition slow">
+        {() => <ConnectionState />}
+      </ShowTransition>
+      <Transition
+        name={shouldSkipTransition ? 'none' : 'zoom-fade'}
+        renderCount={TRANSITION_RENDER_COUNT}
+        activeKey={content}
+        shouldCleanup
+        cleanupExceptionKey={LeftColumnContent.ChatList}
+        className={isConnecting ? 'pull-down' : undefined}
+      >
+        {(isActive) => {
           switch (content) {
             case LeftColumnContent.ChatList:
               return <ChatFolders />;
@@ -142,16 +174,27 @@ const LeftMain: FC<OwnProps & StateProps> = ({
                 <LeftSearch
                   searchQuery={searchQuery}
                   searchDate={searchDate}
+                  isActive={isActive}
                   onReset={onReset}
                 />
               );
             case LeftColumnContent.Contacts:
-              return <ContactList filter={contactsFilter} />;
+              return <ContactList filter={contactsFilter} isActive={isActive} onReset={onReset} />;
             default:
               return undefined;
           }
         }}
       </Transition>
+      {shouldRenderUpdateButton && (
+        <Button
+          fluid
+          pill
+          className={buildClassName('btn-update', updateButtonClassNames)}
+          onClick={handleUpdateClick}
+        >
+          {lang('lng_update_telegram')}
+        </Button>
+      )}
       <NewChatButton
         isShown={isNewChatButtonShown}
         onNewPrivateChat={handleSelectContacts}
@@ -162,4 +205,26 @@ const LeftMain: FC<OwnProps & StateProps> = ({
   );
 };
 
-export default memo(LeftMain);
+function useAppOutdatedCheck() {
+  const [isAppOutdated, markIsAppOutdated] = useFlag(false);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(markIsAppOutdated, APP_OUTDATED_TIMEOUT);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [markIsAppOutdated]);
+
+  const { shouldRender, transitionClassNames } = useShowTransition(isAppOutdated);
+
+  const handleUpdateClick = () => {
+    window.location.reload();
+  };
+
+  return [shouldRender, transitionClassNames, handleUpdateClick] as const;
+}
+
+export default withGlobal<OwnProps>(
+  (global): StateProps => pick(global, ['connectionState']),
+)(LeftMain);

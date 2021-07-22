@@ -18,6 +18,7 @@ import {
   ApiPaymentSavedInfo,
   ApiSession,
   ApiNewPoll,
+  ApiInviteInfo,
 } from '../api/types';
 import {
   FocusDirection,
@@ -34,6 +35,13 @@ import {
   Receipt,
   ApiPrivacyKey,
   ApiPrivacySettings,
+  ThemeKey,
+  IThemeSettings,
+  NotifyException,
+  LangCode,
+  EmojiKeywords,
+  InlineBotSettings,
+  NewChatMembersProgress,
 } from '../types';
 
 export type MessageListType = 'thread' | 'pinned' | 'scheduled';
@@ -52,16 +60,20 @@ export interface Thread {
   noWebPage?: boolean;
   threadInfo?: ApiThreadInfo;
   firstMessageId?: number;
+  replyStack?: number[];
 }
 
 export type GlobalState = {
   isChatInfoShown: boolean;
   isLeftColumnShown: boolean;
   isPollModalOpen?: boolean;
+  newChatMembersProgress?: NewChatMembersProgress;
   uiReadyState: 0 | 1 | 2;
+  shouldSkipHistoryAnimations?: boolean;
   connectionState?: ApiUpdateConnectionStateType;
   currentUserId?: number;
   lastSyncTime?: number;
+  serverTimeOffset: number;
 
   // TODO Move to `auth`.
   isLoggingOut?: boolean;
@@ -71,7 +83,6 @@ export type GlobalState = {
   authIsLoadingQrCode?: boolean;
   authError?: string;
   authRememberMe?: boolean;
-  authIsSessionRemembered?: boolean;
   authNearestCountry?: string;
   authIsCodeViaApp?: boolean;
   authHint?: string;
@@ -147,6 +158,7 @@ export type GlobalState = {
     orderedIds?: number[];
     byId: Record<number, ApiChatFolder>;
     recommended?: ApiChatFolder[];
+    activeChatFolder: number;
   };
 
   focusedMessage?: {
@@ -200,6 +212,7 @@ export type GlobalState = {
   };
 
   animatedEmojis?: ApiStickerSet;
+  emojiKeywords: Partial<Record<LangCode, EmojiKeywords>>;
 
   gifs: {
     saved: {
@@ -211,6 +224,11 @@ export type GlobalState = {
       offset?: string;
       results?: ApiVideo[];
     };
+  };
+
+  inlineBots: {
+    isLoading: boolean;
+    byUsername: Record<string, false | InlineBotSettings>;
   };
 
   globalSearch: {
@@ -236,6 +254,13 @@ export type GlobalState = {
       nextOffsetId: number;
       foundIds: string[];
     }>>;
+  };
+
+  userSearch: {
+    query?: string;
+    fetchingStatus?: boolean;
+    localUserIds?: number[];
+    globalUserIds?: number[];
   };
 
   localTextSearch: {
@@ -285,6 +310,12 @@ export type GlobalState = {
   };
 
   topPeers: {
+    hash?: number;
+    userIds?: number[];
+    lastRequestedAt?: number;
+  };
+
+  topInlineBots: {
     hash?: number;
     userIds?: number[];
     lastRequestedAt?: number;
@@ -357,7 +388,7 @@ export type GlobalState = {
   };
 
   notifications: ApiNotification[];
-  errors: ApiError[];
+  dialogs: (ApiError | ApiInviteInfo)[];
 
   // TODO Move to settings
   activeSessions: ApiSession[];
@@ -365,7 +396,9 @@ export type GlobalState = {
   settings: {
     byKey: ISettings;
     loadedWallpapers?: ApiWallpaper[];
+    themes: Partial<Record<ThemeKey, IThemeSettings>>;
     privacy: Partial<Record<ApiPrivacyKey, ApiPrivacySettings>>;
+    notifyExceptions?: Record<number, NotifyException>;
   };
 
   twoFaSettings: {
@@ -379,17 +412,25 @@ export type GlobalState = {
     deviceToken: string;
     subscribedAt: number;
   };
+
+  safeLinkModalUrl?: string;
+  historyCalendarSelectedAt?: number;
+
+  // TODO To be removed in August 2021
+  shouldShowContextMenuHint?: boolean;
 };
 
 export type ActionTypes = (
   // system
   'init' | 'reset' | 'disconnect' | 'initApi' | 'apiUpdate' | 'sync' | 'saveSession' | 'afterSync' |
-  'showNotification' | 'dismissNotification' | 'showError' | 'dismissError' |
+  'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' |
   // ui
   'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
+  'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |
+  'setNewChatMembersDialogState' | 'disableHistoryAnimations' |
   // auth
   'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
-  'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'gotToAuthQrCode' | 'clearCache' |
+  'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |
   // chats
   'preloadTopChatMessages' | 'loadChats' | 'loadMoreChats' | 'openChat' | 'openChatWithInfo' |
   'openSupportChat' | 'openTipsChat' |
@@ -397,14 +438,16 @@ export type ActionTypes = (
   'joinChannel' | 'leaveChannel' | 'deleteChannel' | 'toggleChatPinned' | 'toggleChatArchived' | 'toggleChatUnread' |
   'loadChatFolders' | 'loadRecommendedChatFolders' | 'editChatFolder' | 'addChatFolder' | 'deleteChatFolder' |
   'updateChat' | 'toggleSignatures' | 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup' |
-  'loadProfilePhotos' | 'loadMoreMembers' |
+  'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
+  'addChatMembers' | 'deleteChatMember' |
   // messages
   'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
   'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
   'editMessage' | 'deleteHistory' | 'enterMessageSelectMode' | 'toggleMessageSelection' | 'exitMessageSelectMode' |
   'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |
   'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
-  'loadMessageLink' | 'toggleMessageWebPage' |
+  'loadMessageLink' | 'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
+  'reportMessages' | 'focusNextReply' |
   // scheduled messages
   'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
   // poll result
@@ -422,9 +465,10 @@ export type ActionTypes = (
   'toggleManagement' | 'closeManagement' | 'checkPublicLink' | 'updatePublicLink' | 'updatePrivateLink' |
   // groups
   'togglePreHistoryHidden' | 'updateChatDefaultBannedRights' | 'updateChatMemberBannedRights' | 'updateChatAdmin' |
+  'acceptInviteConfirmation' |
   // users
   'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadTopUsers' | 'loadContactList' | 'loadCurrentUser' |
-  'updateProfile' | 'checkUsername' | 'updateContact' | 'deleteUser' | 'loadUser' |
+  'updateProfile' | 'checkUsername' | 'updateContact' | 'deleteUser' | 'loadUser' | 'setUserSearchQuery' |
   // Channel / groups creation
   'createChannel' | 'createGroupChat' | 'resetChatCreation' |
   // settings
@@ -432,15 +476,18 @@ export type ActionTypes = (
   'updatePassword' | 'updateRecoveryEmail' | 'clearPassword' | 'provideTwoFaEmailCode' | 'checkPassword' |
   'loadBlockedContacts' | 'blockContact' | 'unblockContact' |
   'loadAuthorizations' | 'terminateAuthorization' | 'terminateAllAuthorizations' |
-  'loadNotificationsSettings' | 'updateContactSignUpNotification' | 'updateNotificationSettings' |
+  'loadNotificationSettings' | 'updateContactSignUpNotification' | 'updateNotificationSettings' |
   'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' | 'setPrivacySettings' |
+  'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' | 'loadContentSettings' |
+  'updateContentSettings' |
   // Stickers & GIFs
   'loadStickerSets' | 'loadAddedStickers' | 'loadRecentStickers' | 'loadFavoriteStickers' | 'loadFeaturedStickers' |
   'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
   'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
-  'loadStickersForEmoji' | 'clearStickersForEmoji' |
+  'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' |
   // bots
-  'clickInlineButton' | 'sendBotCommand' |
+  'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
+  'resetInlineBot' |
   // misc
   'openMediaViewer' | 'closeMediaViewer' | 'openAudioPlayer' | 'closeAudioPlayer' | 'openPollModal' | 'closePollModal' |
   'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' | 'setDeviceToken' |

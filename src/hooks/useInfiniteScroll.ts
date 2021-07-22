@@ -52,7 +52,10 @@ export default (
     }
   }, [listIds, isDisabled, loadMoreBackwards, forceFullPreload]);
 
-  const getMore: GetMore = useCallback(({ direction }: { direction: LoadMoreDirection }) => {
+  const getMore: GetMore = useCallback(({
+    direction,
+    noScroll,
+  }: { direction: LoadMoreDirection; noScroll?: boolean }) => {
     const viewportIds = viewportIdsRef.current;
 
     const offsetId = viewportIds
@@ -67,7 +70,9 @@ export default (
       return;
     }
 
-    lastParamsRef.current = { ...lastParamsRef.current, direction, offsetId };
+    if (!noScroll) {
+      lastParamsRef.current = { ...lastParamsRef.current, direction, offsetId };
+    }
 
     const {
       newViewportIds, areSomeLocal, areAllLocal,

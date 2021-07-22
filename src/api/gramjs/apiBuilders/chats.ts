@@ -1,19 +1,15 @@
 import { Api as GramJs } from '../../../lib/gramjs';
 import {
   ApiChat,
-  ApiChatMember,
   ApiChatAdminRights,
   ApiChatBannedRights,
-  ApiRestrictionReason,
   ApiChatFolder,
+  ApiChatMember,
+  ApiRestrictionReason,
 } from '../../types';
 import { pick, pickTruthy } from '../../../util/iteratees';
 import {
-  isPeerChat,
-  isPeerUser,
-  isInputPeerUser,
-  isInputPeerChat,
-  isInputPeerChannel,
+  isInputPeerChannel, isInputPeerChat, isInputPeerUser, isPeerChat, isPeerUser,
 } from './peers';
 import { omitVirtualClassFields } from './helpers';
 
@@ -29,7 +25,7 @@ function buildApiChatFieldsFromPeerEntity(
 ): PeerEntityApiChatFields {
   const isMin = Boolean('min' in peerEntity && peerEntity.min);
   const accessHash = ('accessHash' in peerEntity) && String(peerEntity.accessHash);
-  const avatarHash = ('photo' in peerEntity) && buildAvatarHash(peerEntity.photo);
+  const avatarHash = ('photo' in peerEntity) && peerEntity.photo && buildAvatarHash(peerEntity.photo);
   const isSignaturesShown = Boolean('signatures' in peerEntity && peerEntity.signatures);
   const hasPrivateLink = Boolean('hasLink' in peerEntity && peerEntity.hasLink);
 
@@ -44,6 +40,8 @@ function buildApiChatFieldsFromPeerEntity(
       && { username: peerEntity.username }
     ),
     ...(('verified' in peerEntity) && { isVerified: peerEntity.verified }),
+    ...(('callActive' in peerEntity) && { isCallActive: peerEntity.callActive }),
+    ...(('callNotEmpty' in peerEntity) && { isCallNotEmpty: peerEntity.callNotEmpty }),
     ...((peerEntity instanceof GramJs.Chat || peerEntity instanceof GramJs.Channel) && {
       ...(peerEntity.participantsCount && { membersCount: peerEntity.participantsCount }),
       joinDate: peerEntity.date,
@@ -59,12 +57,13 @@ function buildApiChatFieldsFromPeerEntity(
 export function buildApiChatFromDialog(
   dialog: GramJs.Dialog,
   peerEntity: GramJs.TypeUser | GramJs.TypeChat,
+  serverTimeOffset: number,
 ): ApiChat {
   const {
     peer, folderId, unreadMark, unreadCount, unreadMentionsCount, notifySettings: { silent, muteUntil },
-    readOutboxMaxId, readInboxMaxId,
+    readOutboxMaxId, readInboxMaxId, draft,
   } = dialog;
-  const isMuted = silent || (typeof muteUntil === 'number' && Date.now() < muteUntil * 1000);
+  const isMuted = silent || (typeof muteUntil === 'number' && Date.now() + serverTimeOffset * 1000 < muteUntil * 1000);
 
   return {
     id: getApiChatIdFromMtpPeer(peer),
@@ -77,6 +76,7 @@ export function buildApiChatFromDialog(
     unreadMentionsCount,
     isMuted,
     ...(unreadMark && { hasUnreadMark: true }),
+    ...(draft instanceof GramJs.DraftMessage && { draftDate: draft.date }),
     ...buildApiChatFieldsFromPeerEntity(peerEntity),
   };
 }
@@ -110,28 +110,36 @@ function buildApiChatRestrictions(peerEntity: GramJs.TypeUser | GramJs.TypeChat)
     };
   }
 
-  if (peerEntity instanceof GramJs.User) {
-    return {
-      isRestricted: peerEntity.restricted,
-      restrictionReason: buildApiChatRestrictionReason(peerEntity.restrictionReason),
-    };
-  } else if (peerEntity instanceof GramJs.Chat) {
-    return {
+  const restrictions = {};
+
+  if ('restricted' in peerEntity) {
+    const restrictionReason = peerEntity.restricted
+      ? buildApiChatRestrictionReason(peerEntity.restrictionReason)
+      : undefined;
+
+    if (restrictionReason) {
+      Object.assign(restrictions, {
+        isRestricted: true,
+        restrictionReason,
+      });
+    }
+  }
+
+  if (peerEntity instanceof GramJs.Chat) {
+    Object.assign(restrictions, {
       isNotJoined: peerEntity.left,
       isRestricted: peerEntity.kicked,
-    };
-  } else if (peerEntity instanceof GramJs.Channel) {
-    const isRestricted = peerEntity.restricted
-      && peerEntity.restrictionReason
-      && peerEntity.restrictionReason.some((reason) => reason.platform === 'all');
-
-    return {
-      isNotJoined: peerEntity.left,
-      isRestricted,
-      restrictionReason: buildApiChatRestrictionReason(peerEntity.restrictionReason),
-    };
+    });
   }
-  return {};
+
+  if (peerEntity instanceof GramJs.Channel) {
+    Object.assign(restrictions, {
+      // `left` is weirdly set to `true` on all channels never joined before
+      isNotJoined: peerEntity.left,
+    });
+  }
+
+  return restrictions;
 }
 
 function buildApiChatMigrationInfo(peerEntity: GramJs.TypeChat): {
@@ -256,12 +264,9 @@ function getUserName(user: GramJs.User) {
     : (user.lastName || undefined);
 }
 
-export function buildAvatarHash(photo: any) {
-  if (photo instanceof GramJs.UserProfilePhoto) {
+export function buildAvatarHash(photo: GramJs.TypeUserProfilePhoto | GramJs.TypeChatPhoto) {
+  if ('photoId' in photo) {
     return photo.photoId.toString();
-  } else if (photo instanceof GramJs.ChatPhoto) {
-    const { dcId, photoSmall: { volumeId, localId } } = photo;
-    return `${dcId}-${volumeId}-${localId}`;
   }
 
   return undefined;
@@ -269,9 +274,13 @@ export function buildAvatarHash(photo: any) {
 
 export function buildChatMember(
   member: GramJs.TypeChatParticipant | GramJs.TypeChannelParticipant,
-): ApiChatMember {
+): ApiChatMember | undefined {
+  const userId = (member instanceof GramJs.ChannelParticipantBanned || member instanceof GramJs.ChannelParticipantLeft)
+    ? getApiChatIdFromMtpPeer(member.peer)
+    : member.userId;
+
   return {
-    userId: member.userId,
+    userId,
     inviterId: 'inviterId' in member ? member.inviterId : undefined,
     joinedDate: 'date' in member ? member.date : undefined,
     kickedByUserId: 'kickedBy' in member ? member.kickedBy : undefined,
@@ -290,59 +299,55 @@ export function buildChatMember(
 
 export function buildChatMembers(
   participants: GramJs.TypeChatParticipants | GramJs.channels.ChannelParticipants,
-): ApiChatMember[] | undefined {
+) {
   // Duplicate code because of TS union-type shenanigans
   if (participants instanceof GramJs.ChatParticipants) {
-    return participants.participants.map(buildChatMember);
+    return participants.participants.map(buildChatMember).filter<ApiChatMember>(Boolean as any);
   }
   if (participants instanceof GramJs.channels.ChannelParticipants) {
-    return participants.participants.map(buildChatMember);
+    return participants.participants.map(buildChatMember).filter<ApiChatMember>(Boolean as any);
   }
 
   return undefined;
 }
 
-export function buildChatInviteLink(exportedInvite: GramJs.TypeExportedChatInvite) {
-  return exportedInvite instanceof GramJs.ChatInviteExported
-    ? exportedInvite.link
-    : undefined;
-}
-
-export function buildChatTypingStatus(update: GramJs.UpdateUserTyping | GramJs.UpdateChatUserTyping) {
+export function buildChatTypingStatus(
+  update: GramJs.UpdateUserTyping | GramJs.UpdateChatUserTyping | GramJs.UpdateChannelUserTyping,
+  serverTimeOffset: number,
+) {
   let action: string = '';
   if (update.action instanceof GramJs.SendMessageCancelAction) {
     return undefined;
   } else if (update.action instanceof GramJs.SendMessageTypingAction) {
-    action = 'typing';
+    action = 'lng_user_typing';
   } else if (update.action instanceof GramJs.SendMessageRecordVideoAction) {
-    action = 'recording a video';
+    action = 'lng_send_action_record_video';
   } else if (update.action instanceof GramJs.SendMessageUploadVideoAction) {
-    action = 'uploading a video';
+    action = 'lng_send_action_upload_video';
   } else if (update.action instanceof GramJs.SendMessageRecordAudioAction) {
-    action = 'recording a voice message';
+    action = 'lng_send_action_record_audio';
   } else if (update.action instanceof GramJs.SendMessageUploadAudioAction) {
-    action = 'uploading a voice message';
+    action = 'lng_send_action_upload_audio';
   } else if (update.action instanceof GramJs.SendMessageUploadPhotoAction) {
-    action = 'uploading a photo';
+    action = 'lng_send_action_upload_photo';
   } else if (update.action instanceof GramJs.SendMessageUploadDocumentAction) {
-    action = 'uploading a file';
+    action = 'lng_send_action_upload_file';
   } else if (update.action instanceof GramJs.SendMessageGeoLocationAction) {
     action = 'selecting a location to share';
   } else if (update.action instanceof GramJs.SendMessageChooseContactAction) {
     action = 'selecting a contact to share';
   } else if (update.action instanceof GramJs.SendMessageGamePlayAction) {
-    action = 'playing a game';
+    action = 'lng_playing_game';
   } else if (update.action instanceof GramJs.SendMessageRecordRoundAction) {
-    action = 'recording a round video';
+    action = 'lng_send_action_record_round';
   } else if (update.action instanceof GramJs.SendMessageUploadRoundAction) {
-    action = 'uploading a round video';
+    action = 'lng_send_action_upload_round';
   }
 
   return {
     action,
-    ...(update instanceof GramJs.UpdateChatUserTyping && { userId: update.userId }),
-    ...(update instanceof GramJs.UpdateChannelUserTyping && { userId: update.userId }),
-    timestamp: Date.now(),
+    ...(!(update instanceof GramJs.UpdateUserTyping) && { userId: getApiChatIdFromMtpPeer(update.fromId) }),
+    timestamp: Date.now() + serverTimeOffset * 1000,
   };
 }
 

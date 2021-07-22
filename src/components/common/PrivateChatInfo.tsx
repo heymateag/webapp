@@ -29,12 +29,14 @@ type OwnProps = {
   withFullInfo?: boolean;
   withUpdatingStatus?: boolean;
   noStatusOrTyping?: boolean;
+  noRtl?: boolean;
 };
 
 type StateProps = {
   user?: ApiUser;
   isSavedMessages?: boolean;
   areMessagesLoaded: boolean;
+  serverTimeOffset: number;
 } & Pick<GlobalState, 'lastSyncTime'>;
 
 type DispatchProps = Pick<GlobalActions, 'loadFullUser' | 'openMediaViewer'>;
@@ -48,12 +50,14 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   withFullInfo,
   withUpdatingStatus,
   noStatusOrTyping,
+  noRtl,
   user,
   isSavedMessages,
   areMessagesLoaded,
   lastSyncTime,
   loadFullUser,
   openMediaViewer,
+  serverTimeOffset,
 }) => {
   const { id: userId } = user || {};
   const fullName = getUserFullName(user);
@@ -83,13 +87,13 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   function renderStatusOrTyping() {
     if (status) {
       return (
-        <span className="status">{status}</span>
+        <span className="status" dir="auto">{status}</span>
       );
     }
 
     if (withUpdatingStatus && !areMessagesLoaded) {
       return (
-        <span className="status">{lang('Updating')}</span>
+        <span className="status" dir="auto">{lang('Updating')}</span>
       );
     }
 
@@ -104,13 +108,13 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
     return (
       <div className={`status ${isUserOnline(user) ? 'online' : ''}`}>
         {withUsername && user.username && <span className="handle">{user.username}</span>}
-        <span className="user-status">{getUserStatus(user, lang)}</span>
+        <span className="user-status" dir="auto">{getUserStatus(lang, user, serverTimeOffset)}</span>
       </div>
     );
   }
 
   return (
-    <div className="ChatInfo">
+    <div className="ChatInfo" dir={!noRtl && lang.isRtl ? 'rtl' : undefined}>
       <Avatar
         key={user.id}
         size={avatarSize}
@@ -125,7 +129,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
           </div>
         ) : (
           <div className="title">
-            <h3>{fullName && renderText(fullName)}</h3>
+            <h3 dir="auto">{fullName && renderText(fullName)}</h3>
             {user && user.isVerified && <VerifiedIcon />}
           </div>
         )}
@@ -137,13 +141,13 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(withGlobal<OwnProps>(
   (global, { userId, forceShowSelf }): StateProps => {
-    const { lastSyncTime } = global;
+    const { lastSyncTime, serverTimeOffset } = global;
     const user = selectUser(global, userId);
     const isSavedMessages = !forceShowSelf && user && user.isSelf;
     const areMessagesLoaded = Boolean(selectChatMessages(global, userId));
 
     return {
-      lastSyncTime, user, isSavedMessages, areMessagesLoaded,
+      lastSyncTime, user, isSavedMessages, areMessagesLoaded, serverTimeOffset,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, ['loadFullUser', 'openMediaViewer']),

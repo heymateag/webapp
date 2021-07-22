@@ -1,4 +1,4 @@
-import { DEBUG } from '../config';
+import { APP_NAME, DEBUG } from '../config';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -29,6 +29,8 @@ type NotificationData = {
   title: string;
   body: string;
 };
+
+let lastSyncAt = new Date().valueOf();
 
 const clickBuffer: Record<string, NotificationData> = {};
 const shownNotifications = new Set();
@@ -68,17 +70,23 @@ function getNotificationData(data: PushData): NotificationData {
   return {
     chatId: getChatId(data),
     messageId: getMessageId(data),
-    title: data.title || process.env.APP_INFO!,
+    title: data.title || APP_NAME,
     body: data.description,
   };
 }
 
 function showNotification({
-  chatId, messageId, body, title,
+  chatId,
+  messageId,
+  body,
+  title,
 }: NotificationData) {
   return self.registration.showNotification(title, {
     body,
-    data: { chatId, messageId },
+    data: {
+      chatId,
+      messageId,
+    },
     icon: 'icon-192x192.png',
     badge: 'icon-192x192.png',
     vibrate: [200, 100, 200],
@@ -94,6 +102,11 @@ export function handlePush(e: PushEvent) {
       console.log('[SW] Push received with data', e.data.json());
     }
   }
+
+  // Do not show notifications right after sync (when browser is opened)
+  // To avoid stale notifications
+  if (new Date().valueOf() - lastSyncAt < 3000) return;
+
   const data = getPushData(e);
 
   // Do not show muted notifications
@@ -110,8 +123,11 @@ export function handlePush(e: PushEvent) {
   e.waitUntil(showNotification(notification));
 }
 
-function focusChatMessage(client: WindowClient, data: { chatId?: number; messageId?: number }) {
-  const { chatId, messageId } = data;
+async function focusChatMessage(client: WindowClient, data: { chatId?: number; messageId?: number }) {
+  const {
+    chatId,
+    messageId,
+  } = data;
   if (!chatId) return;
   client.postMessage({
     type: 'focusMessage',
@@ -120,19 +136,28 @@ function focusChatMessage(client: WindowClient, data: { chatId?: number; message
       messageId,
     },
   });
+  // Catch "focus not allowed" DOM Exceptions
+  try {
+    await client.focus();
+  } catch (error) {
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.warn('[SW] ', error);
+    }
+  }
 }
 
 export function handleNotificationClick(e: NotificationEvent) {
-  const appUrl = process.env.APP_URL!;
+  const appUrl = self.location.href.replace('serviceWorker.js', '');
   e.notification.close(); // Android needs explicit close.
   const { data } = e.notification;
   const notifyClients = async () => {
     const clients = await self.clients.matchAll({ type: 'window' }) as WindowClient[];
     const clientsInScope = clients.filter((client) => client.url === self.registration.scope);
-    await Promise.all(clientsInScope.map(async (client) => {
-      await client.focus();
+    e.waitUntil(Promise.all(clientsInScope.map((client) => {
       clickBuffer[client.id] = data;
-    }));
+      return focusChatMessage(client, data);
+    })));
     if (!self.clients.openWindow || clientsInScope.length > 0) return undefined;
 
     // If there is no opened client we need to open one and wait until it is fully loaded
@@ -147,12 +172,16 @@ export function handleNotificationClick(e: NotificationEvent) {
 }
 
 export function handleClientMessage(e: ExtendableMessageEvent) {
+  if (DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log('[SW] New message from client', e);
+  }
   if (!e.data) return;
   const source = e.source as WindowClient;
   if (e.data.type === 'clientReady') {
     // focus on chat message when client is fully ready
     if (clickBuffer[source.id]) {
-      focusChatMessage(source, clickBuffer[source.id]);
+      e.waitUntil(focusChatMessage(source, clickBuffer[source.id]));
       delete clickBuffer[source.id];
     }
   }
@@ -163,3 +192,7 @@ export function handleClientMessage(e: ExtendableMessageEvent) {
     shownNotifications.add(notification.messageId);
   }
 }
+
+self.onsync = () => {
+  lastSyncAt = new Date().valueOf();
+};

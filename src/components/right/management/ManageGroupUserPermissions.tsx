@@ -11,6 +11,7 @@ import { pick } from '../../../util/iteratees';
 import { selectChat } from '../../../modules/selectors';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import PrivateChatInfo from '../../common/PrivateChatInfo';
 import ListItem from '../../ui/ListItem';
@@ -24,6 +25,8 @@ type OwnProps = {
   selectedChatMemberId?: number;
   isPromotedByCurrentUser?: boolean;
   onScreenSelect: (screen: ManagementScreens) => void;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
@@ -39,12 +42,16 @@ const ManageGroupUserPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
   onScreenSelect,
   updateChatMemberBannedRights,
   isFormFullyDisabled,
+  onClose,
+  isActive,
 }) => {
   const [permissions, setPermissions] = useState<ApiChatBannedRights>({});
   const [havePermissionChanged, setHavePermissionChanged] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isBanConfirmationDialogOpen, openBanConfirmationDialog, closeBanConfirmationDialog] = useFlag();
   const lang = useLang();
+
+  useHistoryBack(isActive, onClose);
 
   const selectedChatMember = useMemo(() => {
     if (!chat || !chat.fullInfo || !chat.fullInfo.members) {
@@ -75,7 +82,7 @@ const ManageGroupUserPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
 
     setPermissions((p) => ({
       ...p,
-      [name]: getUpdatedPermissionValue(p[name as keyof ApiChatBannedRights]),
+      [name]: getUpdatedPermissionValue(p[name as Exclude<keyof ApiChatBannedRights, 'untilDate'>]),
       ...(name === 'sendStickers' && {
         sendGifs: getUpdatedPermissionValue(p[name]),
       }),
@@ -110,7 +117,7 @@ const ManageGroupUserPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
     });
   }, [chat, selectedChatMemberId, updateChatMemberBannedRights]);
 
-  const getControlIsDisabled = useCallback((key: keyof ApiChatBannedRights) => {
+  const getControlIsDisabled = useCallback((key: Exclude<keyof ApiChatBannedRights, 'untilDate'>) => {
     if (isFormFullyDisabled) {
       return true;
     }
@@ -134,7 +141,7 @@ const ManageGroupUserPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
             <PrivateChatInfo userId={selectedChatMember.userId} />
           </ListItem>
 
-          <h3 className="section-heading mt-4">{lang('UserRestrictionsCanDo')}</h3>
+          <h3 className="section-heading mt-4" dir="auto">{lang('UserRestrictionsCanDo')}</h3>
 
           <div className="ListItem no-selection">
             <Checkbox

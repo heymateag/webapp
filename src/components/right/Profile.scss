@@ -1,11 +1,14 @@
 .Profile {
   height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow-y: scroll;
   overflow-x: hidden;
 
   @supports (overflow-y: overlay) {
     overflow-y: overlay !important;
   }
+
 
   > .profile-info > .ChatInfo {
     grid-area: chat_info;
@@ -32,6 +35,12 @@
     .Switcher {
       margin-left: auto;
     }
+    [dir=rtl] {
+      .Switcher {
+        margin-left: 0;
+        margin-right: auto;
+      }
+    }
   }
 }
 
@@ -42,6 +51,8 @@
   .TabList {
     background: var(--color-background);
     top: -1px;
+    z-index: 1;
+
     .Tab {
       padding: 1rem .25rem;
       i {
@@ -114,7 +125,14 @@
 
       @media (max-width: 600px) {
         padding: .5rem 0;
+        .ListItem.chat-item-clickable {
+          margin: 0;
+        }
       }
     }
+  }
+
+  .FloatingActionButton {
+    z-index: 1;
   }
 }

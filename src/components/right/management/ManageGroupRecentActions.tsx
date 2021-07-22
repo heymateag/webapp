@@ -6,6 +6,7 @@ import { withGlobal } from '../../../lib/teact/teactn';
 import { ApiChat, ApiChatMember } from '../../../api/types';
 import useLang from '../../../hooks/useLang';
 import { selectChat } from '../../../modules/selectors';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import Checkbox from '../../ui/Checkbox';
@@ -13,14 +14,18 @@ import PrivateChatInfo from '../../common/PrivateChatInfo';
 
 type OwnProps = {
   chatId: number;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
   chat?: ApiChat;
 };
 
-const ManageGroupRecentActions: FC<OwnProps & StateProps> = ({ chat }) => {
+const ManageGroupRecentActions: FC<OwnProps & StateProps> = ({ chat, onClose, isActive }) => {
   const lang = useLang();
+
+  useHistoryBack(isActive, onClose);
 
   const adminMembers = useMemo(() => {
     if (!chat || !chat.fullInfo || !chat.fullInfo.adminMembers) {
@@ -49,8 +54,8 @@ const ManageGroupRecentActions: FC<OwnProps & StateProps> = ({ chat }) => {
   return (
     <div className="Management">
       <div className="custom-scroll">
-        <div className="section not-implemented">
-          <h3 className="section-heading">Actions</h3>
+        <div className="section not-implemented" dir={lang.isRtl ? 'rtl' : undefined}>
+          <h3 className="section-heading" dir="auto">Actions</h3>
 
           <div className="ListItem no-selection">
             <Checkbox
@@ -110,8 +115,8 @@ const ManageGroupRecentActions: FC<OwnProps & StateProps> = ({ chat }) => {
           </div>
         </div>
 
-        <div className="section not-implemented">
-          <h3 className="section-heading">Admins</h3>
+        <div className="section not-implemented" dir={lang.isRtl ? 'rtl' : undefined}>
+          <h3 className="section-heading" dir="auto">{lang('Channel.Management.Title')}</h3>
 
           <div className="ListItem no-selection">
             <Checkbox

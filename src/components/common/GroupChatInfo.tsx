@@ -31,6 +31,7 @@ type OwnProps = {
   withFullInfo?: boolean;
   withUpdatingStatus?: boolean;
   withChatType?: boolean;
+  noRtl?: boolean;
 };
 
 type StateProps = {
@@ -49,6 +50,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   withFullInfo,
   withUpdatingStatus,
   withChatType,
+  noRtl,
   chat,
   onlineCount,
   areMessagesLoaded,
@@ -84,7 +86,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   function renderStatusOrTyping() {
     if (withUpdatingStatus && !areMessagesLoaded && !isRestricted) {
       return (
-        <span className="status">{lang('Updating')}</span>
+        <span className="status" dir="auto">{lang('Updating')}</span>
       );
     }
 
@@ -98,12 +100,12 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
 
     if (withChatType) {
       return (
-        <div className="status">{lang(getChatTypeString(chat))}</div>
+        <div className="status" dir="auto">{lang(getChatTypeString(chat))}</div>
       );
     }
 
     const handle = withUsername ? chat.username : undefined;
-    const groupStatus = getGroupStatus(chat, lang);
+    const groupStatus = getGroupStatus(lang, chat);
     const onlineStatus = onlineCount ? `, ${lang('OnlineCount', onlineCount, 'i')}` : undefined;
 
     return (
@@ -116,7 +118,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   }
 
   return (
-    <div className="ChatInfo">
+    <div className="ChatInfo" dir={!noRtl && lang.isRtl ? 'rtl' : undefined}>
       <Avatar
         key={chat.id}
         size={avatarSize}
@@ -125,7 +127,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
       />
       <div className="info">
         <div className="title">
-          <h3>{renderText(getChatTitle(chat))}</h3>
+          <h3 dir="auto">{renderText(getChatTitle(lang, chat))}</h3>
           {chat.isVerified && <VerifiedIcon />}
         </div>
         {renderStatusOrTyping()}
@@ -134,7 +136,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-function getGroupStatus(chat: ApiChat, lang: LangFn) {
+function getGroupStatus(lang: LangFn, chat: ApiChat) {
   const chatTypeString = lang(getChatTypeString(chat));
   const { membersCount } = chat;
 

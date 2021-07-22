@@ -29,6 +29,7 @@ import {
   isChatGroup,
   isChatSuperGroup,
   getMessageVideo,
+  getMessageWebPageVideo,
 } from '../helpers';
 import { findLast } from '../../util/iteratees';
 import { selectIsStickerFavorite } from './symbols';
@@ -147,6 +148,10 @@ export function selectThreadInfo(global: GlobalState, chatId: number, threadId: 
 
 export function selectFirstMessageId(global: GlobalState, chatId: number, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'firstMessageId');
+}
+
+export function selectReplyStack(global: GlobalState, chatId: number, threadId: number) {
+  return selectThreadParam(global, chatId, threadId, 'replyStack');
 }
 
 export function selectThreadOriginChat(global: GlobalState, chatId: number, threadId: number) {
@@ -335,6 +340,7 @@ export function selectForwardedSender(global: GlobalState, message: ApiMessage):
 }
 
 export function selectAllowedMessageActions(global: GlobalState, message: ApiMessage, threadId: number) {
+  const { serverTimeOffset } = global;
   const chat = selectChat(global, message.chatId);
   if (!chat || chat.isRestricted) {
     return {};
@@ -350,8 +356,12 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
   const isOwn = isOwnMessage(message);
   const isAction = isActionMessage(message);
   const { content } = message;
+  const canEditMessagesIndefinitely = isChatWithSelf
+    || (isSuperGroup && getHasAdminRight(chat, 'pinMessages'))
+    || (isChannel && getHasAdminRight(chat, 'editMessages'));
   const isMessageEditable = (
-    (isChatWithSelf || Date.now() - message.date * 1000 < MESSAGE_EDIT_ALLOWED_TIME_MS)
+    (canEditMessagesIndefinitely
+    || Date.now() + serverTimeOffset * 1000 - message.date * 1000 < MESSAGE_EDIT_ALLOWED_TIME_MS)
     && !(
       content.sticker || content.contact || content.poll || content.action || content.audio
       || (content.video && content.video.isRound)
@@ -384,10 +394,12 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     || chat.isCreator
     || getHasAdminRight(chat, 'deleteMessages');
 
+  const canReport = !isPrivate && !isOwn;
+
   const canDeleteForAll = canDelete && !isServiceNotification && (
     (isPrivate && !isChatWithSelf)
     || (isBasicGroup && (
-      isOwn || getHasAdminRight(chat, 'deleteMessages')
+      isOwn || getHasAdminRight(chat, 'deleteMessages') || chat.isCreator
     ))
   );
 
@@ -427,6 +439,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     canPin,
     canUnpin,
     canDelete,
+    canReport,
     canDeleteForAll,
     canForward,
     canFaveSticker,
@@ -437,6 +450,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
   };
 }
 
+// This selector always returns a new object which can not be safely used in shallow-equal checks
 export function selectCanDeleteSelectedMessages(global: GlobalState) {
   const { messageIds: selectedMessageIds } = global.selectedMessages || {};
   const { chatId, threadId } = selectCurrentMessageList(global) || {};
@@ -453,6 +467,21 @@ export function selectCanDeleteSelectedMessages(global: GlobalState) {
     canDelete: messageActions.every((actions) => actions.canDelete),
     canDeleteForAll: messageActions.every((actions) => actions.canDeleteForAll),
   };
+}
+
+export function selectCanReportSelectedMessages(global: GlobalState) {
+  const { messageIds: selectedMessageIds } = global.selectedMessages || {};
+  const { chatId, threadId } = selectCurrentMessageList(global) || {};
+  const chatMessages = chatId && selectChatMessages(global, chatId);
+  if (!chatMessages || !selectedMessageIds || !threadId) {
+    return false;
+  }
+
+  const messageActions = selectedMessageIds
+    .map((id) => chatMessages[id] && selectAllowedMessageActions(global, chatMessages[id], threadId))
+    .filter(Boolean);
+
+  return messageActions.every((actions) => actions.canReport);
 }
 
 export function selectUploadProgress(global: GlobalState, message: ApiMessage) {
@@ -499,8 +528,9 @@ export function selectRealLastReadId(global: GlobalState, chatId: number, thread
 }
 
 export function selectFirstUnreadId(global: GlobalState, chatId: number, threadId: number) {
+  const chat = selectChat(global, chatId);
+
   if (threadId === MAIN_THREAD_ID) {
-    const chat = selectChat(global, chatId);
     if (!chat) {
       return undefined;
     }
@@ -519,12 +549,12 @@ export function selectFirstUnreadId(global: GlobalState, chatId: number, threadI
   }
 
   const lastReadId = selectRealLastReadId(global, chatId, threadId);
-  if (!lastReadId) {
+  if (!lastReadId && chat && chat.isNotJoined) {
     return undefined;
   }
 
   if (outlyingIds) {
-    const found = outlyingIds.find((id) => {
+    const found = !lastReadId ? outlyingIds[0] : outlyingIds.find((id) => {
       return id > lastReadId && byId[id] && (!byId[id].isOutgoing || byId[id].isFromScheduled);
     });
     if (found) {
@@ -533,7 +563,7 @@ export function selectFirstUnreadId(global: GlobalState, chatId: number, threadI
   }
 
   if (listedIds) {
-    const found = listedIds.find((id) => {
+    const found = !lastReadId ? listedIds[0] : listedIds.find((id) => {
       return id > lastReadId && byId[id] && (!byId[id].isOutgoing || byId[id].isFromScheduled);
     });
     if (found) {
@@ -677,7 +707,7 @@ export function selectShouldAutoLoadMedia(
 }
 
 export function selectShouldAutoPlayMedia(global: GlobalState, message: ApiMessage) {
-  const video = getMessageVideo(message);
+  const video = getMessageVideo(message) || getMessageWebPageVideo(message);
   if (!video) {
     return undefined;
   }

@@ -8,6 +8,7 @@ import { formatMediaDateTime, formatPastTimeShort } from '../../util/dateFormat'
 import { getColorFromExtension, getFileSizeString } from './helpers/documentInfo';
 import { getDocumentThumbnailDimensions } from './helpers/mediaDimensions';
 import renderText from './helpers/renderText';
+import useLang from '../../hooks/useLang';
 
 import ProgressSpinner from '../ui/ProgressSpinner';
 import Link from '../ui/Link';
@@ -30,6 +31,7 @@ type OwnProps = {
   isSelectable?: boolean;
   isSelected?: boolean;
   transferProgress?: number;
+  actionIcon?: string;
   onClick?: () => void;
   onDateClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
@@ -50,9 +52,11 @@ const File: FC<OwnProps> = ({
   isSelectable,
   isSelected,
   transferProgress,
+  actionIcon,
   onClick,
   onDateClick,
 }) => {
+  const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   let elementRef = useRef<HTMLDivElement>(null);
   if (ref) {
@@ -80,7 +84,7 @@ const File: FC<OwnProps> = ({
   );
 
   return (
-    <div ref={elementRef} className={fullClassName}>
+    <div ref={elementRef} className={fullClassName} dir={lang.isRtl ? 'rtl' : undefined}>
       {isSelectable && (
         <div className="message-select-control">
           {isSelected && <i className="icon-select" />}
@@ -111,7 +115,7 @@ const File: FC<OwnProps> = ({
         ) : (
           <div className={`file-icon ${color}`}>
             {extension.length <= 4 && (
-              <span className="file-ext">{extension}</span>
+              <span className="file-ext" dir="auto">{extension}</span>
             )}
           </div>
         )}
@@ -124,11 +128,19 @@ const File: FC<OwnProps> = ({
             />
           </div>
         )}
-        {onClick && <i className={buildClassName('icon-download', shouldSpinnerRender && 'hidden')} />}
+        {onClick && (
+          <i
+            className={buildClassName(
+              'action-icon',
+              actionIcon || 'icon-download',
+              shouldSpinnerRender && 'hidden',
+            )}
+          />
+        )}
       </div>
       <div className="file-info">
-        <div className="file-title">{renderText(name)}</div>
-        <div className="file-subtitle">
+        <div className="file-title" dir="auto">{renderText(name)}</div>
+        <div className="file-subtitle" dir="auto">
           <span>
             {isTransferring && transferProgress ? `${Math.round(transferProgress * 100)}%` : sizeString}
           </span>
@@ -136,13 +148,13 @@ const File: FC<OwnProps> = ({
           {!sender && timestamp && (
             <>
               {' '}
-              <Link onClick={onDateClick}>{formatMediaDateTime(timestamp * 1000)}</Link>
+              <Link onClick={onDateClick}>{formatMediaDateTime(lang, timestamp * 1000)}</Link>
             </>
           )}
         </div>
       </div>
       {sender && timestamp && (
-        <Link onClick={onDateClick}>{formatPastTimeShort(timestamp * 1000)}</Link>
+        <Link onClick={onDateClick}>{formatPastTimeShort(lang, timestamp * 1000)}</Link>
       )}
     </div>
   );

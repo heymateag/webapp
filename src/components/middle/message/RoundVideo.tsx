@@ -20,9 +20,10 @@ import useBuffering from '../../../hooks/useBuffering';
 import buildClassName from '../../../util/buildClassName';
 import useHeavyAnimationCheckForVideo from '../../../hooks/useHeavyAnimationCheckForVideo';
 import useVideoCleanup from '../../../hooks/useVideoCleanup';
-import useBlurredMediaThumb from './hooks/useBlurredMediaThumb';
 import usePauseOnInactive from './hooks/usePauseOnInactive';
+import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 import safePlay from '../../../util/safePlay';
+import { fastRaf } from '../../../util/schedulers';
 
 import ProgressSpinner from '../../ui/ProgressSpinner';
 
@@ -74,7 +75,7 @@ const RoundVideo: FC<OwnProps> = ({
     getMessageMediaFormat(message, 'inline'),
     lastSyncTime,
   );
-  const thumbDataUri = useBlurredMediaThumb(message, mediaData);
+  const thumbRef = useBlurredMediaThumbRef(message, mediaData);
 
   const { isBuffered, bufferingHandlers } = useBuffering();
   const isTransferring = isDownloadAllowed && !isBuffered;
@@ -121,7 +122,7 @@ const RoundVideo: FC<OwnProps> = ({
     setProgress(0);
     safePlay(playerRef.current!);
 
-    requestAnimationFrame(() => {
+    fastRaf(() => {
       playingProgressRef.current!.innerHTML = '';
     });
   };
@@ -141,9 +142,7 @@ const RoundVideo: FC<OwnProps> = ({
   }, [shouldPlay]);
 
   useHeavyAnimationCheckForVideo(playerRef, shouldPlay);
-
   usePauseOnInactive(playerRef, Boolean(mediaData));
-
   useVideoCleanup(playerRef, [mediaData]);
 
   const handleClick = useCallback(() => {
@@ -161,9 +160,13 @@ const RoundVideo: FC<OwnProps> = ({
         playerEl.pause();
       }
     } else {
-      playerEl.currentTime = 0;
-      setIsActivated(true);
       capturePlaying();
+      // Pause is a workaround for iOS Safari – otherwise it stops video after several frames
+      playerEl.pause();
+      playerEl.currentTime = 0;
+      safePlay(playerEl);
+
+      setIsActivated(true);
     }
   }, [capturePlaying, isActivated, mediaData]);
 
@@ -181,14 +184,13 @@ const RoundVideo: FC<OwnProps> = ({
       className="RoundVideo media-inner"
       onClick={handleClick}
     >
-      {shouldRenderThumb && (
+      {(shouldRenderThumb || mediaData) && (
         <div className="thumbnail-wrapper">
-          <img
-            src={thumbDataUri}
+          <canvas
+            ref={thumbRef}
             className="thumbnail"
-            width={ROUND_VIDEO_DIMENSIONS}
-            height={ROUND_VIDEO_DIMENSIONS}
-            alt=""
+            // @ts-ignore teact feature
+            style={`width: ${ROUND_VIDEO_DIMENSIONS}px; height: ${ROUND_VIDEO_DIMENSIONS}px`}
           />
         </div>
       )}
@@ -204,7 +206,6 @@ const RoundVideo: FC<OwnProps> = ({
             muted={!isActivated}
             loop={!isActivated}
             playsInline
-            poster={thumbDataUri}
             onEnded={isActivated ? stopPlaying : undefined}
             // eslint-disable-next-line react/jsx-props-no-spreading
             {...bufferingHandlers}

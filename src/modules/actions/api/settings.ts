@@ -11,6 +11,7 @@ import { buildCollectionByKey } from '../../../util/iteratees';
 import { selectUser } from '../../selectors';
 import {
   addUsers, addBlockedContact, updateChats, updateUser, removeBlockedContact, replaceSettings, updateNotifySettings,
+  addNotifyExceptions,
 } from '../../reducers';
 import { isChatPrivate } from '../../helpers';
 
@@ -304,9 +305,25 @@ addReducer('terminateAllAuthorizations', () => {
   })();
 });
 
-addReducer('loadNotificationsSettings', () => {
+addReducer('loadNotificationExceptions', (global) => {
+  const { serverTimeOffset } = global;
+
   (async () => {
-    const result = await callApi('loadNotificationsSettings');
+    const result = await callApi('fetchNotificationExceptions', { serverTimeOffset });
+    if (!result) {
+      return;
+    }
+
+    setGlobal(addNotifyExceptions(getGlobal(), result));
+  })();
+});
+
+addReducer('loadNotificationSettings', (global) => {
+  const { serverTimeOffset } = global;
+  (async () => {
+    const result = await callApi('fetchNotificationSettings', {
+      serverTimeOffset,
+    });
     if (!result) {
       return;
     }
@@ -316,16 +333,16 @@ addReducer('loadNotificationsSettings', () => {
 });
 
 addReducer('updateNotificationSettings', (global, actions, payload) => {
-  const { peerType, isSilent, isShowPreviews } = payload!;
+  const { peerType, isSilent, shouldShowPreviews } = payload!;
 
   (async () => {
-    const result = await callApi('updateNotificationSettings', peerType, { isSilent, isShowPreviews });
+    const result = await callApi('updateNotificationSettings', peerType, { isSilent, shouldShowPreviews });
 
     if (!result) {
       return;
     }
 
-    setGlobal(updateNotifySettings(getGlobal(), peerType, isSilent, isShowPreviews));
+    setGlobal(updateNotifySettings(getGlobal(), peerType, isSilent, shouldShowPreviews));
   })();
 });
 
@@ -509,3 +526,27 @@ function buildInputPrivacyRules(global: GlobalState, {
 
   return rules;
 }
+
+addReducer('updateIsOnline', (global, actions, payload) => {
+  callApi('updateIsOnline', payload);
+});
+
+addReducer('loadContentSettings', () => {
+  (async () => {
+    const result = await callApi('fetchContentSettings');
+    if (!result) return;
+
+    setGlobal(replaceSettings(getGlobal(), result));
+  })();
+});
+
+addReducer('updateContentSettings', (global, actions, payload) => {
+  (async () => {
+    setGlobal(replaceSettings(getGlobal(), { isSensitiveEnabled: payload }));
+
+    const result = await callApi('updateContentSettings', payload);
+    if (!result) {
+      setGlobal(replaceSettings(getGlobal(), { isSensitiveEnabled: !payload }));
+    }
+  })();
+});

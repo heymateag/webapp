@@ -6,14 +6,15 @@ import { withGlobal } from '../../lib/teact/teactn';
 import { GlobalActions } from '../../global/types';
 import { ApiChat, MAIN_THREAD_ID } from '../../api/types';
 
-import { IS_MOBILE_SCREEN } from '../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import {
   getCanPostInChat, getChatTitle, isChatPrivate, sortChatIds,
 } from '../../modules/helpers';
 import searchWords from '../../util/searchWords';
-import { pick } from '../../util/iteratees';
+import { pick, unique } from '../../util/iteratees';
 import useInfiniteScroll from '../../hooks/useInfiniteScroll';
 import useLang from '../../hooks/useLang';
+import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
 
 import Loading from '../ui/Loading';
 import Modal from '../ui/Modal';
@@ -32,6 +33,7 @@ export type OwnProps = {
 
 type StateProps = {
   chatsById: Record<number, ApiChat>;
+  pinnedIds?: number[];
   activeListIds?: number[];
   archivedListIds?: number[];
   orderedPinnedIds?: number[];
@@ -46,6 +48,7 @@ const MODAL_HIDE_DELAY_MS = 300;
 
 const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
   chatsById,
+  pinnedIds,
   activeListIds,
   archivedListIds,
   currentUserId,
@@ -58,9 +61,11 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const lang = useLang();
+
   useEffect(() => {
     if (isOpen) {
-      if (!IS_MOBILE_SCREEN) {
+      if (!IS_SINGLE_COLUMN_LAYOUT) {
         setTimeout(() => {
           requestAnimationFrame(() => {
             if (inputRef.current) {
@@ -86,6 +91,11 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
       ...archivedListIds || [],
     ];
 
+    let priorityIds = pinnedIds || [];
+    if (currentUserId) {
+      priorityIds = unique([currentUserId, ...priorityIds]);
+    }
+
     return sortChatIds([
       ...listIds.filter((id) => {
         const chat = chatsById[id];
@@ -101,10 +111,10 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
           return true;
         }
 
-        return searchWords(getChatTitle(chatsById[id], undefined, id === currentUserId), filter);
+        return searchWords(getChatTitle(lang, chatsById[id], undefined, id === currentUserId), filter);
       }),
-    ], chatsById, undefined, currentUserId ? [currentUserId] : undefined);
-  }, [activeListIds, archivedListIds, chatsById, currentUserId, filter]);
+    ], chatsById, undefined, priorityIds);
+  }, [activeListIds, archivedListIds, chatsById, currentUserId, filter, lang, pinnedIds]);
 
   const [viewportIds, getMore] = useInfiniteScroll(loadMoreChats, chatIds, Boolean(filter));
 
@@ -112,10 +122,16 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
     setFilter(e.currentTarget.value);
   }, []);
 
-  const lang = useLang();
+  // eslint-disable-next-line no-null/no-null
+  const containerRef = useRef<HTMLDivElement>(null);
+  const handleKeyDown = useKeyboardListNavigation(containerRef, isOpen, (index) => {
+    if (viewportIds && viewportIds.length > 0) {
+      setForwardChatId({ id: viewportIds[index === -1 ? 0 : index] });
+    }
+  }, '.ListItem-button', true);
 
   const modalHeader = (
-    <div className="modal-header">
+    <div className="modal-header" dir={lang.isRtl ? 'rtl' : undefined}>
       <Button
         round
         color="translucent"
@@ -129,6 +145,7 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
         ref={inputRef}
         value={filter}
         onChange={handleFilterChange}
+        onKeyDown={handleKeyDown}
         placeholder={lang('ForwardTo')}
       />
     </div>
@@ -147,6 +164,8 @@ const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
           items={viewportIds}
           onLoadMore={getMore}
           noScrollRestore={Boolean(filter)}
+          ref={containerRef}
+          onKeyDown={handleKeyDown}
         >
           {viewportIds.map((id) => (
             <ListItem
@@ -177,12 +196,14 @@ export default memo(withGlobal<OwnProps>(
       chats: {
         byId: chatsById,
         listIds,
+        orderedPinnedIds,
       },
       currentUserId,
     } = global;
 
     return {
       chatsById,
+      pinnedIds: orderedPinnedIds.active,
       activeListIds: listIds.active,
       archivedListIds: listIds.archived,
       currentUserId,

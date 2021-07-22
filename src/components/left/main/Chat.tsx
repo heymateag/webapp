@@ -1,9 +1,9 @@
 import React, {
-  FC, memo, useCallback, useLayoutEffect, useRef,
+  FC, memo, useCallback, useLayoutEffect, useMemo, useRef,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
-import useLang from '../../../hooks/useLang';
+import useLang, { LangFn } from '../../../hooks/useLang';
 
 import { GlobalActions, MessageListType } from '../../../global/types';
 import {
@@ -11,7 +11,7 @@ import {
 } from '../../../api/types';
 
 import { ANIMATION_END_DELAY } from '../../../config';
-import { IS_MOBILE_SCREEN } from '../../../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import {
   getChatTitle,
   isChatPrivate,
@@ -25,9 +25,12 @@ import {
   getMessageMediaThumbDataUri,
   getMessageVideo,
   getMessageSticker,
+  selectIsChatMuted,
+  getMessageRoundVideo,
 } from '../../../modules/helpers';
 import {
   selectChat, selectUser, selectChatMessage, selectOutgoingStatus, selectDraft, selectCurrentMessageList,
+  selectNotifySettings, selectNotifyExceptions,
 } from '../../../modules/selectors';
 import { renderActionMessageText } from '../../common/helpers/renderActionMessageText';
 import renderText from '../../common/helpers/renderText';
@@ -56,14 +59,15 @@ type OwnProps = {
   folderId?: number;
   orderDiff: number;
   animationType: ChatAnimationTypes;
-  isSelected: boolean;
   isPinned?: boolean;
 };
 
 type StateProps = {
   chat?: ApiChat;
+  isMuted?: boolean;
   privateChatUser?: ApiUser;
-  actionTargetUser?: ApiUser;
+  usersById?: Record<number, ApiUser>;
+  actionTargetUserIds?: number[];
   actionTargetMessage?: ApiMessage;
   actionTargetChatId?: number;
   lastMessageSender?: ApiUser;
@@ -71,6 +75,7 @@ type StateProps = {
   draft?: ApiFormattedText;
   messageListType?: MessageListType;
   animationLevel?: number;
+  isSelected?: boolean;
   lastSyncTime?: number;
 };
 
@@ -84,11 +89,12 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   folderId,
   orderDiff,
   animationType,
-  isSelected,
   isPinned,
   chat,
+  isMuted,
+  usersById,
   privateChatUser,
-  actionTargetUser,
+  actionTargetUserIds,
   lastMessageSender,
   lastMessageOutgoingStatus,
   actionTargetMessage,
@@ -96,6 +102,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   draft,
   messageListType,
   animationLevel,
+  isSelected,
   lastSyncTime,
   openChat,
   focusLastMessage,
@@ -104,6 +111,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useFlag();
+  const [shouldRenderDeleteModal, markRenderDeleteModal, unmarkRenderDeleteModal] = useFlag();
 
   const { lastMessage, typingStatus } = chat || {};
   const isAction = lastMessage && isActionMessage(lastMessage);
@@ -114,14 +122,21 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
     ? getMessageMediaThumbDataUri(lastMessage)
     : undefined;
   const mediaBlobUrl = useMedia(lastMessage ? getMessageMediaHash(lastMessage, 'micro') : undefined);
+  const isRoundVideo = Boolean(lastMessage && getMessageRoundVideo(lastMessage));
+
+  const actionTargetUsers = useMemo(() => {
+    return actionTargetUserIds
+      ? actionTargetUserIds.map((userId) => usersById && usersById[userId]).filter<ApiUser>(Boolean as any)
+      : undefined;
+  }, [actionTargetUserIds, usersById]);
 
   // Sets animation excess values when `orderDiff` changes and then resets excess values to animate.
   useLayoutEffect(() => {
-    if (animationLevel === 0) {
+    const element = ref.current;
+
+    if (animationLevel === 0 || !element) {
       return;
     }
-
-    const element = ref.current!;
 
     // TODO Refactor animation: create `useListAnimation` that owns `orderDiff` and `animationType`
     if (animationType === ChatAnimationTypes.Opacity) {
@@ -165,12 +180,18 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
     focusLastMessage,
   ]);
 
+  function handleDelete() {
+    markRenderDeleteModal();
+    openDeleteModal();
+  }
+
   const contextActions = useChatContextActions({
     chat,
     privateChatUser,
-    handleDelete: openDeleteModal,
+    handleDelete,
     folderId,
     isPinned,
+    isMuted,
   });
 
   const lang = useLang();
@@ -186,7 +207,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
 
     if (draft && draft.text.length) {
       return (
-        <p className="last-message">
+        <p className="last-message" dir={lang.isRtl ? 'auto' : 'ltr'}>
           <span className="draft">{lang('Draft')}</span>
           {renderText(draft.text)}
         </p>
@@ -203,11 +224,12 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
         : lastMessageSender;
 
       return (
-        <p className="last-message">
+        <p className="last-message" dir={lang.isRtl ? 'auto' : 'ltr'}>
           {renderText(renderActionMessageText(
+            lang,
             lastMessage,
             actionOrigin,
-            actionTargetUser,
+            actionTargetUsers,
             actionTargetMessage,
             actionTargetChatId,
             { asPlain: true },
@@ -216,14 +238,17 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
       );
     }
 
-    const senderName = getMessageSenderName(chatId, lastMessageSender);
+    const senderName = getMessageSenderName(lang, chatId, lastMessageSender);
 
     return (
-      <p className="last-message">
+      <p className="last-message" dir={lang.isRtl ? 'auto' : 'ltr'}>
         {senderName && (
-          <span className="sender-name">{renderText(senderName)}</span>
+          <>
+            <span className="sender-name">{renderText(senderName)}</span>
+            <span className="colon">:</span>
+          </>
         )}
-        {renderMessageSummary(lastMessage!, mediaBlobUrl || mediaThumbnail)}
+        {renderMessageSummary(lang, lastMessage!, mediaBlobUrl || mediaThumbnail, isRoundVideo)}
       </p>
     );
   }
@@ -231,7 +256,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   const className = buildClassName(
     'Chat chat-item-clickable',
     isChatPrivate(chatId) ? 'private' : 'group',
-    isSelected && !IS_MOBILE_SCREEN && 'selected',
+    isSelected && !IS_SINGLE_COLUMN_LAYOUT && 'selected',
   );
 
   return (
@@ -239,50 +264,55 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
       ref={ref}
       className={className}
       style={style}
-      ripple={!IS_MOBILE_SCREEN}
+      ripple={!IS_SINGLE_COLUMN_LAYOUT}
       contextActions={contextActions}
       onClick={handleClick}
     >
-      <Avatar
-        chat={chat}
-        user={privateChatUser}
-        withOnlineStatus
-        isSavedMessages={privateChatUser && privateChatUser.isSelf}
-        lastSyncTime={lastSyncTime}
-      />
+      <div className="status">
+        <Avatar
+          chat={chat}
+          user={privateChatUser}
+          withOnlineStatus
+          isSavedMessages={privateChatUser && privateChatUser.isSelf}
+          lastSyncTime={lastSyncTime}
+        />
+      </div>
       <div className="info">
         <div className="title">
-          <h3>{renderText(getChatTitle(chat, privateChatUser))}</h3>
+          <h3>{renderText(getChatTitle(lang, chat, privateChatUser))}</h3>
           {chat.isVerified && <VerifiedIcon />}
-          {chat.isMuted && <i className="icon-muted-chat" />}
+          {isMuted && <i className="icon-muted-chat" />}
           {chat.lastMessage && (
             <LastMessageMeta message={chat.lastMessage} outgoingStatus={lastMessageOutgoingStatus} />
           )}
         </div>
         <div className="subtitle">
           {renderLastMessageOrTyping()}
-          <Badge chat={chat} isPinned={isPinned} />
+          <Badge chat={chat} isPinned={isPinned} isMuted={isMuted} />
         </div>
       </div>
-      <DeleteChatModal
-        isOpen={isDeleteModalOpen}
-        onClose={closeDeleteModal}
-        chat={chat}
-      />
+      {shouldRenderDeleteModal && (
+        <DeleteChatModal
+          isOpen={isDeleteModalOpen}
+          onClose={closeDeleteModal}
+          onCloseAnimationEnd={unmarkRenderDeleteModal}
+          chat={chat}
+        />
+      )}
     </ListItem>
   );
 };
 
-function renderMessageSummary(message: ApiMessage, blobUrl?: string) {
+function renderMessageSummary(lang: LangFn, message: ApiMessage, blobUrl?: string, isRoundVideo?: boolean) {
   if (!blobUrl) {
-    return renderText(getMessageSummaryText(message));
+    return renderText(getMessageSummaryText(lang, message));
   }
 
   return (
     <span className="media-preview">
-      <img src={blobUrl} alt="" />
+      <img src={blobUrl} alt="" className={isRoundVideo ? 'round' : undefined} />
       {getMessageVideo(message) && <i className="icon-play" />}
-      {renderText(getMessageSummaryText(message, true))}
+      {renderText(getMessageSummaryText(lang, message, true))}
     </span>
   );
 }
@@ -300,21 +330,29 @@ export default memo(withGlobal<OwnProps>(
     const actionTargetMessage = lastMessageAction && replyToMessageId
       ? selectChatMessage(global, chat.id, replyToMessageId)
       : undefined;
-    const { targetUserId: actionTargetUserId, targetChatId: actionTargetChatId } = lastMessageAction || {};
+    const { targetUserIds: actionTargetUserIds, targetChatId: actionTargetChatId } = lastMessageAction || {};
     const privateChatUserId = getPrivateChatUserId(chat);
-    const { type: messageListType } = selectCurrentMessageList(global) || {};
+    const { byId: usersById } = global.users;
+    const {
+      chatId: currentChatId,
+      threadId: currentThreadId,
+      type: messageListType,
+    } = selectCurrentMessageList(global) || {};
 
     return {
       chat,
+      isMuted: selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global)),
       lastMessageSender,
       ...(isOutgoing && { lastMessageOutgoingStatus: selectOutgoingStatus(global, chat.lastMessage) }),
       ...(privateChatUserId && { privateChatUser: selectUser(global, privateChatUserId) }),
-      ...(actionTargetUserId && { actionTargetUser: selectUser(global, actionTargetUserId) }),
+      usersById,
+      actionTargetUserIds,
       actionTargetChatId,
       actionTargetMessage,
       draft: selectDraft(global, chatId, MAIN_THREAD_ID),
       messageListType,
       animationLevel: global.settings.byKey.animationLevel,
+      isSelected: chatId === currentChatId && currentThreadId === MAIN_THREAD_ID,
       lastSyncTime: global.lastSyncTime,
     };
   },

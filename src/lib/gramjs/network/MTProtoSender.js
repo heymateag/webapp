@@ -2,7 +2,7 @@ const MtProtoPlainSender = require('./MTProtoPlainSender');
 const MTProtoState = require('./MTProtoState');
 const Helpers = require('../Helpers');
 const AuthKey = require('../crypto/AuthKey');
-const doAuthentication = require('./Authenticator');
+const { doAuthentication } = require('./Authenticator');
 const RPCResult = require('../tl/core/RPCResult');
 const MessageContainer = require('../tl/core/MessageContainer');
 const GZIPPacked = require('../tl/core/GZIPPacked');
@@ -15,7 +15,7 @@ const {
 } = require('../tl').constructors;
 const MessagePacker = require('../extensions/MessagePacker');
 const BinaryReader = require('../extensions/BinaryReader');
-const { UpdateConnectionState } = require('./index');
+const { UpdateConnectionState, UpdateServerTimeOffset } = require('./index');
 const { BadMessageError } = require('../errors/Common');
 const {
     BadServerSalt,
@@ -50,16 +50,16 @@ const { TypeNotFoundError } = require('../errors/Common');
  */
 class MTProtoSender {
     static DEFAULT_OPTIONS = {
-        logger: null,
+        logger: undefined,
         retries: Infinity,
         delay: 2000,
         autoReconnect: true,
-        connectTimeout: null,
-        authKeyCallback: null,
-        updateCallback: null,
-        autoReconnectCallback: null,
-        isMainSender: null,
-        onConnectionBreak: null,
+        connectTimeout: undefined,
+        authKeyCallback: undefined,
+        updateCallback: undefined,
+        autoReconnectCallback: undefined,
+        isMainSender: undefined,
+        onConnectionBreak: undefined,
     };
 
     /**
@@ -68,7 +68,7 @@ class MTProtoSender {
      */
     constructor(authKey, opts) {
         const args = { ...MTProtoSender.DEFAULT_OPTIONS, ...opts };
-        this._connection = null;
+        this._connection = undefined;
         this._log = args.logger;
         this._dcId = args.dcId;
         this._retries = args.retries;
@@ -80,6 +80,12 @@ class MTProtoSender {
         this._autoReconnectCallback = args.autoReconnectCallback;
         this._isMainSender = args.isMainSender;
         this._onConnectionBreak = args.onConnectionBreak;
+
+
+        /**
+         * whether we disconnected ourself or telegram did it.
+         */
+        this.userDisconnected = false;
 
         /**
          * Whether the user has explicitly connected or disconnected.
@@ -96,8 +102,8 @@ class MTProtoSender {
         /**
          * We need to join the loops upon disconnection
          */
-        this._send_loop_handle = null;
-        this._recv_loop_handle = null;
+        this._send_loop_handle = undefined;
+        this._recv_loop_handle = undefined;
 
         /**
          * Preserving the references of the AuthKey and state is important
@@ -177,9 +183,12 @@ class MTProtoSender {
                     this._updateCallback(new UpdateConnectionState(UpdateConnectionState.disconnected));
                 }
                 this._log.error(`WebSocket connection failed attempt: ${attempt + 1}`);
+                // eslint-disable-next-line no-console
+                console.error(err);
                 await Helpers.sleep(this._delay);
             }
         }
+        return true;
     }
 
     isConnected() {
@@ -191,6 +200,7 @@ class MTProtoSender {
      * all pending requests, and closes the send and receive loops.
      */
     async disconnect() {
+        this.userDisconnected = true;
         await this._disconnect();
     }
 
@@ -223,18 +233,23 @@ class MTProtoSender {
         if (!this._user_connected) {
             throw new Error('Cannot send requests while disconnected');
         }
-        // CONTEST
         const state = new RequestState(request);
         this._send_queue.append(state);
         return state.promise;
-        /*
-        if (!Helpers.isArrayLike(request)) {
-            const state = new RequestState(request)
-            this._send_queue.append(state)
-            return state.promise
-        } else {
-            throw new Error('not supported')
-        } */
+    }
+
+    /**
+     * Same as send but returns the full state. usefull for invoke after logic
+     * @param request
+     * @return {RequestState}
+     */
+    sendWithInvokeSupport(request) {
+        if (!this._user_connected) {
+            throw new Error('Cannot send requests while disconnected');
+        }
+        const state = new RequestState(request, undefined, this._pending_state);
+        this._send_queue.append(state);
+        return state;
     }
 
     /**
@@ -256,7 +271,11 @@ class MTProtoSender {
             this._log.debug('Generated new auth_key successfully');
             await this.authKey.setKey(res.authKey);
 
-            this._state.time_offset = res.timeOffset;
+            this._state.timeOffset = res.timeOffset;
+
+            if (this._updateCallback) {
+                this._updateCallback(new UpdateServerTimeOffset(this._state.timeOffset));
+            }
 
             /**
              * This is *EXTREMELY* important since we don't control
@@ -286,10 +305,10 @@ class MTProtoSender {
         this._log.info('Connection to %s complete!'.replace('%s', this._connection.toString()));
     }
 
-    async _disconnect(error = null) {
+    async _disconnect() {
         this._send_queue.rejectAll();
 
-        if (this._connection === null) {
+        if (this._connection === undefined) {
             this._log.info('Not disconnecting (already have no connection)');
             return;
         }
@@ -373,8 +392,11 @@ class MTProtoSender {
                 body = await this._connection.recv();
             } catch (e) {
                 // this._log.info('Connection closed while receiving data');
-                this._log.warn('Connection closed while receiving data');
-                this.reconnect();
+                /** when the server disconnects us we want to reconnect */
+                if (!this.userDisconnected) {
+                    this._log.warn('Connection closed while receiving data');
+                    this.reconnect();
+                }
                 return;
             }
             try {
@@ -456,6 +478,7 @@ class MTProtoSender {
     _popStates(msgId) {
         let state = this._pending_state[msgId];
         if (state) {
+            this._pending_state[msgId].deferred.resolve();
             delete this._pending_state[msgId];
             return [state];
         }
@@ -472,6 +495,7 @@ class MTProtoSender {
             const temp = [];
             for (const x of toPop) {
                 temp.push(this._pending_state[x]);
+                this._pending_state[x].deferred.resolve();
                 delete this._pending_state[x];
             }
             return temp;
@@ -495,12 +519,13 @@ class MTProtoSender {
      * @private
      */
     _handleRPCResult(message) {
-        const RPCResult = message.obj;
-        const state = this._pending_state[RPCResult.reqMsgId];
+        const result = message.obj;
+        const state = this._pending_state[result.reqMsgId];
         if (state) {
-            delete this._pending_state[RPCResult.reqMsgId];
+            state.deferred.resolve();
+            delete this._pending_state[result.reqMsgId];
         }
-        this._log.debug(`Handling RPC result for message ${RPCResult.reqMsgId}`);
+        this._log.debug(`Handling RPC result for message ${result.reqMsgId}`);
 
         if (!state) {
             // TODO We should not get responses to things we never sent
@@ -508,27 +533,27 @@ class MTProtoSender {
             // See #658, #759 and #958. They seem to happen in a container
             // which contain the real response right after.
             try {
-                const reader = new BinaryReader(RPCResult.body);
+                const reader = new BinaryReader(result.body);
                 if (!(reader.tgReadObject() instanceof upload.File)) {
                     throw new TypeNotFoundError('Not an upload.File');
                 }
             } catch (e) {
                 this._log.error(e);
                 if (e instanceof TypeNotFoundError) {
-                    this._log.info(`Received response without parent request: ${RPCResult.body}`);
+                    this._log.info(`Received response without parent request: ${result.body}`);
                     return;
                 } else {
                     throw e;
                 }
             }
         }
-        if (RPCResult.error) {
+        if (result.error) {
             // eslint-disable-next-line new-cap
-            const error = RPCMessageToError(RPCResult.error, state.request);
+            const error = RPCMessageToError(result.error, state.request);
             this._send_queue.append(new RequestState(new MsgsAck({ msgIds: [state.msgId] })));
             state.reject(error);
         } else {
-            const reader = new BinaryReader(RPCResult.body);
+            const reader = new BinaryReader(result.body);
             const read = state.request.readResult(reader);
             state.resolve(read);
         }
@@ -562,7 +587,7 @@ class MTProtoSender {
         await this._processMessage(message);
     }
 
-    async _handleUpdate(message) {
+    _handleUpdate(message) {
         if (message.obj.SUBCLASS_OF_ID !== 0x8af52aac) {
             // crc32(b'Updates')
             this._log.warn(`Note: ${message.obj.className} is not an update, not dispatching it`);
@@ -582,10 +607,17 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handlePong(message) {
+    _handlePong(message) {
         const pong = message.obj;
+
+        const newTimeOffset = this._state.updateTimeOffset(message.msgId);
+        if (this._updateCallback) {
+            this._updateCallback(new UpdateServerTimeOffset(newTimeOffset));
+        }
+
         this._log.debug(`Handling pong for message ${pong.msgId}`);
         const state = this._pending_state[pong.msgId];
+        this._pending_state[pong.msgId].deferred.resolve();
         delete this._pending_state[pong.msgId];
 
         // Todo Check result
@@ -603,7 +635,7 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleBadServerSalt(message) {
+    _handleBadServerSalt(message) {
         const badSalt = message.obj;
         this._log.debug(`Handling bad salt for message ${badSalt.badMsgId}`);
         this._state.salt = badSalt.newServerSalt;
@@ -621,15 +653,20 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleBadNotification(message) {
+    _handleBadNotification(message) {
         const badMsg = message.obj;
         const states = this._popStates(badMsg.badMsgId);
         this._log.debug(`Handling bad msg ${JSON.stringify(badMsg)}`);
         if ([16, 17].includes(badMsg.errorCode)) {
             // Sent msg_id too low or too high (respectively).
             // Use the current msg_id to determine the right time offset.
-            const to = this._state.updateTimeOffset(message.msgId);
-            this._log.info(`System clock is wrong, set time offset to ${to}s`);
+            const newTimeOffset = this._state.updateTimeOffset(message.msgId);
+
+            if (this._updateCallback) {
+                this._updateCallback(new UpdateServerTimeOffset(newTimeOffset));
+            }
+
+            this._log.info(`System clock is wrong, set time offset to ${newTimeOffset}s`);
         } else if (badMsg.errorCode === 32) {
             // msg_seqno too low, so just pump it up by some "large" amount
             // TODO A better fix would be to start with a new fresh session ID
@@ -657,7 +694,7 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleDetailedInfo(message) {
+    _handleDetailedInfo(message) {
         // TODO https://goo.gl/VvpCC6
         const msgId = message.obj.answerMsgId;
         this._log.debug(`Handling detailed info for message ${msgId}`);
@@ -672,7 +709,7 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleNewDetailedInfo(message) {
+    _handleNewDetailedInfo(message) {
         // TODO https://goo.gl/VvpCC6
         const msgId = message.obj.answerMsgId;
         this._log.debug(`Handling new detailed info for message ${msgId}`);
@@ -687,7 +724,7 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleNewSessionCreated(message) {
+    _handleNewSessionCreated(message) {
         // TODO https://goo.gl/LMyN7A
         this._log.debug('Handling new session created');
         this._state.salt = message.obj.serverSalt;
@@ -711,12 +748,13 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleAck(message) {
+    _handleAck(message) {
         const ack = message.obj;
         this._log.debug(`Handling acknowledge for ${ack.msgIds}`);
         for (const msgId of ack.msgIds) {
             const state = this._pending_state[msgId];
             if (state && state.request instanceof LogOut) {
+                this._pending_state[msgId].deferred.resolve();
                 delete this._pending_state[msgId];
                 state.resolve(true);
             }
@@ -732,13 +770,14 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleFutureSalts(message) {
+    _handleFutureSalts(message) {
         // TODO save these salts and automatically adjust to the
         // correct one whenever the salt in use expires.
         this._log.debug(`Handling future salts for message ${message.msgId}`);
         const state = this._pending_state[message.msgId];
 
         if (state) {
+            this._pending_state[message].deferred.resolve();
             delete this._pending_state[message];
             state.resolve(message.obj);
         }
@@ -751,7 +790,7 @@ class MTProtoSender {
      * @returns {Promise<void>}
      * @private
      */
-    async _handleStateForgotten(message) {
+    _handleStateForgotten(message) {
         this._send_queue.append(
             new RequestState(new MsgsStateInfo(message.msgId, String.fromCharCode(1)
                 .repeat(message.obj.msgIds))),
@@ -760,14 +799,17 @@ class MTProtoSender {
 
     /**
      * Handles :tl:`MsgsAllInfo` by doing nothing (yet).
+     * used as part of the telegram protocol https://core.telegram.org/mtproto/service_messages_about_messages
+     * This message does not require an acknowledgment.
      * @param message
      * @returns {Promise<void>}
      * @private
      */
-    async _handleMsgAll(message) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _handleMsgAll(message) {
     }
 
-    async reconnect() {
+    reconnect() {
         if (this._user_connected && !this._reconnecting) {
             this._reconnecting = true;
             // TODO Should we set this?
@@ -785,7 +827,7 @@ class MTProtoSender {
             this._log.warn(err);
         }
 
-        this._send_queue.append(null);
+        this._send_queue.append(undefined);
         this._state.reset();
 
         await this.connect(this._connection, true);
@@ -793,6 +835,9 @@ class MTProtoSender {
         this._reconnecting = false;
         // uncomment this if you want to resend
         // this._send_queue.extend(Object.values(this._pending_state))
+        for (const state of Object.values(this._pending_state)) {
+            state.deferred.resolve();
+        }
         this._pending_state = {};
         if (this._autoReconnectCallback) {
             await this._autoReconnectCallback();

@@ -5,6 +5,7 @@ import { IS_TOUCH_ENV } from '../../util/environment';
 import buildClassName from '../../util/buildClassName';
 import useContextMenuHandlers from '../../hooks/useContextMenuHandlers';
 import useContextMenuPosition from '../../hooks/useContextMenuPosition';
+import useLang from '../../hooks/useLang';
 
 import RippleEffect from './RippleEffect';
 import Menu from './Menu';
@@ -23,6 +24,7 @@ type MenuItemContextAction = {
 
 type OwnProps = {
   ref?: RefObject<HTMLDivElement>;
+  buttonRef?: RefObject<HTMLDivElement>;
   icon?: string;
   className?: string;
   style?: string;
@@ -34,6 +36,7 @@ type OwnProps = {
   focus?: boolean;
   destructive?: boolean;
   multiline?: boolean;
+  isStatic?: boolean;
   contextActions?: MenuItemContextAction[];
   onClick?: OnClickHandler;
 };
@@ -41,6 +44,7 @@ type OwnProps = {
 const ListItem: FC<OwnProps> = (props) => {
   const {
     ref,
+    buttonRef,
     icon,
     className,
     style,
@@ -52,6 +56,7 @@ const ListItem: FC<OwnProps> = (props) => {
     focus,
     destructive,
     multiline,
+    isStatic,
     contextActions,
     onClick,
   } = props;
@@ -110,9 +115,12 @@ const ListItem: FC<OwnProps> = (props) => {
     }
   }, [inactive, contextActions, onClick, handleBeforeContextMenu, handleContextMenu, handleClick]);
 
+  const lang = useLang();
+
   const fullClassName = buildClassName(
-    'ListItem no-selection',
+    'ListItem',
     className,
+    !isStatic && 'no-selection',
     ripple && 'has-ripple',
     narrow && 'narrow',
     disabled && 'disabled',
@@ -121,18 +129,21 @@ const ListItem: FC<OwnProps> = (props) => {
     focus && 'focus',
     destructive && 'destructive',
     multiline && 'multiline',
+    isStatic && 'is-static',
   );
 
   return (
     <div
       ref={containerRef}
       className={fullClassName}
+      dir={lang.isRtl ? 'rtl' : undefined}
       // @ts-ignore
       style={style}
     >
       <div
         className="ListItem-button"
         role="button"
+        ref={buttonRef}
         tabIndex={0}
         onClick={!inactive && IS_TOUCH_ENV ? handleClick : undefined}
         onMouseDown={handleMouseDown}

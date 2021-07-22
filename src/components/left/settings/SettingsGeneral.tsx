@@ -12,6 +12,7 @@ import { pick } from '../../../util/iteratees';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import RangeSlider from '../../ui/RangeSlider';
@@ -21,20 +22,31 @@ import SettingsStickerSet from './SettingsStickerSet';
 import StickerSetModal from '../../common/StickerSetModal.async';
 
 type OwnProps = {
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
-type StateProps = ISettings['byKey'] & {
+type StateProps = Pick<ISettings, (
+  'messageTextSize' |
+  'animationLevel' |
+  'messageSendKeyCombo' |
+  'shouldAutoDownloadMediaFromContacts' |
+  'shouldAutoDownloadMediaInPrivateChats' |
+  'shouldAutoDownloadMediaInGroups' |
+  'shouldAutoDownloadMediaInChannels' |
+  'shouldAutoPlayGifs' |
+  'shouldAutoPlayVideos' |
+  'shouldSuggestStickers' |
+  'shouldLoopStickers'
+)> & {
   stickerSetIds?: string[];
   stickerSetsById?: Record<string, ApiStickerSet>;
 };
 
-type DispatchProps = Pick<GlobalActions, 'setSettingOption' | 'loadStickerSets' | 'loadAddedStickers'>;
-
-const KEYBOARD_SEND_OPTIONS = !IS_TOUCH_ENV ? [
-  { value: 'enter', label: 'Send by Enter', subLabel: 'New line by Shift + Enter' },
-  { value: 'ctrl-enter', label: `Send by ${IS_MAC_OS ? 'Cmd' : 'Ctrl'} + Enter`, subLabel: 'New line by Enter' },
-] : undefined;
+type DispatchProps = Pick<GlobalActions, (
+  'setSettingOption' | 'loadStickerSets' | 'loadAddedStickers'
+)>;
 
 const ANIMATION_LEVEL_OPTIONS = [
   'Solid and Steady',
@@ -43,7 +55,9 @@ const ANIMATION_LEVEL_OPTIONS = [
 ];
 
 const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
+  isActive,
   onScreenSelect,
+  onReset,
   stickerSetIds,
   stickerSetsById,
   messageTextSize,
@@ -66,6 +80,17 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
   const { observe: observeIntersectionForCovers } = useIntersectionObserver({ rootRef: stickerSettingsRef });
   const [isModalOpen, openModal, closeModal] = useFlag();
   const [sticker, setSticker] = useState<ApiSticker>();
+
+  const lang = useLang();
+
+  const KEYBOARD_SEND_OPTIONS = !IS_TOUCH_ENV ? [
+    { value: 'enter', label: lang('lng_settings_send_enter'), subLabel: 'New line by Shift + Enter' },
+    {
+      value: 'ctrl-enter',
+      label: lang(IS_MAC_OS ? 'lng_settings_send_cmdenter' : 'lng_settings_send_ctrlenter'),
+      subLabel: 'New line by Enter',
+    },
+  ] : undefined;
 
   useEffect(() => {
     loadStickerSets();
@@ -96,17 +121,16 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
     openModal();
   }, [openModal]);
 
-  const lang = useLang();
-
-
   const stickerSets = stickerSetIds && stickerSetIds.map((id: string) => {
     return stickerSetsById && stickerSetsById[id] && stickerSetsById[id].installedDate ? stickerSetsById[id] : false;
-  }).filter(Boolean);
+  }).filter<ApiStickerSet>(Boolean as any);
+
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.General);
 
   return (
     <div className="settings-content custom-scroll">
       <div className="settings-item pt-3">
-        <h4 className="settings-item-header">{lang('SETTINGS')}</h4>
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('SETTINGS')}</h4>
 
         <RangeSlider
           label={lang('TextSize')}
@@ -125,10 +149,12 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
 
       <div className="settings-item">
-        <h4 className="settings-item-header">
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>
           Animation Level
         </h4>
-        <p className="settings-item-description">Choose the desired animations amount.</p>
+        <p className="settings-item-description" dir={lang.isRtl ? 'rtl' : undefined}>
+          Choose the desired animations amount.
+        </p>
 
         <RangeSlider
           options={ANIMATION_LEVEL_OPTIONS}
@@ -139,7 +165,7 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
 
       {KEYBOARD_SEND_OPTIONS && (
         <div className="settings-item">
-          <h4 className="settings-item-header">{lang('Keyboard')}</h4>
+          <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('VoiceOver.Keyboard')}</h4>
 
           <RadioGroup
             name="keyboard-send-settings"
@@ -151,7 +177,7 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
       )}
 
       <div className="settings-item">
-        <h4 className="settings-item-header">{lang('AutoDownloadMedia')}</h4>
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AutoDownloadMedia')}</h4>
 
         <Checkbox
           label={lang('Contacts')}
@@ -176,7 +202,7 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
 
       <div className="settings-item">
-        <h4 className="settings-item-header">{lang('AutoplayMedia')}</h4>
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AutoplayMedia')}</h4>
 
         <Checkbox
           label={lang('GifsTab2')}
@@ -184,14 +210,14 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
           onCheck={(isChecked) => setSettingOption({ shouldAutoPlayGifs: isChecked })}
         />
         <Checkbox
-          label={lang('VideosTitle')}
+          label={lang('DataAndStorage.Autoplay.Videos')}
           checked={shouldAutoPlayVideos}
           onCheck={(isChecked) => setSettingOption({ shouldAutoPlayVideos: isChecked })}
         />
       </div>
 
       <div className="settings-item">
-        <h4 className="settings-item-header">{lang('AccDescrStickers')}</h4>
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AccDescrStickers')}</h4>
 
         <Checkbox
           label={lang('SuggestStickers')}
@@ -229,20 +255,21 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     return {
-      ...pick(global.settings.byKey,
-        [
-          'messageTextSize',
-          'animationLevel',
-          'messageSendKeyCombo',
-          'shouldAutoDownloadMediaFromContacts',
-          'shouldAutoDownloadMediaInPrivateChats',
-          'shouldAutoDownloadMediaInGroups',
-          'shouldAutoDownloadMediaInChannels',
-          'shouldAutoPlayGifs',
-          'shouldAutoPlayVideos',
-          'shouldSuggestStickers',
-          'shouldLoopStickers',
-        ]),
+      ...pick(global.settings.byKey, [
+        'messageTextSize',
+        'animationLevel',
+        'messageSendKeyCombo',
+        'shouldAutoDownloadMediaFromContacts',
+        'shouldAutoDownloadMediaInPrivateChats',
+        'shouldAutoDownloadMediaInGroups',
+        'shouldAutoDownloadMediaInChannels',
+        'shouldAutoPlayGifs',
+        'shouldAutoPlayVideos',
+        'shouldSuggestStickers',
+        'shouldLoopStickers',
+        'isSensitiveEnabled',
+        'canChangeSensitive',
+      ]),
       stickerSetIds: global.stickers.added.setIds,
       stickerSetsById: global.stickers.setsById,
     };

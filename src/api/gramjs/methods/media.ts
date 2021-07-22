@@ -17,7 +17,10 @@ import { getEntityTypeById } from '../gramjsBuilders';
 import { blobToDataUri } from '../../../util/files';
 import * as cacheApi from '../../../util/cacheApi';
 
-type EntityType = 'msg' | 'sticker' | 'wallpaper' | 'gif' | 'channel' | 'chat' | 'user' | 'photo' | 'stickerSet';
+type EntityType = (
+  'msg' | 'sticker' | 'wallpaper' | 'gif' | 'channel' | 'chat' | 'user' | 'photo' | 'stickerSet' | 'webDocument'
+);
+const MEDIA_ENTITY_TYPES = new Set(['msg', 'sticker', 'gif', 'wallpaper', 'photo', 'webDocument']);
 
 export default async function downloadMedia(
   {
@@ -70,8 +73,9 @@ async function download(
   end?: number,
   mediaFormat?: ApiMediaFormat,
 ) {
-  // eslint-disable-next-line max-len
-  const mediaMatch = url.match(/(avatar|profile|photo|msg|stickerSet|sticker|wallpaper|gif|file)([-\d\w./]+)(\?size=\w+)?/);
+  const mediaMatch = url.startsWith('webDocument')
+    ? url.match(/(webDocument):(.+)/)
+    : url.match(/(avatar|profile|photo|msg|stickerSet|sticker|wallpaper|gif|file)([-\d\w./]+)(\?size=\w+)?/);
   if (!mediaMatch) {
     return undefined;
   }
@@ -91,14 +95,14 @@ async function download(
   const sizeType = mediaMatch[3] ? mediaMatch[3].replace('?size=', '') : undefined;
   let entity: (
     GramJs.User | GramJs.Chat | GramJs.Channel | GramJs.Photo |
-    GramJs.Message | GramJs.Document | GramJs.StickerSet | undefined
+    GramJs.Message | GramJs.Document | GramJs.StickerSet | GramJs.TypeWebDocument | undefined
   );
 
   if (mediaMatch[1] === 'avatar' || mediaMatch[1] === 'profile') {
     entityType = getEntityTypeById(Number(entityId));
     entityId = Math.abs(Number(entityId));
   } else {
-    entityType = mediaMatch[1] as 'msg' | 'sticker' | 'wallpaper' | 'gif' | 'stickerSet' | 'photo';
+    entityType = mediaMatch[1] as 'msg' | 'sticker' | 'wallpaper' | 'gif' | 'stickerSet' | 'photo' | 'webDocument';
   }
 
   switch (entityType) {
@@ -123,13 +127,16 @@ async function download(
     case 'stickerSet':
       entity = localDb.stickerSets[entityId as string];
       break;
+    case 'webDocument':
+      entity = localDb.webDocuments[entityId as string];
+      break;
   }
 
   if (!entity) {
     return undefined;
   }
 
-  if (['msg', 'sticker', 'gif', 'wallpaper', 'photo'].includes(entityType)) {
+  if (MEDIA_ENTITY_TYPES.has(entityType)) {
     if (mediaFormat === ApiMediaFormat.Stream) {
       onProgress!.acceptsBuffer = true;
     }
@@ -145,10 +152,17 @@ async function download(
       if (entity.media instanceof GramJs.MessageMediaDocument && entity.media.document instanceof GramJs.Document) {
         fullSize = entity.media.document.size;
       }
+      if (entity.media instanceof GramJs.MessageMediaWebPage
+        && entity.media.webpage instanceof GramJs.WebPage
+        && entity.media.webpage.document instanceof GramJs.Document) {
+        fullSize = entity.media.webpage.document.size;
+      }
     } else if (entity instanceof GramJs.Photo) {
       mimeType = 'image/jpeg';
     } else if (entityType === 'sticker' && sizeType) {
       mimeType = 'image/webp';
+    } else if (entityType === 'webDocument') {
+      mimeType = (entity as GramJs.TypeWebDocument).mimeType;
     } else {
       mimeType = (entity as GramJs.Document).mimeType;
       fullSize = (entity as GramJs.Document).size;
@@ -157,12 +171,12 @@ async function download(
     return { mimeType, data, fullSize };
   } else if (entityType === 'stickerSet') {
     const data = await client.downloadStickerSetThumb(entity);
-    const mimeType = mediaFormat === ApiMediaFormat.Lottie ? 'application/json' : 'image/jpeg';
+    const mimeType = mediaFormat === ApiMediaFormat.Lottie ? 'application/json' : getMimeType(data);
 
     return { mimeType, data };
   } else {
     const data = await client.downloadProfilePhoto(entity, mediaMatch[1] === 'profile');
-    const mimeType = 'image/jpeg';
+    const mimeType = getMimeType(data);
 
     return { mimeType, data };
   }
@@ -185,6 +199,12 @@ function getMessageMediaMimeType(message: GramJs.Message, sizeType?: string) {
     }
 
     return message.media.document!.mimeType;
+  }
+
+  if (message.media instanceof GramJs.MessageMediaWebPage
+    && message.media.webpage instanceof GramJs.WebPage
+    && message.media.webpage.document instanceof GramJs.Document) {
+    return message.media.webpage.document.mimeType;
   }
 
   return undefined;
@@ -217,4 +237,36 @@ function prepareMedia(mediaData: ApiParsedMedia): ApiPreparedMedia {
   }
 
   return mediaData;
+}
+
+function getMimeType(data: Uint8Array, fallbackMimeType = 'image/jpeg') {
+  if (data.length < 4) {
+    return fallbackMimeType;
+  }
+
+  let type = fallbackMimeType;
+  const signature = data.subarray(0, 4).reduce((result, byte) => result + byte.toString(16), '');
+
+  // https://en.wikipedia.org/wiki/List_of_file_signatures
+  switch (signature) {
+    case '89504e47':
+      type = 'image/png';
+      break;
+    case '47494638':
+      type = 'image/gif';
+      break;
+    case 'ffd8ffe0':
+    case 'ffd8ffe1':
+    case 'ffd8ffe2':
+    case 'ffd8ffe3':
+    case 'ffd8ffe8':
+      type = 'image/jpeg';
+      break;
+    case '52494646':
+      // In our case only webp is expected
+      type = 'image/webp';
+      break;
+  }
+
+  return type;
 }

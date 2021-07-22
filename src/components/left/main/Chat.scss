@@ -52,9 +52,13 @@
     }
   }
 
+  .status {
+    flex-shrink: 0;
+  }
+
   .info {
     .title, .subtitle {
-      padding-right: .15rem;
+      padding-right: .125rem;
     }
 
     h3 {
@@ -63,9 +67,9 @@
     }
 
     .icon-muted-chat {
-      font-size: 1.2rem;
+      font-size: 1.25rem;
       margin-left: 0.25rem;
-      margin-top: -0.1rem;
+      margin-top: -.0625rem;
       color: #C6C8CA;
     }
 
@@ -77,6 +81,10 @@
       padding-right: 0.25rem;
       flex-grow: 1;
       color: var(--color-text-secondary);
+      unicode-bidi: plaintext;
+      &[dir=ltr] {
+        text-align: left;
+      }
 
       .sender-name {
         color: var(--color-text);
@@ -88,14 +96,13 @@
     }
 
     .last-message {
-      .sender-name, .draft {
+      .draft {
         &::after {
           content: ': ';
         }
       }
-
-      .media-preview {
-        position: relative;
+      .colon {
+        margin-inline-end: .25rem;
       }
 
       img {
@@ -104,7 +111,11 @@
         object-fit: cover;
         border-radius: .125rem;
         vertical-align: -.25rem;
-        margin-right: .25rem;
+        margin-inline-end: .25rem;
+
+        &.round {
+          border-radius: .625rem;
+        }
       }
 
       .emoji-small {
@@ -114,11 +125,39 @@
       }
 
       .icon-play {
+        position: relative;
+        display: inline-block;
         font-size: .75rem;
         color: #fff;
-        position: absolute;
-        left: .25rem;
-        top: .1875rem;
+        margin-inline-start: -1.25rem;
+        margin-inline-end: 0.5rem;
+        bottom: 0.0625rem;
+      }
+    }
+  }
+
+  &[dir=rtl] {
+    .info {
+      .LastMessageMeta {
+        margin-left: 0;
+        margin-right: auto;
+      }
+
+      .title, .subtitle {
+        padding-left: .15rem;
+        padding-right: 0;
+      }
+
+      .icon-muted-chat {
+        margin-left: 0;
+        margin-right: 0.25rem;
+      }
+
+      .last-message, .typing-status {
+        padding-left: 0.5rem;
+        padding-right: 0;
+        text-align: right;
+        unicode-bidi: plaintext;
       }
     }
   }

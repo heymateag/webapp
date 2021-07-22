@@ -2,6 +2,7 @@ import { ChangeEvent } from 'react';
 import React, { FC, memo, useCallback } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
+import useLang from '../../hooks/useLang';
 
 import Spinner from './Spinner';
 
@@ -37,6 +38,7 @@ const Checkbox: FC<OwnProps> = ({
   onChange,
   onCheck,
 }) => {
+  const lang = useLang();
   const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (onChange) {
       onChange(event);
@@ -56,7 +58,7 @@ const Checkbox: FC<OwnProps> = ({
   );
 
   return (
-    <label className={className}>
+    <label className={className} dir={lang.isRtl ? 'rtl' : undefined}>
       <input
         type="checkbox"
         id={id}
@@ -67,8 +69,8 @@ const Checkbox: FC<OwnProps> = ({
         onChange={handleChange}
       />
       <div className="Checkbox-main">
-        <span className="label">{label}</span>
-        {subLabel && <span className="subLabel">{subLabel}</span>}
+        <span className="label" dir="auto">{label}</span>
+        {subLabel && <span className="subLabel" dir="auto">{subLabel}</span>}
       </div>
       {isLoading && <Spinner />}
     </label>

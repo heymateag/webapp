@@ -3,8 +3,9 @@ import React, {
 } from '../../lib/teact/teact';
 import { withGlobal } from '../../lib/teact/teactn';
 
-import { MAIN_THREAD_ID } from '../../api/types';
+import { ApiChatBannedRights, MAIN_THREAD_ID } from '../../api/types';
 import { GlobalActions, MessageListType } from '../../global/types';
+import { ThemeKey } from '../../types';
 
 import {
   MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN,
@@ -15,8 +16,16 @@ import {
   CONTENT_TYPES_FOR_QUICK_UPLOAD,
   ANIMATION_LEVEL_MAX,
   ANIMATION_END_DELAY,
+  DARK_THEME_BG_COLOR,
+  LIGHT_THEME_BG_COLOR,
+  ANIMATION_LEVEL_MIN,
 } from '../../config';
-import { IS_MOBILE_SCREEN, IS_TOUCH_ENV, MASK_IMAGE_DISABLED } from '../../util/environment';
+import {
+  IS_SINGLE_COLUMN_LAYOUT,
+  IS_TABLET_COLUMN_LAYOUT,
+  IS_TOUCH_ENV,
+  MASK_IMAGE_DISABLED,
+} from '../../util/environment';
 import { DropAreaState } from './composer/DropArea';
 import {
   selectChat,
@@ -26,6 +35,8 @@ import {
   selectIsInSelectMode,
   selectIsRightColumnShown,
   selectPinnedIds,
+  selectTheme,
+  selectThreadOriginChat,
 } from '../../modules/selectors';
 import { getCanPostInChat, getMessageSendingRestrictionReason, isChatPrivate } from '../../modules/helpers';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
@@ -36,6 +47,7 @@ import useWindowSize from '../../hooks/useWindowSize';
 import usePrevDuringAnimation from '../../hooks/usePrevDuringAnimation';
 import calculateMiddleFooterTransforms from './helpers/calculateMiddleFooterTransforms';
 import useLang from '../../hooks/useLang';
+import useHistoryBack from '../../hooks/useHistoryBack';
 
 import Transition from '../ui/Transition';
 import MiddleHeader from './MiddleHeader';
@@ -55,25 +67,34 @@ type StateProps = {
   messageListType?: MessageListType;
   isPrivate?: boolean;
   isPinnedMessageList?: boolean;
+  isScheduledMessageList?: boolean;
   canPost?: boolean;
-  messageSendingRestrictionReason?: string;
+  currentUserBannedRights?: ApiChatBannedRights;
+  defaultBannedRights?: ApiChatBannedRights;
   hasPinnedOrAudioMessage?: boolean;
+  pinnedMessagesCount?: number;
+  theme: ThemeKey;
   customBackground?: string;
+  backgroundColor?: string;
   patternColor?: string;
-  isCustomBackgroundColor?: boolean;
+  isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
   isBackgroundBlurred?: boolean;
   isMobileSearchActive?: boolean;
   isSelectModeActive?: boolean;
   animationLevel?: number;
+  originChatId?: number;
+  shouldSkipHistoryAnimations?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openChat' | 'unpinAllMessages' | 'loadUser'>;
+type DispatchProps = Pick<GlobalActions, (
+  'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode'
+)>;
 
-const CLOSE_ANIMATION_DURATION = IS_MOBILE_SCREEN ? 450 + ANIMATION_END_DELAY : undefined;
+const CLOSE_ANIMATION_DURATION = IS_SINGLE_COLUMN_LAYOUT ? 450 + ANIMATION_END_DELAY : undefined;
 
 function canBeQuicklyUploaded(item: DataTransferItem) {
-  return item.kind === 'file' && item.type && CONTENT_TYPES_FOR_QUICK_UPLOAD.includes(item.type);
+  return item.kind === 'file' && item.type && CONTENT_TYPES_FOR_QUICK_UPLOAD.has(item.type);
 }
 
 const MiddleColumn: FC<StateProps & DispatchProps> = ({
@@ -82,26 +103,38 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   messageListType,
   isPrivate,
   isPinnedMessageList,
+  isScheduledMessageList,
   canPost,
-  messageSendingRestrictionReason,
+  currentUserBannedRights,
+  defaultBannedRights,
   hasPinnedOrAudioMessage,
+  pinnedMessagesCount,
   customBackground,
+  theme,
+  backgroundColor,
   patternColor,
-  isCustomBackgroundColor,
+  isLeftColumnShown,
   isRightColumnShown,
   isBackgroundBlurred,
   isMobileSearchActive,
   isSelectModeActive,
   animationLevel,
+  originChatId,
+  shouldSkipHistoryAnimations,
   openChat,
   unpinAllMessages,
   loadUser,
+  closeLocalTextSearch,
+  exitMessageSelectMode,
 }) => {
   const { width: windowWidth } = useWindowSize();
 
+  const lang = useLang();
   const [dropAreaState, setDropAreaState] = useState(DropAreaState.None);
-  const [isFabShown, setIsFabShown] = useState(false);
+  const [isFabShown, setIsFabShown] = useState<boolean | undefined>();
+  const [isNotchShown, setIsNotchShown] = useState<boolean | undefined>();
   const [isUnpinModalOpen, setIsUnpinModalOpen] = useState(false);
+  const [isReady, setIsReady] = useState(!IS_SINGLE_COLUMN_LAYOUT || animationLevel === ANIMATION_LEVEL_MIN);
 
   const hasTools = hasPinnedOrAudioMessage && (
     windowWidth < MOBILE_SCREEN_MAX_WIDTH
@@ -119,6 +152,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   const renderingMessageListType = usePrevDuringAnimation(messageListType, CLOSE_ANIMATION_DURATION);
   const renderingCanPost = usePrevDuringAnimation(canPost, CLOSE_ANIMATION_DURATION);
   const renderingHasTools = usePrevDuringAnimation(hasTools, CLOSE_ANIMATION_DURATION);
+  const renderingIsFabShown = usePrevDuringAnimation(isFabShown, CLOSE_ANIMATION_DURATION);
 
   useEffect(() => {
     return chatId
@@ -130,7 +164,21 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 
   useEffect(() => {
     setDropAreaState(DropAreaState.None);
+    setIsFabShown(undefined);
+    setIsNotchShown(undefined);
   }, [chatId]);
+
+  useEffect(() => {
+    if (animationLevel === ANIMATION_LEVEL_MIN) {
+      setIsReady(true);
+    }
+  }, [animationLevel]);
+
+  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.propertyName === 'transform' && e.target === e.currentTarget) {
+      setIsReady(Boolean(chatId));
+    }
+  };
 
   useEffect(() => {
     if (isPrivate) {
@@ -144,7 +192,11 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     }
 
     const { items } = e.dataTransfer || {};
-    const shouldDrawQuick = items && Array.from(items).every(canBeQuicklyUploaded);
+    const shouldDrawQuick = items && Array.from(items)
+      // Filter unnecessary element for drag and drop images in Firefox (https://github.com/Ajaxy/telegram-tt/issues/49)
+      // https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Recommended_drag_types#image
+      .filter((item) => item.type !== 'text/uri-list')
+      .every(canBeQuicklyUploaded);
 
     setDropAreaState(shouldDrawQuick ? DropAreaState.QuickFile : DropAreaState.Document);
   }, []);
@@ -167,12 +219,16 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     openChat({ id: chatId });
   }, [unpinAllMessages, openChat, closeUnpinModal, chatId]);
 
-  const customBackgroundValue = useCustomBackground(customBackground);
+  const handleTabletFocus = useCallback(() => {
+    openChat({ id: chatId });
+  }, [openChat, chatId]);
+
+  const customBackgroundValue = useCustomBackground(theme, customBackground);
 
   const className = buildClassName(
     renderingHasTools && 'has-header-tools',
-    customBackground && !isCustomBackgroundColor && 'custom-bg-image',
-    customBackground && isCustomBackgroundColor && 'custom-bg-color',
+    customBackground && 'custom-bg-image',
+    backgroundColor && 'custom-bg-color',
     customBackground && isBackgroundBlurred && 'blurred',
     MASK_IMAGE_DISABLED ? 'mask-image-disabled' : 'mask-image-enabled',
   );
@@ -180,6 +236,11 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   const messagingDisabledClassName = buildClassName(
     'messaging-disabled',
     !isSelectModeActive && 'shown',
+  );
+
+
+  const messageSendingRestrictionReason = getMessageSendingRestrictionReason(
+    lang, currentUserBannedRights, defaultBannedRights,
   );
 
   // CSS Variables calculation doesn't work properly with transforms, so we calculate transform values in JS
@@ -192,12 +253,42 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     [renderingCanPost, windowWidth],
   );
 
-  const lang = useLang();
+  const footerClassName = buildClassName(
+    'middle-column-footer',
+    !renderingCanPost && 'no-composer',
+    renderingCanPost && isNotchShown && !isSelectModeActive && 'with-notch',
+  );
+
+  const closeChat = () => {
+    if (renderingThreadId !== MAIN_THREAD_ID) {
+      openChat({ id: originChatId, threadId: MAIN_THREAD_ID }, true);
+    } else if (isPinnedMessageList || isScheduledMessageList) {
+      openChat({ id: chatId, type: 'thread' });
+    } else {
+      openChat({ id: undefined }, true);
+    }
+  };
+
+  useHistoryBack(renderingChatId && renderingThreadId, closeChat, openChat, {
+    id: chatId,
+    threadId: MAIN_THREAD_ID,
+  });
+
+  const isDiscussion = renderingChatId && renderingThreadId !== MAIN_THREAD_ID;
+
+  useHistoryBack(isDiscussion || isPinnedMessageList || isScheduledMessageList, closeChat, openChat, {
+    id: chatId,
+    threadId: renderingThreadId,
+  });
+
+  useHistoryBack(isMobileSearchActive, closeLocalTextSearch);
+  useHistoryBack(isSelectModeActive, exitMessageSelectMode);
 
   return (
     <div
       id="MiddleColumn"
       className={className}
+      onTransitionEnd={handleTransitionEnd}
       // @ts-ignore teact-feature
       style={`
         --composer-hidden-scale: ${composerHiddenScale};
@@ -207,7 +298,10 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
         --composer-translate-x: ${composerTranslateX}px;
         --toolbar-translate-x: ${toolbarTranslateX}px;
         --pattern-color: ${patternColor};
+        --theme-background-color:
+          ${backgroundColor || (theme === 'dark' ? DARK_THEME_BG_COLOR : LIGHT_THEME_BG_COLOR)};
       `}
+      onClick={(IS_TABLET_COLUMN_LAYOUT && isLeftColumnShown) ? handleTabletFocus : undefined}
     >
       <div
         id="middle-column-bg"
@@ -222,9 +316,10 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
               chatId={renderingChatId}
               threadId={renderingThreadId}
               messageListType={renderingMessageListType}
+              isReady={isReady}
             />
             <Transition
-              name={animationLevel === ANIMATION_LEVEL_MAX ? 'slide' : 'fade'}
+              name={shouldSkipHistoryAnimations ? 'none' : animationLevel === ANIMATION_LEVEL_MAX ? 'slide' : 'fade'}
               activeKey={renderingMessageListType === 'thread' && renderingThreadId === MAIN_THREAD_ID ? 1 : 2}
               shouldCleanup
             >
@@ -238,8 +333,10 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                     canPost={renderingCanPost}
                     hasTools={renderingHasTools}
                     onFabToggle={setIsFabShown}
+                    onNotchToggle={setIsNotchShown}
+                    isReady={isReady}
                   />
-                  <div className={buildClassName('middle-column-footer', !renderingCanPost && 'no-composer')}>
+                  <div className={footerClassName}>
                     {renderingCanPost && (
                       <Composer
                         chatId={renderingChatId}
@@ -247,10 +344,11 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                         messageListType={renderingMessageListType}
                         dropAreaState={dropAreaState}
                         onDropHide={handleHideDropArea}
+                        isReady={isReady}
                       />
                     )}
                     {isPinnedMessageList && (
-                      <div className="unpin-button-container">
+                      <div className="unpin-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
                         <Button
                           size="tiny"
                           fluid
@@ -259,7 +357,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                           onClick={handleOpenUnpinModal}
                         >
                           <i className="icon-unpin" />
-                          <span>{lang('Chat.PanelHidePinnedMessages')}</span>
+                          <span>{lang('Chat.Pinned.UnpinAll', pinnedMessagesCount, 'i')}</span>
                         </Button>
                       </div>
                     )}
@@ -282,15 +380,19 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
               )}
             </Transition>
 
-            <ScrollDownButton isShown={isFabShown} />
+            <ScrollDownButton
+              isShown={renderingIsFabShown}
+              canPost={renderingCanPost}
+            />
           </div>
-          {IS_MOBILE_SCREEN && <MobileSearch isActive={Boolean(isMobileSearchActive)} />}
+          {IS_SINGLE_COLUMN_LAYOUT && <MobileSearch isActive={Boolean(isMobileSearchActive)} />}
         </>
       )}
       {chatId && (
         <UnpinAllMessagesModal
           isOpen={isUnpinModalOpen}
           chatId={chatId}
+          pinnedMessagesCount={pinnedMessagesCount}
           onClose={closeUnpinModal}
           onUnpin={handleUnpinAllMessages}
         />
@@ -301,17 +403,29 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 
 export default memo(withGlobal(
   (global): StateProps => {
-    const { isBackgroundBlurred, customBackground, patternColor } = global.settings.byKey;
+    const theme = selectTheme(global);
+    const {
+      isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
+    } = global.settings.themes[theme] || {};
 
-    const isCustomBackgroundColor = Boolean((customBackground || '').match(/^#[a-f\d]{6,8}$/i));
     const currentMessageList = selectCurrentMessageList(global);
-    const { chats: { listIds } } = global;
+    const { isLeftColumnShown, chats: { listIds } } = global;
+
+    const state: StateProps = {
+      theme,
+      customBackground,
+      backgroundColor,
+      patternColor,
+      isLeftColumnShown,
+      isRightColumnShown: selectIsRightColumnShown(global),
+      isBackgroundBlurred,
+      isMobileSearchActive: Boolean(IS_SINGLE_COLUMN_LAYOUT && selectCurrentTextSearch(global)),
+      isSelectModeActive: selectIsInSelectMode(global),
+      animationLevel: global.settings.byKey.animationLevel,
+    };
+
     if (!currentMessageList || !listIds.active) {
-      return {
-        customBackground,
-        isBackgroundBlurred,
-        isCustomBackgroundColor,
-      };
+      return state;
     }
 
     const { chatId, threadId, type: messageListType } = currentMessageList;
@@ -322,31 +436,31 @@ export default memo(withGlobal(
     const canPost = chat && getCanPostInChat(chat, threadId);
     const isBotNotStarted = selectIsChatBotNotStarted(global, chatId);
     const isPinnedMessageList = messageListType === 'pinned';
+    const isScheduledMessageList = messageListType === 'scheduled';
+    const originChat = selectThreadOriginChat(global, chatId, threadId);
 
     return {
+      ...state,
       chatId,
       threadId,
       messageListType,
+      originChatId: originChat ? originChat.id : chatId,
       isPrivate: isChatPrivate(chatId),
-      canPost: !isPinnedMessageList && (!chat || canPost) && (!isBotNotStarted || IS_MOBILE_SCREEN),
+      canPost: !isPinnedMessageList && (!chat || canPost) && (!isBotNotStarted || IS_SINGLE_COLUMN_LAYOUT),
       isPinnedMessageList,
-      messageSendingRestrictionReason: chat && getMessageSendingRestrictionReason(chat),
+      isScheduledMessageList,
+      currentUserBannedRights: chat && chat.currentUserBannedRights,
+      defaultBannedRights: chat && chat.defaultBannedRights,
       hasPinnedOrAudioMessage: (
         threadId !== MAIN_THREAD_ID
         || Boolean(pinnedIds && pinnedIds.length)
         || Boolean(audioChatId && audioMessageId)
       ),
-      customBackground,
-      patternColor,
-      isCustomBackgroundColor,
-      isRightColumnShown: selectIsRightColumnShown(global),
-      isBackgroundBlurred,
-      isMobileSearchActive: Boolean(IS_MOBILE_SCREEN && selectCurrentTextSearch(global)),
-      isSelectModeActive: selectIsInSelectMode(global),
-      animationLevel: global.settings.byKey.animationLevel,
+      pinnedMessagesCount: pinnedIds ? pinnedIds.length : 0,
+      shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
-    'openChat', 'unpinAllMessages', 'loadUser',
+    'openChat', 'unpinAllMessages', 'loadUser', 'closeLocalTextSearch', 'exitMessageSelectMode',
   ]),
 )(MiddleColumn));

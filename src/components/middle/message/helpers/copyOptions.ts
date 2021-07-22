@@ -1,7 +1,14 @@
 import { ApiMediaFormat, ApiMessage } from '../../../../api/types';
 
 import * as mediaLoader from '../../../../util/mediaLoader';
-import { getMessageMediaHash, getMessagePhoto, getMessageText } from '../../../../modules/helpers';
+import {
+  getMessageMediaHash,
+  getMessagePhoto,
+  getMessageText,
+  getMessageWebPagePhoto,
+  getMessageWebPageVideo,
+  hasMessageLocalBlobUrl,
+} from '../../../../modules/helpers';
 import { CLIPBOARD_ITEM_SUPPORTED, copyImageToClipboard, copyTextToClipboard } from '../../../../util/clipboard';
 
 type ICopyOptions = {
@@ -14,16 +21,18 @@ export function getMessageCopyOptions(
 ): ICopyOptions {
   const options: ICopyOptions = [];
   const text = getMessageText(message);
-  const photo = getMessagePhoto(message);
-  const mediaHash = getMessageMediaHash(message, 'inline')!;
-  const canImageBeCopied = photo && mediaHash && CLIPBOARD_ITEM_SUPPORTED;
+  const photo = getMessagePhoto(message)
+    || (!getMessageWebPageVideo(message) ? getMessageWebPagePhoto(message) : undefined);
+  const mediaHash = getMessageMediaHash(message, 'inline');
+  const canImageBeCopied = photo && (mediaHash || hasMessageLocalBlobUrl(message)) && CLIPBOARD_ITEM_SUPPORTED;
   const selection = window.getSelection();
 
   if (canImageBeCopied) {
     options.push({
-      label: 'Copy Media',
+      label: 'lng_context_copy_image',
       handler: () => {
-        mediaLoader.fetch(mediaHash, ApiMediaFormat.BlobUrl).then(copyImageToClipboard);
+        Promise.resolve(mediaHash ? mediaLoader.fetch(mediaHash, ApiMediaFormat.BlobUrl) : photo!.blobUrl)
+          .then(copyImageToClipboard);
 
         if (afterEffect) {
           afterEffect();
@@ -43,7 +52,7 @@ export function getMessageCopyOptions(
     ));
 
     options.push({
-      label: getCopyLabel(hasSelection, canImageBeCopied),
+      label: getCopyLabel(hasSelection),
       handler: () => {
         const clipboardText = hasSelection && selection ? selection.toString() : text;
         copyTextToClipboard(clipboardText);
@@ -57,7 +66,7 @@ export function getMessageCopyOptions(
 
   if (onCopyLink) {
     options.push({
-      label: 'CopyMessageLink',
+      label: 'lng_context_copy_message_link',
       handler: () => {
         onCopyLink();
 
@@ -71,14 +80,9 @@ export function getMessageCopyOptions(
   return options;
 }
 
-function getCopyLabel(hasSelection: boolean, canImageBeCopied: boolean): string {
+function getCopyLabel(hasSelection: boolean): string {
   if (hasSelection) {
-    return 'Copy Selected Text';
+    return 'lng_context_copy_selected';
   }
-
-  if (canImageBeCopied) {
-    return 'Copy Text';
-  }
-
-  return 'Copy';
+  return 'lng_context_copy_text';
 }

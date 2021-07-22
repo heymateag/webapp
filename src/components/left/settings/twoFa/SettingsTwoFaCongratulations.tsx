@@ -6,12 +6,15 @@ import { SettingsScreens } from '../../../../types';
 
 import { selectAnimatedEmoji } from '../../../../modules/selectors';
 import useLang from '../../../../hooks/useLang';
+import useHistoryBack from '../../../../hooks/useHistoryBack';
 
 import Button from '../../../ui/Button';
 import AnimatedEmoji from '../../../common/AnimatedEmoji';
 
 type OwnProps = {
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
 type StateProps = {
@@ -19,7 +22,7 @@ type StateProps = {
 };
 
 const SettingsTwoFaCongratulations: FC<OwnProps & StateProps> = ({
-  animatedEmoji, onScreenSelect,
+  isActive, onReset, animatedEmoji, onScreenSelect,
 }) => {
   const lang = useLang();
 
@@ -27,12 +30,14 @@ const SettingsTwoFaCongratulations: FC<OwnProps & StateProps> = ({
     onScreenSelect(SettingsScreens.Privacy);
   };
 
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.TwoFaCongratulations);
+
   return (
     <div className="settings-content two-fa custom-scroll">
       <div className="settings-content-header">
         <AnimatedEmoji sticker={animatedEmoji} />
 
-        <p className="settings-item-description mb-3">
+        <p className="settings-item-description mb-3" dir="auto">
           {lang('TwoStepVerificationPasswordSetInfo')}
         </p>
       </div>

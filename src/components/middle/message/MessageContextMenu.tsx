@@ -1,11 +1,10 @@
-import React, { FC, useCallback, useEffect } from '../../../lib/teact/teact';
+import React, { FC, useCallback } from '../../../lib/teact/teact';
 
 import { ApiMessage } from '../../../api/types';
 import { IAnchorPosition } from '../../../types';
 
 import { getMessageCopyOptions } from './helpers/copyOptions';
 import useContextMenuPosition from '../../../hooks/useContextMenuPosition';
-import { dispatchHeavyAnimationEvent } from '../../../hooks/useHeavyAnimationCheck';
 import useLang from '../../../hooks/useLang';
 
 import Menu from '../../ui/Menu';
@@ -23,6 +22,7 @@ type OwnProps = {
   canPin?: boolean;
   canUnpin?: boolean;
   canDelete?: boolean;
+  canReport?: boolean;
   canEdit?: boolean;
   canForward?: boolean;
   canFaveSticker?: boolean;
@@ -36,6 +36,7 @@ type OwnProps = {
   onUnpin: () => void;
   onForward: () => void;
   onDelete: () => void;
+  onReport: () => void;
   onFaveSticker: () => void;
   onUnfaveSticker: () => void;
   onSelect: () => void;
@@ -46,7 +47,6 @@ type OwnProps = {
   onCopyLink?: () => void;
 };
 
-const ANIMATION_DURATION = 200;
 const SCROLLBAR_WIDTH = 10;
 
 const MessageContextMenu: FC<OwnProps> = ({
@@ -60,6 +60,7 @@ const MessageContextMenu: FC<OwnProps> = ({
   canPin,
   canUnpin,
   canDelete,
+  canReport,
   canForward,
   canFaveSticker,
   canUnfaveSticker,
@@ -72,6 +73,7 @@ const MessageContextMenu: FC<OwnProps> = ({
   onUnpin,
   onForward,
   onDelete,
+  onReport,
   onFaveSticker,
   onUnfaveSticker,
   onSelect,
@@ -81,10 +83,6 @@ const MessageContextMenu: FC<OwnProps> = ({
   onCloseAnimationEnd,
   onCopyLink,
 }) => {
-  useEffect(() => {
-    dispatchHeavyAnimationEvent(ANIMATION_DURATION);
-  }, [isOpen]);
-
   const copyOptions = getMessageCopyOptions(message, onClose, canCopyLink ? onCopyLink : undefined);
 
   const getTriggerElement = useCallback(() => {
@@ -123,10 +121,14 @@ const MessageContextMenu: FC<OwnProps> = ({
       onCloseAnimationEnd={onCloseAnimationEnd}
     >
       {canSendNow && <MenuItem icon="send-outline" onClick={onSend}>{lang('MessageScheduleSend')}</MenuItem>}
-      {canReschedule && <MenuItem icon="schedule" onClick={onReschedule}>{lang('MessageScheduleEditTime')}</MenuItem>}
+      {canReschedule && (
+        <MenuItem icon="schedule" onClick={onReschedule}>{lang('MessageScheduleEditTime')}</MenuItem>
+      )}
       {canReply && <MenuItem icon="reply" onClick={onReply}>{lang('Reply')}</MenuItem>}
       {canEdit && <MenuItem icon="edit" onClick={onEdit}>{lang('Edit')}</MenuItem>}
-      {canFaveSticker && <MenuItem icon="favorite" onClick={onFaveSticker}>{lang('AddToFavorites')}</MenuItem>}
+      {canFaveSticker && (
+        <MenuItem icon="favorite" onClick={onFaveSticker}>{lang('AddToFavorites')}</MenuItem>
+      )}
       {canUnfaveSticker && (
         <MenuItem icon="favorite" onClick={onUnfaveSticker}>{lang('Stickers.RemoveFromFavorites')}</MenuItem>
       )}
@@ -137,6 +139,7 @@ const MessageContextMenu: FC<OwnProps> = ({
       {canUnpin && <MenuItem icon="unpin" onClick={onUnpin}>{lang('DialogUnpin')}</MenuItem>}
       {canForward && <MenuItem icon="forward" onClick={onForward}>{lang('Forward')}</MenuItem>}
       {canSelect && <MenuItem icon="select" onClick={onSelect}>{lang('Common.Select')}</MenuItem>}
+      {canReport && <MenuItem icon="flag" onClick={onReport}>{lang('lng_context_report_msg')}</MenuItem>}
       {canDelete && <MenuItem destructive icon="delete" onClick={onDelete}>{lang('Delete')}</MenuItem>}
     </Menu>
   );

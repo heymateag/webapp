@@ -8,7 +8,7 @@ const CLIPBOARD_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
 const MAX_MESSAGE_LENGTH = 4096;
 
 export default (
-  insertTextAndUpdateCursor: (text: string) => void,
+  insertTextAndUpdateCursor: (text: string, inputId?: string) => void,
   setAttachments: StateHookSetter<ApiAttachment[]>,
   editedMessage: ApiMessage | undefined,
 ) => {
@@ -19,7 +19,7 @@ export default (
       }
 
       const input = document.activeElement;
-      if (input && input.tagName === 'INPUT' && ![EDITABLE_INPUT_ID, EDITABLE_INPUT_MODAL_ID].includes(input.id)) {
+      if (input && ![EDITABLE_INPUT_ID, EDITABLE_INPUT_MODAL_ID].includes(input.id)) {
         return;
       }
 
@@ -43,7 +43,7 @@ export default (
       }
 
       if (pastedText) {
-        insertTextAndUpdateCursor(pastedText);
+        insertTextAndUpdateCursor(pastedText, input ? input.id : undefined);
       }
     }
 

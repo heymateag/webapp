@@ -4,7 +4,6 @@ const { sleep } = require('../Helpers');
 const errors = require('../errors');
 const MemorySession = require('../sessions/Memory');
 const Helpers = require('../Helpers');
-const { BinaryWriter } = require('../extensions');
 const utils = require('../Utils');
 const Session = require('../sessions/Abstract');
 const { LAYER } = require('../tl/AllTLObjects');
@@ -13,7 +12,6 @@ const {
     requests,
 } = require('../tl');
 const MTProtoSender = require('../network/MTProtoSender');
-const { UpdateConnectionState } = require('../network');
 const { ConnectionTCPObfuscated } = require('../network/connection/TCPObfuscated');
 const {
     authFlow,
@@ -24,8 +22,17 @@ const { uploadFile } = require('./uploadFile');
 const { updateTwoFaSettings } = require('./2fa');
 
 const DEFAULT_DC_ID = 2;
+const WEBDOCUMENT_DC_ID = 4;
 const DEFAULT_IPV4_IP = 'venus.web.telegram.org';
 const DEFAULT_IPV6_IP = '[2001:67c:4e8:f002::a]';
+const BORROWED_SENDER_RELEASE_TIMEOUT = 30000; // 30 sec
+const WEBDOCUMENT_REQUEST_PART_SIZE = 131072; // 128kb
+
+const PING_INTERVAL = 3000; // 3 sec
+const PING_TIMEOUT = 5000; // 5 sec
+const PING_FAIL_ATTEMPTS = 3;
+const PING_FAIL_INTERVAL = 100; // ms
+const PING_DISCONNECT_DELAY = 60000; // 1 min
 
 // All types
 const sizeTypes = ['w', 'y', 'd', 'x', 'c', 'm', 'b', 'a', 's'];
@@ -35,7 +42,7 @@ class TelegramClient {
     static DEFAULT_OPTIONS = {
         connection: ConnectionTCPObfuscated,
         useIPV6: false,
-        proxy: null,
+        proxy: undefined,
         timeout: 10,
         requestRetries: 5,
         connectionRetries: Infinity,
@@ -43,9 +50,9 @@ class TelegramClient {
         autoReconnect: true,
         sequentialUpdates: false,
         floodSleepLimit: 60,
-        deviceModel: null,
-        systemVersion: null,
-        appVersion: null,
+        deviceModel: undefined,
+        systemVersion: undefined,
+        appVersion: undefined,
         langCode: 'en',
         systemLangCode: 'en',
         baseLogger: 'gramjs',
@@ -91,7 +98,7 @@ class TelegramClient {
         this._phoneCodeHash = {};
         this.session = session;
         // this._entityCache = EntityCache();
-        this.apiId = parseInt(apiId);
+        this.apiId = parseInt(apiId, 10);
         this.apiHash = apiHash;
 
         this._requestRetries = args.requestRetries;
@@ -123,16 +130,17 @@ class TelegramClient {
                     langPack: '', // this should be left empty.
                     systemLangCode: args.systemLangCode,
                     query: x,
-                    proxy: null, // no proxies yet.
+                    proxy: undefined, // no proxies yet.
                 }),
             });
         };
 
         this._args = args;
         // These will be set later
-        this._config = null;
+        this._config = undefined;
         this.phoneCodeHashes = [];
         this._borrowedSenderPromises = {};
+        this._borrowedSenderReleaseTimeouts = {};
         this._additionalDcsDisabled = args.additionalDcsDisabled;
     }
 
@@ -178,21 +186,26 @@ class TelegramClient {
         await this.session.load();
 
         if (!this.session.serverAddress || (this.session.serverAddress.includes(':') !== this._useIPV6)) {
-            this.session.setDC(DEFAULT_DC_ID, this._useIPV6 ? DEFAULT_IPV6_IP : DEFAULT_IPV4_IP, this._args.useWSS ? 443 : 80);
+            this.session.setDC(DEFAULT_DC_ID, this._useIPV6
+                ? DEFAULT_IPV6_IP : DEFAULT_IPV4_IP, this._args.useWSS ? 443 : 80);
         }
     }
 
     async _updateLoop() {
         while (this.isConnected()) {
-            await Helpers.sleep(3 * 1000);
+            await Helpers.sleep(PING_INTERVAL);
 
             try {
                 await attempts(() => {
-                    return timeout(this._sender.send(new requests.Ping({
+                    return timeout(this._sender.send(new requests.PingDelayDisconnect({
                         pingId: Helpers.getRandomInt(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
-                    })), 1500);
-                }, 3, 100);
+                        disconnectDelay: PING_DISCONNECT_DELAY,
+                    })), PING_TIMEOUT);
+                }, PING_FAIL_ATTEMPTS, PING_FAIL_INTERVAL);
             } catch (err) {
+                // eslint-disable-next-line no-console
+                console.warn(err);
+
                 await this.disconnect();
                 this.connect();
 
@@ -208,7 +221,7 @@ class TelegramClient {
                 try {
                     await this.invoke(new requests.updates.GetState());
                 } catch (e) {
-
+                    // we don't care about errors here
                 }
             }
         }
@@ -226,10 +239,11 @@ class TelegramClient {
         await Promise.all(
             Object.values(this._borrowedSenderPromises)
                 .map((promise) => {
-                    return promise.then((sender) => {
+                    return promise && promise.then((sender) => {
                         if (sender) {
                             return sender.disconnect();
                         }
+                        return undefined;
                     });
                 }),
         );
@@ -242,7 +256,12 @@ class TelegramClient {
      * @returns {Promise<void>}
      */
     async destroy() {
-        await this.disconnect();
+        try {
+            await this.disconnect();
+        } catch (err) {
+            // Do nothing
+        }
+
         this.session.delete();
         this._eventBuilders = [];
     }
@@ -253,13 +272,13 @@ class TelegramClient {
         this.session.setDC(newDc, DC.ipAddress, DC.port);
         // authKey's are associated with a server, which has now changed
         // so it's not valid anymore. Set to None to force recreating it.
-        await this._sender.authKey.setKey(null);
-        this.session.setAuthKey(null);
+        await this._sender.authKey.setKey(undefined);
+        this.session.setAuthKey(undefined);
         await this.disconnect();
         return this.connect();
     }
 
-    async _authKeyCallback(authKey, dcId) {
+    _authKeyCallback(authKey, dcId) {
         this.session.setAuthKey(authKey, dcId);
     }
 
@@ -267,26 +286,40 @@ class TelegramClient {
     // export region
 
     _cleanupBorrowedSender(dcId) {
-        delete this._borrowedSenderPromises[dcId];
+        this._borrowedSenderPromises[dcId] = undefined;
     }
 
-    async _borrowExportedSender(dcId) {
+    _borrowExportedSender(dcId) {
         if (this._additionalDcsDisabled) {
             return undefined;
         }
 
-        let senderPromise = this._borrowedSenderPromises[dcId];
-        if (!senderPromise) {
-            senderPromise = this._createExportedSender(dcId);
-            this._borrowedSenderPromises[dcId] = senderPromise;
-
-            senderPromise.then((sender) => {
-                if (!sender) {
-                    delete this._borrowedSenderPromises[dcId];
-                }
-            });
+        if (!this._borrowedSenderPromises[dcId]) {
+            this._borrowedSenderPromises[dcId] = this._createExportedSender(dcId);
         }
-        return senderPromise;
+
+        return this._borrowedSenderPromises[dcId].then((sender) => {
+            if (!sender) {
+                this._borrowedSenderPromises[dcId] = undefined;
+                return this._borrowExportedSender(dcId);
+            }
+
+            if (this._borrowedSenderReleaseTimeouts[dcId]) {
+                clearTimeout(this._borrowedSenderReleaseTimeouts[dcId]);
+                this._borrowedSenderReleaseTimeouts[dcId] = undefined;
+            }
+
+            this._borrowedSenderReleaseTimeouts[dcId] = setTimeout(() => {
+                this._borrowedSenderReleaseTimeouts[dcId] = undefined;
+                this._borrowedSenderPromises[dcId] = undefined;
+
+                // eslint-disable-next-line no-console
+                console.warn(`Disconnecting from file socket #${dcId}...`);
+                sender.disconnect();
+            }, BORROWED_SENDER_RELEASE_TIMEOUT);
+
+            return sender;
+        });
     }
 
     async _createExportedSender(dcId) {
@@ -326,7 +359,7 @@ class TelegramClient {
                 await sender.disconnect();
             }
         }
-        return null;
+        return undefined;
     }
 
     // end region
@@ -345,18 +378,15 @@ class TelegramClient {
      * @param [args[workers] {number}]
      * @returns {Promise<Buffer>}
      */
-    async downloadFile(inputLocation, args = {}) {
+    downloadFile(inputLocation, args = {}) {
         return downloadFile(this, inputLocation, args);
     }
 
-    async downloadMedia(messageOrMedia, args) {
-        let date;
+    downloadMedia(messageOrMedia, args) {
         let media;
         if (messageOrMedia instanceof constructors.Message) {
-            date = messageOrMedia.date;
             media = messageOrMedia.media;
         } else {
-            date = new Date().getTime();
             media = messageOrMedia;
         }
         if (typeof media === 'string') {
@@ -377,9 +407,10 @@ class TelegramClient {
         } else if (media instanceof constructors.WebDocument || media instanceof constructors.WebDocumentNoProxy) {
             return this._downloadWebDocument(media, args);
         }
+        return undefined;
     }
 
-    async downloadProfilePhoto(entity, isBig = false) {
+    downloadProfilePhoto(entity, isBig = false) {
         // ('User', 'Chat', 'UserFull', 'ChatFull')
         const ENTITIES = [0x2da17977, 0xc5af5d94, 0x1f4661b9, 0xd49a2697];
         // ('InputPeer', 'InputUser', 'InputChannel')
@@ -393,7 +424,7 @@ class TelegramClient {
             if (!entity.photo) {
                 // Special case: may be a ChatFull with photo:Photo
                 if (!entity.chatPhoto) {
-                    return null;
+                    return undefined;
                 }
 
                 return this._downloadPhoto(
@@ -407,11 +438,9 @@ class TelegramClient {
         let loc;
         if (photo instanceof constructors.UserProfilePhoto || photo instanceof constructors.ChatPhoto) {
             dcId = photo.dcId;
-            const size = isBig ? photo.photoBig : photo.photoSmall;
             loc = new constructors.InputPeerPhotoFileLocation({
                 peer: utils.getInputPeer(entity),
-                localId: size.localId,
-                volumeId: size.volumeId,
+                photoId: photo.photoId,
                 big: isBig,
             });
         } else {
@@ -419,46 +448,26 @@ class TelegramClient {
             // as input location, because then this method would be able
             // to "download the profile photo of a message", i.e. its
             // media which should be done with `download_media` instead.
-            return null;
+            return undefined;
         }
-        try {
-            return this.downloadFile(loc, {
-                dcId,
-            });
-        } catch (e) {
-            // TODO this should never raise
-            throw e;
-            /* if (e.message === 'LOCATION_INVALID') {
-                const ie = await this.getInputEntity(entity)
-                if (ie instanceof constructors.InputPeerChannel) {
-                    const full = await this.invoke(new requests.channels.GetFullChannel({
-                        channel: ie,
-                    }))
-                    return this._downloadPhoto(full.fullChat.chatPhoto, { sizeType })
-                } else {
-                    return null
-                }
-            } else {
-                throw e
-            } */
-        }
+        return this.downloadFile(loc, {
+            dcId,
+        });
     }
 
-    async downloadStickerSetThumb(stickerSet) {
-        if (!stickerSet.thumb || !stickerSet.thumb.location) {
+    downloadStickerSetThumb(stickerSet) {
+        if (!stickerSet.thumbs || !stickerSet.thumbs.length) {
             return undefined;
         }
 
-        const { location } = stickerSet.thumb;
-
+        const { thumbVersion } = stickerSet;
         return this.downloadFile(
             new constructors.InputStickerSetThumb({
                 stickerset: new constructors.InputStickerSetID({
                     id: stickerSet.id,
                     accessHash: stickerSet.accessHash,
                 }),
-                localId: location.localId,
-                volumeId: location.volumeId,
+                thumbVersion,
             }),
             { dcId: stickerSet.thumbDcId },
         );
@@ -466,7 +475,7 @@ class TelegramClient {
 
     _pickFileSize(sizes, sizeType) {
         if (!sizeType || !sizes || !sizes.length) {
-            return null;
+            return undefined;
         }
         const indexOfSize = sizeTypes.indexOf(sizeType);
         let size;
@@ -476,7 +485,7 @@ class TelegramClient {
                 return size;
             }
         }
-        return null;
+        return undefined;
     }
 
 
@@ -491,16 +500,16 @@ class TelegramClient {
         return data;
     }
 
-    async _downloadPhoto(photo, args) {
+    _downloadPhoto(photo, args) {
         if (photo instanceof constructors.MessageMediaPhoto) {
             photo = photo.photo;
         }
         if (!(photo instanceof constructors.Photo)) {
-            return;
+            return undefined;
         }
         const size = this._pickFileSize(photo.sizes, args.sizeType);
         if (!size || (size instanceof constructors.PhotoSizeEmpty)) {
-            return;
+            return undefined;
         }
 
         if (size instanceof constructors.PhotoCachedSize || size instanceof constructors.PhotoStrippedSize) {
@@ -521,22 +530,23 @@ class TelegramClient {
         );
     }
 
-    async _downloadDocument(doc, args) {
+    _downloadDocument(doc, args) {
         if (doc instanceof constructors.MessageMediaDocument) {
             doc = doc.document;
         }
         if (!(doc instanceof constructors.Document)) {
-            return;
+            return undefined;
         }
 
-        let size = null;
+        let size;
         if (args.sizeType) {
-            size = doc.thumbs ? this._pickFileSize(doc.thumbs, args.sizeType) : null;
+            size = doc.thumbs ? this._pickFileSize(doc.thumbs, args.sizeType) : undefined;
             if (!size && doc.mimeType.startsWith('video/')) {
-                return;
+                return undefined;
             }
 
-            if (size && (size instanceof constructors.PhotoCachedSize || size instanceof constructors.PhotoStrippedSize)) {
+            if (size && (size instanceof constructors.PhotoCachedSize
+                || size instanceof constructors.PhotoStrippedSize)) {
                 return this._downloadCachedPhotoSize(size);
             }
         }
@@ -559,20 +569,54 @@ class TelegramClient {
         );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _downloadContact(media, args) {
         throw new Error('not implemented');
     }
 
-    _downloadWebDocument(media, args) {
-        throw new Error('not implemented');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async _downloadWebDocument(media) {
+        try {
+            const buff = [];
+            let offset = 0;
+            while (true) {
+                const downloaded = new requests.upload.GetWebFile({
+                    location: new constructors.InputWebFileLocation({
+                        url: media.url,
+                        accessHash: media.accessHash,
+                    }),
+                    offset,
+                    limit: WEBDOCUMENT_REQUEST_PART_SIZE,
+                });
+                const sender = await this._borrowExportedSender(WEBDOCUMENT_DC_ID);
+                const res = await sender.send(downloaded);
+                offset += 131072;
+                if (res.bytes.length) {
+                    buff.push(res.bytes);
+                    if (res.bytes.length < WEBDOCUMENT_REQUEST_PART_SIZE) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            return Buffer.concat(buff);
+        } catch (e) {
+            // the file is no longer saved in telegram's cache.
+            if (e.message === 'WEBFILE_NOT_AVAILABLE') {
+                return Buffer.alloc(0);
+            } else {
+                throw e;
+            }
+        }
     }
-
     // region Invoking Telegram request
     /**
      * Invokes a MTProtoRequest (sends and receives it) and returns its result
      * @param request
      * @returns {Promise}
      */
+
     async invoke(request) {
         if (request.classType !== 'request') {
             throw new Error('You can only invoke MTProtoRequests');
@@ -584,11 +628,9 @@ class TelegramClient {
         this._lastRequest = new Date().getTime();
         let attempt = 0;
         for (attempt = 0; attempt < this._requestRetries; attempt++) {
+            const promise = this._sender.sendWithInvokeSupport(request);
             try {
-                const promise = this._sender.send(request);
-                const result = await promise;
-                // this.session.processEntities(result)
-                // this._entityCache.add(result)
+                const result = await promise.promise;
                 return result;
             } catch (e) {
                 if (e instanceof errors.ServerError || e.message === 'RPC_CALL_FAIL'
@@ -605,11 +647,15 @@ class TelegramClient {
                 } else if (e instanceof errors.PhoneMigrateError || e instanceof errors.NetworkMigrateError
                     || e instanceof errors.UserMigrateError) {
                     this._log.info(`Phone migrated to ${e.newDc}`);
-                    const shouldRaise = e instanceof errors.PhoneMigrateError || e instanceof errors.NetworkMigrateError;
+                    const shouldRaise = e instanceof errors.PhoneMigrateError
+                        || e instanceof errors.NetworkMigrateError;
                     if (shouldRaise && await checkAuthorization(this)) {
                         throw e;
                     }
                     await this._switchDC(e.newDc);
+                } else if (e instanceof errors.MsgWaitError) {
+                    // we need to resend this after the old one was confirmed.
+                    await promise.isReady();
                 } else {
                     throw e;
                 }
@@ -623,7 +669,10 @@ class TelegramClient {
             return (await this.invoke(new requests.users
                 .GetUsers({ id: [new constructors.InputUserSelf()] })))[0];
         } catch (e) {
+            this._log.warn('error while getting me');
+            this._log.warn(e);
         }
+        return undefined;
     }
 
     async start(authParams) {
@@ -670,9 +719,9 @@ class TelegramClient {
                 this._processUpdate(u, update.updates, entities);
             }
         } else if (update instanceof constructors.UpdateShort) {
-            this._processUpdate(update.update, null);
+            this._processUpdate(update.update, undefined);
         } else {
-            this._processUpdate(update, null);
+            this._processUpdate(update, undefined);
         }
         // TODO add caching
         // this._stateCache.update(update)
@@ -919,10 +968,10 @@ class TelegramClient {
     }
     */
     async _dispatchUpdate(args = {
-        update: null,
-        others: null,
-        channelId: null,
-        ptsDate: null,
+        update: undefined,
+        others: undefined,
+        channelId: undefined,
+        ptsDate: undefined,
     }) {
         for (const [builder, callback] of this._eventBuilders) {
             const event = builder.build(args.update);
@@ -942,7 +991,7 @@ class TelegramClient {
     }
 }
 
-async function timeout(promise, ms) {
+function timeout(promise, ms) {
     return Promise.race([
         promise,
         Helpers.sleep(ms)
@@ -963,6 +1012,7 @@ async function attempts(cb, times, pause) {
             await Helpers.sleep(pause);
         }
     }
+    return undefined;
 }
 
 module.exports = TelegramClient;

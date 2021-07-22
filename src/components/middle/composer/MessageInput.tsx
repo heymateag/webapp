@@ -14,13 +14,15 @@ import focusEditableElement from '../../../util/focusEditableElement';
 import buildClassName from '../../../util/buildClassName';
 import { pick } from '../../../util/iteratees';
 import {
-  IS_ANDROID, IS_IOS, IS_MOBILE_SCREEN, IS_TOUCH_ENV,
+  IS_ANDROID, IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV,
 } from '../../../util/environment';
 import captureKeyboardListeners from '../../../util/captureKeyboardListeners';
 import useLayoutEffectWithPrevDeps from '../../../hooks/useLayoutEffectWithPrevDeps';
 import useFlag from '../../../hooks/useFlag';
 import parseEmojiOnlyString from '../../common/helpers/parseEmojiOnlyString';
 import { isSelectionInsideInput } from './helpers/selection';
+import useLang from '../../../hooks/useLang';
+import renderText from '../../common/helpers/renderText';
 
 import TextFormatter from './TextFormatter';
 
@@ -31,14 +33,16 @@ const TRANSITION_DURATION_FACTOR = 50;
 
 type OwnProps = {
   id: string;
+  isAttachmentModalInput?: boolean;
   editableInputId?: string;
   html: string;
   placeholder: string;
+  forcedPlaceholder?: string;
   shouldSetFocus: boolean;
-  shouldSupressFocus?: boolean;
-  shouldSupressTextFormatter?: boolean;
+  shouldSuppressFocus?: boolean;
+  shouldSuppressTextFormatter?: boolean;
   onUpdate: (html: string) => void;
-  onSupressedFocus?: () => void;
+  onSuppressedFocus?: () => void;
   onSend: () => void;
 };
 
@@ -49,9 +53,9 @@ type StateProps = {
   messageSendKeyCombo?: ISettings['messageSendKeyCombo'];
 };
 
-type DispatchProps = Pick<GlobalActions, 'editLastMessage'>;
+type DispatchProps = Pick<GlobalActions, 'editLastMessage' | 'replyToNextMessage'>;
 
-const MAX_INPUT_HEIGHT = IS_MOBILE_SCREEN ? 256 : 416;
+const MAX_INPUT_HEIGHT = IS_SINGLE_COLUMN_LAYOUT ? 256 : 416;
 const TAB_INDEX_PRIORITY_TIMEOUT = 2000;
 const TEXT_FORMATTER_SAFE_AREA_PX = 90;
 // For some reason Safari inserts `<br>` after user removes text from input
@@ -72,30 +76,39 @@ function clearSelection() {
 
 const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
   id,
+  isAttachmentModalInput,
   editableInputId,
   html,
   placeholder,
+  forcedPlaceholder,
   shouldSetFocus,
-  shouldSupressFocus,
-  shouldSupressTextFormatter,
+  shouldSuppressFocus,
+  shouldSuppressTextFormatter,
   onUpdate,
-  onSupressedFocus,
+  onSuppressedFocus,
   onSend,
   currentChatId,
   replyingToId,
   noTabCapture,
   messageSendKeyCombo,
   editLastMessage,
+  replyToNextMessage,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
   const cloneRef = useRef<HTMLDivElement>(null);
 
+  const lang = useLang();
   const isContextMenuOpenRef = useRef(false);
   const [isTextFormatterOpen, openTextFormatter, closeTextFormatter] = useFlag();
   const [textFormatterAnchorPosition, setTextFormatterAnchorPosition] = useState<IAnchorPosition>();
   const [selectedRange, setSelectedRange] = useState<Range>();
+
+  useEffect(() => {
+    if (!isAttachmentModalInput) return;
+    updateInputHeight(false);
+  }, [isAttachmentModalInput]);
 
   useLayoutEffectWithPrevDeps(([prevHtml]) => {
     if (html !== inputRef.current!.innerHTML) {
@@ -141,8 +154,8 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
     const selectionRange = selection.getRangeAt(0);
     const selectedText = selectionRange.toString().trim();
     if (
-      shouldSupressTextFormatter
-      || !isSelectionInsideInput(selectionRange)
+      shouldSuppressTextFormatter
+      || !isSelectionInsideInput(selectionRange, editableInputId || EDITABLE_INPUT_ID)
       || !selectedText
       || parseEmojiOnlyString(selectedText)
       || !selectionRange.START_TO_END
@@ -220,6 +233,16 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
       e.target.removeEventListener('keyup', handleKeyUp);
     }
 
+    if (e.metaKey && !html.length) {
+      const targetIndexDelta = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : undefined;
+      if (targetIndexDelta) {
+        e.preventDefault();
+
+        replyToNextMessage({ targetIndexDelta });
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       if (
         !(IS_IOS || IS_ANDROID)
@@ -233,7 +256,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         closeTextFormatter();
         onSend();
       }
-    } else if (e.key === 'ArrowUp' && !html.length) {
+    } else if (e.key === 'ArrowUp' && !html.length && !e.metaKey) {
       e.preventDefault();
       editLastMessage();
     } else {
@@ -327,32 +350,33 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
   useEffect(() => {
     const input = inputRef.current!;
 
-    function supressFocus() {
+    function suppressFocus() {
       input.blur();
     }
 
-    if (shouldSupressFocus) {
-      input.addEventListener('focus', supressFocus);
+    if (shouldSuppressFocus) {
+      input.addEventListener('focus', suppressFocus);
     }
 
     return () => {
-      input.removeEventListener('focus', supressFocus);
+      input.removeEventListener('focus', suppressFocus);
     };
-  }, [shouldSupressFocus]);
+  }, [shouldSuppressFocus]);
 
   const className = buildClassName(
     'form-control custom-scroll',
     html.length > 0 && 'touched',
-    shouldSupressFocus && 'focus-disabled',
+    shouldSuppressFocus && 'focus-disabled',
   );
 
   return (
-    <div id={id} onClick={shouldSupressFocus ? onSupressedFocus : undefined}>
+    <div id={id} onClick={shouldSuppressFocus ? onSuppressedFocus : undefined} dir={lang.isRtl ? 'rtl' : undefined}>
       <div
         ref={inputRef}
         id={editableInputId || EDITABLE_INPUT_ID}
         className={className}
         contentEditable
+        dir="auto"
         onClick={focusInput}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
@@ -360,14 +384,15 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         onContextMenu={stopEvent}
         onTouchCancel={handleTouchSelection}
       />
-      <div ref={cloneRef} className={buildClassName(className, 'clone')} />
-      <span className="placeholder-text">{placeholder}</span>
+      <div ref={cloneRef} className={buildClassName(className, 'clone')} dir="auto" />
+      {!forcedPlaceholder && <span className="placeholder-text" dir="auto">{placeholder}</span>}
       <TextFormatter
         isOpen={isTextFormatterOpen}
         anchorPosition={textFormatterAnchorPosition}
         selectedRange={selectedRange}
         onClose={handleCloseTextFormatter}
       />
+      {forcedPlaceholder && <span className="forced-placeholder">{renderText(forcedPlaceholder!)}</span>}
     </div>
   );
 };
@@ -384,5 +409,5 @@ export default memo(withGlobal<OwnProps>(
       noTabCapture: global.isPollModalOpen || global.payment.isPaymentModalOpen,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['editLastMessage']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['editLastMessage', 'replyToNextMessage']),
 )(MessageInput));

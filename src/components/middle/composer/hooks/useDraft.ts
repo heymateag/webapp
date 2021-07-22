@@ -9,6 +9,9 @@ import { debounce } from '../../../../util/schedulers';
 import focusEditableElement from '../../../../util/focusEditableElement';
 import parseMessageInput from '../helpers/parseMessageInput';
 import getMessageTextAsHtml from '../helpers/getMessageTextAsHtml';
+import useBackgroundMode from '../../../../hooks/useBackgroundMode';
+import useBeforeUnload from '../../../../hooks/useBeforeUnload';
+import { IS_TOUCH_ENV } from '../../../../util/environment';
 
 // Used to avoid running debounced callbacks when chat changes.
 let currentChatId: number | undefined;
@@ -64,10 +67,12 @@ export default (
 
     setHtml(getMessageTextAsHtml(draft));
 
-    requestAnimationFrame(() => {
-      const messageInput = document.getElementById(EDITABLE_INPUT_ID)!;
-      focusEditableElement(messageInput, true);
-    });
+    if (!IS_TOUCH_ENV) {
+      requestAnimationFrame(() => {
+        const messageInput = document.getElementById(EDITABLE_INPUT_ID)!;
+        focusEditableElement(messageInput, true);
+      });
+    }
   }, [chatId, threadId, draft, setHtml, updateDraft, prevChatId, prevThreadId]);
 
   // Update draft when input changes
@@ -90,18 +95,12 @@ export default (
     }
   }, [chatId, html, prevChatId, prevHtml, prevThreadId, runDebouncedForSaveDraft, threadId, updateDraft]);
 
-  // Subscribe and handle `window.blur`
-  useEffect(() => {
-    function handleBlur() {
-      if (chatId && threadId) {
-        updateDraft(chatId, threadId);
-      }
+  const handleBlur = useCallback(() => {
+    if (chatId && threadId) {
+      updateDraft(chatId, threadId);
     }
-
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('blur', handleBlur);
-    };
   }, [chatId, threadId, updateDraft]);
+
+  useBackgroundMode(handleBlur);
+  useBeforeUnload(handleBlur);
 };

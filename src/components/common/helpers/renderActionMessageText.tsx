@@ -1,6 +1,7 @@
 import React from '../../../lib/teact/teact';
 
 import { ApiChat, ApiMessage, ApiUser } from '../../../api/types';
+import { LangFn } from '../../../hooks/useLang';
 import {
   getChatTitle,
   getMessageContent,
@@ -25,9 +26,10 @@ interface ActionMessageTextOptions {
 const NBSP = '\u00A0';
 
 export function renderActionMessageText(
+  lang: LangFn,
   message: ApiMessage,
   actionOrigin?: ApiUser | ApiChat,
-  targetUser?: ApiUser,
+  targetUsers?: ApiUser[],
   targetMessage?: ApiMessage,
   targetChatId?: number,
   options: ActionMessageTextOptions = {},
@@ -35,16 +37,16 @@ export function renderActionMessageText(
   if (!message.content.action) {
     return [];
   }
-  const { text } = message.content.action;
+  const { text, translationValues } = message.content.action;
   const content: TextPart[] = [];
   const textOptions: ActionMessageTextOptions = { ...options, maxTextLength: 16 };
 
   let unprocessed: string;
   let processed = processPlaceholder(
-    text,
+    lang(text, translationValues && translationValues.length ? translationValues : undefined),
     '%action_origin%',
     actionOrigin
-      ? (!options.isEmbedded && renderOriginContent(actionOrigin, options.asPlain)) || NBSP
+      ? (!options.isEmbedded && renderOriginContent(lang, actionOrigin, options.asPlain)) || NBSP
       : 'User',
   );
 
@@ -54,8 +56,8 @@ export function renderActionMessageText(
   processed = processPlaceholder(
     unprocessed,
     '%target_user%',
-    targetUser
-      ? renderUserContent(targetUser, options.asPlain)
+    targetUsers
+      ? targetUsers.map((user) => renderUserContent(user, options.asPlain)).filter<TextPart>(Boolean as any)
       : 'User',
   );
 
@@ -66,7 +68,7 @@ export function renderActionMessageText(
     unprocessed,
     '%message%',
     targetMessage
-      ? renderMessageContent(targetMessage, textOptions)
+      ? renderMessageContent(lang, targetMessage, textOptions)
       : 'a message',
   );
   unprocessed = processed.pop() as string;
@@ -104,8 +106,8 @@ function renderProductContent(message: ApiMessage) {
     : 'a product';
 }
 
-function renderMessageContent(message: ApiMessage, options: ActionMessageTextOptions = {}) {
-  const text = getMessageSummaryText(message);
+function renderMessageContent(lang: LangFn, message: ApiMessage, options: ActionMessageTextOptions = {}) {
+  const text = getMessageSummaryText(lang, message);
   const {
     photo, video, document, sticker,
   } = getMessageContent(message);
@@ -142,9 +144,9 @@ function renderMessageContent(message: ApiMessage, options: ActionMessageTextOpt
   );
 }
 
-function renderOriginContent(origin: ApiUser | ApiChat, asPlain?: boolean) {
+function renderOriginContent(lang: LangFn, origin: ApiUser | ApiChat, asPlain?: boolean) {
   return isChat(origin)
-    ? renderChatContent(origin, asPlain)
+    ? renderChatContent(lang, origin, asPlain)
     : renderUserContent(origin, asPlain);
 }
 
@@ -158,8 +160,8 @@ function renderUserContent(sender: ApiUser, asPlain?: boolean): string | TextPar
   return <UserLink className="action-link" sender={sender}>{sender && renderText(text!)}</UserLink>;
 }
 
-function renderChatContent(chat: ApiChat, asPlain?: boolean): string | TextPart | undefined {
-  const text = trimText(getChatTitle(chat));
+function renderChatContent(lang: LangFn, chat: ApiChat, asPlain?: boolean): string | TextPart | undefined {
+  const text = trimText(getChatTitle(lang, chat));
 
   if (asPlain) {
     return text;
@@ -178,7 +180,7 @@ function renderMigratedContent(chatId: number, asPlain?: boolean): string | Text
   return <ChatLink className="action-link" chatId={chatId}>{text}</ChatLink>;
 }
 
-function processPlaceholder(text: string, placeholder: string, replaceValue?: TextPart): TextPart[] {
+function processPlaceholder(text: string, placeholder: string, replaceValue?: TextPart | TextPart[]): TextPart[] {
   const placeholderPosition = text.indexOf(placeholder);
   if (placeholderPosition < 0 || !replaceValue) {
     return [text];
@@ -186,7 +188,16 @@ function processPlaceholder(text: string, placeholder: string, replaceValue?: Te
 
   const content: TextPart[] = [];
   content.push(text.substring(0, placeholderPosition));
-  content.push(replaceValue);
+  if (Array.isArray(replaceValue)) {
+    replaceValue.forEach((value, index) => {
+      content.push(value);
+      if (index + 1 < replaceValue.length) {
+        content.push(', ');
+      }
+    });
+  } else {
+    content.push(replaceValue);
+  }
   content.push(text.substring(placeholderPosition + placeholder.length));
 
   return content;

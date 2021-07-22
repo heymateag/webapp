@@ -8,6 +8,7 @@ import { GlobalActions } from '../../../global/types';
 import { selectChat } from '../../../modules/selectors';
 import { sortUserIds, isChatChannel } from '../../../modules/helpers';
 import { pick } from '../../../util/iteratees';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import PrivateChatInfo from '../../common/PrivateChatInfo';
 import NothingFound from '../../common/NothingFound';
@@ -15,12 +16,15 @@ import ListItem from '../../ui/ListItem';
 
 type OwnProps = {
   chatId: number;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
   usersById: Record<number, ApiUser>;
   members?: ApiChatMember[];
   isChannel?: boolean;
+  serverTimeOffset: number;
 };
 
 type DispatchProps = Pick<GlobalActions, 'openUserInfo'>;
@@ -30,18 +34,23 @@ const ManageGroupMembers: FC<OwnProps & StateProps & DispatchProps> = ({
   usersById,
   isChannel,
   openUserInfo,
+  onClose,
+  isActive,
+  serverTimeOffset,
 }) => {
   const memberIds = useMemo(() => {
     if (!members || !usersById) {
       return undefined;
     }
 
-    return sortUserIds(members.map(({ userId }) => userId), usersById);
-  }, [members, usersById]);
+    return sortUserIds(members.map(({ userId }) => userId), usersById, undefined, serverTimeOffset);
+  }, [members, serverTimeOffset, usersById]);
 
   const handleMemberClick = useCallback((id: number) => {
     openUserInfo({ id });
   }, [openUserInfo]);
+
+  useHistoryBack(isActive, onClose);
 
   return (
     <div className="Management">
@@ -82,6 +91,7 @@ export default memo(withGlobal<OwnProps>(
       members,
       usersById,
       isChannel,
+      serverTimeOffset: global.serverTimeOffset,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

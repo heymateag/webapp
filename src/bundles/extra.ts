@@ -1,8 +1,10 @@
 export { default as MediaViewer } from '../components/mediaViewer/MediaViewer';
 
 export { default as ForwardPicker } from '../components/main/ForwardPicker';
-export { default as Errors } from '../components/main/Errors';
+export { default as Dialogs } from '../components/main/Dialogs';
 export { default as Notifications } from '../components/main/Notifications';
+export { default as SafeLinkModal } from '../components/main/SafeLinkModal';
+export { default as HistoryCalendar } from '../components/main/HistoryCalendar';
 
 export { default as CalendarModal } from '../components/common/CalendarModal';
 export { default as DeleteMessageModal } from '../components/common/DeleteMessageModal';
@@ -36,6 +38,7 @@ export { default as CustomSendMenu } from '../components/middle/composer/CustomS
 export { default as DropArea } from '../components/middle/composer/DropArea';
 export { default as TextFormatter } from '../components/middle/composer/TextFormatter';
 export { default as EmojiTooltip } from '../components/middle/composer/EmojiTooltip';
+export { default as InlineBotTooltip } from '../components/middle/composer/InlineBotTooltip';
 
 export { default as RightSearch } from '../components/right/RightSearch';
 export { default as StickerSearch } from '../components/right/StickerSearch';

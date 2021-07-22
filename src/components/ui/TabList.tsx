@@ -33,7 +33,7 @@ const TabList: FC<OwnProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveTab = usePrevious(activeTab);
 
-  useHorizontalScroll(containerRef);
+  useHorizontalScroll(containerRef.current);
 
   // Scroll container to place active tab in the center
   useEffect(() => {
@@ -58,7 +58,11 @@ const TabList: FC<OwnProps> = ({
   const lang = useLang();
 
   return (
-    <div className={`TabList no-selection no-scrollbar ${big ? 'big' : ''}`} ref={containerRef}>
+    <div
+      className={`TabList no-selection no-scrollbar ${big ? 'big' : ''}`}
+      ref={containerRef}
+      dir={lang.isRtl ? 'rtl' : undefined}
+    >
       {tabs.map((tab, i) => (
         <Tab
           key={tab.title}

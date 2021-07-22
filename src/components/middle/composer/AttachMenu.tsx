@@ -35,7 +35,7 @@ const AttachMenu: FC<OwnProps> = ({
 
   const handleQuickSelect = useCallback(() => {
     openSystemFilesDialog(
-      CONTENT_TYPES_FOR_QUICK_UPLOAD,
+      Array.from(CONTENT_TYPES_FOR_QUICK_UPLOAD).join(','),
       (e) => handleFileSelect(e, true),
     );
   }, [handleFileSelect]);
@@ -70,8 +70,10 @@ const AttachMenu: FC<OwnProps> = ({
       )}
       {canAttachMedia && (
         <>
-          <MenuItem icon="photo" onClick={handleQuickSelect}>{lang('AttachmentMenu.PhotoOrVideo')}</MenuItem>
-          <MenuItem icon="document" onClick={handleDocumentSelect}>Document</MenuItem>
+          <MenuItem icon="photo" onClick={handleQuickSelect}>
+            {lang('AttachmentMenu.PhotoOrVideo')}
+          </MenuItem>
+          <MenuItem icon="document" onClick={handleDocumentSelect}>{lang('AttachDocument')}</MenuItem>
         </>
       )}
       {canAttachPolls && (

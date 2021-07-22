@@ -13,11 +13,21 @@
   color: var(--color-text);
   --ripple-color: rgba(0, 0, 0, .08);
   cursor: pointer;
+  unicode-bidi: plaintext;
 
-  &:hover, &:focus {
-    background-color: var(--color-chat-hover);
-    text-decoration: none;
-    color: inherit;
+  @media (hover:hover) {
+    &:hover, &:focus {
+      background-color: var(--color-chat-hover);
+      text-decoration: none;
+      color: inherit;
+    }
+  }
+  @media (max-width: 600px) {
+    &:active {
+      background-color: var(--color-chat-hover);
+      text-decoration: none;
+      color: inherit;
+    }
   }
 
   i {
@@ -54,5 +64,22 @@
 
   & > .Switcher {
     margin-left: auto;
+  }
+
+  &[dir=rtl] {
+    i {
+      margin-left: 2rem;
+      margin-right: 0;
+    }
+
+    .menu-item-name {
+      margin-left: 2rem;
+      margin-right: 0;
+    }
+
+      > .Switcher {
+      margin-left: 0;
+      margin-right: auto;
+    }
   }
 }

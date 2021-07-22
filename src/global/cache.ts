@@ -5,25 +5,27 @@ import {
 import { GlobalState } from './types';
 import { MAIN_THREAD_ID } from '../api/types';
 
-import { onIdle, throttle } from '../util/schedulers';
+import { onBeforeUnload, onIdle, throttle } from '../util/schedulers';
 import {
   DEBUG,
   GLOBAL_STATE_CACHE_DISABLED,
   GLOBAL_STATE_CACHE_KEY,
   GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT,
-  GRAMJS_SESSION_ID_KEY,
-  MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN, GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
+  MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
+  GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
 } from '../config';
-import { IS_MOBILE_SCREEN } from '../util/environment';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../util/environment';
 import { pick } from '../util/iteratees';
 import { INITIAL_STATE } from './initial';
 import { selectCurrentMessageList } from '../modules/selectors';
+import { hasStoredSession } from '../util/sessions';
 
-const UPDATE_THROTTLE = 1000;
+const UPDATE_THROTTLE = 5000;
 
-const updateCacheThrottled = throttle(updateCache, UPDATE_THROTTLE, false);
+const updateCacheThrottled = throttle(() => onIdle(updateCache), UPDATE_THROTTLE, false);
 
-let isAllowed = false;
+let isCaching = false;
+let unsubscribeFromBeforeUnload: NoneToVoidFunction | undefined;
 
 export function initCache() {
   if (GLOBAL_STATE_CACHE_DISABLED) {
@@ -31,30 +33,54 @@ export function initCache() {
   }
 
   addReducer('saveSession', () => {
-    isAllowed = true;
-    addCallback(updateCacheThrottled);
+    if (isCaching) {
+      return;
+    }
+
+    setupCaching();
   });
 
   addReducer('reset', () => {
-    isAllowed = false;
-    removeCallback(updateCacheThrottled);
     localStorage.removeItem(GLOBAL_STATE_CACHE_KEY);
+
+    if (!isCaching) {
+      return;
+    }
+
+    clearCaching();
   });
 }
 
 export function loadCache(initialState: GlobalState) {
-  if (!GLOBAL_STATE_CACHE_DISABLED) {
-    const hasActiveSession = localStorage.getItem(GRAMJS_SESSION_ID_KEY);
-    if (hasActiveSession) {
-      isAllowed = true;
-      addCallback(updateCacheThrottled);
-      return readCache(initialState);
-    } else {
-      isAllowed = false;
-    }
+  if (GLOBAL_STATE_CACHE_DISABLED) {
+    return undefined;
   }
 
-  return undefined;
+  if (hasStoredSession(true)) {
+    setupCaching();
+
+    return readCache(initialState);
+  } else {
+    clearCaching();
+
+    return undefined;
+  }
+}
+
+function setupCaching() {
+  isCaching = true;
+  unsubscribeFromBeforeUnload = onBeforeUnload(updateCache, true);
+  window.addEventListener('blur', updateCache);
+  addCallback(updateCacheThrottled);
+}
+
+function clearCaching() {
+  isCaching = false;
+  removeCallback(updateCacheThrottled);
+  window.removeEventListener('blur', updateCache);
+  if (unsubscribeFromBeforeUnload) {
+    unsubscribeFromBeforeUnload();
+  }
 }
 
 function readCache(initialState: GlobalState) {
@@ -72,10 +98,18 @@ function readCache(initialState: GlobalState) {
   }
 
   if (cached) {
-    // Pre-fill defaults for new settings which may be missing in older cache
+    // Pre-fill defaults in nested objects which may be missing in older cache
     cached.settings.byKey = {
       ...initialState.settings.byKey,
       ...cached.settings.byKey,
+    };
+    cached.settings.themes = {
+      ...initialState.settings.themes,
+      ...cached.settings.themes,
+    };
+    cached.chatFolders = {
+      ...initialState.chatFolders,
+      ...cached.chatFolders,
     };
   }
 
@@ -86,45 +120,44 @@ function readCache(initialState: GlobalState) {
 }
 
 function updateCache() {
-  onIdle(() => {
-    if (!isAllowed) {
-      return;
-    }
+  if (!isCaching) {
+    return;
+  }
 
-    const global = getGlobal();
+  const global = getGlobal();
 
-    if (global.isLoggingOut) {
-      return;
-    }
+  if (global.isLoggingOut) {
+    return;
+  }
 
-    const reducedGlobal: GlobalState = {
-      ...INITIAL_STATE,
-      ...pick(global, [
-        'authState',
-        'authPhoneNumber',
-        'authRememberMe',
-        'authIsSessionRemembered',
-        'authNearestCountry',
-        'currentUserId',
-        'contactList',
-        'chatFolders',
-        'topPeers',
-        'recentEmojis',
-        'push',
-      ]),
-      isChatInfoShown: reduceShowChatInfo(global),
-      users: reduceUsers(global),
-      chats: reduceChats(global),
-      messages: reduceMessages(global),
-      globalSearch: {
-        recentlyFoundChatIds: global.globalSearch.recentlyFoundChatIds,
-      },
-      settings: reduceSettings(global),
-    };
+  const reducedGlobal: GlobalState = {
+    ...INITIAL_STATE,
+    ...pick(global, [
+      'authState',
+      'authPhoneNumber',
+      'authRememberMe',
+      'authNearestCountry',
+      'currentUserId',
+      'contactList',
+      'topPeers',
+      'topInlineBots',
+      'recentEmojis',
+      'push',
+      'shouldShowContextMenuHint',
+    ]),
+    isChatInfoShown: reduceShowChatInfo(global),
+    users: reduceUsers(global),
+    chats: reduceChats(global),
+    messages: reduceMessages(global),
+    globalSearch: {
+      recentlyFoundChatIds: global.globalSearch.recentlyFoundChatIds,
+    },
+    settings: reduceSettings(global),
+    chatFolders: reduceChatFolders(global),
+  };
 
-    const json = JSON.stringify(reducedGlobal);
-    localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
-  });
+  const json = JSON.stringify(reducedGlobal);
+  localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
 }
 
 function reduceShowChatInfo(global: GlobalState): boolean {
@@ -196,7 +229,7 @@ function reduceMessages(global: GlobalState): GlobalState['messages'] {
 
   return {
     byChatId,
-    messageLists: !currentMessageList || IS_MOBILE_SCREEN ? undefined : [{
+    messageLists: !currentMessageList || IS_SINGLE_COLUMN_LAYOUT ? undefined : [{
       ...currentMessageList,
       threadId: MAIN_THREAD_ID,
       type: 'thread',
@@ -205,10 +238,19 @@ function reduceMessages(global: GlobalState): GlobalState['messages'] {
 }
 
 function reduceSettings(global: GlobalState): GlobalState['settings'] {
-  const { byKey } = global.settings;
+  const { byKey, themes } = global.settings;
 
   return {
     byKey,
+    themes,
     privacy: {},
+    notifyExceptions: {},
+  };
+}
+
+function reduceChatFolders(global: GlobalState): GlobalState['chatFolders'] {
+  return {
+    ...global.chatFolders,
+    activeChatFolder: 0,
   };
 }

@@ -12,6 +12,7 @@ import { selectChat } from '../../../modules/selectors';
 import { pick } from '../../../util/iteratees';
 import getAnimationData from '../../common/helpers/animatedAssets';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import NothingFound from '../../common/NothingFound';
@@ -26,6 +27,8 @@ import { isChatChannel } from '../../../modules/helpers';
 type OwnProps = {
   chatId: number;
   onScreenSelect: (screen: ManagementScreens) => void;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
@@ -40,6 +43,8 @@ type DispatchProps = Pick<GlobalActions, 'loadGroupsForDiscussion' | 'linkDiscus
 
 const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
   chat,
+  onClose,
+  isActive,
   chatId,
   chatsByIds,
   linkedChat,
@@ -58,6 +63,8 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
   const [isConfirmLinkGroupDialogOpen, openConfirmLinkGroupDialog, closeConfirmLinkGroupDialog] = useFlag();
   const lang = useLang();
   const linkedChatId = linkedChat && linkedChat.id;
+
+  useHistoryBack(isActive, onClose);
 
   useEffect(() => {
     loadGroupsForDiscussion();
@@ -185,7 +192,7 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
   function renderDiscussionGroups() {
     return (
       <div>
-        <p className="section-help">{lang('DiscussionChannelHelp')}</p>
+        <p className="section-help" dir="auto">{lang('DiscussionChannelHelp')}</p>
 
         <div teactFastList>
           <ListItem
@@ -212,7 +219,7 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
             <NothingFound key="nothing-found" teactOrderKey={0} text="No discussion groups found" />
           )}
         </div>
-        <p className="mt-4 mb-0 section-help">{lang('DiscussionChannelHelp2')}</p>
+        <p className="mt-4 mb-0 section-help" dir="auto">{lang('DiscussionChannelHelp2')}</p>
         <ConfirmDialog
           isOpen={isConfirmLinkGroupDialogOpen}
           onClose={closeConfirmLinkGroupDialog}

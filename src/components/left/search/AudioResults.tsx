@@ -14,6 +14,7 @@ import { formatMonthAndYear, toYearMonth } from '../../../util/dateFormat';
 import { getSenderName } from './helpers/getSenderName';
 import { throttle } from '../../../util/schedulers';
 import useAsyncRendering from '../../right/hooks/useAsyncRendering';
+import useLang from '../../../hooks/useLang';
 
 import InfiniteScroll from '../../ui/InfiniteScroll';
 import Audio from '../../common/Audio';
@@ -30,6 +31,7 @@ type DispatchProps = Pick<GlobalActions, ('searchMessagesGlobal' | 'focusMessage
 const runThrottled = throttle((cb) => cb(), 500, true);
 
 const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
+  theme,
   isVoice,
   searchQuery,
   searchChatId,
@@ -43,6 +45,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
   focusMessage,
   openAudioPlayer,
 }) => {
+  const lang = useLang();
   const currentType = isVoice ? 'voice' : 'audio';
   const handleLoadMore = useCallback(({ direction }: { direction: LoadMoreDirection }) => {
     if (lastSyncTime && direction === LoadMoreDirection.Backwards) {
@@ -86,13 +89,16 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
           key={message.id}
         >
           {shouldDrawDateDivider && (
-            <p className="section-heading">{formatMonthAndYear(new Date(message.date * 1000))}</p>
+            <p className="section-heading" dir={lang.isRtl ? 'rtl' : undefined}>
+              {formatMonthAndYear(lang, new Date(message.date * 1000))}
+            </p>
           )}
           <Audio
             key={message.id}
+            theme={theme}
             message={message}
-            renderingFor="searchResult"
-            senderTitle={getSenderName(message, chatsById, usersById)}
+            target="searchResult"
+            senderTitle={getSenderName(lang, message, chatsById, usersById)}
             date={message.date}
             lastSyncTime={lastSyncTime}
             className="scroll-item"
@@ -115,7 +121,12 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
         noFastList
       >
         {!canRenderContents && <Loading />}
-        {canRenderContents && (!foundIds || foundIds.length === 0) && <NothingFound />}
+        {canRenderContents && (!foundIds || foundIds.length === 0) && (
+          <NothingFound
+            text={lang('ChatList.Search.NoResults')}
+            description={lang('ChatList.Search.NoResultsDescription')}
+          />
+        )}
         {canRenderContents && foundIds && foundIds.length > 0 && renderList()}
       </InfiniteScroll>
     </div>

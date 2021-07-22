@@ -40,9 +40,9 @@
     }
 
     &::before {
-      border: 2px solid var(--color-borders);
+      border: 2px solid var(--color-borders-input);
       border-radius: 50%;
-      background-color: var(--color-white);
+      background-color: var(--color-background);
       opacity: 1;
       transition: border-color .1s ease, opacity .1s ease;
     }
@@ -60,6 +60,8 @@
     .label {
       display: block;
       word-break: break-word;
+      unicode-bidi: plaintext;
+      text-align: left;
     }
 
     .subLabel {
@@ -67,6 +69,7 @@
       font-size: 0.875rem;
       line-height: 1rem;
       color: var(--color-text-secondary);
+      unicode-bidi: plaintext;
     }
   }
 
@@ -94,6 +97,35 @@
       opacity: 0;
       animation: fade-in .2s ease forwards;
       --spinner-size: 1.25rem;
+    }
+  }
+
+  &[dir=rtl] {
+    padding-left: 0;
+    padding-right: 4.5rem;
+
+    .Radio-main {
+      text-align: right;
+
+      &::before {
+        left: auto;
+        right: 1.0625rem;
+      }
+
+      &::after {
+        left: auto;
+        right: 1.375rem;
+      }
+    }
+
+    .label,
+    .subLabel {
+      text-align: right;
+    }
+
+      &.loading .Spinner {
+      left: auto;
+      right: 1.0625rem;
     }
   }
 }

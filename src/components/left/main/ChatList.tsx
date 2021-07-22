@@ -5,15 +5,18 @@ import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
 import {
-  ApiChat, ApiChatFolder, ApiUser, MAIN_THREAD_ID,
+  ApiChat, ApiChatFolder, ApiUser,
 } from '../../../api/types';
+import { NotifyException, NotifySettings } from '../../../types';
 
 import { ALL_CHATS_PRELOAD_DISABLED, CHAT_HEIGHT_PX, CHAT_LIST_SLICE } from '../../../config';
-import { IS_ANDROID } from '../../../util/environment';
+import { IS_ANDROID, IS_MAC_OS, IS_PWA } from '../../../util/environment';
 import usePrevious from '../../../hooks/usePrevious';
 import { mapValues, pick } from '../../../util/iteratees';
 import { getChatOrder, prepareChatList, prepareFolderListIds } from '../../../modules/helpers';
-import { selectChatFolder, selectCurrentMessageList } from '../../../modules/selectors';
+import {
+  selectChatFolder, selectNotifyExceptions, selectNotifySettings,
+} from '../../../modules/selectors';
 import useInfiniteScroll from '../../../hooks/useInfiniteScroll';
 import { useChatAnimationType } from './hooks';
 
@@ -25,6 +28,7 @@ type OwnProps = {
   folderType: 'all' | 'archived' | 'folder';
   folderId?: number;
   noChatsText?: string;
+  isActive: boolean;
 };
 
 type StateProps = {
@@ -32,13 +36,13 @@ type StateProps = {
   usersById: Record<number, ApiUser>;
   chatFolder?: ApiChatFolder;
   listIds?: number[];
-  currentChatId?: number;
   orderedPinnedIds?: number[];
   lastSyncTime?: number;
-  isInDiscussionThread?: boolean;
+  notifySettings: NotifySettings;
+  notifyExceptions?: Record<number, NotifyException>;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadMoreChats' | 'preloadTopChatMessages'>;
+type DispatchProps = Pick<GlobalActions, 'loadMoreChats' | 'preloadTopChatMessages' | 'openChat' | 'openNextChat'>;
 
 enum FolderTypeToListType {
   'all' = 'active',
@@ -49,22 +53,25 @@ const ChatList: FC<OwnProps & StateProps & DispatchProps> = ({
   folderType,
   folderId,
   noChatsText = 'Chat list is empty.',
+  isActive,
   chatFolder,
   chatsById,
   usersById,
   listIds,
-  currentChatId,
   orderedPinnedIds,
   lastSyncTime,
-  isInDiscussionThread,
+  notifySettings,
+  notifyExceptions,
   loadMoreChats,
   preloadTopChatMessages,
+  openChat,
+  openNextChat,
 }) => {
   const [currentListIds, currentPinnedIds] = useMemo(() => {
     return folderType === 'folder' && chatFolder
-      ? prepareFolderListIds(chatsById, usersById, chatFolder)
+      ? prepareFolderListIds(chatsById, usersById, chatFolder, notifySettings, notifyExceptions)
       : [listIds, orderedPinnedIds];
-  }, [folderType, chatsById, usersById, chatFolder, listIds, orderedPinnedIds]);
+  }, [folderType, chatFolder, chatsById, usersById, notifySettings, notifyExceptions, listIds, orderedPinnedIds]);
 
   const [orderById, orderedIds] = useMemo(() => {
     if (!currentListIds || (folderType === 'folder' && !chatFolder)) {
@@ -83,11 +90,15 @@ const ChatList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const prevOrderById = usePrevious(orderById);
 
-  const orderDiffById = orderById && prevOrderById
-    ? mapValues(orderById, (order, id) => {
+  const orderDiffById = useMemo(() => {
+    if (!orderById || !prevOrderById) {
+      return {};
+    }
+
+    return mapValues(orderById, (order, id) => {
       return order - (prevOrderById[id] !== undefined ? prevOrderById[id] : Infinity);
-    })
-    : {};
+    });
+  }, [orderById, prevOrderById]);
 
   const loadMoreOfType = useCallback(() => {
     loadMoreChats({ listType: folderType === 'archived' ? 'archived' : 'active' });
@@ -130,7 +141,6 @@ const ChatList: FC<OwnProps & StateProps & DispatchProps> = ({
             chatId={id}
             isPinned
             folderId={folderId}
-            isSelected={id === currentChatId && !isInDiscussionThread}
             animationType={getAnimationType(id)}
             orderDiff={orderDiffById[id]}
             // @ts-ignore
@@ -143,7 +153,6 @@ const ChatList: FC<OwnProps & StateProps & DispatchProps> = ({
             teactOrderKey={getChatOrder(chat)}
             chatId={chat.id}
             folderId={folderId}
-            isSelected={chat.id === currentChatId && !isInDiscussionThread}
             animationType={getAnimationType(chat.id)}
             orderDiff={orderDiffById[chat.id]}
             // @ts-ignore
@@ -153,6 +162,36 @@ const ChatList: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
     );
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isActive && orderedIds) {
+        if (IS_PWA && ((IS_MAC_OS && e.metaKey) || (!IS_MAC_OS && e.ctrlKey)) && e.code.startsWith('Digit')) {
+          const [, digit] = e.code.match(/Digit(\d)/) || [];
+          if (!digit) return;
+
+          const position = Number(digit) - 1;
+          if (position > orderedIds.length - 1) return;
+
+          openChat({ id: orderedIds[position] });
+        }
+
+        if (e.altKey) {
+          const targetIndexDelta = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : undefined;
+          if (!targetIndexDelta) return;
+
+          e.preventDefault();
+          openNextChat({ targetIndexDelta, orderedIds });
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, false);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, false);
+    };
+  });
 
   return (
     <InfiniteScroll
@@ -185,15 +224,12 @@ export default memo(withGlobal<OwnProps>(
       users: { byId: usersById },
       lastSyncTime,
     } = global;
-    const { chatId: currentChatId, threadId: currentThreadId } = selectCurrentMessageList(global) || {};
-
     const listType = folderType !== 'folder' ? FolderTypeToListType[folderType] : undefined;
     const chatFolder = folderId ? selectChatFolder(global, folderId) : undefined;
 
     return {
       chatsById,
       usersById,
-      currentChatId,
       lastSyncTime,
       ...(listType ? {
         listIds: listIds[listType],
@@ -201,8 +237,14 @@ export default memo(withGlobal<OwnProps>(
       } : {
         chatFolder,
       }),
-      isInDiscussionThread: currentThreadId !== MAIN_THREAD_ID,
+      notifySettings: selectNotifySettings(global),
+      notifyExceptions: selectNotifyExceptions(global),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadMoreChats', 'preloadTopChatMessages']),
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'loadMoreChats',
+    'preloadTopChatMessages',
+    'openChat',
+    'openNextChat',
+  ]),
 )(ChatList));

@@ -16,6 +16,7 @@ import { selectChat } from '../../../modules/selectors';
 import { formatInteger } from '../../../util/textFormat';
 import { pick } from '../../../util/iteratees';
 import renderText from '../../common/helpers/renderText';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import AvatarEditable from '../../ui/AvatarEditable';
 import InputText from '../../ui/InputText';
@@ -30,6 +31,8 @@ import './Management.scss';
 type OwnProps = {
   chatId: number;
   onScreenSelect: (screen: ManagementScreens) => void;
+  onClose: NoneToVoidFunction;
+  isActive: boolean;
 };
 
 type StateProps = {
@@ -43,7 +46,7 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, (
   'togglePreHistoryHidden' | 'updateChat' | 'closeManagement' |
-  'deleteHistory' | 'leaveChannel' | 'deleteChannel' | 'openChat'
+  'leaveChannel' | 'deleteChannel' | 'deleteChat' | 'openChat'
 )>;
 
 const GROUP_TITLE_EMPTY = 'Group title can\'t be empty';
@@ -63,11 +66,13 @@ const ManageGroup: FC<OwnProps & StateProps & DispatchProps> = ({
   onScreenSelect,
   togglePreHistoryHidden,
   updateChat,
-  deleteHistory,
+  deleteChat,
   leaveChannel,
   deleteChannel,
   closeManagement,
   openChat,
+  onClose,
+  isActive,
 }) => {
   const [isDeleteDialogOpen, openDeleteDialog, closeDeleteDialog] = useFlag();
   const currentTitle = chat.title;
@@ -81,6 +86,8 @@ const ManageGroup: FC<OwnProps & StateProps & DispatchProps> = ({
   const imageHash = getChatAvatarHash(chat);
   const currentAvatarBlobUrl = useMedia(imageHash, false, ApiMediaFormat.BlobUrl);
   const lang = useLang();
+
+  useHistoryBack(isActive, onClose);
 
   useEffect(() => {
     if (progress === ManagementProgress.Complete) {
@@ -182,7 +189,7 @@ const ManageGroup: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const handleDeleteGroup = useCallback(() => {
     if (isBasicGroup) {
-      deleteHistory({ chatId: chat.id, maxId: chat.lastMessage!.id, shouldDeleteForAll: false });
+      deleteChat({ chatId: chat.id });
     } else if (!chat.isCreator) {
       leaveChannel({ chatId: chat.id });
     } else {
@@ -192,8 +199,8 @@ const ManageGroup: FC<OwnProps & StateProps & DispatchProps> = ({
     closeManagement();
     openChat({ id: undefined });
   }, [
-    isBasicGroup, chat.isCreator, chat.id, chat.lastMessage,
-    closeDeleteDialog, closeManagement, deleteHistory, leaveChannel, deleteChannel, openChat,
+    isBasicGroup, chat.isCreator, chat.id,
+    closeDeleteDialog, closeManagement, leaveChannel, deleteChannel, deleteChat, openChat,
   ]);
 
   if (chat.isRestricted) {
@@ -239,9 +246,17 @@ const ManageGroup: FC<OwnProps & StateProps & DispatchProps> = ({
               <span className="subtitle">{lang('DiscussionUnlink')}</span>
             </ListItem>
           )}
-          <ListItem icon="permissions" multiline ripple onClick={handleClickPermissions} disabled={!canBanUsers}>
+          <ListItem
+            icon="permissions"
+            multiline
+            ripple
+            onClick={handleClickPermissions}
+            disabled={!canBanUsers}
+          >
             <span className="title">{lang('ChannelPermissions')}</span>
-            <span className="subtitle">{enabledPermissionsCount}/{TOTAL_PERMISSIONS_COUNT}</span>
+            <span className="subtitle" dir="auto">
+              {enabledPermissionsCount}/{TOTAL_PERMISSIONS_COUNT}
+            </span>
           </ListItem>
           <ListItem icon="admin" multiline ripple onClick={handleClickAdministrators}>
             <span className="title">{lang('ChannelAdministrators')}</span>
@@ -305,18 +320,19 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId)!;
     const { progress } = global.management;
     const hasLinkedChannel = Boolean(chat.fullInfo && chat.fullInfo.linkedChatId);
+    const isBasicGroup = isChatBasicGroup(chat);
 
     return {
       chat,
       progress,
-      isBasicGroup: isChatBasicGroup(chat),
+      isBasicGroup,
       hasLinkedChannel,
-      canChangeInfo: getHasAdminRight(chat, 'changeInfo'),
-      canBanUsers: getHasAdminRight(chat, 'banUsers'),
+      canChangeInfo: isBasicGroup ? chat.isCreator : getHasAdminRight(chat, 'changeInfo'),
+      canBanUsers: isBasicGroup ? chat.isCreator : getHasAdminRight(chat, 'banUsers'),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'togglePreHistoryHidden', 'updateChat', 'closeManagement',
-    'deleteHistory', 'leaveChannel', 'deleteChannel', 'openChat',
+    'leaveChannel', 'deleteChannel', 'deleteChat', 'openChat',
   ]),
 )(ManageGroup));

@@ -7,13 +7,17 @@ import { ApiUser } from '../../../api/types';
 import { selectUser } from '../../../modules/selectors';
 import { getUserFullName } from '../../../modules/helpers';
 import { formatPhoneNumberWithCode } from '../../../util/phoneNumber';
+import renderText from '../../common/helpers/renderText';
 import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import Avatar from '../../common/Avatar';
 
 type OwnProps = {
+  isActive?: boolean;
   onScreenSelect: (screen: SettingsScreens) => void;
+  onReset: () => void;
 };
 
 type StateProps = {
@@ -21,10 +25,15 @@ type StateProps = {
 };
 
 const SettingsMain: FC<OwnProps & StateProps> = ({
+  isActive,
   onScreenSelect,
+  onReset,
   currentUser,
 }) => {
   const lang = useLang();
+  const fullName = getUserFullName(currentUser);
+
+  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.Main);
 
   return (
     <div className="settings-content custom-scroll">
@@ -32,7 +41,7 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
         {currentUser && (
           <div className="settings-current-user">
             <Avatar user={currentUser} size="jumbo" />
-            <p className="name">{getUserFullName(currentUser)}</p>
+            <p className="name">{fullName && renderText(fullName)}</p>
             <p className="phone">{formatPhoneNumberWithCode(currentUser.phoneNumber)}</p>
           </div>
         )}
@@ -40,7 +49,7 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
           icon="edit"
           onClick={() => onScreenSelect(SettingsScreens.EditProfile)}
         >
-          {lang('EditProfile')}
+          {lang('lng_settings_information')}
         </ListItem>
         <ListItem
           icon="folder"
@@ -52,7 +61,7 @@ const SettingsMain: FC<OwnProps & StateProps> = ({
           icon="settings"
           onClick={() => onScreenSelect(SettingsScreens.General)}
         >
-          {lang('GeneralSettings')}
+          {lang('Telegram.GeneralSettingsViewController')}
         </ListItem>
         <ListItem
           icon="unmute"

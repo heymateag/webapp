@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useState, useMemo,
+  FC, memo, useCallback, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
@@ -8,6 +8,9 @@ import { GlobalSearchContent } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
 import { parseDateString } from '../../../util/dateFormat';
+import useKeyboardListNavigation from '../../../hooks/useKeyboardListNavigation';
+import useLang from '../../../hooks/useLang';
+import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import TabList from '../../ui/TabList';
 import Transition from '../../ui/Transition';
@@ -23,6 +26,7 @@ import './LeftSearch.scss';
 export type OwnProps = {
   searchQuery?: string;
   searchDate?: number;
+  isActive: boolean;
   onReset: () => void;
 };
 
@@ -52,13 +56,15 @@ const TRANSITION_RENDER_COUNT = Object.keys(GlobalSearchContent).length / 2;
 const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
   searchQuery,
   searchDate,
+  isActive,
   currentContent = GlobalSearchContent.ChatList,
   chatId,
   setGlobalSearchContent,
   setGlobalSearchDate,
   onReset,
 }) => {
-  const [activeTab, setActiveTab] = useState(0);
+  const lang = useLang();
+  const [activeTab, setActiveTab] = useState(currentContent);
   const dateSearchQuery = useMemo(() => parseDateString(searchQuery), [searchQuery]);
 
   const handleSwitchTab = useCallback((index: number) => {
@@ -71,10 +77,20 @@ const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
     setGlobalSearchDate({ date: value.getTime() / 1000 });
   }, [setGlobalSearchDate]);
 
+  useHistoryBack(isActive, onReset, undefined, undefined, true);
+
+  // eslint-disable-next-line no-null/no-null
+  const containerRef = useRef<HTMLDivElement>(null);
+  const handleKeyDown = useKeyboardListNavigation(containerRef, isActive, undefined, '.ListItem-button', true);
+
   return (
-    <div className="LeftSearch">
+    <div className="LeftSearch" ref={containerRef} onKeyDown={handleKeyDown}>
       <TabList activeTab={activeTab} tabs={chatId ? CHAT_TABS : TABS} onSwitchTab={handleSwitchTab} />
-      <Transition name="slide" renderCount={TRANSITION_RENDER_COUNT} activeKey={currentContent}>
+      <Transition
+        name={lang.isRtl ? 'slide-reversed' : 'slide'}
+        renderCount={TRANSITION_RENDER_COUNT}
+        activeKey={currentContent}
+      >
         {() => {
           switch (currentContent) {
             case GlobalSearchContent.ChatList:

@@ -60,6 +60,7 @@ function parseMarkdown(html: string) {
     // Emojis
     parsedHtml = parsedHtml.replace(/<img[^>]+alt="([^"]+)"[^>]*>/gm, '$1');
   }
+
   // Strip redundant <span> tags
   parsedHtml = parsedHtml.replace(/<\/?span([^>]*)?>/g, '');
 
@@ -83,7 +84,7 @@ function parseMarkdown(html: string) {
 
   // Other simple markdown
   parsedHtml = parsedHtml.replace(/[*]{2}([^*\n]+)[*]{2}/g, '<b>$1</b>');
-  parsedHtml = parsedHtml.replace(/[*]{1}([^*\n]+)[*]{1}/g, '<i>$1</i>');
+  parsedHtml = parsedHtml.replace(/[_]{2}([^*\n]+)[_]{2}/g, '<i>$1</i>');
   parsedHtml = parsedHtml.replace(/[~]{2}([^~\n]+)[~]{2}/g, '<s>$1</s>');
 
   return parsedHtml;
@@ -139,6 +140,9 @@ function getEntityTypeFromNode(node: ChildNode) {
     const anchor = node as HTMLAnchorElement;
     if (anchor.dataset.entityType === ApiMessageEntityTypes.MentionName) {
       return ApiMessageEntityTypes.MentionName;
+    }
+    if (anchor.dataset.entityType === ApiMessageEntityTypes.Url) {
+      return ApiMessageEntityTypes.Url;
     }
     if (anchor.href.startsWith('mailto:')) {
       return ApiMessageEntityTypes.Email;

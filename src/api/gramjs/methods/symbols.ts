@@ -5,6 +5,7 @@ import { invokeRequest } from './client';
 import { buildStickerFromDocument, buildStickerSet, buildStickerSetCovered } from '../apiBuilders/symbols';
 import { buildInputStickerSet, buildInputDocument } from '../gramjsBuilders';
 import { buildVideoFromDocument } from '../apiBuilders/messages';
+import { RECENT_STICKERS_LIMIT } from '../../../config';
 
 import localDb from '../localDb';
 
@@ -22,7 +23,7 @@ export async function fetchStickerSets({ hash }: { hash: number }) {
   }
 
   allStickers.sets.forEach((stickerSet) => {
-    if (stickerSet.thumb) {
+    if (stickerSet.thumbs && stickerSet.thumbs.length) {
       localDb.stickerSets[String(stickerSet.id)] = stickerSet;
     }
   });
@@ -42,7 +43,7 @@ export async function fetchRecentStickers({ hash }: { hash: number }) {
 
   return {
     hash: result.hash,
-    stickers: processStickerResult(result.stickers),
+    stickers: processStickerResult(result.stickers.slice(0, RECENT_STICKERS_LIMIT)),
   };
 }
 
@@ -243,6 +244,30 @@ export async function fetchStickersForEmoji({
   return {
     stickers: processStickerResult(result.stickers),
     hash: result.hash,
+  };
+}
+
+export async function fetchEmojiKeywords({ language, fromVersion }: {
+  language: string;
+  fromVersion?: number;
+}) {
+  const result = await invokeRequest(new GramJs.messages.GetEmojiKeywordsDifference({
+    langCode: language,
+    fromVersion,
+  }));
+
+  if (!result) {
+    return undefined;
+  }
+
+  return {
+    language: result.langCode,
+    version: result.version,
+    keywords: result.keywords.reduce((acc, emojiKeyword) => {
+      acc[emojiKeyword.keyword] = emojiKeyword.emoticons;
+
+      return acc;
+    }, {} as Record<string, string[]>),
   };
 }
 

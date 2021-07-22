@@ -1,4 +1,6 @@
-import React, { FC, useEffect, memo } from '../../lib/teact/teact';
+import React, {
+  FC, useEffect, memo, useCallback,
+} from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import { GlobalActions } from '../../global/types';
@@ -20,6 +22,7 @@ import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck'
 import buildClassName from '../../util/buildClassName';
 import useShowTransition from '../../hooks/useShowTransition';
 import useBackgroundMode from '../../hooks/useBackgroundMode';
+import useBeforeUnload from '../../hooks/useBeforeUnload';
 
 import LeftColumn from '../left/LeftColumn';
 import MiddleColumn from '../middle/MiddleColumn';
@@ -27,8 +30,10 @@ import RightColumn from '../right/RightColumn';
 import MediaViewer from '../mediaViewer/MediaViewer.async';
 import AudioPlayer from '../middle/AudioPlayer';
 import Notifications from './Notifications.async';
-import Errors from './Errors.async';
+import Dialogs from './Dialogs.async';
 import ForwardPicker from './ForwardPicker.async';
+import SafeLinkModal from './SafeLinkModal.async';
+import HistoryCalendar from './HistoryCalendar.async';
 
 import './Main.scss';
 
@@ -40,11 +45,17 @@ type StateProps = {
   isMediaViewerOpen: boolean;
   isForwardModalOpen: boolean;
   hasNotifications: boolean;
-  hasErrors: boolean;
+  hasDialogs: boolean;
   audioMessage?: ApiMessage;
+  safeLinkModalUrl?: string;
+  isHistoryCalendarOpen: boolean;
+  shouldSkipHistoryAnimations?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadAnimatedEmojis'>;
+type DispatchProps = Pick<GlobalActions, (
+  'loadAnimatedEmojis' | 'loadNotificationSettings' | 'loadNotificationExceptions' | 'updateIsOnline' |
+  'loadTopInlineBots'
+)>;
 
 const ANIMATION_DURATION = 350;
 const NOTIFICATION_INTERVAL = 1000;
@@ -56,15 +67,22 @@ let DEBUG_isLogged = false;
 
 const Main: FC<StateProps & DispatchProps> = ({
   lastSyncTime,
-  loadAnimatedEmojis,
   isLeftColumnShown,
   isRightColumnShown,
   isMediaViewerOpen,
   isForwardModalOpen,
   animationLevel,
   hasNotifications,
-  hasErrors,
+  hasDialogs,
   audioMessage,
+  safeLinkModalUrl,
+  isHistoryCalendarOpen,
+  shouldSkipHistoryAnimations,
+  loadAnimatedEmojis,
+  loadNotificationSettings,
+  loadNotificationExceptions,
+  updateIsOnline,
+  loadTopInlineBots,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
@@ -75,29 +93,31 @@ const Main: FC<StateProps & DispatchProps> = ({
   // Initial API calls
   useEffect(() => {
     if (lastSyncTime) {
+      updateIsOnline(true);
       loadAnimatedEmojis();
+      loadNotificationSettings();
+      loadNotificationExceptions();
+      loadTopInlineBots();
     }
-  }, [lastSyncTime, loadAnimatedEmojis]);
+  }, [
+    lastSyncTime, loadAnimatedEmojis, loadNotificationExceptions, loadNotificationSettings, updateIsOnline,
+    loadTopInlineBots,
+  ]);
 
   const {
     transitionClassNames: middleColumnTransitionClassNames,
-  } = useShowTransition(!isLeftColumnShown, undefined, true);
+  } = useShowTransition(!isLeftColumnShown, undefined, true, undefined, shouldSkipHistoryAnimations);
 
   const {
     transitionClassNames: rightColumnTransitionClassNames,
-  } = useShowTransition(isRightColumnShown, undefined, true);
+  } = useShowTransition(isRightColumnShown, undefined, true, undefined, shouldSkipHistoryAnimations);
+
 
   const className = buildClassName(
     middleColumnTransitionClassNames.replace(/([\w-]+)/g, 'middle-column-$1'),
     rightColumnTransitionClassNames.replace(/([\w-]+)/g, 'right-column-$1'),
+    shouldSkipHistoryAnimations && 'history-animation-disabled',
   );
-
-  useEffect(() => {
-    // For animating Symbol Menu on mobile
-    document.body.classList.toggle('is-middle-column-open', className.includes('middle-column-open'));
-    // For animating components in portals (i.e. Notification)
-    document.body.classList.toggle('is-right-column-shown', className.includes('right-column-open'));
-  }, [className]);
 
   // Add `body` classes when toggling right column
   useEffect(() => {
@@ -117,7 +137,9 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   }, [animationLevel, isRightColumnShown]);
 
-  useBackgroundMode(() => {
+  const handleBlur = useCallback(() => {
+    updateIsOnline(false);
+
     const initialUnread = selectCountNotMutedUnread(getGlobal());
     let index = 0;
 
@@ -141,7 +163,11 @@ const Main: FC<StateProps & DispatchProps> = ({
 
       index++;
     }, NOTIFICATION_INTERVAL);
-  }, () => {
+  }, [updateIsOnline]);
+
+  const handleFocus = useCallback(() => {
+    updateIsOnline(true);
+
     clearInterval(notificationInterval);
     notificationInterval = undefined;
 
@@ -150,7 +176,11 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
 
     updateIcon(false);
-  });
+  }, [updateIsOnline]);
+
+  // Online status and browser tab indicators
+  useBackgroundMode(handleBlur, handleFocus);
+  useBeforeUnload(handleBlur);
 
   function stopEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     e.preventDefault();
@@ -165,8 +195,10 @@ const Main: FC<StateProps & DispatchProps> = ({
       <MediaViewer isOpen={isMediaViewerOpen} />
       <ForwardPicker isOpen={isForwardModalOpen} />
       <Notifications isOpen={hasNotifications} />
-      <Errors isOpen={hasErrors} />
+      <Dialogs isOpen={hasDialogs} />
       {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} noUi />}
+      <SafeLinkModal url={safeLinkModalUrl} />
+      <HistoryCalendar isOpen={isHistoryCalendarOpen} />
     </div>
   );
 };
@@ -199,9 +231,15 @@ export default memo(withGlobal(
       isMediaViewerOpen: selectIsMediaViewerOpen(global),
       isForwardModalOpen: selectIsForwardModalOpen(global),
       hasNotifications: Boolean(global.notifications.length),
-      hasErrors: Boolean(global.errors.length),
+      hasDialogs: Boolean(global.dialogs.length),
       audioMessage,
+      safeLinkModalUrl: global.safeLinkModalUrl,
+      isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
+      shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadAnimatedEmojis']),
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
+    'loadTopInlineBots',
+  ]),
 )(Main));

@@ -29,6 +29,7 @@ import {
   updateOutlyingIds,
   replaceScheduledMessages,
   updateThreadInfos,
+  updateChat,
 } from '../../reducers';
 import {
   selectChat,
@@ -52,6 +53,7 @@ import {
 } from '../../selectors';
 import { rafPromise, throttle } from '../../../util/schedulers';
 import { copyTextToClipboard } from '../../../util/clipboard';
+import { IS_IOS } from '../../../util/environment';
 
 const uploadProgressCallbacks = new Map<number, ApiOnProgress>();
 
@@ -243,6 +245,7 @@ addReducer('sendMessage', (global, actions, payload) => {
 });
 
 addReducer('editMessage', (global, actions, payload) => {
+  const { serverTimeOffset } = global;
   const { text, entities } = payload!;
 
   const currentMessageList = selectCurrentMessageList(global);
@@ -258,7 +261,7 @@ addReducer('editMessage', (global, actions, payload) => {
   }
 
   void callApi('editMessage', {
-    chat, message, text, entities,
+    chat, message, text, entities, noWebPage: selectNoWebPage(global, chatId, threadId), serverTimeOffset,
   });
 
   actions.setEditingId({ messageId: undefined });
@@ -297,7 +300,10 @@ addReducer('saveDraft', (global, actions, payload) => {
     });
   }
 
-  return replaceThreadParam(global, chatId, threadId, 'draft', draft);
+  global = replaceThreadParam(global, chatId, threadId, 'draft', draft);
+  global = updateChat(global, chatId, { draftDate: Math.round(Date.now() / 1000) });
+
+  return global;
 });
 
 addReducer('clearDraft', (global, actions, payload) => {
@@ -312,7 +318,10 @@ addReducer('clearDraft', (global, actions, payload) => {
     void callApi('clearDraft', chat);
   }
 
-  return replaceThreadParam(global, chatId, threadId, 'draft', undefined);
+  global = replaceThreadParam(global, chatId, threadId, 'draft', undefined);
+  global = updateChat(global, chatId, { draftDate: undefined });
+
+  return global;
 });
 
 addReducer('toggleMessageWebPage', (global, actions, payload) => {
@@ -388,16 +397,51 @@ addReducer('deleteScheduledMessages', (global, actions, payload) => {
 });
 
 addReducer('deleteHistory', (global, actions, payload) => {
-  const { chatId, maxId, shouldDeleteForAll } = payload!;
-  const chat = selectChat(global, chatId);
-  if (!chat) {
-    return;
-  }
+  (async () => {
+    const { chatId, shouldDeleteForAll } = payload!;
+    const chat = selectChat(global, chatId);
+    if (!chat) {
+      return;
+    }
 
-  void callApi('deleteHistory', { chat, shouldDeleteForAll, maxId });
+    const maxId = chat.lastMessage && chat.lastMessage.id;
+
+    await callApi('deleteHistory', { chat, shouldDeleteForAll, maxId });
+
+    const activeChat = selectCurrentMessageList(global);
+    if (activeChat && activeChat.chatId === chatId) {
+      actions.openChat({ id: undefined });
+    }
+  })();
+});
+
+addReducer('reportMessages', (global, actions, payload) => {
+  (async () => {
+    const {
+      messageIds, reason, description,
+    } = payload!;
+    const currentMessageList = selectCurrentMessageList(global);
+    if (!currentMessageList) {
+      return;
+    }
+
+    const { chatId } = currentMessageList;
+    const chat = selectChat(global, chatId)!;
+
+    const result = await callApi('reportMessages', {
+      peer: chat, messageIds, reason, description,
+    });
+
+    actions.showNotification({
+      message: result
+        ? 'Thank you! Your report will be reviewed by our team.'
+        : 'Error occured while submiting report. Please, try again later.',
+    });
+  })();
 });
 
 addReducer('markMessageListRead', (global, actions, payload) => {
+  const { serverTimeOffset } = global;
   const currentMessageList = selectCurrentMessageList(global);
   if (!currentMessageList) {
     return;
@@ -412,7 +456,9 @@ addReducer('markMessageListRead', (global, actions, payload) => {
   const { maxId } = payload!;
 
   runThrottledForMarkRead(() => {
-    void callApi('markMessageListRead', { chat, threadId, maxId });
+    void callApi('markMessageListRead', {
+      serverTimeOffset, chat, threadId, maxId,
+    });
   });
 });
 
@@ -697,6 +743,7 @@ async function sendMessage(params: {
   sticker: ApiSticker;
   gif: ApiVideo;
   poll: ApiNewPoll;
+  serverTimeOffset?: number;
 }) {
   let localId: number | undefined;
   const progressCallback = params.attachment ? (progress: number, messageLocalId: number) => {
@@ -719,11 +766,12 @@ async function sendMessage(params: {
   } : undefined;
 
   // @optimization
-  if (params.replyingTo) {
+  if (params.replyingTo || IS_IOS) {
     await rafPromise();
   }
 
   const global = getGlobal();
+  params.serverTimeOffset = global.serverTimeOffset;
   const currentMessageList = selectCurrentMessageList(global);
   if (!currentMessageList) {
     return;
@@ -750,6 +798,7 @@ function forwardMessages(
     fromChat,
     toChat,
     messages,
+    serverTimeOffset: getGlobal().serverTimeOffset,
   });
 
   setGlobal({

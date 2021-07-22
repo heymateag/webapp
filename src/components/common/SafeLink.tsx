@@ -1,10 +1,8 @@
 import React, { FC, memo, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getDispatch } from '../../lib/teact/teactn';
 import convertPunycode from '../../lib/punycode';
-import { GlobalActions } from '../../global/types';
 
 import { DEBUG, RE_TME_INVITE_LINK, RE_TME_LINK } from '../../config';
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 
 type OwnProps = {
@@ -12,22 +10,33 @@ type OwnProps = {
   text: string;
   className?: string;
   children?: any;
+  isRtl?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openTelegramLink'>;
-
-const SafeLink: FC<OwnProps & DispatchProps> = ({
+const SafeLink: FC<OwnProps> = ({
   url,
   text,
   className,
   children,
-  openTelegramLink,
+  isRtl,
 }) => {
+  const { toggleSafeLinkModal, openTelegramLink } = getDispatch();
+
+  const content = children || text;
+  const isNotSafe = url !== content;
+
   const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     if (
       e.ctrlKey || e.altKey || e.shiftKey || e.metaKey
       || !url || (!url.match(RE_TME_LINK) && !url.match(RE_TME_INVITE_LINK))
     ) {
+      if (isNotSafe) {
+        toggleSafeLinkModal({ url });
+
+        e.preventDefault();
+        return false;
+      }
+
       return true;
     }
 
@@ -35,7 +44,7 @@ const SafeLink: FC<OwnProps & DispatchProps> = ({
     openTelegramLink({ url });
 
     return false;
-  }, [openTelegramLink, url]);
+  }, [isNotSafe, openTelegramLink, toggleSafeLinkModal, url]);
 
   if (!url) {
     return undefined;
@@ -48,32 +57,33 @@ const SafeLink: FC<OwnProps & DispatchProps> = ({
 
   return (
     <a
-      href={getHref(url)}
-      title={getDecodedUrl(url)}
+      href={ensureProtocol(url)}
+      title={getDomain(url)}
       target="_blank"
       rel="noopener noreferrer"
       className={classNames}
       onClick={handleClick}
+      dir={isRtl ? 'rtl' : 'auto'}
     >
-      {children || text}
+      {content}
     </a>
   );
 };
 
-function getHref(url?: string) {
+function ensureProtocol(url?: string) {
   if (!url) {
     return undefined;
   }
 
-  return url.includes('://') ? url : `http://${url}`;
+  return url.includes('://') ? url : `https://${url}`;
 }
 
-function getDecodedUrl(url?: string) {
+function getDomain(url?: string) {
   if (!url) {
     return undefined;
   }
 
-  const href = getHref(url);
+  const href = ensureProtocol(url);
   if (!href) {
     return undefined;
   }
@@ -99,7 +109,4 @@ function getDecodedUrl(url?: string) {
   return undefined;
 }
 
-export default memo(withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['openTelegramLink']),
-)(SafeLink));
+export default memo(SafeLink);

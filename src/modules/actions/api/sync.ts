@@ -23,7 +23,7 @@ import {
   replaceThreadParam,
 } from '../../reducers';
 import {
-  selectUser, selectChat, selectCurrentMessageList, selectDraft,
+  selectUser, selectChat, selectCurrentMessageList, selectDraft, selectChatMessage, selectThreadInfo,
 } from '../../selectors';
 import { isChatPrivate } from '../../helpers';
 
@@ -85,6 +85,7 @@ async function loadAndReplaceChats() {
   const result = await callApi('fetchChats', {
     limit: CHAT_LIST_LOAD_SLICE,
     withPinned: true,
+    serverTimeOffset: getGlobal().serverTimeOffset,
   });
   if (!result) {
     return undefined;
@@ -141,9 +142,7 @@ async function loadAndReplaceChats() {
   global = updateChatListSecondaryInfo(global, 'active', result);
 
   Object.keys(result.draftsById).map(Number).forEach((chatId) => {
-    global = replaceThreadParam(
-      global, chatId, MAIN_THREAD_ID, 'draft', result.draftsById[chatId],
-    );
+    global = replaceThreadParam(global, chatId, MAIN_THREAD_ID, 'draft', result.draftsById[chatId]);
   });
 
   Object.keys(result.replyingToById).map(Number).forEach((chatId) => {
@@ -166,7 +165,9 @@ async function loadAndReplaceArchivedChats() {
     limit: CHAT_LIST_LOAD_SLICE,
     archived: true,
     withPinned: true,
+    serverTimeOffset: getGlobal().serverTimeOffset,
   });
+
   if (!result) {
     return;
   }
@@ -184,7 +185,7 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
   let users = savedUsers || [];
 
   let global = getGlobal();
-  const { chatId: currentChatId } = selectCurrentMessageList(global) || {};
+  const { chatId: currentChatId, threadId: currentThreadId } = selectCurrentMessageList(global) || {};
 
   // Memoize drafts
   const draftChatIds = Object.keys(global.messages.byChatId).map(Number);
@@ -197,6 +198,7 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
     const result = await loadTopMessages(global.chats.byId[currentChatId]);
     global = getGlobal();
     const { chatId: newCurrentChatId } = selectCurrentMessageList(global) || {};
+    const threadInfo = currentThreadId && selectThreadInfo(global, currentChatId, currentThreadId);
 
     if (result && newCurrentChatId === currentChatId) {
       const currentMessageListInfo = global.messages.byChatId[currentChatId];
@@ -223,6 +225,47 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
         },
       };
 
+      if (currentThreadId && threadInfo && threadInfo.originChannelId) {
+        const { originChannelId } = threadInfo;
+        const currentMessageListInfoOrigin = global.messages.byChatId[originChannelId];
+        const resultOrigin = await loadTopMessages(global.chats.byId[originChannelId]);
+        if (resultOrigin) {
+          const byIdOrigin = buildCollectionByKey(resultOrigin.messages, 'id');
+          const listedIdsOrigin = Object.keys(byIdOrigin)
+            .map(Number);
+
+          global = {
+            ...global,
+            messages: {
+              ...global.messages,
+              byChatId: {
+                ...global.messages.byChatId,
+                [threadInfo.originChannelId]: {
+                  byId: byIdOrigin,
+                  threadsById: {
+                    [MAIN_THREAD_ID]: {
+                      ...(currentMessageListInfoOrigin && currentMessageListInfoOrigin.threadsById[MAIN_THREAD_ID]),
+                      listedIds: listedIdsOrigin,
+                      viewportIds: listedIdsOrigin,
+                      outlyingIds: undefined,
+                    },
+                  },
+                },
+                [currentChatId]: {
+                  ...global.messages.byChatId[currentChatId],
+                  threadsById: {
+                    ...global.messages.byChatId[currentChatId].threadsById,
+                    [currentThreadId]: {
+                      ...(currentMessageListInfo && currentMessageListInfo.threadsById[currentThreadId]),
+                      outlyingIds: undefined,
+                    },
+                  },
+                },
+              },
+            },
+          };
+        }
+      }
       global = updateChats(global, buildCollectionByKey(result.chats, 'id'));
       global = updateThreadInfos(global, currentChatId, result.threadInfos);
 
@@ -254,6 +297,11 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
   }
 
   setGlobal(global);
+
+  const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
+  if (audioChatId && audioMessageId && !selectChatMessage(global, audioChatId, audioMessageId)) {
+    getDispatch().closeAudioPlayer();
+  }
 }
 
 async function loadAndUpdateUsers() {
