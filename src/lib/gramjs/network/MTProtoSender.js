@@ -7,6 +7,7 @@ const RPCResult = require('../tl/core/RPCResult');
 const MessageContainer = require('../tl/core/MessageContainer');
 const GZIPPacked = require('../tl/core/GZIPPacked');
 const RequestState = require('./RequestState');
+
 const {
     MsgsAck,
     upload,
@@ -169,6 +170,7 @@ class MTProtoSender {
             this._log.info('User is already connected!');
             return false;
         }
+        this.isConnecting = true;
         this._connection = connection;
 
         for (let attempt = 0; attempt < this._retries; attempt++) {
@@ -188,6 +190,7 @@ class MTProtoSender {
                 await Helpers.sleep(this._delay);
             }
         }
+        this.isConnecting = false;
         return true;
     }
 
@@ -287,6 +290,7 @@ class MTProtoSender {
                 await this._authKeyCallback(this.authKey, this._dcId);
             }
         } else {
+            this._authenticated = true;
             this._log.debug('Already have an auth key ...');
         }
         this._user_connected = true;
@@ -822,7 +826,7 @@ class MTProtoSender {
     async _reconnect() {
         this._log.debug('Closing current connection...');
         try {
-            await this.disconnect();
+            await this._disconnect();
         } catch (err) {
             this._log.warn(err);
         }
@@ -830,7 +834,14 @@ class MTProtoSender {
         this._send_queue.append(undefined);
         this._state.reset();
 
-        await this.connect(this._connection, true);
+        // For some reason reusing existing connection caused stuck requests
+        const newConnection = new this._connection.constructor(
+            this._connection._ip,
+            this._connection._port,
+            this._connection._dcId,
+            this._connection._log,
+        );
+        await this.connect(newConnection, true);
 
         this._reconnecting = false;
         // uncomment this if you want to resend

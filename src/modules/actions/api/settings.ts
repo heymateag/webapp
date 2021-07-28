@@ -3,7 +3,7 @@ import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 import { GlobalState } from '../../../global/types';
 import {
   ApiPrivacyKey, PrivacyVisibility, ProfileEditProgress, IInputPrivacyRules, IInputPrivacyContact,
-  UPLOADING_WALLPAPER_SLUG,
+  UPLOADING_WALLPAPER_SLUG, LangCode,
 } from '../../../types';
 
 import { callApi } from '../../../api/gramjs';
@@ -217,10 +217,10 @@ addReducer('loadBlockedContacts', () => {
 });
 
 addReducer('blockContact', (global, actions, payload) => {
-  const { contactId } = payload!;
+  const { contactId, accessHash } = payload!;
 
   (async () => {
-    const result = await callApi('blockContact', contactId);
+    const result = await callApi('blockContact', contactId, accessHash);
     if (!result) {
       return;
     }

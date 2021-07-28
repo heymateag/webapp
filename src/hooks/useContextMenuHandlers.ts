@@ -18,6 +18,7 @@ export default (
   elementRef: RefObject<HTMLElement>,
   isMenuDisabled?: boolean,
   shouldDisableOnLink?: boolean,
+  shouldDisableOnLongTap?: boolean,
 ) => {
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<IAnchorPosition | undefined>(undefined);
@@ -67,7 +68,7 @@ export default (
 
   // Support context menu on touch-devices
   useEffect(() => {
-    if (isMenuDisabled || !IS_TOUCH_ENV) {
+    if (isMenuDisabled || !IS_TOUCH_ENV || shouldDisableOnLongTap) {
       return undefined;
     }
 
@@ -88,9 +89,9 @@ export default (
     const emulateContextMenuEvent = (originalEvent: TouchEvent) => {
       clearLongPressTimer();
 
-      const { clientX, clientY } = originalEvent.touches[0];
+      const { clientX, clientY, target } = originalEvent.touches[0];
 
-      if (contextMenuPosition) {
+      if (contextMenuPosition || (shouldDisableOnLink && (target as HTMLElement).matches('a.text-entity-link[href]'))) {
         return;
       }
 
@@ -129,7 +130,7 @@ export default (
       element.removeEventListener('touchend', clearLongPressTimer, true);
       element.removeEventListener('touchmove', clearLongPressTimer);
     };
-  }, [contextMenuPosition, isMenuDisabled, elementRef]);
+  }, [contextMenuPosition, isMenuDisabled, shouldDisableOnLongTap, elementRef, shouldDisableOnLink]);
 
   return {
     isContextMenuOpen,

@@ -3,11 +3,9 @@ import React, {
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
-import {
-  formatMonthAndYear, formatHumanDate, formatTime,
-} from '../../util/dateFormat';
-import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
+import { formatTime, formatDateToString } from '../../util/dateFormat';
 import useLang, { LangFn } from '../../hooks/useLang';
+import usePrevious from '../../hooks/usePrevious';
 
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -28,7 +26,15 @@ export type OwnProps = {
   onSecondButtonClick?: NoneToVoidFunction;
 };
 
-const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEKDAY_LETTERS = [
+  'lng_weekday1',
+  'lng_weekday2',
+  'lng_weekday3',
+  'lng_weekday4',
+  'lng_weekday5',
+  'lng_weekday6',
+  'lng_weekday7',
+];
 
 const CalendarModal: FC<OwnProps> = ({
   selectedAt,
@@ -47,6 +53,7 @@ const CalendarModal: FC<OwnProps> = ({
   const now = new Date();
   const defaultSelectedDate = useMemo(() => (selectedAt ? new Date(selectedAt) : new Date()), [selectedAt]);
   const maxDate = maxAt ? new Date(maxAt) : undefined;
+  const prevIsOpen = usePrevious(isOpen);
 
   const [selectedDate, setSelectedDate] = useState<Date>(defaultSelectedDate);
   const [selectedHours, setSelectedHours] = useState<string>(
@@ -61,10 +68,10 @@ const CalendarModal: FC<OwnProps> = ({
   const currentDate = selectedDate.getDate();
 
   useEffect(() => {
-    if (isOpen) {
+    if (!prevIsOpen && isOpen) {
       setSelectedDate(defaultSelectedDate);
     }
-  }, [isOpen, defaultSelectedDate]);
+  }, [isOpen, defaultSelectedDate, prevIsOpen]);
 
   const shouldDisableNextMonth = (isPastMode && currentYear >= now.getFullYear() && currentMonth >= now.getMonth())
     || (maxDate && currentYear >= maxDate.getFullYear() && currentMonth >= maxDate.getMonth());
@@ -183,7 +190,9 @@ const CalendarModal: FC<OwnProps> = ({
           </Button>
 
           <h4>
-            {formatMonthAndYear(lang, selectedDate, IS_SINGLE_COLUMN_LAYOUT)}
+            {lang(`lng_month${selectedDate.getMonth() + 1}`)}
+            {' '}
+            {selectedDate.getFullYear()}
           </h4>
 
           <Button
@@ -210,9 +219,9 @@ const CalendarModal: FC<OwnProps> = ({
 
       <div className="calendar-wrapper">
         <div className="calendar-grid">
-          {WEEKDAY_LETTERS.map((letter) => (
+          {WEEKDAY_LETTERS.map((day) => (
             <div className="day-button faded weekday">
-              <span>{letter}</span>
+              <span>{lang(day)}</span>
             </div>
           ))}
           {calendarGrid.map((gridDate) => (
@@ -262,7 +271,7 @@ function buildCalendarGrid(year: number, month: number) {
   date.setMonth(month);
   date.setDate(1);
 
-  const monthStartDay = date.getDay();
+  const monthStartDay = date.getDay() || 7;
   // Fill empty cells
   for (let i = 1; i < monthStartDay; i++) {
     grid.push(0);
@@ -296,13 +305,14 @@ function formatInputTime(value: string | number) {
 }
 
 function formatSubmitLabel(lang: LangFn, date: Date) {
-  const day = formatHumanDate(lang, date, true);
+  const day = formatDateToString(date, lang.code);
+  const today = formatDateToString(new Date(), lang.code);
 
-  if (day === 'Today') {
+  if (day === today) {
     return lang('Conversation.ScheduleMessage.SendToday', formatTime(date));
   }
 
-  return lang('Conversation.ScheduleMessage.SendOn', day).replace('%@', formatTime(date));
+  return lang('Conversation.ScheduleMessage.SendOn', [day, formatTime(date)]);
 }
 
 export default memo(CalendarModal);
