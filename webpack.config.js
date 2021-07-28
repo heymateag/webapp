@@ -1,7 +1,8 @@
 const path = require('path');
-const dotenv = require('dotenv');
 
+const dotenv = require('dotenv');
 const { EnvironmentPlugin } = require('webpack');
+const webpack = require('webpack');
 const HtmlPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
@@ -94,8 +95,8 @@ module.exports = (env = {}, argv = {}) => {
       alias: {
         teact: path.resolve(__dirname, 'src/lib/teact/'),
         'teact-dom': 'teact/teact-dom',
-        react: 'teact/teact',
-        'react-dom': 'teact-dom',
+        // react: 'teact/teact',
+        // 'react-dom': 'teact/teact-dom',
       },
       extensions: ['.js', '.ts', '.tsx'],
     },

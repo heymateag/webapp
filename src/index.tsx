@@ -1,8 +1,8 @@
 import './util/handleError';
 import './util/setupServiceWorker';
 
-import React, { getDispatch, getGlobal } from './lib/teact/teactn';
 import TeactDOM from 'teact/teact-dom';
+import React, { getDispatch, getGlobal } from './lib/teact/teactn';
 import './global';
 
 import { DEBUG } from './config';

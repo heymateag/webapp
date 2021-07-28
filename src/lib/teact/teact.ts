@@ -9,7 +9,7 @@ import { removeAllDelegatedListeners } from './dom-events';
 
 export type Props = AnyLiteral;
 export type FC<P extends Props = any> = (props: P) => any;
-export type Component<P extends Props = any> = (props: P) => any;
+
 export type FC_withDebug = FC & {
   DEBUG_contentComponentName?: string;
 };
@@ -20,7 +20,6 @@ export enum VirtualElementTypesEnum {
   Tag,
   Component,
 }
-
 interface VirtualElementEmpty {
   type: VirtualElementTypesEnum.Empty;
   target?: Node;

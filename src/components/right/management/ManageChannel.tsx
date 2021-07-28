@@ -1,8 +1,8 @@
 import { ChangeEvent } from 'react';
 import React, {
   FC, memo, useCallback, useEffect, useState,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+} from 'teact/teact';
+import { withGlobal } from 'teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
 import { ManagementScreens, ManagementProgress } from '../../../types';

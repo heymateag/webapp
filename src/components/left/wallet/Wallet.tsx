@@ -1,12 +1,7 @@
-import { newKit } from '@celo/contractkit';
-import {useContractKit} from "@celo-tools/use-contractkit";
-import React, {
-  FC, memo, useEffect, useState,
-} from '../../../lib/teact/teact';
+import React, { FC } from 'teact/teact';
 import useLang from '../../../hooks/useLang';
 import './Wallet.scss';
 import Button from '../../ui/Button';
-
 
 // @ts-ignore
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
@@ -17,23 +12,7 @@ export type OwnProps = {
 };
 
 
-const Wallet: FC<OwnProps> = ({ onReset }) => {
-  const { kit, address, send } = useContractKit();
-  // eslint-disable-next-line global-require
-  // const [acc, setAcc] = useState();
-  // const kit = newKit('https://alfajores-forno.celo-testnet.org');
-  // useEffect(() => {
-  //   const accounts = async () => {
-  //     const res = await kit.web3.eth.getAccounts();
-  //
-  //     console.log('============= EHSAN ============');
-  //     console.log(res);
-  //
-  //     return res;
-  //   };
-  //   accounts();
-  // }, [kit]);
-
+const Wallet: FC <OwnProps> = ({ onReset }) => {
   const lang = useLang();
   return (
     <div className="UserWallet">

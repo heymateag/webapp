@@ -1,5 +1,6 @@
 import React, { FC, useCallback } from '../../lib/teact/teact';
 
+import useLang from '../../hooks/useLang';
 import buildClassName from '../../util/buildClassName';
 
 import './MenuItem.scss';

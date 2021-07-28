@@ -1,8 +1,8 @@
 import { RefObject } from 'react';
 import React, {
   FC, useLayoutEffect, useRef,
-} from '../../lib/teact/teact';
-import { getGlobal } from '../../lib/teact/teactn';
+} from 'teact/teact';
+import { getGlobal } from 'teact/teactn';
 
 import { ANIMATION_END_DELAY } from '../../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';

@@ -6,8 +6,8 @@ import React, {
   useLayoutEffect,
   useMemo,
   useRef,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+} from 'teact/teact';
+import { withGlobal } from 'teact/teactn';
 
 import { GlobalActions, MessageListType } from '../../../global/types';
 import {

@@ -1,6 +1,5 @@
-import { FC, useEffect } from './lib/teact/teact';
+import { FC, useEffect } from 'teact/teact';
 import React, { withGlobal } from './lib/teact/teactn';
-
 import { GlobalActions, GlobalState } from './global/types';
 
 import { INACTIVE_MARKER, PAGE_TITLE } from './config';
