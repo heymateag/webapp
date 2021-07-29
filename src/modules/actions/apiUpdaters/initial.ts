@@ -21,7 +21,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
   if (DEBUG) {
     if (update['@type'] !== 'updateUserStatus' && update['@type'] !== 'updateServerTimeOffset') {
       // eslint-disable-next-line no-console
-      console.log('[GramJs] UPDATE', update['@type'], { update });
+      // console.log('[GramJs] UPDATE', update['@type'], { update });
     }
   }
 

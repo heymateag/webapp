@@ -1,5 +1,7 @@
-import React, { FC } from 'teact/teact';
+import React, { FC, useEffect } from 'teact/teact';
+import { newKit } from '@celo/contractkit';
 import useLang from '../../../hooks/useLang';
+
 import './Wallet.scss';
 import Button from '../../ui/Button';
 
@@ -14,6 +16,15 @@ export type OwnProps = {
 
 const Wallet: FC <OwnProps> = ({ onReset }) => {
   const lang = useLang();
+  const kit = newKit('https://alfajores-forno.celo-testnet.org');
+  const getAccount = async () => {
+    const accounts = await kit.web3.eth.getAccounts();
+    console.log(accounts);
+    return accounts;
+  };
+  useEffect(() => {
+    getAccount();
+  }, []);
   return (
     <div className="UserWallet">
       <div className="left-header">

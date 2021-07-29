@@ -39,7 +39,7 @@ let isConnected = false;
 export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
   if (DEBUG) {
     // eslint-disable-next-line no-console
-    console.log('>>> START INIT API');
+    // console.log('>>> START INIT API');
   }
 
   onUpdate = _onUpdate;
@@ -65,7 +65,7 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
   try {
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log('[GramJs/client] CONNECTING');
+      // console.log('[GramJs/client] CONNECTING');
     }
 
     try {
@@ -92,9 +92,9 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
 
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log('>>> FINISH INIT API');
+      // console.log('>>> FINISH INIT API');
       // eslint-disable-next-line no-console
-      console.log('[GramJs/client] CONNECTED');
+      // console.log('[GramJs/client] CONNECTED');
     }
 
     onAuthReady();
@@ -105,7 +105,7 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
   } catch (err) {
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log('[GramJs/client] CONNECTING ERROR', err);
+      // console.log('[GramJs/client] CONNECTING ERROR', err);
     }
 
     throw err;
@@ -162,14 +162,14 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
   try {
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log(`[GramJs/client] INVOKE ${request.className}`);
+      // console.log(`[GramJs/client] INVOKE ${request.className}`);
     }
 
     const result = await client.invoke(request);
 
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log(`[GramJs/client] INVOKE RESPONSE ${request.className}`, result);
+      // console.log(`[GramJs/client] INVOKE RESPONSE ${request.className}`, result);
     }
 
     if (shouldHandleUpdates) {
@@ -204,7 +204,7 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
   } catch (err) {
     if (DEBUG) {
       // eslint-disable-next-line no-console
-      console.log(`[GramJs/client] INVOKE ERROR ${request.className}`);
+      // console.log(`[GramJs/client] INVOKE ERROR ${request.className}`);
       // eslint-disable-next-line no-console
       console.error(err);
     }

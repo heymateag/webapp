@@ -1,10 +1,6 @@
 {
   "name": "telegram-t",
-<<<<<<< HEAD
-  "version": "1.0.0-0",
-=======
   "version": "1.7.0",
->>>>>>> 4c1595b0f7a239feb4aa141f1db0b83aa28607df
   "description": "",
   "main": "index.js",
   "scripts": {
