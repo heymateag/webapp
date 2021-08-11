@@ -5,7 +5,7 @@ import { withGlobal } from '../../../lib/teact/teactn';
 
 import useLang, { LangFn } from '../../../hooks/useLang';
 
-import { GlobalActions, MessageListType } from '../../../global/types';
+import { GlobalActions } from '../../../global/types';
 import {
   ApiChat, ApiUser, ApiMessage, ApiMessageOutgoingStatus, ApiFormattedText, MAIN_THREAD_ID,
 } from '../../../api/types';
@@ -66,16 +66,16 @@ type StateProps = {
   chat?: ApiChat;
   isMuted?: boolean;
   privateChatUser?: ApiUser;
-  usersById?: Record<number, ApiUser>;
   actionTargetUserIds?: number[];
+  usersById?: Record<number, ApiUser>;
   actionTargetMessage?: ApiMessage;
   actionTargetChatId?: number;
   lastMessageSender?: ApiUser;
   lastMessageOutgoingStatus?: ApiMessageOutgoingStatus;
   draft?: ApiFormattedText;
-  messageListType?: MessageListType;
   animationLevel?: number;
   isSelected?: boolean;
+  canScrollDown?: boolean;
   lastSyncTime?: number;
 };
 
@@ -92,17 +92,17 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   isPinned,
   chat,
   isMuted,
-  usersById,
   privateChatUser,
   actionTargetUserIds,
+  usersById,
   lastMessageSender,
   lastMessageOutgoingStatus,
   actionTargetMessage,
   actionTargetChatId,
   draft,
-  messageListType,
   animationLevel,
   isSelected,
+  canScrollDown,
   lastSyncTime,
   openChat,
   focusLastMessage,
@@ -167,14 +167,14 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [animationLevel, orderDiff, animationType]);
 
   const handleClick = useCallback(() => {
-    openChat({ id: chatId });
+    openChat({ id: chatId, shouldReplaceHistory: true });
 
-    if (isSelected && messageListType === 'thread') {
+    if (isSelected && canScrollDown) {
       focusLastMessage();
     }
   }, [
     isSelected,
-    messageListType,
+    canScrollDown,
     openChat,
     chatId,
     focusLastMessage,
@@ -338,22 +338,23 @@ export default memo(withGlobal<OwnProps>(
       threadId: currentThreadId,
       type: messageListType,
     } = selectCurrentMessageList(global) || {};
+    const isSelected = chatId === currentChatId && currentThreadId === MAIN_THREAD_ID;
 
     return {
       chat,
       isMuted: selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global)),
       lastMessageSender,
-      ...(isOutgoing && { lastMessageOutgoingStatus: selectOutgoingStatus(global, chat.lastMessage) }),
-      ...(privateChatUserId && { privateChatUser: selectUser(global, privateChatUserId) }),
-      usersById,
       actionTargetUserIds,
       actionTargetChatId,
       actionTargetMessage,
       draft: selectDraft(global, chatId, MAIN_THREAD_ID),
-      messageListType,
       animationLevel: global.settings.byKey.animationLevel,
-      isSelected: chatId === currentChatId && currentThreadId === MAIN_THREAD_ID,
+      isSelected,
+      canScrollDown: isSelected && messageListType === 'thread',
       lastSyncTime: global.lastSyncTime,
+      ...(isOutgoing && { lastMessageOutgoingStatus: selectOutgoingStatus(global, chat.lastMessage) }),
+      ...(privateChatUserId && { privateChatUser: selectUser(global, privateChatUserId) }),
+      ...(actionTargetUserIds && { usersById }),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

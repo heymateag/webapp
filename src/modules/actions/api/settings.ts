@@ -3,11 +3,12 @@ import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 import { GlobalState } from '../../../global/types';
 import {
   ApiPrivacyKey, PrivacyVisibility, ProfileEditProgress, IInputPrivacyRules, IInputPrivacyContact,
-  UPLOADING_WALLPAPER_SLUG, LangCode,
+  UPLOADING_WALLPAPER_SLUG,
 } from '../../../types';
 
 import { callApi } from '../../../api/gramjs';
 import { buildCollectionByKey } from '../../../util/iteratees';
+import { subscribe, unsubscribe } from '../../../util/notifications';
 import { selectUser } from '../../selectors';
 import {
   addUsers, addBlockedContact, updateChats, updateUser, removeBlockedContact, replaceSettings, updateNotifySettings,
@@ -343,6 +344,19 @@ addReducer('updateNotificationSettings', (global, actions, payload) => {
     }
 
     setGlobal(updateNotifySettings(getGlobal(), peerType, isSilent, shouldShowPreviews));
+  })();
+});
+
+addReducer('updateWebNotificationSettings', (global, actions, payload) => {
+  (async () => {
+    setGlobal(replaceSettings(getGlobal(), payload));
+    const newGlobal = getGlobal();
+    const { hasPushNotifications, hasWebNotifications } = newGlobal.settings.byKey;
+    if (hasWebNotifications && hasPushNotifications) {
+      await subscribe();
+    } else {
+      await unsubscribe();
+    }
   })();
 });
 

@@ -153,12 +153,24 @@
       display: inline-block;
       background: var(--pattern-color);
       color: white;
-      font-size: 0.9375rem;
+      font-size: calc(var(--message-text-size, 1rem) - .0625rem);
       font-weight: 500;
-      line-height: 1.5rem;
+      line-height: 1.75;
       padding: 0 .5rem;
-      border-radius: 0.75rem;
+      border-radius: 2rem;
       word-break: break-word;
+
+      body.is-ios &,
+      body.is-macos & {
+        font-size: calc(var(--message-text-size, 1rem) - .125rem);
+      }
+
+      .emoji-small {
+        vertical-align: text-bottom;
+        width: calc(1.25 * var(--message-text-size, 1rem));
+        height: calc(1.25 * var(--message-text-size, 1rem));
+        background-size: calc(1.25 * var(--message-text-size, 1rem));
+      }
     }
 
     &.rich {
@@ -286,12 +298,11 @@
   }
 
   &.select-mode-active,
-  &.has-focusing,
+  &.has-focus-highlight,
   body.has-context-menu &,
   .animating > div > & {
     /*
-      We need to remove the width of the scrollbar for the full-width selection and
-      compensate for it with a right padding
+      Remove scrollbar for full-width selection and compensate it with right padding
     */
     &::-webkit-scrollbar {
       width: 0;
@@ -307,7 +318,7 @@
   }
 
   .is-safari &.select-mode-active,
-  .is-safari &.has-focusing,
+  .is-safari &.has-focus-highlight,
   .is-safari.has-context-menu .messages-layout & {
     padding-right: .375rem;
   }

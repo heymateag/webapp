@@ -5,10 +5,11 @@ import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import { GlobalActions } from '../../global/types';
 import { ApiMessage } from '../../api/types';
+import { LangCode } from '../../types';
 
 import '../../modules/actions/all';
 import {
-  ANIMATION_END_DELAY, DEBUG, INACTIVE_MARKER, PAGE_TITLE,
+  BASE_EMOJI_KEYWORD_LANG, DEBUG, INACTIVE_MARKER, PAGE_TITLE,
 } from '../../config';
 import { pick } from '../../util/iteratees';
 import {
@@ -20,9 +21,12 @@ import {
 } from '../../modules/selectors';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import buildClassName from '../../util/buildClassName';
+import { fastRaf } from '../../util/schedulers';
+import { waitForTransitionEnd } from '../../util/cssAnimationEndListeners';
 import useShowTransition from '../../hooks/useShowTransition';
 import useBackgroundMode from '../../hooks/useBackgroundMode';
 import useBeforeUnload from '../../hooks/useBeforeUnload';
+import useOnChange from '../../hooks/useOnChange';
 
 import LeftColumn from '../left/LeftColumn';
 import MiddleColumn from '../middle/MiddleColumn';
@@ -50,17 +54,16 @@ type StateProps = {
   safeLinkModalUrl?: string;
   isHistoryCalendarOpen: boolean;
   shouldSkipHistoryAnimations?: boolean;
+  language?: LangCode;
 };
 
 type DispatchProps = Pick<GlobalActions, (
   'loadAnimatedEmojis' | 'loadNotificationSettings' | 'loadNotificationExceptions' | 'updateIsOnline' |
-  'loadTopInlineBots'
+  'loadTopInlineBots' | 'loadEmojiKeywords'
 )>;
 
-const ANIMATION_DURATION = 350;
 const NOTIFICATION_INTERVAL = 1000;
 
-let rightColumnAnimationTimeout: number | undefined;
 let notificationInterval: number | undefined;
 
 let DEBUG_isLogged = false;
@@ -78,11 +81,13 @@ const Main: FC<StateProps & DispatchProps> = ({
   safeLinkModalUrl,
   isHistoryCalendarOpen,
   shouldSkipHistoryAnimations,
+  language,
   loadAnimatedEmojis,
   loadNotificationSettings,
   loadNotificationExceptions,
   updateIsOnline,
   loadTopInlineBots,
+  loadEmojiKeywords,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
@@ -98,10 +103,15 @@ const Main: FC<StateProps & DispatchProps> = ({
       loadNotificationSettings();
       loadNotificationExceptions();
       loadTopInlineBots();
+
+      loadEmojiKeywords({ language: BASE_EMOJI_KEYWORD_LANG });
+      if (language !== BASE_EMOJI_KEYWORD_LANG) {
+        loadEmojiKeywords({ language });
+      }
     }
   }, [
     lastSyncTime, loadAnimatedEmojis, loadNotificationExceptions, loadNotificationSettings, updateIsOnline,
-    loadTopInlineBots,
+    loadTopInlineBots, loadEmojiKeywords, language,
   ]);
 
   const {
@@ -119,23 +129,37 @@ const Main: FC<StateProps & DispatchProps> = ({
     shouldSkipHistoryAnimations && 'history-animation-disabled',
   );
 
-  // Add `body` classes when toggling right column
-  useEffect(() => {
-    if (animationLevel > 0) {
-      document.body.classList.add('animating-right-column');
-      dispatchHeavyAnimationEvent(ANIMATION_DURATION + ANIMATION_END_DELAY);
-
-      if (rightColumnAnimationTimeout) {
-        clearTimeout(rightColumnAnimationTimeout);
-        rightColumnAnimationTimeout = undefined;
-      }
-
-      rightColumnAnimationTimeout = window.setTimeout(() => {
-        document.body.classList.remove('animating-right-column');
-        rightColumnAnimationTimeout = undefined;
-      }, ANIMATION_DURATION + ANIMATION_END_DELAY);
+  // Dispatch heavy transition event when opening middle column
+  useOnChange(([prevIsLeftColumnShown]) => {
+    if (prevIsLeftColumnShown === undefined || animationLevel === 0) {
+      return;
     }
-  }, [animationLevel, isRightColumnShown]);
+
+    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+
+    waitForTransitionEnd(document.getElementById('MiddleColumn')!, dispatchHeavyAnimationEnd);
+  }, [isLeftColumnShown]);
+
+  // Dispatch heavy transition event and add body class when opening right column
+  useOnChange(([prevIsRightColumnShown]) => {
+    if (prevIsRightColumnShown === undefined || animationLevel === 0) {
+      return;
+    }
+
+    fastRaf(() => {
+      document.body.classList.add('animating-right-column');
+    });
+
+    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+
+    waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
+      dispatchHeavyAnimationEnd();
+
+      fastRaf(() => {
+        document.body.classList.remove('animating-right-column');
+      });
+    });
+  }, [isRightColumnShown]);
 
   const handleBlur = useCallback(() => {
     updateIsOnline(false);
@@ -153,11 +177,11 @@ const Main: FC<StateProps & DispatchProps> = ({
       if (index % 2 === 0) {
         const newUnread = selectCountNotMutedUnread(getGlobal()) - initialUnread;
         if (newUnread > 0) {
-          document.title = `${newUnread} notification${newUnread > 1 ? 's' : ''}`;
+          updatePageTitle(`${newUnread} notification${newUnread > 1 ? 's' : ''}`);
           updateIcon(true);
         }
       } else {
-        document.title = PAGE_TITLE;
+        updatePageTitle(PAGE_TITLE);
         updateIcon(false);
       }
 
@@ -172,7 +196,7 @@ const Main: FC<StateProps & DispatchProps> = ({
     notificationInterval = undefined;
 
     if (!document.title.includes(INACTIVE_MARKER)) {
-      document.title = PAGE_TITLE;
+      updatePageTitle(PAGE_TITLE);
     }
 
     updateIcon(false);
@@ -216,6 +240,14 @@ function updateIcon(asUnread: boolean) {
     });
 }
 
+// For some reason setting `document.title` to the same value
+// causes increment of Chrome Dev Tools > Performance Monitor > DOM Nodes counter
+function updatePageTitle(nextTitle: string) {
+  if (document.title !== nextTitle) {
+    document.title = nextTitle;
+  }
+}
+
 export default memo(withGlobal(
   (global): StateProps => {
     const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
@@ -236,10 +268,11 @@ export default memo(withGlobal(
       safeLinkModalUrl: global.safeLinkModalUrl,
       isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
+      language: global.settings.byKey.language,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
-    'loadTopInlineBots',
+    'loadTopInlineBots', 'loadEmojiKeywords',
   ]),
 )(Main));

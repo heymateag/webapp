@@ -142,7 +142,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [searchQuery, onSearchQuery]);
 
   const handleSelectSaved = useCallback(() => {
-    openChat({ id: currentUserId });
+    openChat({ id: currentUserId, shouldReplaceHistory: true });
   }, [currentUserId, openChat]);
 
   const handleDarkModeToggle = useCallback((e: React.SyntheticEvent<HTMLElement>) => {
@@ -168,6 +168,10 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const handleSwitchToWebK = () => {
     localStorage.setItem(PERMANENT_VERSION_KEY, JSON.stringify('K'));
     disableHistoryBack();
+  };
+
+  const handleOpenTipsChat = () => {
+    openTipsChat({ langCode: lang.code });
   };
 
   const isSearchFocused = (
@@ -251,7 +255,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           </MenuItem>
           <MenuItem
             icon="icon-help"
-            onClick={openTipsChat}
+            onClick={handleOpenTipsChat}
           >
             {lang('TelegramFeatures')}
           </MenuItem>

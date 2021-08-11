@@ -3,7 +3,9 @@ import { NewChatMembersProgress } from '../types';
 
 import {
   ANIMATION_LEVEL_DEFAULT, DARK_THEME_PATTERN_COLOR, DEFAULT_MESSAGE_TEXT_SIZE_PX, DEFAULT_PATTERN_COLOR,
+  IOS_DEFAULT_MESSAGE_TEXT_SIZE_PX, MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX,
 } from '../config';
+import { IS_IOS, IS_MAC_OS } from '../util/environment';
 
 export const INITIAL_STATE: GlobalState = {
   isLeftColumnShown: true,
@@ -33,6 +35,7 @@ export const INITIAL_STATE: GlobalState = {
 
   messages: {
     byChatId: {},
+    messageLists: [],
   },
 
   scheduledMessages: {
@@ -57,6 +60,9 @@ export const INITIAL_STATE: GlobalState = {
       stickers: [],
     },
     favorite: {
+      stickers: [],
+    },
+    greeting: {
       stickers: [],
     },
     featured: {
@@ -118,13 +124,18 @@ export const INITIAL_STATE: GlobalState = {
     byKey: {
       theme: 'light',
       shouldUseSystemTheme: true,
-      messageTextSize: DEFAULT_MESSAGE_TEXT_SIZE_PX,
+      messageTextSize: IS_IOS
+        ? IOS_DEFAULT_MESSAGE_TEXT_SIZE_PX
+        : (IS_MAC_OS ? MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX : DEFAULT_MESSAGE_TEXT_SIZE_PX),
       animationLevel: ANIMATION_LEVEL_DEFAULT,
       messageSendKeyCombo: 'enter',
       shouldAutoDownloadMediaFromContacts: true,
       shouldAutoDownloadMediaInPrivateChats: true,
       shouldAutoDownloadMediaInGroups: true,
       shouldAutoDownloadMediaInChannels: true,
+      hasWebNotifications: true,
+      hasPushNotifications: true,
+      notificationSoundVolume: 5,
       shouldAutoPlayGifs: true,
       shouldAutoPlayVideos: true,
       shouldSuggestStickers: true,

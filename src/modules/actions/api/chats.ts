@@ -15,6 +15,7 @@ import {
   RE_TME_INVITE_LINK,
   RE_TME_LINK,
   TIPS_USERNAME,
+  LOCALIZED_TIPS,
 } from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import {
@@ -131,8 +132,14 @@ addReducer('openSupportChat', (global, actions) => {
   })();
 });
 
-addReducer('openTipsChat', (global, actions) => {
-  actions.openChatByUsername({ username: TIPS_USERNAME });
+addReducer('openTipsChat', (global, actions, payload) => {
+  const { langCode } = payload;
+
+  const usernamePostfix = langCode === 'pt-br'
+    ? 'BR'
+    : LOCALIZED_TIPS.includes(langCode) ? (langCode as string).toUpperCase() : '';
+
+  actions.openChatByUsername({ username: `${TIPS_USERNAME}${usernamePostfix}` });
 });
 
 addReducer('loadMoreChats', (global, actions, payload) => {
@@ -436,9 +443,15 @@ addReducer('openTelegramLink', (global, actions, payload) => {
     match = RE_TME_LINK.exec(url)!;
 
     const username = match[1];
-    const channelPostId = match[2] ? Number(match[2]) : undefined;
+    const chatOrChannelPostId = match[2] ? Number(match[2]) : undefined;
+    const messageId = match[3] ? Number(match[3]) : undefined;
 
-    void openChatByUsername(actions, username, channelPostId);
+    // Open message in private chat
+    if (username === 'c' && chatOrChannelPostId && messageId) {
+      actions.focusMessage({ chatId: -chatOrChannelPostId, messageId });
+    } else {
+      void openChatByUsername(actions, username, chatOrChannelPostId);
+    }
   }
 });
 

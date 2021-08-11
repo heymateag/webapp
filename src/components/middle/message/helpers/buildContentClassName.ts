@@ -16,6 +16,7 @@ export function buildContentClassName(
     hasThread,
     forceSenderName,
     hasComments,
+    hasActionButton,
     isHeymateMsg,
   }: {
     hasReply?: boolean;
@@ -25,6 +26,7 @@ export function buildContentClassName(
     hasThread?: boolean;
     forceSenderName?: boolean;
     hasComments?: boolean;
+    hasActionButton?: boolean;
     isHeymateMsg?: boolean;
   } = {},
 ) {
@@ -41,6 +43,10 @@ export function buildContentClassName(
     classNames.push(`emoji-only emoji-only-${customShape}`);
   } else if (text) {
     classNames.push('text');
+  }
+
+  if (hasActionButton) {
+    classNames.push('has-action-button');
   }
 
   if (customShape) {

@@ -3,26 +3,41 @@
   max-width: var(--max-width);
 
   @media (max-width: 600px) {
-    max-width: calc(100vw - 7rem);
+    max-width: calc(100vw - 6.25rem);
 
-    // Workaround for sass function override - we should use CSS min() here
-    @supports (max-width: #{"min(29rem, 100vw - 7rem)"}) {
-      max-width: #{"min(29rem, 100vw - 7rem)"};
+    .Message.own &,
+    .MessageList.no-avatars & {
+      max-width: calc(100vw - 3.75rem);
     }
 
-    .MessageList.no-avatars & {
-      max-width: calc(100vw - 4.5rem);
-
-      @supports (max-width: #{"min(29rem, 100vw - 4.5rem)"}) {
-        max-width: #{"min(29rem, 100vw - 4.5rem)"};
+    // Workaround for sass function override - we should use CSS min() here
+    @supports (max-width: #{"min(29rem, 100vw - 6.25rem)"}) {
+      max-width: #{"min(29rem, 100vw - 6.25rem)"};
+      .MessageList.no-avatars & {
+        max-width: #{"min(29rem, 100vw - 3.75rem)"};
+      }
+      .Message.own & {
+        max-width: #{"min(30rem, 100vw - 3.75rem)"};
       }
     }
 
-    .Message.own & {
-      max-width: calc(100vw - 4.5rem);
+    &.has-action-button {
+      max-width: calc(100vw - 7rem);
 
-      @supports (max-width: #{"min(30rem, 100vw - 4.5rem)"}) {
-        max-width: #{"min(30rem, 100vw - 4.5rem)"};
+      .Message.own &,
+      .MessageList.no-avatars & {
+        max-width: calc(100vw - 4.5rem);
+      }
+
+      // Workaround for sass function override - we should use CSS min() here
+      @supports (max-width: #{"min(29rem, 100vw - 5.5rem)"}) {
+        max-width: #{"min(29rem, 100vw - 7rem)"};
+        .MessageList.no-avatars & {
+          max-width: #{"min(29rem, 100vw - 4.5rem)"};
+        }
+        .Message.own & {
+          max-width: #{"min(30rem, 100vw - 4.5rem)"};
+        }
       }
     }
   }
@@ -44,12 +59,34 @@
   &.document {
     & > .MessageMeta {
       position: relative;
-      top: .4375rem;
+      top: .375rem;
       bottom: auto !important;
       float: right;
       line-height: 1;
+      height: calc(var(--message-meta-height, 1rem));
       margin-left: .4375rem;
       margin-right: -.5rem;
+
+      .MessageOutgoingStatus .Transition {
+        max-height: calc(var(--message-meta-height, 1rem));
+        overflow: hidden;
+      }
+
+      html[data-message-text-size="12"] & {
+        top: .25rem;
+      }
+
+      html[data-message-text-size="17"] & {
+        top: .4375rem;
+      }
+
+      html[data-message-text-size="18"] &,
+      html[data-message-text-size="19"] & {
+        top: .5rem;
+      }
+      html[data-message-text-size="20"] & {
+        top: .5625rem;
+      }
     }
 
     &:dir(rtl) {
@@ -69,7 +106,7 @@
     }
 
     & > .MessageMeta {
-      top: auto;
+      top: auto !important;
       bottom: -.5rem !important;
       margin-top: -.25rem;
       &:not([dir=rtl]) {
@@ -90,6 +127,9 @@
 
   &:not(.custom-shape) {
     font-size: var(--message-text-size, 1rem);
+    body.is-ios & {
+      font-size: var(--message-text-size, 1.0625rem);
+    }
 
     & > .content-inner {
       min-width: 0;
@@ -106,7 +146,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.875rem;
+    font-size: calc(var(--message-text-size, 1rem) - .125rem);
     font-weight: 500;
     line-height: 1.25rem;
     color: var(--accent-color);
@@ -222,6 +262,7 @@
     bottom: -.0875rem;
     width: .5625rem;
     height: 1.125rem;
+    font-size: 1rem !important;
 
     .corner {
       fill: var(--background-color);
@@ -314,6 +355,7 @@
 
   &:not(.custom-shape) .text-content .emoji {
     width: calc(1.25 * var(--message-text-size, 1rem));
+    height: calc(1.25 * var(--message-text-size, 1rem));
     background-size: calc(1.25 * var(--message-text-size, 1rem));
   }
 
@@ -325,7 +367,7 @@
   &.custom-shape.is-via-bot {
     font-size: inherit !important;
 
-    .message-title {
+    .content-inner > .message-title {
       display: inline-flex;
       position: relative;
       top: .125rem;
@@ -693,4 +735,5 @@
   margin: 0;
   padding: 1px 2px;
   border-radius: 4px;
+  font-size: calc(var(--message-text-size, 1rem) - 0.0625rem);
 }

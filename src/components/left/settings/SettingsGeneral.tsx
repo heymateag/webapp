@@ -7,7 +7,7 @@ import { GlobalActions } from '../../../global/types';
 import { SettingsScreens, ISettings } from '../../../types';
 import { ApiSticker, ApiStickerSet } from '../../../api/types';
 
-import { IS_MAC_OS, IS_TOUCH_ENV } from '../../../util/environment';
+import { IS_IOS, IS_MAC_OS, IS_TOUCH_ENV } from '../../../util/environment';
 import { pick } from '../../../util/iteratees';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
@@ -111,7 +111,12 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [setSettingOption]);
 
   const handleMessageTextSizeChange = useCallback((newSize: number) => {
+    document.documentElement.style.setProperty(
+      '--composer-text-size', `${Math.max(newSize, IS_IOS ? 16 : 15)}px`,
+    );
+    document.documentElement.style.setProperty('--message-meta-height', `${Math.floor(newSize * 1.3125)}px`);
     document.documentElement.style.setProperty('--message-text-size', `${newSize}px`);
+    document.documentElement.setAttribute('data-message-text-size', newSize.toString());
 
     setSettingOption({ messageTextSize: newSize });
   }, [setSettingOption]);

@@ -23,6 +23,10 @@
     }
   }
 
+  .form-control {
+    --border-width: 0;
+  }
+
   > .Button {
     flex-shrink: 0;
     margin-left: .5rem;
@@ -93,6 +97,10 @@
       }
     }
 
+    &.not-ready > i {
+      animation-duration: 0ms !important;
+    }
+
     body.animation-level-0 &, body.animation-level-1 & {
       .icon-send, .icon-microphone-alt, .icon-check {
         animation-duration: 0ms !important;
@@ -121,6 +129,10 @@
 
     .icon-keyboard, .Spinner {
       animation: hide-icon .4s forwards ease-out;
+    }
+
+    &.not-ready > i {
+      animation-duration: 0ms !important;
     }
 
     &.is-loading {
@@ -155,7 +167,6 @@
   position: relative;
   z-index: 1;
 
-
   .svg-appendix {
     position: absolute;
     bottom: -.1875rem;
@@ -163,6 +174,7 @@
     width: .5625rem;
     height: 1.25rem;
     transition: opacity 200ms;
+    font-size: 1rem !important;
 
     .corner {
       fill: var(--color-background);
@@ -256,13 +268,18 @@
   position: relative;
 
   .form-control {
-    padding-top: calc(1rem - var(--border-width));
-    padding-bottom: calc(1rem - var(--border-width));
+    padding: calc((3.25rem - var(--composer-text-size, 1rem) * 1.375) / 2 - var(--border-width, 0) * 2)  calc(.9rem - var(--border-width));
     overflow: hidden;
-    line-height: 1.375rem;
+    line-height: 1.375;
     font-family: Roboto, -apple-system, "Apple Color Emoji", "Helvetica Neue", sans-serif;
     unicode-bidi: plaintext;
     text-align: initial;
+    font-size: var(--composer-text-size, 1rem);
+
+    body.is-ios &,
+    body.is-macos & {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Apple Color Emoji", "Helvetica Neue", sans-serif;
+    }
 
     &.overflown {
       overflow-y: auto;
@@ -283,15 +300,14 @@
   .forced-placeholder,
   .placeholder-text {
     position: absolute;
-    bottom: .9375rem;
     color: var(--color-placeholders);
     pointer-events: none;
     unicode-bidi: plaintext;
     text-align: initial;
-
-    @media (max-width: 600px) {
-      bottom: .625rem;
-    }
+    line-height: 1.3125;
+    font-size: var(--composer-text-size, 1rem);
+    top: calc((3.25rem - var(--composer-text-size, 1rem) * 1.375) / 2);
+    bottom: auto;
   }
 
   .forced-placeholder {
@@ -342,15 +358,13 @@
     min-height: 3.5rem;
     max-height: 26rem;
     line-height: 1.3125;
-    padding-top: calc(1.15625rem - var(--border-width));
-    padding-bottom: calc(1.15625rem - var(--border-width));
+    padding: calc((3.5rem - var(--composer-text-size, 1rem) * 1.3125) / 2) 0;
 
     @media (max-width: 600px) {
       height: 2.875rem;
       min-height: 2.875rem;
       max-height: 16rem;
-      padding-top: calc(0.84375rem - var(--border-width));
-      padding-bottom: calc(0.84375rem - var(--border-width));
+      padding: calc((2.875rem - var(--composer-text-size, 1rem) * 1.3125) / 2) 0;
       overflow: auto;
     }
 
@@ -358,6 +372,15 @@
 
     body.animation-level-0 & {
       transition: none !important;
+    }
+  }
+
+  .forced-placeholder,
+  .placeholder-text {
+    top: calc((3.5rem - var(--composer-text-size, 1rem) * 1.3125) / 2);
+
+    @media (max-width: 600px) {
+      top: calc((2.875rem - var(--composer-text-size, 1rem) * 1.3125) / 2);
     }
   }
 

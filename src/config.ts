@@ -32,6 +32,7 @@ export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
 export const LANG_CACHE_NAME = 'tt-lang-packs-v5';
 export const ASSET_CACHE_NAME = 'tt-assets';
+export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 
 export const DOWNLOAD_WORKERS = 16;
 export const UPLOAD_WORKERS = 16;
@@ -66,6 +67,8 @@ export const ANIMATION_LEVEL_MAX = 2;
 export const ANIMATION_LEVEL_DEFAULT = ANIMATION_LEVEL_MAX;
 
 export const DEFAULT_MESSAGE_TEXT_SIZE_PX = 16;
+export const IOS_DEFAULT_MESSAGE_TEXT_SIZE_PX = 17;
+export const MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX = 15;
 
 export const DRAFT_DEBOUNCE = 10000; // 10s
 
@@ -126,7 +129,7 @@ export const CONTENT_TYPES_FOR_QUICK_UPLOAD = new Set([
 // eslint-disable-next-line max-len
 export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,63})\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)';
 export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
-export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?$/gm;
+export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?(?:\/([\d]+))?$/gm;
 export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_-]+)?$/gm;
 
 // MTProto constants
@@ -141,6 +144,7 @@ export const DEFAULT_LANG_CODE = 'en';
 export const DEFAULT_LANG_PACK = 'android';
 export const LANG_PACKS = ['android', 'ios', 'tdesktop', 'macos'] as const;
 export const TIPS_USERNAME = 'TelegramTips';
+export const LOCALIZED_TIPS = ['ar', 'pt-br', 'id', 'it', 'ko', 'ms', 'pl', 'es', 'tr'];
 export const FEEDBACK_URL = 'https://bugs.telegram.org/?tag_ids=41&sort=time';
 export const LIGHT_THEME_BG_COLOR = '#A2AF8E';
 export const DARK_THEME_BG_COLOR = '#0F0F0F';

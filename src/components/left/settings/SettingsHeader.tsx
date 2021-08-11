@@ -1,5 +1,5 @@
 import React, {
-  FC, useCallback, useMemo, memo, useState,
+  FC, memo, useCallback, useMemo, useState,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
@@ -156,6 +156,7 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
       case SettingsScreens.FoldersCreateFolder:
         return <h3>{lang('FilterNew')}</h3>;
       case SettingsScreens.FoldersEditFolder:
+      case SettingsScreens.FoldersEditFolderFromChatList:
         return (
           <div className="settings-main-header">
             <h3>{lang('FilterEdit')}</h3>
@@ -167,21 +168,24 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
                 positionX="right"
               >
                 <MenuItem icon="delete" destructive onClick={openDeleteFolderConfirmation}>
-                  Delete Folder
+                  {lang('Delete')}
                 </MenuItem>
               </DropdownMenu>
             )}
           </div>
         );
       case SettingsScreens.FoldersIncludedChats:
+      case SettingsScreens.FoldersIncludedChatsFromChatList:
       case SettingsScreens.FoldersExcludedChats:
+      case SettingsScreens.FoldersExcludedChatsFromChatList:
         return (
           <div className="settings-main-header">
-            {currentScreen === SettingsScreens.FoldersIncludedChats ? (
-              <h3>{lang('FilterInclude')}</h3>
-            ) : (
-              <h3>{lang('FilterExclude')}</h3>
-            )}
+            {(currentScreen === SettingsScreens.FoldersIncludedChats
+              || currentScreen === SettingsScreens.FoldersIncludedChatsFromChatList) ? (
+                <h3>{lang('FilterInclude')}</h3>
+              ) : (
+                <h3>{lang('FilterExclude')}</h3>
+              )}
 
             <Button
               round
@@ -228,16 +232,16 @@ const SettingsHeader: FC<OwnProps & DispatchProps> = ({
       <ConfirmDialog
         isOpen={isSignOutDialogOpen}
         onClose={closeSignOutConfirmation}
-        text="Are you sure you want to log out?"
-        confirmLabel="Log Out"
+        text={lang('lng_sure_logout')}
+        confirmLabel={lang('AccountSettings.Logout')}
         confirmHandler={handleSignOutMessage}
         confirmIsDestructive
       />
       <ConfirmDialog
         isOpen={isDeleteFolderDialogOpen}
         onClose={closeDeleteFolderConfirmation}
-        text="Are you sure you want to delete this folder?"
-        confirmLabel="Delete"
+        text={lang('FilterDeleteAlert')}
+        confirmLabel={lang('Delete')}
         confirmHandler={handleDeleteFolderMessage}
         confirmIsDestructive
       />

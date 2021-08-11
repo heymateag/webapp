@@ -69,7 +69,7 @@ class TelegramClient {
      * @param opts
      */
     constructor(session, apiId, apiHash, opts = TelegramClient.DEFAULT_OPTIONS) {
-        if (apiId === undefined || apiHash === undefined) {
+        if (!apiId || !apiHash) {
             throw Error('Your API ID or Hash are invalid. Please read "Requirements" on README.md');
         }
         const args = { ...TelegramClient.DEFAULT_OPTIONS, ...opts };
@@ -317,15 +317,18 @@ class TelegramClient {
     // endregion
     // export region
 
-    _cleanupExportedSender(dcId) {
+    async _cleanupExportedSender(dcId) {
         if (this.session.dcId !== dcId) {
             this.session.setAuthKey(undefined, dcId);
         }
+        const sender = await this._exportedSenderPromises[dcId];
         this._exportedSenderPromises[dcId] = undefined;
+        await sender.disconnect();
     }
 
     async _connectSender(sender, dcId) {
-        const dc = utils.getDC(dcId);
+        // if we don't already have an auth key we want to use normal DCs not -1
+        const dc = utils.getDC(dcId, !!sender.authKey.getKey());
 
         while (true) {
             try {

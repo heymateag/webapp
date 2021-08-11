@@ -46,6 +46,12 @@ import {
 
 export type MessageListType = 'thread' | 'pinned' | 'scheduled';
 
+export interface MessageList {
+  chatId: number;
+  threadId: number;
+  type: MessageListType;
+}
+
 export interface Thread {
   listedIds?: number[];
   outlyingIds?: number[];
@@ -134,11 +140,7 @@ export type GlobalState = {
       byId: Record<number, ApiMessage>;
       threadsById: Record<number, Thread>;
     }>;
-    messageLists?: {
-      chatId: number;
-      threadId: number;
-      type: MessageListType;
-    }[];
+    messageLists: MessageList[];
     contentToBeScheduled?: {
       gif?: ApiVideo;
       sticker?: ApiSticker;
@@ -193,6 +195,10 @@ export type GlobalState = {
       stickers: ApiSticker[];
     };
     favorite: {
+      hash?: number;
+      stickers: ApiSticker[];
+    };
+    greeting: {
       hash?: number;
       stickers: ApiSticker[];
     };
@@ -439,14 +445,14 @@ export type ActionTypes = (
   'loadChatFolders' | 'loadRecommendedChatFolders' | 'editChatFolder' | 'addChatFolder' | 'deleteChatFolder' |
   'updateChat' | 'toggleSignatures' | 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup' |
   'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
-  'addChatMembers' | 'deleteChatMember' |
+  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' |
   // messages
   'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
   'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
   'editMessage' | 'deleteHistory' | 'enterMessageSelectMode' | 'toggleMessageSelection' | 'exitMessageSelectMode' |
   'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |
   'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
-  'loadMessageLink' | 'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
+  'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
   'reportMessages' | 'focusNextReply' |
   // scheduled messages
   'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
@@ -477,14 +483,14 @@ export type ActionTypes = (
   'loadBlockedContacts' | 'blockContact' | 'unblockContact' |
   'loadAuthorizations' | 'terminateAuthorization' | 'terminateAllAuthorizations' |
   'loadNotificationSettings' | 'updateContactSignUpNotification' | 'updateNotificationSettings' |
-  'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' | 'setPrivacySettings' |
-  'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' | 'loadContentSettings' |
-  'updateContentSettings' |
+  'updateWebNotificationSettings' | 'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' |
+  'setPrivacySettings' | 'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' |
+  'loadContentSettings' | 'updateContentSettings' |
   // Stickers & GIFs
   'loadStickerSets' | 'loadAddedStickers' | 'loadRecentStickers' | 'loadFavoriteStickers' | 'loadFeaturedStickers' |
   'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
   'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
-  'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' |
+  'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' | 'loadGreetingStickers' |
   // bots
   'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
   'resetInlineBot' | 'restartBot' |

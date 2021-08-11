@@ -38,6 +38,9 @@ export type NotifySettings = {
   hasBroadcastNotifications?: boolean;
   hasBroadcastMessagePreview?: boolean;
   hasContactJoinedNotifications?: boolean;
+  hasWebNotifications: boolean;
+  hasPushNotifications: boolean;
+  notificationSoundVolume: number;
 };
 
 export type LangCode = (
@@ -163,8 +166,11 @@ export enum SettingsScreens {
   Folders,
   FoldersCreateFolder,
   FoldersEditFolder,
+  FoldersEditFolderFromChatList,
   FoldersIncludedChats,
+  FoldersIncludedChatsFromChatList,
   FoldersExcludedChats,
+  FoldersExcludedChatsFromChatList,
   TwoFaDisabled,
   TwoFaNewPassword,
   TwoFaNewPasswordConfirm,

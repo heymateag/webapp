@@ -18,7 +18,7 @@ import {
   ApiUser,
   MAIN_THREAD_ID,
 } from '../../../api/types';
-import { LangCode, InlineBotSettings } from '../../../types';
+import { InlineBotSettings } from '../../../types';
 
 import { BASE_EMOJI_KEYWORD_LANG, EDITABLE_INPUT_ID, SCHEDULED_WHEN_ONLINE } from '../../../config';
 import { IS_VOICE_RECORDING_SUPPORTED, IS_SINGLE_COLUMN_LAYOUT, IS_IOS } from '../../../util/environment';
@@ -33,6 +33,7 @@ import {
   selectEditingMessage,
   selectIsChatWithSelf,
   selectChatUser,
+  selectChatMessage,
 } from '../../../modules/selectors';
 import {
   getAllowedAttachmentOptions,
@@ -77,7 +78,7 @@ import MentionTooltip from './MentionTooltip.async';
 import CustomSendMenu from './CustomSendMenu.async';
 import StickerTooltip from './StickerTooltip.async';
 import EmojiTooltip from './EmojiTooltip.async';
-import BotKeyboardMenu from './BotKeyboardMenu.async';
+import BotKeyboardMenu from './BotKeyboardMenu';
 import MessageInput from './MessageInput';
 import ComposerEmbeddedMessage from './ComposerEmbeddedMessage';
 import AttachmentModal from './AttachmentModal.async';
@@ -96,8 +97,8 @@ type OwnProps = {
   threadId: number;
   messageListType: MessageListType;
   dropAreaState: string;
-  onDropHide: NoneToVoidFunction;
   isReady: boolean;
+  onDropHide: NoneToVoidFunction;
 };
 
 type StateProps = {
@@ -113,6 +114,7 @@ type StateProps = {
   isPaymentModalOpen?: boolean;
   isReceiptModalOpen?: boolean;
   botKeyboardMessageId?: number;
+  botKeyboardPlaceholder?: string;
   withScheduledButton?: boolean;
   shouldSchedule?: boolean;
   canScheduleUntilOnline?: boolean;
@@ -124,7 +126,6 @@ type StateProps = {
   lastSyncTime?: number;
   contentToBeScheduled?: GlobalState['messages']['contentToBeScheduled'];
   shouldSuggestStickers?: boolean;
-  language: LangCode;
   baseEmojiKeywords?: Record<string, string[]>;
   emojiKeywords?: Record<string, string[]>;
   serverTimeOffset: number;
@@ -137,7 +138,7 @@ type DispatchProps = Pick<GlobalActions, (
   'sendMessage' | 'editMessage' | 'saveDraft' | 'forwardMessages' |
   'clearDraft' | 'showDialog' | 'setStickerSearchQuery' | 'setGifSearchQuery' |
   'openPollModal' | 'closePollModal' | 'loadScheduledHistory' | 'openChat' | 'closePaymentModal' |
-  'clearReceipt' | 'addRecentEmoji' | 'loadEmojiKeywords' | 'sendInlineBotResult'
+  'clearReceipt' | 'addRecentEmoji' | 'sendInlineBotResult'
 )>;
 
 enum MainButtonState {
@@ -161,8 +162,8 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   dropAreaState,
   shouldSchedule,
   canScheduleUntilOnline,
-  onDropHide,
   isReady,
+  onDropHide,
   editingMessage,
   chatId,
   threadId,
@@ -179,6 +180,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   isPaymentModalOpen,
   isReceiptModalOpen,
   botKeyboardMessageId,
+  botKeyboardPlaceholder,
   withScheduledButton,
   stickersForEmoji,
   groupChatMembers,
@@ -188,7 +190,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   lastSyncTime,
   contentToBeScheduled,
   shouldSuggestStickers,
-  language,
   baseEmojiKeywords,
   emojiKeywords,
   serverTimeOffset,
@@ -210,7 +211,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   openChat,
   clearReceipt,
   addRecentEmoji,
-  loadEmojiKeywords,
   sendInlineBotResult,
 }) => {
   const lang = useLang();
@@ -241,15 +241,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
       loadScheduledHistory();
     }
   }, [isReady, chatId, loadScheduledHistory, lastSyncTime, threadId]);
-
-  useEffect(() => {
-    if (lastSyncTime && isReady) {
-      loadEmojiKeywords({ language: BASE_EMOJI_KEYWORD_LANG });
-      if (language !== BASE_EMOJI_KEYWORD_LANG) {
-        loadEmojiKeywords({ language });
-      }
-    }
-  }, [loadEmojiKeywords, language, lastSyncTime, isReady]);
 
   useLayoutEffect(() => {
     if (!appendixRef.current) return;
@@ -532,7 +523,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     // Wait until message animation starts
-    requestAnimationFrame(() => { resetComposer(); });
+    requestAnimationFrame(() => {
+      resetComposer();
+    });
   }, [
     connectionState, attachments, activeVoiceRecording, isForwarding, serverTimeOffset, clearDraft, chatId,
     resetComposer, stopRecordingVoice, showDialog, slowMode, isAdmin, sendMessage, forwardMessages, lang,
@@ -549,7 +542,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
       openCalendar();
     } else {
       sendMessage({ sticker });
-      requestAnimationFrame(() => { resetComposer(shouldPreserveInput); });
+      requestAnimationFrame(() => {
+        resetComposer(shouldPreserveInput);
+      });
     }
   }, [shouldSchedule, openCalendar, sendMessage, resetComposer]);
 
@@ -559,7 +554,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
       openCalendar();
     } else {
       sendMessage({ gif });
-      requestAnimationFrame(() => { resetComposer(true); });
+      requestAnimationFrame(() => {
+        resetComposer(true);
+      });
     }
   }, [shouldSchedule, openCalendar, sendMessage, resetComposer]);
 
@@ -579,7 +576,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     clearDraft({ chatId, localOnly: true });
-    requestAnimationFrame(() => { resetComposer(); });
+    requestAnimationFrame(() => {
+      resetComposer();
+    });
   }, [chatId, clearDraft, connectionState, resetComposer, sendInlineBotResult]);
 
   const handlePollSend = useCallback((poll: ApiNewPoll) => {
@@ -616,7 +615,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         ...scheduledMessageArgs,
         scheduledAt,
       });
-      requestAnimationFrame(() => { resetComposer(); });
+      requestAnimationFrame(() => {
+        resetComposer();
+      });
     }
     closeCalendar();
   }, [closeCalendar, handleSend, resetComposer, scheduledMessageArgs, sendMessage, serverTimeOffset]);
@@ -686,7 +687,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
           openCalendar();
         } else {
           handleSend();
-          requestAnimationFrame(() => { resetComposer(); });
+          requestAnimationFrame(() => {
+            resetComposer();
+          });
         }
         break;
       case MainButtonState.Record:
@@ -735,6 +738,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const symbolMenuButtonClassName = buildClassName(
     'mobile-symbol-menu-button',
+    !isReady && 'not-ready',
     isSymbolMenuLoaded
       ? (isSymbolMenuOpen && 'menu-opened')
       : (isSymbolMenuOpen && 'is-loading'),
@@ -763,6 +767,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         currentUserId={currentUserId}
         usersById={usersById}
         recentEmojis={recentEmojis}
+        isReady={isReady}
         onCaptionUpdate={setHtml}
         baseEmojiKeywords={baseEmojiKeywords}
         emojiKeywords={emojiKeywords}
@@ -825,13 +830,14 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <Button
               className={symbolMenuButtonClassName}
               round
+              faded
               color="translucent"
               onClick={isSymbolMenuOpen ? closeSymbolMenu : handleSymbolMenuOpen}
               ariaLabel="Choose emoji, sticker or GIF"
             >
               <i className="icon-smile" />
               <i className="icon-keyboard" />
-              {!isSymbolMenuLoaded && <Spinner color="gray" />}
+              {isSymbolMenuOpen && !isSymbolMenuLoaded && <Spinner color="gray" />}
             </Button>
           ) : (
             <ResponsiveHoverButton
@@ -849,7 +855,9 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             id="message-input-text"
             html={!attachments.length ? html : ''}
             placeholder={
-              activeVoiceRecording && windowWidth <= SCREEN_WIDTH_TO_HIDE_PLACEHOLDER ? '' : lang('Message')
+              activeVoiceRecording && windowWidth <= SCREEN_WIDTH_TO_HIDE_PLACEHOLDER
+                ? ''
+                : botKeyboardPlaceholder || lang('Message')
             }
             forcedPlaceholder={inlineBotHelp}
             shouldSetFocus={isSymbolMenuOpen}
@@ -957,7 +965,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         ref={mainButtonRef}
         round
         color="secondary"
-        className={`${mainButtonState} ${activeVoiceRecording ? 'recording' : ''}`}
+        className={buildClassName(mainButtonState, !isReady && 'not-ready', activeVoiceRecording && 'recording')}
         disabled={areVoiceMessagesNotAllowed}
         ariaLabel={lang(sendButtonAriaLabel)}
         onClick={mainButtonHandler}
@@ -1004,6 +1012,8 @@ export default memo(withGlobal<OwnProps>(
     const { language } = global.settings.byKey;
     const baseEmojiKeywords = global.emojiKeywords[BASE_EMOJI_KEYWORD_LANG];
     const emojiKeywords = language !== BASE_EMOJI_KEYWORD_LANG ? global.emojiKeywords[language] : undefined;
+    const botKeyboardMessageId = messageWithActualBotKeyboard ? messageWithActualBotKeyboard.id : undefined;
+    const keyboardMessage = botKeyboardMessageId ? selectChatMessage(global, chatId, botKeyboardMessageId) : undefined;
 
     return {
       editingMessage: selectEditingMessage(global, chatId, threadId, messageListType),
@@ -1024,7 +1034,8 @@ export default memo(withGlobal<OwnProps>(
         && Boolean(scheduledIds && scheduledIds.length)
       ),
       shouldSchedule: messageListType === 'scheduled',
-      botKeyboardMessageId: messageWithActualBotKeyboard ? messageWithActualBotKeyboard.id : undefined,
+      botKeyboardMessageId,
+      botKeyboardPlaceholder: keyboardMessage ? keyboardMessage.keyboardPlaceholder : undefined,
       isForwarding: chatId === global.forwardMessages.toChatId,
       isPollModalOpen: global.isPollModalOpen,
       stickersForEmoji: global.stickers.forEmoji.stickers,
@@ -1038,7 +1049,6 @@ export default memo(withGlobal<OwnProps>(
       isReceiptModalOpen: Boolean(global.payment.receipt),
       shouldSuggestStickers: global.settings.byKey.shouldSuggestStickers,
       recentEmojis: global.recentEmojis,
-      language,
       baseEmojiKeywords: baseEmojiKeywords ? baseEmojiKeywords.keywords : undefined,
       emojiKeywords: emojiKeywords ? emojiKeywords.keywords : undefined,
       serverTimeOffset: global.serverTimeOffset,
@@ -1062,7 +1072,6 @@ export default memo(withGlobal<OwnProps>(
     'loadScheduledHistory',
     'openChat',
     'addRecentEmoji',
-    'loadEmojiKeywords',
     'sendInlineBotResult',
   ]),
 )(Composer));

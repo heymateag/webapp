@@ -15,17 +15,21 @@ import {
   GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
 } from '../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../util/environment';
+import { ANIMATION_END_EVENT, ANIMATION_START_EVENT } from '../hooks/useHeavyAnimationCheck';
 import { pick } from '../util/iteratees';
-import { INITIAL_STATE } from './initial';
 import { selectCurrentMessageList } from '../modules/selectors';
 import { hasStoredSession } from '../util/sessions';
+import { INITIAL_STATE } from './initial';
 
 const UPDATE_THROTTLE = 5000;
 
 const updateCacheThrottled = throttle(() => onIdle(updateCache), UPDATE_THROTTLE, false);
 
 let isCaching = false;
+let isHeavyAnimating = false;
 let unsubscribeFromBeforeUnload: NoneToVoidFunction | undefined;
+
+setupHeavyAnimationListeners();
 
 export function initCache() {
   if (GLOBAL_STATE_CACHE_DISABLED) {
@@ -111,6 +115,14 @@ function readCache(initialState: GlobalState) {
       ...initialState.chatFolders,
       ...cached.chatFolders,
     };
+
+    if (!cached.messages.messageLists) {
+      cached.messages.messageLists = initialState.messages.messageLists;
+    }
+
+    if (!cached.stickers.greeting) {
+      cached.stickers.greeting = initialState.stickers.greeting;
+    }
   }
 
   return {
@@ -120,7 +132,7 @@ function readCache(initialState: GlobalState) {
 }
 
 function updateCache() {
-  if (!isCaching) {
+  if (!isCaching || isHeavyAnimating) {
     return;
   }
 
@@ -229,7 +241,7 @@ function reduceMessages(global: GlobalState): GlobalState['messages'] {
 
   return {
     byChatId,
-    messageLists: !currentMessageList || IS_SINGLE_COLUMN_LAYOUT ? undefined : [{
+    messageLists: !currentMessageList || IS_SINGLE_COLUMN_LAYOUT ? [] : [{
       ...currentMessageList,
       threadId: MAIN_THREAD_ID,
       type: 'thread',
@@ -253,4 +265,13 @@ function reduceChatFolders(global: GlobalState): GlobalState['chatFolders'] {
     ...global.chatFolders,
     activeChatFolder: 0,
   };
+}
+
+function setupHeavyAnimationListeners() {
+  document.addEventListener(ANIMATION_START_EVENT, () => {
+    isHeavyAnimating = true;
+  });
+  document.addEventListener(ANIMATION_END_EVENT, () => {
+    isHeavyAnimating = false;
+  });
 }

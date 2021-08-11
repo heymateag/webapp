@@ -4,12 +4,11 @@ import React, {
 } from 'teact/teact';
 import { getGlobal } from 'teact/teactn';
 
-import { ANIMATION_END_DELAY } from '../../config';
-import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import useForceUpdate from '../../hooks/useForceUpdate';
 import usePrevious from '../../hooks/usePrevious';
 import buildClassName from '../../util/buildClassName';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
+import { waitForAnimationEnd } from '../../util/cssAnimationEndListeners';
 
 import './Transition.scss';
 
@@ -18,7 +17,7 @@ type OwnProps = {
   ref?: RefObject<HTMLDivElement>;
   activeKey: number;
   name: (
-    'none' | 'slide' | 'slide-reversed' | 'mv-slide' | 'slide-fade' | 'zoom-fade' | 'scroll-slide' | 'slide-layers'
+    'none' | 'slide' | 'slide-reversed' | 'mv-slide' | 'slide-fade' | 'zoom-fade' | 'slide-layers'
     | 'fade' | 'push-slide' | 'reveal'
   );
   direction?: 'auto' | 'inverse' | 1 | -1;
@@ -31,19 +30,6 @@ type OwnProps = {
   onStart?: () => void;
   onStop?: () => void;
   children: ChildrenFn;
-};
-
-const ANIMATION_DURATION = {
-  slide: 450,
-  'slide-reversed': 450,
-  'mv-slide': 400,
-  'slide-fade': 400,
-  'zoom-fade': 150,
-  'scroll-slide': 500,
-  fade: 150,
-  'slide-layers': IS_SINGLE_COLUMN_LAYOUT ? 450 : 300,
-  'push-slide': 300,
-  reveal: 350,
 };
 
 const CLEANED_UP = Symbol('CLEANED_UP');
@@ -74,7 +60,6 @@ const Transition: FC<OwnProps> = ({
 
   const rendersRef = useRef<Record<number, ChildrenFn | typeof CLEANED_UP>>({});
   const prevActiveKey = usePrevious<any>(activeKey);
-  const activateTimeoutRef = useRef<number>();
   const forceUpdate = useForceUpdate();
 
   const activeKeyChanged = prevActiveKey !== undefined && activeKey !== prevActiveKey;
@@ -108,11 +93,6 @@ const Transition: FC<OwnProps> = ({
 
     if (!activeKeyChanged || !childNodes.length) {
       return;
-    }
-
-    if (activateTimeoutRef.current) {
-      clearTimeout(activateTimeoutRef.current);
-      activateTimeoutRef.current = undefined;
     }
 
     const isBackwards = (
@@ -152,22 +132,19 @@ const Transition: FC<OwnProps> = ({
       }
     });
 
-    if (name === 'scroll-slide') {
-      const width = container.offsetWidth;
-      container.scrollBy({
-        left: activeIndex > prevActiveIndex ? width : -width,
-        behavior: 'smooth',
-      });
-    }
-
+    let dispatchHeavyAnimationStop: NoneToVoidFunction;
     if (animationLevel > 0) {
-      dispatchHeavyAnimationEvent(ANIMATION_DURATION[name] + ANIMATION_END_DELAY);
+      dispatchHeavyAnimationStop = dispatchHeavyAnimationEvent();
     }
 
     requestAnimationFrame(() => {
       container.classList.add('animating');
 
-      activateTimeoutRef.current = window.setTimeout(() => {
+      if (onStart) {
+        onStart();
+      }
+
+      function onAnimationEnd() {
         requestAnimationFrame(() => {
           container.classList.remove('animating', 'backwards');
 
@@ -178,10 +155,6 @@ const Transition: FC<OwnProps> = ({
             }
           });
 
-          if (name === 'scroll-slide') {
-            container.scrollLeft = activeKey * container.offsetWidth;
-          }
-
           if (shouldRestoreHeight) {
             const activeElement = container.querySelector<HTMLDivElement>('.active');
 
@@ -191,16 +164,26 @@ const Transition: FC<OwnProps> = ({
             }
           }
 
+          if (dispatchHeavyAnimationStop) {
+            dispatchHeavyAnimationStop();
+          }
+
           cleanup();
 
           if (onStop) {
             onStop();
           }
         });
-      }, ANIMATION_DURATION[name] + ANIMATION_END_DELAY);
+      }
 
-      if (onStart) {
-        onStart();
+      const toNode = name === 'mv-slide'
+        ? childNodes[activeIndex] && childNodes[activeIndex].firstChild
+        : childNodes[activeIndex];
+
+      if (animationLevel > 0 && toNode) {
+        waitForAnimationEnd(toNode, onAnimationEnd);
+      } else {
+        onAnimationEnd();
       }
     });
   }, [
@@ -248,7 +231,7 @@ const Transition: FC<OwnProps> = ({
   const fullClassName = buildClassName(
     'Transition',
     className,
-    animationLevel === 0 && name === 'scroll-slide' ? 'slide' : name,
+    name,
   );
 
   return (

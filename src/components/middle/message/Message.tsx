@@ -125,6 +125,7 @@ type OwnProps = {
 type StateProps = {
   theme: ISettings['theme'];
   forceSenderName?: boolean;
+  chatUsername?: string;
   sender?: ApiUser | ApiChat;
   originSender?: ApiUser | ApiChat;
   botSender?: ApiUser;
@@ -174,6 +175,7 @@ const ANDROID_KEYBOARD_HIDE_DELAY_MS = 350;
 
 const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   message,
+  chatUsername,
   observeIntersectionForBottom,
   observeIntersectionForMedia,
   observeIntersectionForAnimatedStickers,
@@ -294,11 +296,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     !(isContextMenuShown || isInSelectMode || isForwarding)
     && (!isInDocumentGroup || isLastInDocumentGroup)
   );
-  const canForward = canShowActionButton && isChannel && !isScheduled;
-  const canFocus = Boolean(canShowActionButton && (
-    (forwardInfo && (forwardInfo.isChannelPost || (isChatWithSelf && !isOwn)) && forwardInfo.fromMessageId)
-    || isPinnedList
-  ));
+  const canForward = isChannel && !isScheduled;
+  const canFocus = Boolean(isPinnedList
+    || (forwardInfo && (forwardInfo.isChannelPost || (isChatWithSelf && !isOwn)) && forwardInfo.fromMessageId));
   const avatarPeer = forwardInfo && (isChatWithSelf || !sender) ? originSender : sender;
   const senderPeer = forwardInfo ? originSender : sender;
 
@@ -334,6 +334,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     hasThread,
     forceSenderName,
     hasComments: message.threadInfo && message.threadInfo.messagesCount > 0,
+    hasActionButton: canForward || canFocus,
     isHeymateMsg,
   });
   const withCommentButton = message.threadInfo && (!isInDocumentGroup || isLastInDocumentGroup)
@@ -601,6 +602,11 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     );
     const hasCustomAppendix = isLastInGroup && !textParts && !asForwarded && !hasThread;
     const shouldInlineMeta = !webPage && !animatedEmoji && textParts;
+    const textContentClass = buildClassName(
+      'text-content',
+      shouldInlineMeta && 'with-meta',
+      outgoingStatus && 'with-outgoing-icon',
+    );
 
     return (
       <div className={className} onDoubleClick={handleContentDoubleClick} dir="auto">
@@ -624,7 +630,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
         )}
         {animatedEmoji && (
           <AnimatedEmoji
-            isInline
+            size="small"
             sticker={animatedEmoji}
             observeIntersection={observeIntersectionForMedia}
             lastSyncTime={lastSyncTime}
@@ -709,7 +715,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           <Poll message={message} poll={poll} onSendVote={handleVoteSend} />
         )}
         {!animatedEmoji && textParts && (
-          <p className={`text-content ${shouldInlineMeta ? 'with-meta' : ''}`} dir="auto">
+          <p className={textContentClass} dir="auto">
             {textParts}
             {shouldInlineMeta && (
               <MessageMeta
@@ -930,7 +936,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
               onClick={handleMessageSelect}
             />
           )}
-          {canForward ? (
+          {canShowActionButton && canForward ? (
             <Button
               className="message-action-button"
               color="translucent-white"
@@ -941,7 +947,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             >
               <i className="icon-share-filled" />
             </Button>
-          ) : canFocus ? (
+          ) : canShowActionButton && canFocus ? (
             <Button
               className="message-action-button"
               color="translucent-white"
@@ -966,6 +972,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           anchor={contextMenuPosition}
           message={message}
           album={album}
+          chatUsername={chatUsername}
           messageListType={messageListType}
           onClose={handleContextMenuClose}
           onCloseAnimationEnd={handleContextMenuHide}
@@ -1081,6 +1088,7 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId);
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
     const isChannel = chat && isChatChannel(chat);
+    const chatUsername = chat && chat.username;
 
     const forceSenderName = !isChatWithSelf && isAnonymousOwnMessage(message);
     const canShowSender = withSenderName || withAvatar || forceSenderName;
@@ -1121,6 +1129,7 @@ export default memo(withGlobal<OwnProps>(
 
     return {
       theme: selectTheme(global),
+      chatUsername,
       forceSenderName,
       sender,
       originSender,
@@ -1129,10 +1138,7 @@ export default memo(withGlobal<OwnProps>(
       isThreadTop,
       replyMessage,
       replyMessageSender,
-      ...(isOutgoing && { outgoingStatus: selectOutgoingStatus(global, message, messageListType === 'scheduled') }),
-      ...(typeof uploadProgress === 'number' && { uploadProgress }),
       isFocused,
-      ...(isFocused && { focusDirection, noFocusHighlight }),
       isForwarding,
       isChatWithSelf,
       isChannel,
@@ -1150,6 +1156,9 @@ export default memo(withGlobal<OwnProps>(
       shouldAutoLoadMedia: chat ? selectShouldAutoLoadMedia(global, message, chat, sender) : undefined,
       shouldAutoPlayMedia: selectShouldAutoPlayMedia(global, message),
       shouldLoopStickers: selectShouldLoopStickers(global),
+      ...(isOutgoing && { outgoingStatus: selectOutgoingStatus(global, message, messageListType === 'scheduled') }),
+      ...(typeof uploadProgress === 'number' && { uploadProgress }),
+      ...(isFocused && { focusDirection, noFocusHighlight }),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
