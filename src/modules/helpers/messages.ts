@@ -185,7 +185,7 @@ export function isOwnMessage(message: ApiMessage) {
  */
 export function isHeyMate(message: ApiMessage) {
   if (message.content.text) {
-    return message.content.text.text.includes('https://heymate.works');
+    return message.content.text.text.includes('Heymate Offer');
   }
   return false;
 }

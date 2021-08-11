@@ -51,5 +51,24 @@
         }
       }
     }
+    .spinner-holder {
+      padding-top: 0.45rem;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+  }
+  .wallet-transactions {
+    display: flex;
+    flex-flow: row wrap;
+    overflow-y: scroll;
+    padding: 16px;
+    height: 58%;
+    #caption{
+      margin-bottom: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-primary);
+    }
   }
 }

@@ -1,10 +1,70 @@
+.OfferModal {
+  .offer-details-modal-container {
+    .title-and-sub {
+      border-left: 2px solid var(--color-primary);
+      padding-left: 8px;
+      display: flex;
+      flex-flow: row wrap;
+      span {
+        &:first-child {
+          font-weight: 500;
+        }
+        display: flex;
+        width: 100%;
+      }
+    }
+    .offer-type {
+      display: inline-block;
+      margin: 16px 0;
+    }
+    .offer-time-price {
+      display: flex;
+      flex-flow: row wrap;
+      .time-price-row {
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        span {
+          font-size: 14px;
+          font-weight: 500;
+        }
+        i {
+          margin-right: 8px;
+          color: var(--color-gray);
+        }
+      }
+    }
+    .btn-group {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      .Button {
+        width: 49%;
+      }
+    }
+    .offer-text {
+      word-break: break-all;
+      color: var(--color-gray);
+    }
+  }
+}
+.BookOfferModal {
+  .btn-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    .Button {
+      width: 49%;
+    }
+  }
+}
 // General styles
 .Message {
   display: flex;
   align-items: flex-end;
   margin-bottom: 0.375rem;
   position: relative;
-
   --background-color: var(--color-background);
   --hover-color: var(--color-reply-hover);
   --active-color: var(--color-reply-active);
@@ -18,7 +78,113 @@
   --deleting-translate-x: -50%;
   --select-message-scale: 0.9;
   --select-background-color: white;
+  /*  ================= BEGIN Hm Message types */
+    .my-offer-wrapper {
+      .my-offer-body {
+        border-radius: var(--border-radius-messages);
+        background-color: var(--color-background);
+        .my-offer-img-holder {
+          padding: 4px;
+          height: 280px;
+          img {
+            width: 100%;
+            height: 100%;
+            border-radius: var(--border-radius-messages);
+          }
+        }
+        .my-offer-descs {
+          margin-top: 8px;
+          padding: 0 16px;
+          .title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--color-text);
+          }
+          .sub-title {
+            font-size: 14px;
+            font-weight: normal;
+            color: var(--color-hm-gray3);
+          }
+          .description {
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--color-text);
+          }
+        }
+        .my-offer-types {
+          display: flex;
+          justify-content: space-between;
+          .radios-grp {
+            .radio-group {
+              .Radio {
+                padding-left: 3.5rem;
+              }
+            }
+          }
+          .price-grp {
+            display: flex;
+            flex-flow: row wrap;
+            padding-right: 16px;
+            .prices {
+              display: block;
+              font-size: 16px;
+              font-weight: 500;
+              width: 100%;
+              text-align: right;
+              &.active {
+                color: var(--color-primary);
+              }
+            }
+          }
+        }
+        .refer-offer {
+          padding: 4px;
+          height: 44px;
+          .refer-offer-container {
+            cursor: pointer;
+            height: 100%;
+            padding: 0 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            background-color: var(--color-hm-gray6);
+            justify-content: space-between;
+            i {
+              font-size: 20px;
+              color: var(--color-primary);
+            }
+            span {
+              font-size: 12px;
+              font-weight: 500;
+              .gift-price {
+                font-weight: 500;
+                font-size: 12px;
+                font-style: normal;
+                color: var(--color-primary);
+              }
+            }
+          }
+        }
+      }
+      .my-offer-btn-group {
+        width: 100%;
+        padding: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        .Button {
+          flex: 50%;
+        }
+        .book-offer {
+          margin-left: 4px;
+        }
+        .see-details {
+          color: var(--color-text);
+        }
+      }
+    }
 
+  /*  ================= END Hm Message types */
   > .Avatar,
   > .message-content-wrapper {
     opacity: 1;
@@ -27,111 +193,6 @@
 
     body.animation-level-0 & {
       transition: none !important;
-    }
-
-    .main-heymate-content {
-      display: flex;
-      justify-content: space-around;
-      flex-direction: row;
-      max-width: 450px;
-      .content-and-imgholder {
-        padding-bottom: 15px;
-        background-color: #ffffff;
-      }
-      .left-side {
-        width: 78%;
-        .img-holder {
-          position: relative;
-          width: 350px;
-          height: 215px;
-          .which-days-left {
-            position: absolute;
-            top: 0;
-            display: flex;
-            align-items: center;
-            right: 25px;
-            background-color: #00BDAE;
-            color: #fff;
-            padding: 5px 15px;
-            height: 38px;
-            border-bottom-left-radius: 18px;
-            border-bottom-right-radius: 18px;
-            font-size: 14px;
-          }
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-          }
-        .content-holdr {
-          padding: 5px 15px;
-          display: flex;
-          flex-flow: row wrap;
-          width: 100%;
-          span {
-            display: block;
-            width: 100%;
-            &.caption {
-              font-size: 16px;
-            }
-            &.follo {
-              color: #ACB3BA;
-              font-size: 14px;
-            }
-          }
-          p {
-            max-width: 320px;
-            font-size: 13px;
-          }
-        }
-        .hey-actions {
-          display: flex;
-          flex-direction: row;
-          justify-content: space-between;
-          div {
-            display: flex;
-            flex-flow: row wrap;
-            span {
-              display: block;
-              width: 100%;
-              &.coloring {
-                color: #00BDAE;
-              }
-              &.backe-g {
-                color: #ACB3BA;
-                font-size: 14px;
-              }
-            }
-          }
-        }
-        .button-group {
-          padding: 15px 0;
-          display: flex;
-          width: 100%;
-          justify-content: space-between;
-          .btna {
-            width: 45%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 40px;
-            border-radius: 6px;
-            &.more {
-              color: #0f0f0f;
-              background-color: #ffffff;
-            }
-            &.book {
-              background-color: #00BDAE;
-              color: #ffffff;
-            }
-          }
-        }
-      }
-      .right-side {
-        width: 22%;
-        position: relative;
-      }
     }
   }
 
@@ -311,7 +372,7 @@
     top: 1.375rem;
   }
 
-  html.theme-dark &.own .Audio .ProgressSpinner {
+  html.tmye-dark &.own .Audio .ProgressSpinner {
     background-image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUiIGhlaWdodD0iMTUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTguMjE4IDcuNWw1LjYzMy01LjYzM2EuNTA4LjUwOCAwIDEwLS43MTgtLjcxOEw3LjUgNi43ODIgMS44NjcgMS4xNDlhLjUwOC41MDggMCAxMC0uNzE4LjcxOEw2Ljc4MiA3LjVsLTUuNjMzIDUuNjMzYS41MDguNTA4IDAgMTAuNzE4LjcxOEw3LjUgOC4yMThsNS42MzMgNS42MzNhLjUwNi41MDYgMCAwMC43MTggMCAuNTA4LjUwOCAwIDAwMC0uNzE4TDguMjE4IDcuNXoiIGZpbGw9IiNGRkYiIGZpbGwtcnVsZT0ibm9uemVybyIgc3Ryb2tlPSIjODA3QkQ1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+);
     background-position: center;
     background-size: 1rem;
@@ -516,7 +577,7 @@
       font-size: 1.625rem;
     }
 
-    .theme-dark & {
+    .tmye-dark & {
       border-color: #ffffff80;
     }
   }
@@ -617,6 +678,9 @@
 
       .message-content.has-appendix {
         --border-bottom-right-radius: 0;
+        &.hm-message {
+          --border-bottom-right-radius: var(--border-radius-messages);
+        }
       }
     }
   }

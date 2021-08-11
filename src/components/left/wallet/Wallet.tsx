@@ -1,10 +1,11 @@
-import React, { FC, useEffect } from 'teact/teact';
-import { newKit } from '@celo/contractkit';
+import React, { FC, useEffect, useState } from 'teact/teact';
 import useLang from '../../../hooks/useLang';
+import { getAccount, getAccountBalance } from './AccountManager/AccountMannager';
+import Spinner from '../../ui/Spinner';
 
 import './Wallet.scss';
 import Button from '../../ui/Button';
-
+import TransactionRow from "./TransactionRow/TransactionRow";
 // @ts-ignore
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
 
@@ -12,19 +13,41 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 export type OwnProps = {
   onReset: () => void;
 };
-
-
+interface IAccount {
+  address: string;
+  privateKey: string;
+}
+interface IBalance {
+  CELO: string;
+  cUSD: string;
+}
 const Wallet: FC <OwnProps> = ({ onReset }) => {
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [account, setAccount] = useState<IAccount>();
+  const [balance, setBalance] = useState<IBalance>({
+    cUSD: '0',
+    CELO: '0',
+  });
   const lang = useLang();
-  const kit = newKit('https://alfajores-forno.celo-testnet.org');
-  const getAccount = async () => {
-    const accounts = await kit.web3.eth.getAccounts();
-    console.log(accounts);
-    return accounts;
-  };
+  /**
+   * On Wallet Mount
+   */
   useEffect(() => {
-    getAccount();
+    getAccount().then((res) => {
+      setAccount(res);
+    });
   }, []);
+  /**
+   * Get Account Balance
+   */
+  useEffect(() => {
+    if (account) {
+      getAccountBalance(account).then((res) => {
+        setLoadingBalance(false);
+        setBalance(res);
+      });
+    }
+  }, [account]);
   return (
     <div className="UserWallet">
       <div className="left-header">
@@ -44,7 +67,14 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
           <img src={walletIcon} alt="" />
         </div>
         <span id="total-balance">Total Balance</span>
-        <h3 id="balance">$300.25</h3>
+        {loadingBalance && (
+          <div className="spinner-holder">
+            <Spinner color="gray" />
+          </div>
+        )}
+        {!loadingBalance && (
+          <h3 id="balance">$ {balance.cUSD}</h3>
+        )}
         <div className="btn-row">
           <div id="add-money" className="btn-holder">
             <Button size="smaller" color="primary">
@@ -57,6 +87,18 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
             </Button>
           </div>
         </div>
+      </div>
+      <div className="wallet-transactions custom-scroll">
+        <h4 id="caption">Transactions</h4>
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
+        <TransactionRow />
       </div>
     </div>
   );

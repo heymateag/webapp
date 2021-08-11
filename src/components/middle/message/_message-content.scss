@@ -192,10 +192,17 @@
 
   &.has-solid-background, &.has-background, .is-album & {
     background: var(--background-color);
+    &.my-message {
+      background-color: transparent;
+    }
   }
 
   &.has-solid-background {
     padding: .3125rem .5rem .375rem;
+    &.my-message {
+      border: none;
+      padding: 0;
+    }
 
     .forwarded-message > .text-content:not(.with-meta):last-child::after {
       content: '';
@@ -323,6 +330,7 @@
       position: relative;
       top: .125rem;
       max-width: calc(100% - 3rem);
+      margin-left: calc(100% - 3rem);
       margin-left: calc(100% - 3rem);
       padding: 0 .5rem;
       background-color: var(--background-color);

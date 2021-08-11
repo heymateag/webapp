@@ -5,10 +5,9 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useRef,
+  useRef, useState,
 } from 'teact/teact';
 import { withGlobal } from 'teact/teactn';
-
 import { GlobalActions, MessageListType } from '../../../global/types';
 import {
   ApiMessage,
@@ -21,6 +20,7 @@ import {
 import {
   FocusDirection, IAlbum, ISettings, MediaViewerOrigin,
 } from '../../../types';
+import Modal from '../../ui/Modal';
 
 import { IS_ANDROID, IS_TOUCH_ENV } from '../../../util/environment';
 import { pick } from '../../../util/iteratees';
@@ -56,7 +56,7 @@ import {
   isChatChannel,
   getMessageSingleEmoji,
   getSenderTitle,
-  getUserColorKey,
+  getUserColorKey, isHeyMate,
 } from '../../../modules/helpers';
 import buildClassName from '../../../util/buildClassName';
 import windowSize from '../../../util/windowSize';
@@ -97,6 +97,7 @@ import InlineButtons from './InlineButtons';
 import CommentButton from './CommentButton';
 
 import './Message.scss';
+import RadioGroup from '../../ui/RadioGroup';
 
 type MessagePositionProperties = {
   isFirstInGroup: boolean;
@@ -268,6 +269,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const { chatId, id: messageId, threadInfo } = message;
 
   const isLocal = isMessageLocal(message);
+  const isHeymateMsg = isHeyMate(message);
   const isOwn = isOwnMessage(message);
   const isScheduled = messageListType === 'scheduled' || message.isScheduled;
   const hasReply = isReplyMessage(message) && !shouldHideReply;
@@ -332,6 +334,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     hasThread,
     forceSenderName,
     hasComments: message.threadInfo && message.threadInfo.messagesCount > 0,
+    isHeymateMsg,
   });
   const withCommentButton = message.threadInfo && (!isInDocumentGroup || isLastInDocumentGroup)
     && messageListType === 'thread' && !noComments;
@@ -550,6 +553,26 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   if (calculatedWidth) {
     style = `width: ${calculatedWidth + extraPadding}px`;
   }
+  /**
+   * Heymate Offer Bundles Types
+   */
+  const [selectedReason, setSelectedReason] = useState('single');
+  const REPORT_OPTIONS: {value: string; label: string; subLabel: string}[] = [
+    { value: 'single', label: 'Single', subLabel: '1 Session - 2 Hour' },
+    { value: 'bundle', label: 'Bundle', subLabel: '10 Sessions' },
+    { value: 'subscription', label: 'Subscription', subLabel: '1 Month - Unlimited access' },
+  ];
+  const TIME_SLOTS: {value: string; label: string; subLabel: string}[] = [
+    { value: 'single', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+    { value: 'bundle1', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+    { value: 'bundle2', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+    { value: 'bundle3', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+    { value: 'bundle4', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+    { value: 'bundle5', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
+  ];
+  const handleSelectType = useCallback((value: string) => {
+    setSelectedReason(value);
+  }, []);
 
   function renderAvatar() {
     const isAvatarPeerUser = avatarPeer && isChatPrivate(avatarPeer.id);
@@ -719,6 +742,75 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     );
   }
 
+  /**
+   * Heymate Message Type
+   */
+  // ============== Offer Details Modal
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const handleCLoseDetailsModal = () => {
+    setOpenDetailsModal(false);
+  };
+  const handleOpenDetailsModal = () => {
+    setOpenDetailsModal(true);
+  };
+  // ============ Book Offer Modal
+  const [openBookOfferModal, setOpenBookOfferModal] = useState(false);
+  const handleCLoseBookOfferModal = () => {
+    setOpenBookOfferModal(false);
+  };
+  const handleOpenBookOfferModal = () => {
+    setOpenBookOfferModal(true);
+  };
+
+  function renderHeymateMsg() {
+    return (
+      <div className="my-offer-wrapper">
+        <div className="my-offer-body">
+          <div className="my-offer-img-holder">
+            <img src="https://picsum.photos/200/300" alt="" />
+          </div>
+          <div className="my-offer-descs">
+            <h4 className="title">English Class</h4>
+            <span className="sub-title">Beauty salon - Online</span>
+            <p className="description">
+              Voluptatum dolorum impedit aut quis. Ipsum excepturi voluptatum quos inventore aut
+              ea sunt molestiae impedit.
+            </p>
+          </div>
+          <div className="my-offer-types">
+            <div className="radios-grp">
+              <RadioGroup
+                name="report-message"
+                options={REPORT_OPTIONS}
+                onChange={handleSelectType}
+                selected={selectedReason}
+              />
+            </div>
+            <div className="price-grp">
+              <span className="prices active">$50</span>
+              <span className="prices">$490</span>
+              <span className="prices">$600</span>
+            </div>
+          </div>
+          <div className="refer-offer">
+            <div className="refer-offer-container">
+              <i className="hm-gift" />
+              <span>Refer this offer to and eran <i className="gift-price">$10</i></span>
+              <i className="hm-arrow-right" />
+            </div>
+          </div>
+        </div>
+        <div className="my-offer-btn-group">
+          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
+            See Details
+          </Button>
+          <Button onClick={handleOpenBookOfferModal} className="book-offer" size="smaller" color="primary">
+            <span>Book Now</span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
   function renderSenderName() {
     const shouldRender = !(customShape && !viaBotId) && (
       (withSenderName && !photo && !video) || asForwarded || viaBotId || forceSenderName
@@ -821,10 +913,15 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           style={style}
           dir="auto"
         >
-          {asForwarded && !customShape && (!isInDocumentGroup || isFirstInDocumentGroup) && (
+          {asForwarded && !isHeymateMsg && !customShape && (!isInDocumentGroup || isFirstInDocumentGroup) && (
             <div className="message-title">{lang('ForwardedMessage')}</div>
           )}
-          {renderContent()}
+          {
+            !isHeymateMsg && renderContent()
+          }
+          {
+            isHeymateMsg && renderHeymateMsg()
+          }
           {(!isInDocumentGroup || isLastInDocumentGroup) && !(!webPage && !animatedEmoji && textParts) && (
             <MessageMeta
               message={message}
@@ -857,7 +954,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             </Button>
           ) : undefined}
           {withCommentButton && <CommentButton message={message} disabled={noComments} />}
-          {withAppendix && <div className="svg-appendix" ref={appendixRef} />}
+          {withAppendix && !isHeymateMsg && <div className="svg-appendix" ref={appendixRef} />}
         </div>
         {message.inlineButtons && (
           <InlineButtons message={message} onClick={clickInlineButton} />
@@ -873,6 +970,75 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           onClose={handleContextMenuClose}
           onCloseAnimationEnd={handleContextMenuHide}
         />
+      )}
+      {isHeymateMsg && (
+        <Modal
+          hasCloseButton
+          isOpen={openDetailsModal}
+          onClose={() => setOpenDetailsModal(false)}
+          onEnter={openDetailsModal ? handleCLoseDetailsModal : undefined}
+          className="OfferModal"
+          title="Offer Details"
+        >
+          <div className="offer-details-modal-container">
+            <div className="title-and-sub">
+              <span>Heymate Offer 2051</span>
+              <span>Online - English Class</span>
+            </div>
+            <span className="offer-type">Online Meeting</span>
+            <div className="offer-time-price">
+              <div className="time-price-row">
+                <i className="hm-date-time" />
+                <span>Paris</span>
+              </div>
+              <div className="time-price-row">
+                <i className="hm-calendar" />
+                <span>2021-07-31</span>
+              </div>
+              <div className="time-price-row">
+                <i className="hm-gift" />
+                <span>2$ per session</span>
+              </div>
+            </div>
+            <p className="offer-text">{message.content.text?.text}</p>
+            <div className="btn-group">
+              <Button className="see-details" size="smaller" color="hm-primary">
+                Promote
+              </Button>
+              <Button className="book-offer" size="smaller" color="hm-primary">
+                <span>Buy</span>
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {isHeymateMsg && (
+        <Modal
+          hasCloseButton
+          isOpen={openBookOfferModal}
+          onClose={() => setOpenBookOfferModal(false)}
+          onEnter={openBookOfferModal ? handleCLoseBookOfferModal : undefined}
+          className="BookOfferModal"
+          title="Book The Offer"
+        >
+          <div className="offer-details-modal-container">
+            <h3 style={{ marginLeft: '23px' }}>Pick A Time Slot :</h3>
+            <RadioGroup
+              name="pick-time-slot"
+              options={TIME_SLOTS}
+              onChange={handleSelectType}
+              selected={selectedReason}
+            />
+          </div>
+          <div className="btn-group">
+            <Button className="book-offer" size="smaller" color="translucent">
+              <span>Cancel</span>
+            </Button>
+            <Button className="see-details" size="smaller" color="primary">
+              Next
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
   );

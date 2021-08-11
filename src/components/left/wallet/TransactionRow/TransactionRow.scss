@@ -1,0 +1,42 @@
+.TransitionRow {
+  margin-top: 16px;
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-hm-gray5);
+  .left-box {
+    span {
+      width: 100%;
+      display: block;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--color-hm-gray4);
+    }
+  }
+  .right-box {
+    span {
+      width: 100%;
+      display: block;
+    }
+  }
+  .price {
+    font-size: 14px;
+    font-weight: 500;
+    &.plus {
+      color: var(--color-primary);
+    }
+    &.minus {
+      color: var(--color-heymate-primary-red);
+    }
+  }
+  .date-time {
+    font-size: 12px;
+    color: var(--color-hm-gray4);
+  }
+}

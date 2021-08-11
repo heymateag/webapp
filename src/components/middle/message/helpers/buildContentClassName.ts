@@ -16,6 +16,7 @@ export function buildContentClassName(
     hasThread,
     forceSenderName,
     hasComments,
+    isHeymateMsg,
   }: {
     hasReply?: boolean;
     customShape?: boolean | number;
@@ -24,6 +25,7 @@ export function buildContentClassName(
     hasThread?: boolean;
     forceSenderName?: boolean;
     hasComments?: boolean;
+    isHeymateMsg?: boolean;
   } = {},
 ) {
   const {
@@ -50,6 +52,12 @@ export function buildContentClassName(
     if (hasComments) {
       classNames.push('has-comments');
     }
+  }
+  /**
+   * So It's Heymate Message Lest Add Class
+   */
+  if (isHeymateMsg) {
+    classNames.push('my-message');
   }
   if (photo || video) {
     classNames.push('media');

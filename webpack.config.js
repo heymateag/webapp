@@ -115,6 +115,7 @@ module.exports = (env = {}, argv = {}) => {
         APP_ENV: 'production',
         TELEGRAM_T_API_ID: '',
         TELEGRAM_T_API_HASH: '',
+        CELO_NET_URL: '',
         TEST_SESSION: '',
       }),
       ...(argv.mode === 'production' ? [
