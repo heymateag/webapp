@@ -4,6 +4,8 @@ import {
   MOBILE_SCREEN_LANDSCAPE_MAX_HEIGHT,
   MOBILE_SCREEN_LANDSCAPE_MAX_WIDTH,
   IS_TEST,
+  SUPPORTED_VIDEO_CONTENT_TYPES,
+  VIDEO_MOV_TYPE,
 } from '../config';
 
 export * from './environmentWebp';
@@ -50,9 +52,11 @@ export const IS_SINGLE_COLUMN_LAYOUT = window.innerWidth <= MOBILE_SCREEN_MAX_WI
 export const IS_TABLET_COLUMN_LAYOUT = !IS_SINGLE_COLUMN_LAYOUT && (
   window.innerWidth <= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN
 );
-export const IS_VOICE_RECORDING_SUPPORTED = (navigator.mediaDevices && 'getUserMedia' in navigator.mediaDevices && (
-  window.AudioContext || (window as any).webkitAudioContext
-));
+export const IS_VOICE_RECORDING_SUPPORTED = Boolean(
+  navigator.mediaDevices && 'getUserMedia' in navigator.mediaDevices && (
+    window.AudioContext || (window as any).webkitAudioContext
+  ),
+);
 export const IS_SMOOTH_SCROLL_SUPPORTED = 'scrollBehavior' in document.documentElement.style;
 export const IS_EMOJI_SUPPORTED = PLATFORM_ENV && (IS_MAC_OS || IS_IOS);
 export const IS_SERVICE_WORKER_SUPPORTED = 'serviceWorker' in navigator;
@@ -64,6 +68,14 @@ export const IS_CANVAS_FILTER_SUPPORTED = (
   !IS_TEST && 'filter' in (document.createElement('canvas').getContext('2d') || {})
 );
 export const LAYERS_ANIMATION_NAME = IS_ANDROID ? 'slide-fade' : IS_IOS ? 'slide-layers' : 'push-slide';
+
+const TEST_VIDEO = document.createElement('video');
+export const IS_MOV_SUPPORTED = Boolean(
+  TEST_VIDEO.canPlayType(VIDEO_MOV_TYPE).replace('no', '')
+  || IS_IOS, // IOS reports '', but still plays .mov files
+);
+
+if (IS_MOV_SUPPORTED) SUPPORTED_VIDEO_CONTENT_TYPES.add(VIDEO_MOV_TYPE);
 
 export const DPR = window.devicePixelRatio || 1;
 

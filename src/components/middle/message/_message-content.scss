@@ -42,6 +42,11 @@
     }
   }
 
+  img {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+  }
+
   .text-content {
     margin: 0;
     word-break: break-word;
@@ -84,6 +89,7 @@
       html[data-message-text-size="19"] & {
         top: .5rem;
       }
+
       html[data-message-text-size="20"] & {
         top: .5625rem;
       }
@@ -109,6 +115,7 @@
       top: auto !important;
       bottom: -.5rem !important;
       margin-top: -.25rem;
+
       &:not([dir=rtl]) {
         margin-top: -1.25rem;
       }
@@ -117,16 +124,17 @@
 
   .theme-dark .Message.own & {
     .text-entity-link {
-      text-decoration: underline;
+      text-decoration: underline !important;
 
       &:hover {
-        text-decoration: none;
+        text-decoration: none !important;
       }
     }
   }
 
   &:not(.custom-shape) {
     font-size: var(--message-text-size, 1rem);
+
     body.is-ios & {
       font-size: var(--message-text-size, 1.0625rem);
     }
@@ -259,7 +267,7 @@
   .svg-appendix {
     overflow: hidden;
     position: absolute;
-    bottom: -.0875rem;
+    bottom: -.0625rem;
     width: .5625rem;
     height: 1.125rem;
     font-size: 1rem !important;
@@ -325,7 +333,7 @@
   }
 
   &.audio {
-    min-width: 17.1875rem;
+    min-width: 20rem;
     padding: .5rem .5rem .8125rem !important;
 
     .Audio + .text-content {
@@ -717,14 +725,13 @@
 
 .text-entity-link {
   color: var(--color-links) !important;
-  text-decoration: none;
+  text-decoration: none !important;
   word-break: break-word;
   cursor: pointer;
   unicode-bidi: initial;
 
   &:hover, &:active, &:visited {
-    color: var(--color-links-hover) !important;
-    text-decoration: underline;
+    text-decoration: underline !important;
   }
 }
 

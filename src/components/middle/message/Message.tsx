@@ -16,7 +16,9 @@ import {
   ApiChat,
   ApiSticker,
 } from '../../../api/types';
-import { FocusDirection, IAlbum, ISettings } from '../../../types';
+import {
+  AudioOrigin, FocusDirection, IAlbum, ISettings,
+} from '../../../types';
 import Modal from '../../ui/Modal';
 
 import { IS_ANDROID, IS_TOUCH_ENV } from '../../../util/environment';
@@ -41,6 +43,7 @@ import {
   selectShouldAutoPlayMedia,
   selectShouldLoopStickers,
   selectTheme,
+  selectAllowedMessageActions,
 } from '../../../modules/selectors';
 import {
   getMessageContent,
@@ -49,6 +52,7 @@ import {
   isAnonymousOwnMessage,
   isMessageLocal,
   isChatPrivate,
+  isChatWithRepliesBot,
   getMessageCustomShape,
   isChatChannel,
   getMessageSingleEmoji,
@@ -140,7 +144,9 @@ type StateProps = {
   isResizingContainer?: boolean;
   isForwarding?: boolean;
   isChatWithSelf?: boolean;
+  isRepliesChat?: boolean;
   isChannel?: boolean;
+  canReply?: boolean;
   lastSyncTime?: number;
   highlight?: string;
   isSingleEmoji?: boolean;
@@ -200,7 +206,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   isResizingContainer,
   isForwarding,
   isChatWithSelf,
+  isRepliesChat,
   isChannel,
+  canReply,
   lastSyncTime,
   highlight,
   animatedEmoji,
@@ -259,7 +267,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const hasReply = isReplyMessage(message) && !shouldHideReply;
   const hasThread = Boolean(threadInfo) && messageListType === 'thread';
   const { forwardInfo, viaBotId } = message;
-  const asForwarded = forwardInfo && !isChatWithSelf && !forwardInfo.isLinkedChannelPost;
+  const asForwarded = forwardInfo && !isChatWithSelf && !isRepliesChat && !forwardInfo.isLinkedChannelPost;
   const isInDocumentGroup = Boolean(message.groupedId) && !message.isInAlbum;
   const isAlbum = Boolean(album) && album!.messages.length > 1;
   const {
@@ -280,8 +288,11 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   );
   const canForward = isChannel && !isScheduled;
   const canFocus = Boolean(isPinnedList
-    || (forwardInfo && (forwardInfo.isChannelPost || (isChatWithSelf && !isOwn)) && forwardInfo.fromMessageId));
-  const avatarPeer = forwardInfo && (isChatWithSelf || !sender) ? originSender : sender;
+    || (forwardInfo
+      && (forwardInfo.isChannelPost || (isChatWithSelf && !isOwn) || isRepliesChat)
+      && forwardInfo.fromMessageId
+    ));
+  const avatarPeer = forwardInfo && (isChatWithSelf || isRepliesChat || !sender) ? originSender : sender;
   const senderPeer = forwardInfo ? originSender : sender;
 
   const selectMessage = useCallback((e?: React.MouseEvent<HTMLDivElement, MouseEvent>, groupedId?: string) => {
@@ -292,7 +303,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     toggleMessageSelection({
       messageId,
       groupedId,
-      ...(e && e.shiftKey && { withShift: true }),
+      ...(e?.shiftKey && { withShift: true }),
       ...(isAlbum && { childMessageIds: album!.messages.map(({ id }) => id) }),
     });
   }, [isLocal, toggleMessageSelection, messageId, isAlbum, album]);
@@ -311,6 +322,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     isLocal,
     isAlbum,
     Boolean(isInSelectMode),
+    Boolean(canReply),
     onContextMenu,
     handleBeforeContextMenu,
   );
@@ -340,6 +352,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     threadId,
     isInDocumentGroup,
     Boolean(isScheduled),
+    isRepliesChat,
     album,
     avatarPeer,
     senderPeer,
@@ -386,7 +399,12 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     && messageListType === 'thread' && !noComments;
   const withAppendix = contentClassName.includes('has-appendix');
 
-  useEnsureMessage(chatId, hasReply ? message.replyToMessageId : undefined, replyMessage, message.id);
+  useEnsureMessage(
+    isRepliesChat && message.replyToChatId ? message.replyToChatId : chatId,
+    hasReply ? message.replyToMessageId : undefined,
+    replyMessage,
+    message.id,
+  );
   useFocusMessage(ref, chatId, isFocused, focusDirection, noFocusHighlight, isResizingContainer);
   useLayoutEffect(() => {
     if (!appendixRef.current) {
@@ -455,9 +473,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
 
   function renderAvatar() {
     const isAvatarPeerUser = avatarPeer && isChatPrivate(avatarPeer.id);
-    const avatarUser = avatarPeer && isAvatarPeerUser ? avatarPeer as ApiUser : undefined;
-    const avatarChat = avatarPeer && !isAvatarPeerUser ? avatarPeer as ApiChat : undefined;
-    const hiddenName = !avatarPeer && forwardInfo ? forwardInfo.hiddenUserName : undefined;
+    const avatarUser = (avatarPeer && isAvatarPeerUser) ? avatarPeer as ApiUser : undefined;
+    const avatarChat = (avatarPeer && !isAvatarPeerUser) ? avatarPeer as ApiChat : undefined;
+    const hiddenName = (!avatarPeer && forwardInfo) ? forwardInfo.hiddenUserName : undefined;
 
     return (
       <Avatar
@@ -566,6 +584,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
           <Audio
             theme={theme}
             message={message}
+            origin={AudioOrigin.Inline}
             uploadProgress={uploadProgress}
             lastSyncTime={lastSyncTime}
             isSelectable={isInDocumentGroup}
@@ -694,7 +713,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   function renderSenderName() {
     const shouldRender = !(customShape && !viaBotId) && (
       (withSenderName && !photo && !video) || asForwarded || viaBotId || forceSenderName
-    ) && (!isInDocumentGroup || isFirstInDocumentGroup);
+    ) && (!isInDocumentGroup || isFirstInDocumentGroup) && !(hasReply && customShape);
 
     if (!shouldRender) {
       return undefined;
@@ -708,7 +727,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
       if (!asForwarded) {
         senderColor = `color-${getUserColorKey(senderPeer)}`;
       }
-    } else if (forwardInfo && forwardInfo.hiddenUserName) {
+    } else if (forwardInfo?.hiddenUserName) {
       senderTitle = forwardInfo.hiddenUserName;
     }
 
@@ -736,7 +755,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             </span>
           </>
         )}
-        {forwardInfo && forwardInfo.isLinkedChannelPost ? (
+        {forwardInfo?.isLinkedChannelPost ? (
           <span className="admin-title" dir="auto">{lang('DiscussChannel')}</span>
         ) : message.adminTitle && !isChannel ? (
           <span className="admin-title" dir="auto">{message.adminTitle}</span>
@@ -955,13 +974,14 @@ export default memo(withGlobal<OwnProps>(
       message, album, withSenderName, withAvatar, threadId, messageListType,
     } = ownProps;
     const {
-      id, chatId, viaBotId, replyToMessageId, isOutgoing,
+      id, chatId, viaBotId, replyToChatId, replyToMessageId, isOutgoing,
     } = message;
 
     const chat = selectChat(global, chatId);
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
+    const isRepliesChat = isChatWithRepliesBot(chatId);
     const isChannel = chat && isChatChannel(chat);
-    const chatUsername = chat && chat.username;
+    const chatUsername = chat?.username;
 
     const forceSenderName = !isChatWithSelf && isAnonymousOwnMessage(message);
     const canShowSender = withSenderName || withAvatar || forceSenderName;
@@ -974,7 +994,7 @@ export default memo(withGlobal<OwnProps>(
 
     const shouldHideReply = replyToMessageId === threadTopMessageId;
     const replyMessage = replyToMessageId && !shouldHideReply
-      ? selectChatMessage(global, chatId, replyToMessageId)
+      ? selectChatMessage(global, isRepliesChat && replyToChatId ? replyToChatId : chatId, replyToMessageId)
       : undefined;
     const replyMessageSender = replyMessage && selectSender(global, replyMessage);
 
@@ -996,11 +1016,13 @@ export default memo(withGlobal<OwnProps>(
     const singleEmoji = getMessageSingleEmoji(message);
     let isSelected: boolean;
 
-    if (album && album.messages) {
+    if (album?.messages) {
       isSelected = album.messages.every(({ id: messageId }) => selectIsMessageSelected(global, messageId));
     } else {
       isSelected = selectIsMessageSelected(global, id);
     }
+
+    const { canReply } = (messageListType === 'thread' && selectAllowedMessageActions(global, message, threadId)) || {};
 
     return {
       theme: selectTheme(global),
@@ -1016,7 +1038,9 @@ export default memo(withGlobal<OwnProps>(
       isFocused,
       isForwarding,
       isChatWithSelf,
+      isRepliesChat,
       isChannel,
+      canReply,
       lastSyncTime,
       highlight,
       isSingleEmoji: Boolean(singleEmoji),

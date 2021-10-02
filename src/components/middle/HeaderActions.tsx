@@ -43,7 +43,6 @@ interface StateProps {
   canSubscribe?: boolean;
   canSearch?: boolean;
   canMute?: boolean;
-  canSelect?: boolean;
   canLeave?: boolean;
 }
 
@@ -62,7 +61,6 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
   canSubscribe,
   canSearch,
   canMute,
-  canSelect,
   canLeave,
   isRightColumnShown,
   joinChannel,
@@ -164,21 +162,19 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
           <i className="icon-search" />
         </Button>
       )}
-      {(IS_SINGLE_COLUMN_LAYOUT || !canSubscribe) && (
-        <Button
-          ref={menuButtonRef}
-          className={isMenuOpen ? 'active' : ''}
-          round
-          ripple={!IS_SINGLE_COLUMN_LAYOUT}
-          size="smaller"
-          color="translucent"
-          disabled={noMenu}
-          ariaLabel="More actions"
-          onClick={handleHeaderMenuOpen}
-        >
-          <i className="icon-more" />
-        </Button>
-      )}
+      <Button
+        ref={menuButtonRef}
+        className={isMenuOpen ? 'active' : ''}
+        round
+        ripple={!IS_SINGLE_COLUMN_LAYOUT}
+        size="smaller"
+        color="translucent"
+        disabled={noMenu}
+        ariaLabel="More actions"
+        onClick={handleHeaderMenuOpen}
+      >
+        <i className="icon-more" />
+      </Button>
       {menuPosition && (
         <HeaderMenuContainer
           chatId={chatId}
@@ -191,7 +187,6 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
           canSubscribe={canSubscribe}
           canSearch={canSearch}
           canMute={canMute}
-          canSelect={canSelect}
           canLeave={canLeave}
           onSubscribeChannel={handleSubscribeClick}
           onSearchClick={handleSearchClick}
@@ -208,7 +203,7 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId);
     const isChannel = Boolean(chat && isChatChannel(chat));
 
-    if (chat && chat.isRestricted) {
+    if (chat?.isRestricted || selectIsInSelectMode(global)) {
       return {
         noMenu: true,
       };
@@ -227,19 +222,10 @@ export default memo(withGlobal<OwnProps>(
     );
     const canSearch = isMainThread || isDiscussionThread;
     const canMute = isMainThread && !isChatWithSelf && !canSubscribe;
-    const canSelect = !selectIsInSelectMode(global);
     const canLeave = isMainThread && !canSubscribe;
 
-    const noMenu = !(
-      (IS_SINGLE_COLUMN_LAYOUT && canSubscribe)
-      || (IS_SINGLE_COLUMN_LAYOUT && canSearch)
-      || canMute
-      || canSelect
-      || canLeave
-    );
-
     return {
-      noMenu,
+      noMenu: false,
       isChannel,
       isRightColumnShown,
       canStartBot,
@@ -247,7 +233,6 @@ export default memo(withGlobal<OwnProps>(
       canSubscribe,
       canSearch,
       canMute,
-      canSelect,
       canLeave,
     };
   },

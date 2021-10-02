@@ -9,6 +9,7 @@ import captureEscKeyListener from '../../util/captureEscKeyListener';
 import buildClassName from '../../util/buildClassName';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import useHistoryBack from '../../hooks/useHistoryBack';
+import { preventMessageInputBlurWithBubbling } from '../middle/helpers/preventMessageInputBlur';
 
 import './Menu.scss';
 
@@ -18,6 +19,7 @@ type OwnProps = {
   isOpen: boolean;
   className?: string;
   style?: string;
+  menuStyle?: string;
   positionX?: 'left' | 'right';
   positionY?: 'top' | 'bottom';
   autoClose?: boolean;
@@ -40,6 +42,7 @@ const Menu: FC<OwnProps> = ({
   isOpen,
   className,
   style,
+  menuStyle,
   children,
   positionX = 'left',
   positionY = 'top',
@@ -109,13 +112,13 @@ const Menu: FC<OwnProps> = ({
     >
       {isOpen && (
         // This only prevents click events triggering on underlying elements
-        <div className="backdrop" />
+        <div className="backdrop" onMouseDown={preventMessageInputBlurWithBubbling} />
       )}
       <div
         ref={menuRef}
         className={bubbleClassName}
         // @ts-ignore teact feature
-        style={`transform-origin: ${positionY} ${positionX}`}
+        style={`transform-origin: ${positionY} ${positionX};${menuStyle || ''}`}
         onClick={autoClose ? onClose : undefined}
       >
         {children}

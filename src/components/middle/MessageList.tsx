@@ -4,12 +4,12 @@ import React, {
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import {
-  ApiAction, ApiMessage, ApiRestrictionReason, MAIN_THREAD_ID,
+  ApiMessage, ApiRestrictionReason, MAIN_THREAD_ID,
 } from '../../api/types';
 import { GlobalActions, MessageListType } from '../../global/types';
 import { LoadMoreDirection } from '../../types';
 
-import { ANIMATION_END_DELAY, MESSAGE_LIST_SLICE } from '../../config';
+import { ANIMATION_END_DELAY, LOCAL_MESSAGE_ID_BASE, MESSAGE_LIST_SLICE } from '../../config';
 import {
   selectChatMessages,
   selectIsViewportNewest,
@@ -26,13 +26,18 @@ import {
   selectScheduledMessages,
   selectCurrentMessageIds,
 } from '../../modules/selectors';
-import { isChatChannel, isChatGroup, isChatPrivate } from '../../modules/helpers';
+import {
+  isChatChannel,
+  isChatPrivate,
+  isChatWithRepliesBot,
+  isChatGroup,
+} from '../../modules/helpers';
 import { orderBy, pick } from '../../util/iteratees';
 import { fastRaf, debounce, onTickEnd } from '../../util/schedulers';
 import useLayoutEffectWithPrevDeps from '../../hooks/useLayoutEffectWithPrevDeps';
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import buildClassName from '../../util/buildClassName';
-import { groupMessages, MessageDateGroup } from './helpers/groupMessages';
+import { groupMessages } from './helpers/groupMessages';
 import { preventMessageInputBlur } from './helpers/preventMessageInputBlur';
 import useOnChange from '../../hooks/useOnChange';
 import useStickyDates from './hooks/useStickyDates';
@@ -67,6 +72,7 @@ type StateProps = {
   isChannelChat?: boolean;
   isGroupChat?: boolean;
   isChatWithSelf?: boolean;
+  isRepliesChat?: boolean;
   isCreator?: boolean;
   isBot?: boolean;
   messageIds?: number[];
@@ -76,7 +82,6 @@ type StateProps = {
   isRestricted?: boolean;
   restrictionReason?: ApiRestrictionReason;
   focusingId?: number;
-  hasFocusHighlight?: boolean;
   isSelectModeActive?: boolean;
   animationLevel?: number;
   lastMessage?: ApiMessage;
@@ -113,6 +118,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   isReady,
   isActive,
   isChatWithSelf,
+  isRepliesChat,
   isCreator,
   isBot,
   messageIds,
@@ -123,7 +129,6 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   isRestricted,
   restrictionReason,
   focusingId,
-  hasFocusHighlight,
   isSelectModeActive,
   loadViewportMessages,
   setScrollOffset,
@@ -261,11 +266,17 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     if (isReady) {
       containerRef.current!.dataset.normalHeight = String(containerRef.current!.offsetHeight);
     }
-  }, [windowHeight, isReady]);
+  }, [windowHeight, isReady, canPost]);
 
   // Initial message loading
   useEffect(() => {
     if (!loadMoreAround || !isChatLoaded || isRestricted || focusingId) {
+      return;
+    }
+
+    // Loading history while sending a message can return the same message and cause ambiguity
+    const isFirstMessageLocal = messageIds && messageIds[0] >= LOCAL_MESSAGE_ID_BASE;
+    if (isFirstMessageLocal) {
       return;
     }
 
@@ -333,11 +344,13 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       }, FOCUSING_DURATION);
     }
 
-    const hasFirstMessageChanged = messageIds && prevMessageIds && messageIds[0] !== prevMessageIds[0];
     const hasLastMessageChanged = (
       messageIds && prevMessageIds && messageIds[messageIds.length - 1] !== prevMessageIds[prevMessageIds.length - 1]
     );
-    const wasMessageAdded = hasLastMessageChanged && !hasFirstMessageChanged;
+    const hasViewportShifted = (
+      messageIds?.[0] !== prevMessageIds?.[0] && messageIds?.length === (MESSAGE_LIST_SLICE / 2 + 1)
+    );
+    const wasMessageAdded = hasLastMessageChanged && !hasViewportShifted;
     const isAlreadyFocusing = messageIds && memoFocusingIdRef.current === messageIds[messageIds.length - 1];
 
     const { scrollTop, scrollHeight, offsetHeight } = container;
@@ -369,7 +382,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       }
 
       newScrollTop = scrollHeight - offsetHeight;
-      scrollOffsetRef.current = Math.max(scrollHeight - newScrollTop, offsetHeight);
+      scrollOffsetRef.current = Math.max(Math.ceil(scrollHeight - newScrollTop), offsetHeight);
 
       // Scroll still needs to be restored after container resize
       if (!shouldForceScroll) {
@@ -408,7 +421,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       newScrollTop = scrollHeight - scrollOffset;
     }
 
-    resetScroll(container, newScrollTop);
+    resetScroll(container, Math.ceil(newScrollTop));
 
     if (!memoFocusingIdRef.current) {
       isScrollTopJustUpdatedRef.current = true;
@@ -417,7 +430,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       });
     }
 
-    scrollOffsetRef.current = Math.max(scrollHeight - newScrollTop, offsetHeight);
+    scrollOffsetRef.current = Math.max(Math.ceil(scrollHeight - newScrollTop), offsetHeight);
 
     if (process.env.APP_ENV === 'perf') {
       // eslint-disable-next-line no-console
@@ -435,7 +448,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   const lang = useLang();
 
   const isPrivate = Boolean(chatId && isChatPrivate(chatId));
-  const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf);
+  const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat);
   const noAvatars = Boolean(!withUsers || isChannelChat);
   const shouldRenderGreeting = isChatPrivate(chatId) && !isChatWithSelf && !isBot
     && (
@@ -444,18 +457,18 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
         // Used to avoid flickering when deleting a greeting that has just been sent
         && (!listItemElementsRef.current || listItemElementsRef.current.length === 0)
       )
-      || checkSingleMessageActionByType('contactSignUp', messageGroups)
-      || (lastMessage && lastMessage.content.action && lastMessage.content.action.type === 'contactSignUp')
+      || (messageIds?.length === 1 && messagesById?.[messageIds[0]]?.content.action?.type === 'contactSignUp')
+      || (lastMessage?.content?.action?.type === 'contactSignUp')
     );
+
   const isGroupChatJustCreated = isGroupChat && isCreator
-    && checkSingleMessageActionByType('chatCreate', messageGroups);
+    && messageIds?.length === 1 && messagesById?.[messageIds[0]]?.content.action?.type === 'chatCreate';
 
   const className = buildClassName(
     'MessageList custom-scroll',
     noAvatars && 'no-avatars',
     !canPost && 'no-composer',
     type === 'pinned' && 'type-pinned',
-    hasFocusHighlight && 'has-focus-highlight',
     isSelectModeActive && 'select-mode-active',
     isScrolled && 'scrolled',
     !isReady && 'is-animating',
@@ -475,7 +488,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
           </span>
         </div>
       ) : botDescription ? (
-        <div className="empty rich"><span>{renderText(lang(botDescription), ['br', 'emoji', 'links'])}</span></div>
+        <div className="empty"><span>{renderText(lang(botDescription), ['br', 'emoji', 'links'])}</span></div>
       ) : shouldRenderGreeting ? (
         <ContactGreeting userId={chatId} />
       ) : messageIds && (!messageGroups || isGroupChatJustCreated) ? (
@@ -515,16 +528,6 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-function checkSingleMessageActionByType(type: ApiAction['type'], messageGroups?: MessageDateGroup[]) {
-  return messageGroups
-    && messageGroups.length === 1
-    && messageGroups[0].senderGroups.length === 1
-    && messageGroups[0].senderGroups[0].length === 1
-    && 'content' in messageGroups[0].senderGroups[0][0]
-    && messageGroups[0].senderGroups[0][0].content.action
-    && messageGroups[0].senderGroups[0][0].content.action.type === type;
-}
-
 export default memo(withGlobal<OwnProps>(
   (global, { chatId, threadId, type }): StateProps => {
     const chat = selectChat(global, chatId);
@@ -547,7 +550,6 @@ export default memo(withGlobal<OwnProps>(
 
     const { isRestricted, restrictionReason, lastMessage } = chat;
     const focusingId = selectFocusedMessageId(global, chatId);
-    const hasFocusHighlight = focusingId ? !global.focusedMessage!.noHighlight : undefined;
 
     const withLastMessageWhenPreloading = (
       threadId === MAIN_THREAD_ID
@@ -572,6 +574,7 @@ export default memo(withGlobal<OwnProps>(
       isGroupChat: isChatGroup(chat),
       isCreator: chat.isCreator,
       isChatWithSelf: selectIsChatWithSelf(global, chatId),
+      isRepliesChat: isChatWithRepliesBot(chatId),
       isBot: Boolean(chatBot),
       messageIds,
       messagesById,
@@ -579,7 +582,6 @@ export default memo(withGlobal<OwnProps>(
       isViewportNewest: type !== 'thread' || selectIsViewportNewest(global, chatId, threadId),
       threadFirstMessageId: selectFirstMessageId(global, chatId, threadId),
       focusingId,
-      hasFocusHighlight,
       isSelectModeActive: selectIsInSelectMode(global),
       botDescription,
       threadTopMessageId,

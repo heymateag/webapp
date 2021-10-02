@@ -68,6 +68,7 @@ export interface ApiAudio {
   duration: number;
   performer?: string;
   title?: string;
+  thumbnailSizes?: ApiPhotoSize[];
 }
 
 export interface ApiVoice {
@@ -235,6 +236,7 @@ export interface ApiMessage {
   date: number;
   isOutgoing: boolean;
   senderId?: number;
+  replyToChatId?: number;
   replyToMessageId?: number;
   replyToTopMessageId?: number;
   sendingState?: 'messageSendingStatePending' | 'messageSendingStateFailed';
@@ -243,6 +245,7 @@ export interface ApiMessage {
   previousLocalId?: number;
   views?: number;
   isEdited?: boolean;
+  isMentioned?: boolean;
   isMediaUnread?: boolean;
   groupedId?: string;
   isInAlbum?: boolean;
@@ -287,7 +290,7 @@ export type ApiReplyKeyboard = {
   [K in 'inlineButtons' | 'keyboardButtons']?: ApiKeyboardButtons;
 };
 
-export type ApiMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'profilePhoto';
+export type ApiMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'voice' | 'profilePhoto';
 export type ApiGlobalMessageSearchType = 'text' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
 
 export type ApiReportReason = 'spam' | 'violence' | 'pornography' | 'childAbuse'

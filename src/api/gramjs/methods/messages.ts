@@ -18,7 +18,13 @@ import {
   ApiReportReason,
 } from '../../types';
 
-import { ALL_FOLDER_ID, DEBUG, PINNED_MESSAGES_LIMIT } from '../../../config';
+import {
+  ALL_FOLDER_ID,
+  DEBUG,
+  PINNED_MESSAGES_LIMIT,
+  SUPPORTED_IMAGE_CONTENT_TYPES,
+  SUPPORTED_VIDEO_CONTENT_TYPES,
+} from '../../../config';
 import { invokeRequest, uploadFile } from './client';
 import {
   buildApiMessage,
@@ -116,16 +122,36 @@ export async function fetchMessages({
 export async function fetchMessage({ chat, messageId }: { chat: ApiChat; messageId: number }) {
   const isChannel = getEntityTypeById(chat.id) === 'channel';
 
-  const result = await invokeRequest(
-    isChannel
-      ? new GramJs.channels.GetMessages({
-        channel: buildInputEntity(chat.id, chat.accessHash) as GramJs.InputChannel,
-        id: [new GramJs.InputMessageID({ id: messageId })],
-      })
-      : new GramJs.messages.GetMessages({
-        id: [new GramJs.InputMessageID({ id: messageId })],
-      }),
-  );
+  let result;
+  try {
+    result = await invokeRequest(
+      isChannel
+        ? new GramJs.channels.GetMessages({
+          channel: buildInputEntity(chat.id, chat.accessHash) as GramJs.InputChannel,
+          id: [new GramJs.InputMessageID({ id: messageId })],
+        })
+        : new GramJs.messages.GetMessages({
+          id: [new GramJs.InputMessageID({ id: messageId })],
+        }),
+      undefined,
+      true,
+    );
+  } catch (err) {
+    const { message } = err;
+
+    // When fetching messages for the bot @replies, there may be situations when the user was banned
+    // in the comment group or this group was deleted
+    if (message !== 'CHANNEL_PRIVATE') {
+      onUpdate({
+        '@type': 'error',
+        error: {
+          message,
+          isSlowMode: false,
+          hasErrorKey: true,
+        },
+      });
+    }
+  }
 
   if (!result || result instanceof GramJs.messages.MessagesNotModified) {
     return undefined;
@@ -486,15 +512,18 @@ async function uploadMedia(localMessage: ApiMessage, attachment: ApiAttachment, 
 
   const attributes: GramJs.TypeDocumentAttribute[] = [new GramJs.DocumentAttributeFilename({ fileName: filename })];
   if (quick) {
-    if (mimeType.startsWith('image/')) {
+    if (SUPPORTED_IMAGE_CONTENT_TYPES.has(mimeType)) {
       return new GramJs.InputMediaUploadedPhoto({ file: inputFile });
-    } else {
+    }
+
+    if (SUPPORTED_VIDEO_CONTENT_TYPES.has(mimeType)) {
       const { width, height, duration } = quick;
       if (duration !== undefined) {
         attributes.push(new GramJs.DocumentAttributeVideo({
           duration,
           w: width,
           h: height,
+          supportsStreaming: true,
         }));
       }
     }
@@ -718,12 +747,12 @@ export async function requestThreadInfoUpdate({
   ]);
 
   if (!topMessageResult || !topMessageResult.messages.length) {
-    return;
+    return undefined;
   }
 
   const discussionChatId = resolveMessageApiChatId(topMessageResult.messages[0]);
   if (!discussionChatId) {
-    return;
+    return undefined;
   }
 
   onUpdate({
@@ -731,6 +760,7 @@ export async function requestThreadInfoUpdate({
     chatId: discussionChatId,
     threadId,
     threadInfo: {
+      threadId,
       topMessageId: topMessageResult.messages[topMessageResult.messages.length - 1].id,
       lastReadInboxMessageId: topMessageResult.readInboxMaxId,
       messagesCount: (repliesResult instanceof GramJs.messages.ChannelMessages) ? repliesResult.count : undefined,
@@ -749,6 +779,10 @@ export async function requestThreadInfoUpdate({
       noTopChatsRequest: true,
     });
   });
+
+  return {
+    discussionChatId,
+  };
 }
 
 export async function searchMessagesLocal({
@@ -779,7 +813,7 @@ export async function searchMessagesLocal({
       filter = new GramJs.InputMessagesFilterMusic();
       break;
     case 'voice':
-      filter = new GramJs.InputMessagesFilterVoice();
+      filter = new GramJs.InputMessagesFilterRoundVoice();
       break;
     case 'profilePhoto':
       filter = new GramJs.InputMessagesFilterChatPhotos();
@@ -856,7 +890,7 @@ export async function searchMessagesGlobal({
       filter = new GramJs.InputMessagesFilterMusic();
       break;
     case 'voice':
-      filter = new GramJs.InputMessagesFilterVoice();
+      filter = new GramJs.InputMessagesFilterRoundVoice();
       break;
     case 'text':
     default: {

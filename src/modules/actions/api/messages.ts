@@ -420,7 +420,7 @@ addReducer('deleteHistory', (global, actions, payload) => {
       return;
     }
 
-    const maxId = chat.lastMessage && chat.lastMessage.id;
+    const maxId = chat.lastMessage?.id;
 
     await callApi('deleteHistory', { chat, shouldDeleteForAll, maxId });
 
@@ -558,8 +558,9 @@ addReducer('forwardMessages', (global) => {
   }
 });
 
-addReducer('loadScheduledHistory', (global) => {
-  const chat = selectCurrentChat(global);
+addReducer('loadScheduledHistory', (global, actions, payload) => {
+  const { chatId } = payload;
+  const chat = selectChat(global, chatId);
   if (!chat) {
     return;
   }
@@ -671,6 +672,7 @@ async function loadViewportMessages(
   global = isOutlying
     ? updateOutlyingIds(global, chatId, threadId, ids)
     : updateListedIds(global, chatId, threadId, ids);
+
   global = addUsers(global, buildCollectionByKey(users, 'id'));
   global = addChats(global, buildCollectionByKey(chats, 'id'));
   global = updateThreadInfos(global, chatId, threadInfos);
@@ -679,7 +681,7 @@ async function loadViewportMessages(
   const outlyingIds = selectOutlyingIds(global, chatId, threadId);
 
   if (isOutlying && listedIds && outlyingIds) {
-    if (areSortedArraysIntersecting(listedIds, outlyingIds)) {
+    if (!outlyingIds.length || areSortedArraysIntersecting(listedIds, outlyingIds)) {
       global = updateListedIds(global, chatId, threadId, outlyingIds);
       listedIds = selectListedIds(global, chatId, threadId);
       global = replaceThreadParam(global, chatId, threadId, 'outlyingIds', undefined);

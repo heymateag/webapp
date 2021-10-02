@@ -8,6 +8,10 @@
     padding-right: 2rem;
     bottom: 0;
 
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      bottom: env(safe-area-inset-bottom);
+    }
+
     @media (max-width: 600px) {
       padding-right: 1rem;
     }
@@ -32,6 +36,7 @@
   > .Button {
     flex-shrink: 0;
     margin-left: .5rem;
+    color: var(--color-composer-button);
 
     @media (max-width: 600px) {
       width: 2.875rem;
@@ -184,7 +189,7 @@
   }
 
   @media (max-width: 600px) {
-    max-width: calc(100% - 3rem);
+    max-width: calc(100% - 3.375rem);
   }
 }
 
@@ -205,6 +210,10 @@
     margin: 0;
     padding: 0;
     align-self: flex-end;
+
+    &:not(.faded):not(.activated) {
+      color: var(--color-composer-button);
+    }
 
     + .Button {
       margin-left: -1rem;
@@ -232,7 +241,7 @@
       content: '';
       position: absolute;
       top: .75rem;
-      right: .75rem;
+      right: .875rem;
       border: .1875rem solid var(--color-background);
       box-sizing: content-box;
       width: .5rem;
@@ -258,17 +267,19 @@
     line-height: 3.5rem;
     height: 3.5rem;
     padding: 0 3.125rem 0 1rem;
+    font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Apple Color Emoji", "Helvetica Neue", sans-serif;
 
     &::after {
       content: '';
-      width: 10px;
-      height: 10px;
+      width: .75rem;
+      height: .75rem;
       background: var(--color-error);
-      border-radius: 5px;
+      border-radius: .375rem;
       position: absolute;
       top: 50%;
-      margin-top: -5px;
-      right: 1.375rem;
+      margin-top: -.375rem;
+      right: 1.3125rem;
+      animation: recording-blink-like-macos 1.5s infinite;
     }
 
     @media (max-width: 600px) {
@@ -323,15 +334,15 @@
     font-size: var(--composer-text-size, 1rem);
     top: calc((3.25rem - var(--composer-text-size, 1rem) * 1.375) / 2);
     bottom: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 
   .forced-placeholder {
     z-index: var(--z-below);
     left: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    max-width: 100%;
-    text-overflow: ellipsis;
   }
 
   &[dir=rtl] .placeholder-text {
@@ -344,7 +355,7 @@
     text-decoration: none;
 
     &:hover, &:active, &:visited {
-      color: var(--color-links-hover) !important;
+      text-decoration: underline !important;
     }
   }
 
@@ -467,5 +478,14 @@
 
   .Loading {
     margin: 1rem 0;
+  }
+}
+
+@keyframes recording-blink-like-macos {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: .3;
   }
 }

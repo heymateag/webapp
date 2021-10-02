@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  FC, memo, useCallback, useMemo, useState,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
@@ -7,7 +7,6 @@ import { GlobalActions, MessageListType } from '../../../global/types';
 import { ApiMessage } from '../../../api/types';
 import { IAlbum, IAnchorPosition } from '../../../types';
 import { selectAllowedMessageActions, selectCurrentMessageList } from '../../../modules/selectors';
-import { disableScrolling, enableScrolling } from '../../../util/scrollLock';
 import { pick } from '../../../util/iteratees';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useFlag from '../../../hooks/useFlag';
@@ -152,7 +151,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const handleForward = useCallback(() => {
     closeMenu();
-    if (album && album.messages) {
+    if (album?.messages) {
       const messageIds = album.messages.map(({ id }) => id);
       openForwardMenu({ fromChatId: message.chatId, messageIds });
     } else {
@@ -171,7 +170,7 @@ const ContextMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [closeMenu, message.content.sticker, unfaveSticker]);
 
   const handleSelectMessage = useCallback(() => {
-    const params = album && album.messages
+    const params = album?.messages
       ? {
         messageId: message.id,
         childMessageIds: album.messages.map(({ id }) => id),
@@ -205,12 +204,6 @@ const ContextMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
     copyTextToClipboard(`https://t.me/${chatUsername || `c/${Math.abs(message.chatId)}`}/${message.id}`);
     closeMenu();
   }, [chatUsername, closeMenu, message.chatId, message.id]);
-
-  useEffect(() => {
-    disableScrolling();
-
-    return enableScrolling;
-  }, []);
 
   const reportMessageIds = useMemo(() => (album ? album.messages : [message]).map(({ id }) => id), [album, message]);
 

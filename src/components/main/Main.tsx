@@ -3,9 +3,9 @@ import React, {
 } from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
+import { AudioOrigin, LangCode } from '../../types';
 import { GlobalActions } from '../../global/types';
 import { ApiMessage } from '../../api/types';
-import { LangCode } from '../../types';
 
 import '../../modules/actions/all';
 import {
@@ -27,7 +27,7 @@ import useShowTransition from '../../hooks/useShowTransition';
 import useBackgroundMode from '../../hooks/useBackgroundMode';
 import useBeforeUnload from '../../hooks/useBeforeUnload';
 import useOnChange from '../../hooks/useOnChange';
-import usePreventIosPinchZoom from '../../hooks/usePreventIosPinchZoom';
+import usePreventPinchZoomGesture from '../../hooks/usePreventPinchZoomGesture';
 import { processDeepLink } from '../../util/deeplink';
 import { LOCATION_HASH } from '../../hooks/useHistoryBack';
 
@@ -55,6 +55,7 @@ type StateProps = {
   hasNotifications: boolean;
   hasDialogs: boolean;
   audioMessage?: ApiMessage;
+  audioOrigin?: AudioOrigin;
   safeLinkModalUrl?: string;
   isHistoryCalendarOpen: boolean;
   shouldSkipHistoryAnimations?: boolean;
@@ -64,7 +65,7 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, (
   'loadAnimatedEmojis' | 'loadNotificationSettings' | 'loadNotificationExceptions' | 'updateIsOnline' |
-  'loadTopInlineBots' | 'loadEmojiKeywords' | 'openStickerSetShortName'
+  'loadTopInlineBots' | 'loadEmojiKeywords' | 'openStickerSetShortName' | 'loadCountryList'
 )>;
 
 const NOTIFICATION_INTERVAL = 1000;
@@ -84,6 +85,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   hasNotifications,
   hasDialogs,
   audioMessage,
+  audioOrigin,
   safeLinkModalUrl,
   isHistoryCalendarOpen,
   shouldSkipHistoryAnimations,
@@ -95,6 +97,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   updateIsOnline,
   loadTopInlineBots,
   loadEmojiKeywords,
+  loadCountryList,
   openStickerSetShortName,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
@@ -116,10 +119,12 @@ const Main: FC<StateProps & DispatchProps> = ({
       if (language !== BASE_EMOJI_KEYWORD_LANG) {
         loadEmojiKeywords({ language });
       }
+
+      loadCountryList({ langCode: language });
     }
   }, [
     lastSyncTime, loadAnimatedEmojis, loadNotificationExceptions, loadNotificationSettings, updateIsOnline,
-    loadTopInlineBots, loadEmojiKeywords, language,
+    loadTopInlineBots, loadEmojiKeywords, loadCountryList, language,
   ]);
 
   useEffect(() => {
@@ -223,7 +228,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   useBackgroundMode(handleBlur, handleFocus);
   useBeforeUnload(handleBlur);
 
-  usePreventIosPinchZoom(isMediaViewerOpen);
+  usePreventPinchZoomGesture(isMediaViewerOpen);
 
   function stopEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     e.preventDefault();
@@ -239,7 +244,7 @@ const Main: FC<StateProps & DispatchProps> = ({
       <ForwardPicker isOpen={isForwardModalOpen} />
       <Notifications isOpen={hasNotifications} />
       <Dialogs isOpen={hasDialogs} />
-      {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} noUi />}
+      {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} origin={audioOrigin} noUi />}
       <SafeLinkModal url={safeLinkModalUrl} />
       <HistoryCalendar isOpen={isHistoryCalendarOpen} />
       <StickerSetModal
@@ -274,7 +279,7 @@ function updatePageTitle(nextTitle: string) {
 
 export default memo(withGlobal(
   (global): StateProps => {
-    const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
+    const { chatId: audioChatId, messageId: audioMessageId, origin } = global.audioPlayer;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
@@ -289,6 +294,7 @@ export default memo(withGlobal(
       hasNotifications: Boolean(global.notifications.length),
       hasDialogs: Boolean(global.dialogs.length),
       audioMessage,
+      audioOrigin: origin,
       safeLinkModalUrl: global.safeLinkModalUrl,
       isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
@@ -298,6 +304,6 @@ export default memo(withGlobal(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
-    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName',
+    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList',
   ]),
 )(Main));

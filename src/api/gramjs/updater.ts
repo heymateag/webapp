@@ -85,6 +85,7 @@ export function updater(update: Update, originRequest?: GramJs.AnyRequest) {
     || update instanceof GramJs.UpdateServiceNotification
   ) {
     let message: ApiMessage | undefined;
+    let shouldForceReply: boolean | undefined;
 
     if (update instanceof GramJs.UpdateShortChatMessage) {
       message = buildApiMessageFromShortChat(update);
@@ -113,11 +114,14 @@ export function updater(update: Update, originRequest?: GramJs.AnyRequest) {
       }
 
       message = buildApiMessage(update.message)!;
+      shouldForceReply = 'replyMarkup' in update.message
+        && update.message?.replyMarkup instanceof GramJs.ReplyKeyboardForceReply
+        && (!update.message.replyMarkup.selective || message.isMentioned);
     }
 
     // eslint-disable-next-line no-underscore-dangle
     const entities = update._entities;
-    if (entities && entities.length) {
+    if (entities?.length) {
       entities
         .filter((e) => e instanceof GramJs.User)
         .map(buildApiUser)
@@ -161,6 +165,7 @@ export function updater(update: Update, originRequest?: GramJs.AnyRequest) {
         id: message.id,
         chatId: message.chatId,
         message,
+        shouldForceReply,
       });
     }
 
@@ -660,7 +665,7 @@ export function updater(update: Update, originRequest?: GramJs.AnyRequest) {
     });
   } else if (update instanceof GramJs.UpdateUserName) {
     const updatedUser = localDb.users[update.userId];
-    const user = updatedUser && updatedUser.mutualContact && !updatedUser.self
+    const user = updatedUser?.mutualContact && !updatedUser.self
       ? pick(update, ['username'])
       : pick(update, ['firstName', 'lastName', 'username']);
 
@@ -697,7 +702,7 @@ export function updater(update: Update, originRequest?: GramJs.AnyRequest) {
       return;
     }
 
-    if (_entities && _entities.length) {
+    if (_entities?.length) {
       _entities
         .filter((e) => e instanceof GramJs.User && !e.contact)
         .forEach((user) => {

@@ -5,7 +5,9 @@ import {
 import { ApiChat } from '../../../api/types';
 import { InlineBotSettings } from '../../../types';
 
-import { RE_TME_INVITE_LINK, RE_TME_LINK } from '../../../config';
+import {
+  RE_TG_LINK, RE_TME_ADDSTICKERS_LINK, RE_TME_INVITE_LINK, RE_TME_LINK,
+} from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import {
   selectChat, selectChatBot, selectChatMessage, selectCurrentChat, selectCurrentMessageList,
@@ -28,7 +30,8 @@ addReducer('clickInlineButton', (global, actions, payload) => {
       actions.sendBotCommand({ command: button.value });
       break;
     case 'url':
-      if (button.value.match(RE_TME_INVITE_LINK) || button.value.match(RE_TME_LINK)) {
+      if (button.value.match(RE_TME_INVITE_LINK) || button.value.match(RE_TME_LINK) || button.value.match(RE_TG_LINK)
+        || button.value.match(RE_TME_ADDSTICKERS_LINK)) {
         actions.openTelegramLink({ url: button.value });
       } else {
         actions.toggleSafeLinkModal({ url: button.value });
@@ -69,11 +72,17 @@ addReducer('sendBotCommand', (global, actions, payload) => {
   const { command, chatId } = payload;
   const { currentUserId } = global;
   const chat = chatId ? selectChat(global, chatId) : selectCurrentChat(global);
-  if (!currentUserId || !chat) {
+  const currentMessageList = selectCurrentMessageList(global);
+
+  if (!currentUserId || !chat || !currentMessageList) {
     return;
   }
 
-  void sendBotCommand(chat, currentUserId, command);
+  const { threadId } = currentMessageList;
+  actions.setReplyingToId({ messageId: undefined });
+  actions.clearWebPagePreview({ chatId: chat.id, threadId, value: false });
+
+  void sendBotCommand(chat, currentUserId, command, selectReplyingToId(global, chat.id, threadId));
 });
 
 addReducer('restartBot', (global, actions, payload) => {
@@ -243,7 +252,7 @@ async function searchInlineBot({
   chatId,
   query,
   offset,
-} : {
+}: {
   username: string;
   inlineBotData: InlineBotSettings;
   chatId: number;
@@ -298,10 +307,11 @@ async function searchInlineBot({
   setGlobal(global);
 }
 
-async function sendBotCommand(chat: ApiChat, currentUserId: number, command: string) {
+async function sendBotCommand(chat: ApiChat, currentUserId: number, command: string, replyingTo?: number) {
   await callApi('sendMessage', {
     chat,
     text: command,
+    replyingTo,
   });
 }
 
@@ -313,15 +323,18 @@ async function answerCallbackButton(chat: ApiChat, messageId: number, data: stri
     data,
   });
 
-  if (!result || !result.message) {
+  if (!result) {
     return;
   }
 
-  const { message, alert: isError } = result;
+  const { showDialog, showNotification, toggleSafeLinkModal } = getDispatch();
+  const { message, alert: isError, url } = result;
 
   if (isError) {
-    getDispatch().showDialog({ data: { message } });
-  } else {
-    getDispatch().showNotification({ message });
+    showDialog({ data: { message: message || 'Error' } });
+  } else if (message) {
+    showNotification({ message });
+  } else if (url) {
+    toggleSafeLinkModal({ url });
   }
 }

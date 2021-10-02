@@ -121,19 +121,33 @@ export const BASE_EMOJI_KEYWORD_LANG = 'en';
 export const MENU_TRANSITION_DURATION = 200;
 export const SLIDE_TRANSITION_DURATION = 450;
 
-export const CONTENT_TYPES_FOR_QUICK_UPLOAD = new Set([
-  'image/png', 'image/gif', 'image/jpeg', 'video/mp4', 'video/avi', 'video/quicktime',
+export const VIDEO_MOV_TYPE = 'video/quicktime';
+
+export const SUPPORTED_IMAGE_CONTENT_TYPES = new Set([
+  'image/png', 'image/gif', 'image/jpeg',
+]);
+
+export const SUPPORTED_VIDEO_CONTENT_TYPES = new Set([
+  'video/mp4', // video/quicktime added dynamically in environment.ts
+]);
+
+export const CONTENT_TYPES_WITH_PREVIEW = new Set([
+  ...SUPPORTED_IMAGE_CONTENT_TYPES,
+  ...SUPPORTED_VIDEO_CONTENT_TYPES,
 ]);
 
 // eslint-disable-next-line max-len
 export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,63})\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)';
 export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
-export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?(?:\/([\d]+))?$/gm;
+export const RE_TG_LINK = /^tg:(\/\/)?([?=&\d\w_-]+)?/gm;
+// eslint-disable-next-line max-len
+export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?(?:\/([\d]+)(?:\?([\w]+)=([\d]+))?)?$/gm;
 export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_-]+)?$/gm;
+export const RE_TME_ADDSTICKERS_LINK = /^(?:https?:\/\/)?(?:t\.me\/addstickers\/)([\d\w_-]+)$/gm;
 
 // MTProto constants
 export const SERVICE_NOTIFICATIONS_USER_ID = 777000;
-export const REPLIES_USER_ID = 1271266957;
+export const REPLIES_USER_ID = 1271266957; // TODO For Test connection ID must be equal to 708513
 export const ALL_FOLDER_ID = 0;
 export const ARCHIVED_FOLDER_ID = 1;
 export const DELETED_COMMENTS_CHANNEL_ID = 777;

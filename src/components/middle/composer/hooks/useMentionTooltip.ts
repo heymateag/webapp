@@ -6,15 +6,13 @@ import { ApiMessageEntityTypes, ApiChatMember, ApiUser } from '../../../../api/t
 import { EDITABLE_INPUT_ID } from '../../../../config';
 import { getUserFirstOrLastName } from '../../../../modules/helpers';
 import searchUserName from '../helpers/searchUserName';
+import { prepareForRegExp } from '../helpers/prepareForRegExp';
 import focusEditableElement from '../../../../util/focusEditableElement';
 import useFlag from '../../../../hooks/useFlag';
 import { unique } from '../../../../util/iteratees';
 import { throttle } from '../../../../util/schedulers';
 
 const runThrottled = throttle((cb) => cb(), 500, true);
-const RE_BR = /(<br>|<br\s?\/>)/g;
-const RE_SPACE = /&nbsp;/g;
-const RE_CLEAN_HTML = /(<div>|<\/div>)/gi;
 let RE_USERNAME_SEARCH: RegExp;
 
 try {
@@ -38,7 +36,7 @@ export default function useMentionTooltip(
   const [usersToMention, setUsersToMention] = useState<ApiUser[] | undefined>();
 
   const topInlineBots = useMemo(() => {
-    return (topInlineBotIds || []).map((id) => usersById && usersById[id]).filter<ApiUser>(Boolean as any);
+    return (topInlineBotIds || []).map((id) => usersById?.[id]).filter<ApiUser>(Boolean as any);
   }, [topInlineBotIds, usersById]);
 
   const getFilteredUsers = useCallback((filter, withInlineBots: boolean) => {
@@ -83,7 +81,7 @@ export default function useMentionTooltip(
   }, [canSuggestMembers, html, getFilteredUsers, markIsOpen, unmarkIsOpen]);
 
   useEffect(() => {
-    if (usersToMention && usersToMention.length) {
+    if (usersToMention?.length) {
       markIsOpen();
     } else {
       unmarkIsOpen();
@@ -126,12 +124,7 @@ export default function useMentionTooltip(
 }
 
 function getUsernameFilter(html: string) {
-  const username = html
-    .replace(RE_SPACE, ' ')
-    .replace(RE_BR, '\n')
-    .replace(RE_CLEAN_HTML, '')
-    .replace(/\n$/i, '')
-    .match(RE_USERNAME_SEARCH);
+  const username = prepareForRegExp(html).match(RE_USERNAME_SEARCH);
 
   return username ? username[0].trim() : undefined;
 }

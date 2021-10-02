@@ -10,7 +10,7 @@ import {
   ApiChat,
   ApiUser,
   ApiTypingStatus,
-  MAIN_THREAD_ID,
+  MAIN_THREAD_ID, ApiUpdateConnectionStateType,
 } from '../../api/types';
 
 import {
@@ -52,6 +52,7 @@ import { pick } from '../../util/iteratees';
 import { formatIntegerCompact } from '../../util/textFormat';
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
+import useBrowserOnline from '../../hooks/useBrowserOnline';
 
 import PrivateChatInfo from '../common/PrivateChatInfo';
 import GroupChatInfo from '../common/GroupChatInfo';
@@ -64,6 +65,7 @@ import AudioPlayer from './AudioPlayer';
 import './MiddleHeader.scss';
 
 const ANIMATION_DURATION = 350;
+const BACK_BUTTON_INACTIVE_TIME = 450;
 
 type OwnProps = {
   chatId: number;
@@ -90,6 +92,7 @@ type StateProps = {
   lastSyncTime?: number;
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
+  connectionState?: ApiUpdateConnectionStateType;
 };
 
 type DispatchProps = Pick<GlobalActions, (
@@ -119,6 +122,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   lastSyncTime,
   shouldSkipHistoryAnimations,
   currentTransitionKey,
+  connectionState,
   openChatWithInfo,
   pinMessage,
   focusMessage,
@@ -129,11 +133,13 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   exitMessageSelectMode,
 }) => {
   const lang = useLang();
+  const isBackButtonActive = useRef(true);
 
   const [pinnedMessageIndex, setPinnedMessageIndex] = useState(0);
   const pinnedMessageId = Array.isArray(pinnedMessageIds) ? pinnedMessageIds[pinnedMessageIndex] : pinnedMessageIds;
   const pinnedMessage = messagesById && pinnedMessageId ? messagesById[pinnedMessageId] : undefined;
-  const pinnedMessagesCount = Array.isArray(pinnedMessageIds) ? pinnedMessageIds.length : (pinnedMessageIds ? 1 : 0);
+  const pinnedMessagesCount = Array.isArray(pinnedMessageIds)
+    ? pinnedMessageIds.length : (pinnedMessageIds ? 1 : undefined);
   const chatTitleLength = chat && getChatTitle(lang, chat).length;
   const topMessageTitle = topMessageSender ? getSenderTitle(lang, topMessageSender) : undefined;
 
@@ -171,7 +177,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     if (pinnedMessage) {
       focusMessage({ chatId: pinnedMessage.chatId, threadId, messageId: pinnedMessage.id });
 
-      const newIndex = cycleRestrict(pinnedMessagesCount, pinnedMessageIndex + 1);
+      const newIndex = cycleRestrict(pinnedMessagesCount || 1, pinnedMessageIndex + 1);
       setPinnedMessageIndex(newIndex);
     }
   }, [pinnedMessage, focusMessage, threadId, pinnedMessagesCount, pinnedMessageIndex]);
@@ -180,7 +186,17 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     openChat({ id: chatId, threadId: MAIN_THREAD_ID, type: 'pinned' });
   }, [openChat, chatId]);
 
+  const setBackButtonActive = useCallback(() => {
+    setTimeout(() => {
+      isBackButtonActive.current = true;
+    }, BACK_BUTTON_INACTIVE_TIME);
+  }, []);
+
   const handleBackClick = useCallback((e: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    if (!isBackButtonActive.current) return;
+
+    // Workaround for missing UI when quickly clicking the Back button
+    isBackButtonActive.current = false;
     if (IS_SINGLE_COLUMN_LAYOUT) {
       const messageInput = document.getElementById(EDITABLE_INPUT_ID);
       if (messageInput) {
@@ -190,6 +206,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 
     if (isSelectModeActive) {
       exitMessageSelectMode();
+      setBackButtonActive();
       return;
     }
 
@@ -201,13 +218,16 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         toggleLeftColumn();
       }
 
+      setBackButtonActive();
+
       return;
     }
 
     openPreviousChat();
+    setBackButtonActive();
   }, [
     threadId, messageListType, currentTransitionKey, isSelectModeActive, openPreviousChat, shouldShowCloseButton,
-    openChat, toggleLeftColumn, exitMessageSelectMode,
+    openChat, toggleLeftColumn, exitMessageSelectMode, setBackButtonActive,
   ]);
 
   const unreadCount = useMemo(() => {
@@ -243,7 +263,9 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     transitionClassNames: pinnedMessageClassNames,
   } = useShowTransition(pinnedMessage && !shouldRenderAudioPlayer);
 
-  const renderingPinnedMessage = useCurrentOrPrev(pinnedMessage);
+  const renderingPinnedMessage = useCurrentOrPrev(pinnedMessage, true);
+  const renderingPinnedMessagesCount = useCurrentOrPrev(pinnedMessagesCount, true);
+  const renderingCanUnpin = useCurrentOrPrev(canUnpin, true);
   const renderingPinnedMessageTitle = useCurrentOrPrev(topMessageTitle);
 
   const canRevealTools = (shouldRenderPinnedMessage && renderingPinnedMessage)
@@ -278,7 +300,21 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [shouldUseStackedToolsClass, canRevealTools, canToolsCollideWithChatInfo, isRightColumnShown]);
 
+  const isBrowserOnline = useBrowserOnline();
+  const isConnecting = (!isBrowserOnline || connectionState === 'connectionStateConnecting')
+    && (IS_SINGLE_COLUMN_LAYOUT || (IS_TABLET_COLUMN_LAYOUT && !shouldShowCloseButton));
+
   function renderInfo() {
+    if (isConnecting) {
+      return (
+        <>
+          {renderBackButton()}
+          <h3>
+            {lang('WaitingForNetwork')}
+          </h3>
+        </>
+      );
+    }
     return (
       messageListType === 'thread' && threadId === MAIN_THREAD_ID ? (
         renderMainThreadInfo()
@@ -286,14 +322,14 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         <>
           {renderBackButton()}
           <h3>
-            {lang('CommentsCount', messagesCount)}
+            {lang('CommentsCount', messagesCount, 'i')}
           </h3>
         </>
       ) : messageListType === 'pinned' ? (
         <>
           {renderBackButton()}
           <h3>
-            {lang('PinnedMessagesCount', messagesCount)}
+            {lang('PinnedMessagesCount', messagesCount, 'i')}
           </h3>
         </>
       ) : messageListType === 'scheduled' ? (
@@ -361,7 +397,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     <div className="MiddleHeader" ref={componentRef}>
       <Transition
         name={shouldSkipHistoryAnimations ? 'none' : 'slide-fade'}
-        activeKey={currentTransitionKey}
+        activeKey={isConnecting ? Infinity : currentTransitionKey}
       >
         {renderInfo}
       </Transition>
@@ -371,11 +407,11 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           <HeaderPinnedMessage
             key={chatId}
             message={renderingPinnedMessage}
-            count={pinnedMessagesCount}
+            count={renderingPinnedMessagesCount || 0}
             index={pinnedMessageIndex}
             customTitle={renderingPinnedMessageTitle}
             className={pinnedMessageClassNames}
-            onUnpinMessage={canUnpin ? handleUnpinMessage : undefined}
+            onUnpinMessage={renderingCanUnpin ? handleUnpinMessage : undefined}
             onClick={handlePinnedMessageClick}
             onAllPinnedClick={handleAllPinnedClick}
           />
@@ -413,15 +449,13 @@ export default memo(withGlobal<OwnProps>(
     let messagesCount: number | undefined;
     if (messageListType === 'pinned') {
       const pinnedIds = selectPinnedIds(global, chatId);
-      messagesCount = pinnedIds && pinnedIds.length;
+      messagesCount = pinnedIds?.length;
     } else if (messageListType === 'scheduled') {
       const scheduledIds = selectScheduledIds(global, chatId);
-      messagesCount = scheduledIds && scheduledIds.length;
+      messagesCount = scheduledIds?.length;
     } else if (messageListType === 'thread' && threadId !== MAIN_THREAD_ID) {
       const threadInfo = selectThreadInfo(global, chatId, threadId);
-      if (threadInfo) {
-        messagesCount = threadInfo.messagesCount;
-      }
+      messagesCount = threadInfo?.messagesCount || 0;
     }
 
     const state: StateProps = {
@@ -438,6 +472,7 @@ export default memo(withGlobal<OwnProps>(
       lastSyncTime,
       shouldSkipHistoryAnimations,
       currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
+      connectionState: global.connectionState,
     };
 
     const messagesById = selectChatMessages(global, chatId);
@@ -461,7 +496,7 @@ export default memo(withGlobal<OwnProps>(
     }
 
     const pinnedMessageIds = selectPinnedIds(global, chatId);
-    if (pinnedMessageIds && pinnedMessageIds.length) {
+    if (pinnedMessageIds?.length) {
       const firstPinnedMessage = messagesById[pinnedMessageIds[0]];
       const {
         canUnpin,

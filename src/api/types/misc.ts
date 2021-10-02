@@ -4,6 +4,7 @@ export interface ApiInitialArgs {
   userAgent: string;
   platform?: string;
   sessionData?: ApiSessionData;
+  isMovSupported?: boolean;
 }
 
 export interface ApiOnProgress {
@@ -91,3 +92,16 @@ export type ApiInviteInfo = {
   isChannel?: boolean;
   participantsCount?: number;
 };
+
+export interface ApiCountry {
+  isHidden?: boolean;
+  iso2: string;
+  defaultName: string;
+  name?: string;
+}
+
+export interface ApiCountryCode extends ApiCountry {
+  countryCode: string;
+  prefixes?: string[];
+  patterns?: string[];
+}

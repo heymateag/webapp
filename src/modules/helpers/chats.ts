@@ -10,7 +10,7 @@ import {
 import { NotifyException, NotifySettings } from '../../types';
 import { LangFn } from '../../hooks/useLang';
 
-import { ARCHIVED_FOLDER_ID } from '../../config';
+import { ARCHIVED_FOLDER_ID, REPLIES_USER_ID } from '../../config';
 import { orderBy } from '../../util/iteratees';
 import { getUserFirstOrLastName } from './users';
 import { formatDateToString, formatTime } from '../../util/dateFormat';
@@ -42,6 +42,10 @@ export function isChatChannel(chat: ApiChat) {
 
 export function isCommonBoxChat(chat: ApiChat) {
   return chat.type === 'chatTypePrivate' || chat.type === 'chatTypeBasicGroup';
+}
+
+export function isChatWithRepliesBot(chatId: number) {
+  return chatId === REPLIES_USER_ID;
 }
 
 export function getChatTypeString(chat: ApiChat) {
@@ -121,8 +125,8 @@ export function getHasAdminRight(chat: ApiChat, key: keyof ApiChatAdminRights) {
 
 export function isUserRightBanned(chat: ApiChat, key: keyof ApiChatBannedRights) {
   return Boolean(
-    (chat.currentUserBannedRights && chat.currentUserBannedRights[key])
-    || (chat.defaultBannedRights && chat.defaultBannedRights[key]),
+    (chat.currentUserBannedRights?.[key])
+    || (chat.defaultBannedRights?.[key]),
   );
 }
 
@@ -131,7 +135,7 @@ export function getCanPostInChat(chat: ApiChat, threadId: number) {
     return true;
   }
 
-  if (chat.isRestricted || chat.migratedTo || chat.isNotJoined) {
+  if (chat.isRestricted || chat.migratedTo || chat.isNotJoined || isChatWithRepliesBot(chat.id)) {
     return false;
   }
 
@@ -183,7 +187,7 @@ export function getAllowedAttachmentOptions(chat?: ApiChat, isChatWithBot = fals
 export function getMessageSendingRestrictionReason(
   lang: LangFn, currentUserBannedRights?: ApiChatBannedRights, defaultBannedRights?: ApiChatBannedRights,
 ) {
-  if (currentUserBannedRights && currentUserBannedRights.sendMessages) {
+  if (currentUserBannedRights?.sendMessages) {
     const { untilDate } = currentUserBannedRights;
     return untilDate && untilDate < FOREVER_BANNED_DATE
       ? lang(
@@ -196,7 +200,7 @@ export function getMessageSendingRestrictionReason(
       : lang('Channel.Persmission.Denied.SendMessages.Forever');
   }
 
-  if (defaultBannedRights && defaultBannedRights.sendMessages) {
+  if (defaultBannedRights?.sendMessages) {
     return lang('Channel.Persmission.Denied.SendMessages.DefaultRestrictedText');
   }
 
@@ -420,7 +424,7 @@ export function getFolderUnreadDialogs(
 
   const listedChats = listIds
     .map((id) => chatsById[id])
-    .filter((chat) => (chat && chat.lastMessage && !chat.isRestricted && !chat.isNotJoined));
+    .filter((chat) => (chat?.lastMessage && !chat.isRestricted && !chat.isNotJoined));
 
   const unreadDialogsCount = listedChats
     .reduce((total, chat) => (chat.unreadCount || chat.hasUnreadMark ? total + 1 : total), 0);
@@ -456,8 +460,8 @@ export function getFolderDescriptionText(
   // we display folder chats count
   if (
     Object.values(filters).filter(Boolean).length > 1
-    || (excludedChatIds && excludedChatIds.length)
-    || (includedChatIds && includedChatIds.length)
+    || (excludedChatIds?.length)
+    || (includedChatIds?.length)
   ) {
     const length = getFolderChatsCount(chatsById, usersById, folder, chatIdsCache, notifySettings, notifyExceptions);
     return lang('Chats', length);
@@ -492,14 +496,6 @@ function getFolderChatsCount(
   );
   const { pinnedChats, otherChats } = prepareChatList(chatsById, listIds, pinnedIds, 'folder');
   return pinnedChats.length + otherChats.length;
-}
-
-export function isChat(chatOrUser?: ApiUser | ApiChat): chatOrUser is ApiChat {
-  if (!chatOrUser) {
-    return false;
-  }
-
-  return chatOrUser.id < 0;
 }
 
 export function getMessageSenderName(lang: LangFn, chatId: number, sender?: ApiUser) {

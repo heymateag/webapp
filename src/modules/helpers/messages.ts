@@ -12,13 +12,15 @@ const CONTENT_NOT_SUPPORTED = 'The message is not supported on this version of T
 const RE_LINK = new RegExp(RE_LINK_TEMPLATE, 'i');
 const TRUNCATED_SUMMARY_LENGTH = 80;
 
-export function getMessageKey(message: ApiMessage) {
+export type MessageKey = string; // `msg${number}-${number}`;
+
+export function getMessageKey(message: ApiMessage): MessageKey {
   const { chatId, id } = message;
 
   return `msg${chatId}-${id}`;
 }
 
-export function parseMessageKey(key: string) {
+export function parseMessageKey(key: MessageKey) {
   const match = key.match(/^msg(-?\d+)-(\d+)/)!;
 
   return { chatId: Number(match[1]), messageId: Number(match[2]) };
@@ -103,7 +105,7 @@ export function getMessageCustomShape(message: ApiMessage): boolean | number {
     text, sticker, photo, video, audio, voice, document, poll, webPage, contact,
   } = message.content;
 
-  if (sticker || (video && video.isRound)) {
+  if (sticker || (video?.isRound)) {
     return true;
   }
 
@@ -132,7 +134,7 @@ export function getFirstLinkInMessage(message: ApiMessage) {
   const { text } = message.content;
 
   let match: RegExpMatchArray | null | undefined;
-  if (text && text.entities) {
+  if (text?.entities) {
     let link = text.entities.find((entity) => entity.type === ApiMessageEntityTypes.TextUrl);
     if (link) {
       match = link.url!.match(RE_LINK);
@@ -232,5 +234,5 @@ export function isHistoryClearMessage(message: ApiMessage) {
 export function getMessageAudioCaption(message: ApiMessage) {
   const { audio, text } = message.content;
 
-  return (audio && [audio.title, audio.performer].filter(Boolean).join(' — ')) || (text && text.text);
+  return (audio && [audio.title, audio.performer].filter(Boolean).join(' — ')) || (text?.text);
 }

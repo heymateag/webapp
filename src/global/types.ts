@@ -19,6 +19,8 @@ import {
   ApiSession,
   ApiNewPoll,
   ApiInviteInfo,
+  ApiCountryCode,
+  ApiCountry,
 } from '../api/types';
 import {
   FocusDirection,
@@ -42,6 +44,7 @@ import {
   EmojiKeywords,
   InlineBotSettings,
   NewChatMembersProgress,
+  AudioOrigin,
 } from '../types';
 
 export type MessageListType = 'thread' | 'pinned' | 'scheduled';
@@ -95,6 +98,10 @@ export type GlobalState = {
   authQrCode?: {
     token: string;
     expires: number;
+  };
+  countryList: {
+    phoneCodes: ApiCountryCode[];
+    general: ApiCountry[];
   };
 
   contactList?: {
@@ -314,6 +321,8 @@ export type GlobalState = {
   audioPlayer: {
     chatId?: number;
     messageId?: number;
+    threadId?: number;
+    origin?: AudioOrigin;
   };
 
   topPeers: {
@@ -428,7 +437,6 @@ export type GlobalState = {
   historyCalendarSelectedAt?: number;
   openedStickerSetShortName?: string;
 
-  // TODO To be removed in August 2021
   shouldShowContextMenuHint?: boolean;
 };
 
@@ -444,14 +452,15 @@ export type ActionTypes = (
   'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
   'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |
   // chats
-  'preloadTopChatMessages' | 'loadChats' | 'loadMoreChats' | 'openChat' | 'openChatWithInfo' |
-  'openSupportChat' | 'openTipsChat' |
+  'preloadTopChatMessages' | 'preloadArchivedChats' | 'loadChats' | 'loadMoreChats' | 'openChat' |
+  'openChatWithInfo' | 'openLinkedChat' |
+  'openSupportChat' | 'openTipsChat' | 'focusMessageInComments' |
   'loadFullChat' | 'loadTopChats' | 'requestChatUpdate' | 'updateChatMutedState' |
   'joinChannel' | 'leaveChannel' | 'deleteChannel' | 'toggleChatPinned' | 'toggleChatArchived' | 'toggleChatUnread' |
   'loadChatFolders' | 'loadRecommendedChatFolders' | 'editChatFolder' | 'addChatFolder' | 'deleteChatFolder' |
   'updateChat' | 'toggleSignatures' | 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup' |
   'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
-  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' |
+  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' | 'editChatFolders' |
   // messages
   'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
   'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
@@ -459,7 +468,7 @@ export type ActionTypes = (
   'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |
   'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
   'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
-  'reportMessages' | 'focusNextReply' |
+  'reportMessages' | 'focusNextReply' | 'openChatByInvite' |
   // scheduled messages
   'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
   // poll result
@@ -479,8 +488,9 @@ export type ActionTypes = (
   'togglePreHistoryHidden' | 'updateChatDefaultBannedRights' | 'updateChatMemberBannedRights' | 'updateChatAdmin' |
   'acceptInviteConfirmation' |
   // users
-  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadTopUsers' | 'loadContactList' | 'loadCurrentUser' |
-  'updateProfile' | 'checkUsername' | 'updateContact' | 'deleteUser' | 'loadUser' | 'setUserSearchQuery' |
+  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadCountryList' | 'loadTopUsers' | 'loadContactList' |
+  'loadCurrentUser' | 'updateProfile' | 'checkUsername' | 'updateContact' |
+  'deleteUser' | 'loadUser' | 'setUserSearchQuery' |
   // Channel / groups creation
   'createChannel' | 'createGroupChat' | 'resetChatCreation' |
   // settings

@@ -4,7 +4,7 @@ import React, {
 import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
-import { LoadMoreDirection } from '../../../types';
+import { AudioOrigin, LoadMoreDirection } from '../../../types';
 
 import { SLIDE_TRANSITION_DURATION } from '../../../config';
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
@@ -67,7 +67,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
     return foundIds.map((id) => {
       const [chatId, messageId] = id.split('_').map(Number);
 
-      return globalMessagesByChatId[chatId] && globalMessagesByChatId[chatId].byId[messageId];
+      return globalMessagesByChatId[chatId]?.byId[messageId];
     }).filter(Boolean);
   }, [globalMessagesByChatId, foundIds]);
 
@@ -76,7 +76,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [focusMessage]);
 
   const handlePlayAudio = useCallback((messageId: number, chatId: number) => {
-    openAudioPlayer({ chatId, messageId });
+    openAudioPlayer({ chatId, messageId, origin: AudioOrigin.Search });
   }, [openAudioPlayer]);
 
   function renderList() {
@@ -97,7 +97,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
             key={message.id}
             theme={theme}
             message={message}
-            target="searchResult"
+            origin={AudioOrigin.Search}
             senderTitle={getSenderName(lang, message, chatsById, usersById)}
             date={message.date}
             lastSyncTime={lastSyncTime}

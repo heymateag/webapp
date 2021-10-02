@@ -4,7 +4,7 @@ import { ApiUpdate, MAIN_THREAD_ID } from '../../../api/types';
 
 import { ARCHIVED_FOLDER_ID, MAX_ACTIVE_PINNED_CHATS } from '../../../config';
 import { pick } from '../../../util/iteratees';
-import { showNewMessageNotification } from '../../../util/notifications';
+import { closeMessageNotifications, showNewMessageNotification } from '../../../util/notifications';
 import { updateAppBadge } from '../../../util/appBadge';
 import {
   updateChat,
@@ -42,6 +42,13 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       setGlobal(newGlobal);
 
       runThrottledForUpdateAppBadge(() => updateAppBadge(selectCountNotMutedUnread(getGlobal())));
+
+      if (update.chat.id) {
+        closeMessageNotifications({
+          chatId: update.chat.id,
+          lastReadInboxMessageId: update.chat.lastReadInboxMessageId,
+        });
+      }
       break;
     }
 
@@ -159,7 +166,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       ids.forEach((id) => {
         const chatId = 'channelId' in update ? update.channelId : selectCommonBoxChatId(global, id);
         const chat = selectChat(global, chatId);
-        if (chat && chat.unreadMentionsCount) {
+        if (chat?.unreadMentionsCount) {
           global = updateChat(global, chatId, {
             unreadMentionsCount: chat.unreadMentionsCount - 1,
           });
@@ -319,7 +326,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       }
 
       let shouldUpdate = false;
-      let members = targetChat.fullInfo && targetChat.fullInfo.members
+      let members = targetChat.fullInfo?.members
         ? [...targetChat.fullInfo.members]
         : [];
 
@@ -363,7 +370,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       const { chatId, ids } = update;
       const chat = global.chats.byId[chatId];
 
-      if (chat && chat.photos) {
+      if (chat?.photos) {
         setGlobal(updateChat(global, chatId, {
           photos: chat.photos.filter((photo) => !ids.includes(photo.id)),
         }));

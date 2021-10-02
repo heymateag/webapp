@@ -23,11 +23,18 @@ import {
   ApiInvoice,
 } from '../../types';
 
-import { DELETED_COMMENTS_CHANNEL_ID, LOCAL_MESSAGE_ID_BASE, SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
+import {
+  DELETED_COMMENTS_CHANNEL_ID,
+  LOCAL_MESSAGE_ID_BASE,
+  SERVICE_NOTIFICATIONS_USER_ID,
+  SUPPORTED_IMAGE_CONTENT_TYPES,
+  SUPPORTED_VIDEO_CONTENT_TYPES,
+  VIDEO_MOV_TYPE,
+} from '../../../config';
 import { pick } from '../../../util/iteratees';
 import { getApiChatIdFromMtpPeer } from './chats';
 import { buildStickerFromDocument } from './symbols';
-import { buildApiPhoto, buildApiThumbnailFromStripped } from './common';
+import { buildApiPhoto, buildApiPhotoSize, buildApiThumbnailFromStripped } from './common';
 import { interpolateArray } from '../../../util/waveform';
 import { buildPeer } from '../gramjsBuilders';
 import { addPhotoToLocalDb, resolveMessageApiChatId } from '../helpers';
@@ -137,7 +144,7 @@ export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalM
     content.action = action;
   }
 
-  const { replyToMsgId, replyToTopId } = mtpMessage.replyTo || {};
+  const { replyToMsgId, replyToTopId, replyToPeerId } = mtpMessage.replyTo || {};
   const isEdited = mtpMessage.editDate && !mtpMessage.editHide;
   const {
     inlineButtons, keyboardButtons, keyboardPlaceholder, isKeyboardSingleUse,
@@ -158,11 +165,13 @@ export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalM
     views: mtpMessage.views,
     isFromScheduled: mtpMessage.fromScheduled,
     ...(replyToMsgId && { replyToMessageId: replyToMsgId }),
+    ...(replyToPeerId && { replyToChatId: getApiChatIdFromMtpPeer(replyToPeerId) }),
     ...(replyToTopId && { replyToTopMessageId: replyToTopId }),
     ...(forwardInfo && { forwardInfo }),
     ...(isEdited && { isEdited }),
     ...(isMediaUnread && { isMediaUnread }),
     ...(mtpMessage.mentioned && isMediaUnread && { hasUnreadMention: true }),
+    ...(mtpMessage.mentioned && { isMentioned: true }),
     ...(groupedId && {
       groupedId,
       isInAlbum,
@@ -171,7 +180,7 @@ export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalM
     ...(keyboardButtons && { keyboardButtons, keyboardPlaceholder, isKeyboardSingleUse }),
     ...(shouldHideKeyboardButtons && { shouldHideKeyboardButtons }),
     ...(mtpMessage.viaBotId && { viaBotId: mtpMessage.viaBotId }),
-    ...(replies && replies.comments && { threadInfo: buildThreadInfo(replies, mtpMessage.id, chatId) }),
+    ...(replies?.comments && { threadInfo: buildThreadInfo(replies, mtpMessage.id, chatId) }),
     ...(postAuthor && { adminTitle: postAuthor }),
   };
 }
@@ -285,6 +294,11 @@ export function buildVideoFromDocument(document: GramJs.Document): ApiVideo | un
     id, mimeType, thumbs, size, attributes,
   } = document;
 
+  // eslint-disable-next-line no-restricted-globals
+  if (mimeType === VIDEO_MOV_TYPE && !(self as any).isMovSupported) {
+    return undefined;
+  }
+
   const videoAttr = attributes
     .find((a: any): a is GramJs.DocumentAttributeVideo => a instanceof GramJs.DocumentAttributeVideo);
 
@@ -348,8 +362,13 @@ function buildAudio(media: GramJs.TypeMessageMedia): ApiAudio | undefined {
     return undefined;
   }
 
+  const thumbnailSizes = media.document.thumbs && media.document.thumbs
+    .filter((thumb): thumb is GramJs.PhotoSize => thumb instanceof GramJs.PhotoSize)
+    .map((thumb) => buildApiPhotoSize(thumb));
+
   return {
     fileName: getFilenameFromDocument(media.document, 'audio'),
+    thumbnailSizes,
     ...pick(media.document, ['size', 'mimeType']),
     ...pick(audioAttribute, ['duration', 'performer', 'title']),
   };
@@ -413,7 +432,7 @@ export function buildApiDocument(document: GramJs.TypeDocument): ApiDocument | u
       height: photoSize.h,
     };
 
-    if (mimeType.startsWith('image/')) {
+    if (SUPPORTED_IMAGE_CONTENT_TYPES.has(mimeType)) {
       mediaType = 'photo';
 
       const imageAttribute = attributes
@@ -426,7 +445,7 @@ export function buildApiDocument(document: GramJs.TypeDocument): ApiDocument | u
           height,
         };
       }
-    } else if (mimeType.startsWith('video/')) {
+    } else if (SUPPORTED_VIDEO_CONTENT_TYPES.has(mimeType)) {
       mediaType = 'video';
     }
   }
@@ -505,7 +524,7 @@ export function buildInvoice(media: GramJs.MessageMediaInvoice): ApiInvoice {
   return {
     text,
     title,
-    photoUrl: photo && photo.url,
+    photoUrl: photo?.url,
     receiptMsgId,
     amount: Number(totalAmount),
     currency,

@@ -13,29 +13,9 @@
   @return rgb($bm-red, $bm-green, $bm-blue);
 }
 
-$color-primary: #50a2e9;
-/**
-  ===================== BEGIN HeyMate Colors
- */
-$color-heymate-primary: #36BBA9;
-$color-heymate-primary3: #1C93E3;
-$color-heymate-primary6: #DFF2FC;
-$color-heymate-primary-red: #FE0000;
+$color-primary: #3390EC;
 
-$hm-gray1: #3B3D40;
-$hm-gray2: #616568;
-$hm-gray3: #81868A;
-$hm-gray4: #B3B3B3;
-$hm-gray5: #D9D9D9;
-$hm-gray6: #ECEDF1;
-
-$hm-green-primary: #5CB050;
-$hm-green2: #1E750C;
-$hm-green3: #D9F7C5;
-
-$hm-yellow-primary: #FFB531;
-$hm-yellow5: #FFF4E0;
-
+$color-links: #3390EC;
 
 /**
   ===================== END HeyMate Colors
@@ -44,9 +24,9 @@ $color-links: #52a1ef;
 
 $color-placeholders: #A2ACB4;
 
-$color-text-green: #4fae4e;
-$color-green: #4dcd5e;
-$color-light-green: #eefedf;
+$color-text-green: #4FAE4E;
+$color-green: #00C73E;
+$color-light-green: #EEFFDE;
 
 $color-error: #e53935;
 
@@ -66,7 +46,7 @@ $color-borders: #DADCE0;
 $color-dividers: #C8C6CC;
 $color-item-active: #ededed;
 $color-chat-hover: #f4f4f5;
-$color-chat-active: #5B90E0;
+$color-chat-active: #3390EC;
 $color-selection: #3993fb;
 
 
@@ -137,6 +117,7 @@ $color-user-8: #faa774;
   --color-interactive-inactive: rgba(var(--color-text-secondary-rgb), 0.25);
   --color-interactive-buffered: rgba(var(--color-text-secondary-rgb), 0.25); // Overlays underlying inactive element
   --color-interactive-element-hover: rgba(var(--color-text-secondary-rgb), 0.08);
+  --color-composer-button: #{$color-text-secondary}CC;
 
   --color-primary: #{$color-primary};
   --color-primary-rgb: #{toRGB($color-primary)};
@@ -156,9 +137,6 @@ $color-user-8: #faa774;
   --color-yellow: #{$color-yellow};
 
   --color-links: #{$color-links};
-  --color-links-hover: #{darken($color-links, 8%)};
-  --color-links-darker: #{darken($color-links, 15%)};
-  --color-links-darker-hover: #{darken($color-links, 23%)};
 
   --color-own-links: #{$color-white};
 
@@ -179,9 +157,9 @@ $color-user-8: #faa774;
   --color-reply-own-hover: #{blend-normal(rgba($color-text-green, 0.12), $color-light-green)};
   --color-reply-own-active: #{blend-normal(rgba($color-text-green, 0.24), $color-light-green)};
 
-  --color-background-own-apple: #E7FDCC;
-  --color-reply-own-hover-apple: #d9f9c1;
-  --color-reply-own-active-apple: #d5edc2;
+  --color-background-own-apple: #DCF8C5;
+  --color-reply-own-hover-apple: #cbefb7;
+  --color-reply-own-active-apple: #bae6a8;
 
   --color-white: #{$color-white};
   --color-gray: #{$color-gray};

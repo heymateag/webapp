@@ -44,8 +44,13 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
 
   onUpdate = _onUpdate;
 
-  const { userAgent, platform, sessionData } = initialArgs;
+  const {
+    userAgent, platform, sessionData, isMovSupported,
+  } = initialArgs;
   const session = new sessions.CallbackSession(sessionData, onSessionUpdate);
+
+  // eslint-disable-next-line no-restricted-globals
+  (self as any).isMovSupported = isMovSupported;
 
   client = new TelegramClient(
     session,
@@ -66,6 +71,11 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
     if (DEBUG) {
       // eslint-disable-next-line no-console
       // console.log('[GramJs/client] CONNECTING');
+
+      // eslint-disable-next-line no-restricted-globals
+      (self as any).invoke = invokeRequest;
+      // eslint-disable-next-line no-restricted-globals
+      (self as any).GramJs = GramJs;
     }
 
     try {
@@ -95,11 +105,6 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
       // console.log('>>> FINISH INIT API');
       // eslint-disable-next-line no-console
       // console.log('[GramJs/client] CONNECTED');
-
-      // eslint-disable-next-line no-restricted-globals
-      (self as any).invoke = invokeRequest;
-      // eslint-disable-next-line no-restricted-globals
-      (self as any).GramJs = GramJs;
     }
 
     onAuthReady();
@@ -214,11 +219,11 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
       console.error(err);
     }
 
-    dispatchErrorUpdate(err, request);
-
     if (shouldThrow) {
       throw err;
     }
+
+    dispatchErrorUpdate(err, request);
 
     return undefined;
   }

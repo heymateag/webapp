@@ -107,7 +107,7 @@ const Video: FC<OwnProps> = ({
     setPlayProgress(Math.max(0, e.currentTarget.currentTime - 1));
   }, []);
 
-  const duration = (videoRef.current && videoRef.current.duration) || video.duration || 0;
+  const duration = (videoRef.current?.duration) || video.duration || 0;
 
   const isOwn = isOwnMessage(message);
   const isForwarded = isForwardedMessage(message);
@@ -194,7 +194,9 @@ const Video: FC<OwnProps> = ({
         <i className="icon-download" />
       )}
       {isTransferring ? (
-        <span className="message-upload-progress">...</span>
+        <span className="message-upload-progress">
+          {isUploading ? `${Math.round(transferProgress * 100)}%` : '...'}
+        </span>
       ) : (
         <div className="message-media-duration">
           {video.isGif ? 'GIF' : formatMediaDuration(Math.max(duration - playProgress, 0))}

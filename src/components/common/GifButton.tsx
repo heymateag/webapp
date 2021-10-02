@@ -7,10 +7,10 @@ import { ApiMediaFormat, ApiVideo } from '../../api/types';
 import buildClassName from '../../util/buildClassName';
 import { ObserveFn, useIsIntersecting } from '../../hooks/useIntersectionObserver';
 import useMedia from '../../hooks/useMedia';
-import useTransitionForMedia from '../../hooks/useTransitionForMedia';
 import useVideoCleanup from '../../hooks/useVideoCleanup';
 import useBuffering from '../../hooks/useBuffering';
 import useCanvasBlur from '../../hooks/useCanvasBlur';
+import { preventMessageInputBlurWithBubbling } from '../middle/helpers/preventMessageInputBlur';
 
 import Spinner from '../ui/Spinner';
 
@@ -32,17 +32,17 @@ const GifButton: FC<OwnProps> = ({
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const hasThumbnail = gif.thumbnail && !!gif.thumbnail.dataUri;
+  const hasThumbnail = Boolean(gif.thumbnail?.dataUri);
   const localMediaHash = `gif${gif.id}`;
   const isIntersecting = useIsIntersecting(ref, observeIntersection);
   const loadAndPlay = isIntersecting && !isDisabled;
   const previewBlobUrl = useMedia(`${localMediaHash}?size=m`, !loadAndPlay, ApiMediaFormat.BlobUrl);
-  const thumbRef = useCanvasBlur(gif.thumbnail && gif.thumbnail.dataUri, Boolean(previewBlobUrl));
+  const thumbRef = useCanvasBlur(gif.thumbnail?.dataUri, Boolean(previewBlobUrl));
   const videoData = useMedia(localMediaHash, !loadAndPlay, ApiMediaFormat.BlobUrl);
   const shouldRenderVideo = Boolean(loadAndPlay && videoData);
-  const { transitionClassNames } = useTransitionForMedia(hasThumbnail || previewBlobUrl || videoData, 'slow');
   const { isBuffered, bufferingHandlers } = useBuffering(true);
   const shouldRenderSpinner = loadAndPlay && !isBuffered;
+  const isVideoReady = loadAndPlay && isBuffered;
 
   useVideoCleanup(videoRef, [shouldRenderVideo]);
 
@@ -57,7 +57,6 @@ const GifButton: FC<OwnProps> = ({
   const fullClassName = buildClassName(
     'GifButton',
     gif.width && gif.height && gif.width < gif.height ? 'vertical' : 'horizontal',
-    transitionClassNames,
     localMediaHash,
     className,
   );
@@ -66,22 +65,26 @@ const GifButton: FC<OwnProps> = ({
     <div
       ref={ref}
       className={fullClassName}
+      onMouseDown={preventMessageInputBlurWithBubbling}
       onClick={handleClick}
     >
       {hasThumbnail && (
         <canvas
           ref={thumbRef}
           className="thumbnail"
+          // We need to always render to avoid blur re-calculation
+          // @ts-ignore
+          style={isVideoReady ? 'display: none;' : undefined}
         />
       )}
-      {!hasThumbnail && previewBlobUrl && (
+      {previewBlobUrl && !isVideoReady && (
         <img
           src={previewBlobUrl}
           alt=""
-          className="thumbnail"
+          className="preview"
         />
       )}
-      {(shouldRenderVideo || previewBlobUrl) && (
+      {shouldRenderVideo && (
         <video
           ref={videoRef}
           autoPlay

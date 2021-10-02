@@ -10,6 +10,7 @@ import useMedia from '../../hooks/useMedia';
 import useTransitionForMedia from '../../hooks/useTransitionForMedia';
 import useFlag from '../../hooks/useFlag';
 import buildClassName from '../../util/buildClassName';
+import { preventMessageInputBlurWithBubbling } from '../middle/helpers/preventMessageInputBlur';
 
 import AnimatedSticker from './AnimatedSticker';
 import Button from '../ui/Button';
@@ -75,6 +76,7 @@ const StickerButton: FC<OwnProps> = ({
 
   const fullClassName = buildClassName(
     'StickerButton',
+    onClick && 'interactive',
     sticker.isAnimated && 'animated',
     stickerSelector,
     className,
@@ -86,10 +88,11 @@ const StickerButton: FC<OwnProps> = ({
     <div
       ref={ref}
       className={fullClassName}
-      title={title || (sticker && sticker.emoji)}
+      title={title || (sticker?.emoji)}
       // @ts-ignore
       style={style}
       data-sticker-id={sticker.id}
+      onMouseDown={preventMessageInputBlurWithBubbling}
       onClick={handleClick}
     >
       {shouldRenderPreview && !canAnimatedPlay && (

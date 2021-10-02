@@ -15,7 +15,7 @@ import {
   RE_TME_INVITE_LINK,
   RE_TME_LINK,
   TIPS_USERNAME,
-  LOCALIZED_TIPS,
+  LOCALIZED_TIPS, RE_TG_LINK, RE_TME_ADDSTICKERS_LINK,
 } from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import {
@@ -30,7 +30,6 @@ import {
 } from '../../reducers';
 import {
   selectChat,
-  selectCurrentChat,
   selectUser,
   selectChatListType,
   selectIsChatPinned,
@@ -39,18 +38,21 @@ import {
   selectChatByUsername,
   selectThreadTopMessageId,
   selectCurrentMessageList,
+  selectThreadInfo,
 } from '../../selectors';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { debounce, pause, throttle } from '../../../util/schedulers';
 import {
   isChatSummaryOnly, isChatArchived, prepareChatList, isChatBasicGroup,
 } from '../../helpers';
+import { processDeepLink } from '../../../util/deeplink';
 
-const TOP_CHATS_PRELOAD_PAUSE = 100;
+const TOP_CHAT_MESSAGES_PRELOAD_INTERVAL = 100;
+const CHATS_PRELOAD_INTERVAL = 300;
 // We expect this ID does not exist
 const TMP_CHAT_ID = -1;
 
-const runThrottledForLoadChats = throttle((cb) => cb(), 1000, true);
+const runThrottledForLoadChats = throttle((cb) => cb(), CHATS_PRELOAD_INTERVAL, true);
 const runThrottledForLoadTopChats = throttle((cb) => cb(), 3000, true);
 const runDebouncedForLoadFullChat = debounce((cb) => cb(), 500, false, true);
 
@@ -59,7 +61,7 @@ addReducer('preloadTopChatMessages', (global, actions) => {
     const preloadedChatIds: number[] = [];
 
     for (let i = 0; i < TOP_CHAT_MESSAGES_PRELOAD_LIMIT; i++) {
-      await pause(TOP_CHATS_PRELOAD_PAUSE);
+      await pause(TOP_CHAT_MESSAGES_PRELOAD_INTERVAL);
 
       const {
         byId,
@@ -90,7 +92,7 @@ addReducer('openChat', (global, actions, payload) => {
   const { currentUserId } = global;
   const chat = selectChat(global, id);
 
-  if (chat && chat.hasUnreadMark) {
+  if (chat?.hasUnreadMark) {
     actions.toggleChatUnread({ id });
   }
 
@@ -121,6 +123,39 @@ addReducer('openChat', (global, actions, payload) => {
       actions.requestThreadInfoUpdate({ chatId: id, threadId });
     }
   }
+});
+
+addReducer('openLinkedChat', (global, actions, payload) => {
+  const { id } = payload!;
+  const chat = selectChat(global, id);
+  if (!chat) {
+    return;
+  }
+
+  (async () => {
+    const chatFullInfo = await callApi('fetchFullChat', chat);
+
+    if (chatFullInfo?.fullInfo?.linkedChatId) {
+      actions.openChat({ id: chatFullInfo.fullInfo.linkedChatId });
+    }
+  })();
+});
+
+addReducer('focusMessageInComments', (global, actions, payload) => {
+  const { chatId, threadId, messageId } = payload!;
+  const chat = selectChat(global, chatId);
+  if (!chat) {
+    return;
+  }
+
+  (async () => {
+    const result = await callApi('requestThreadInfoUpdate', { chat, threadId });
+    if (!result) {
+      return;
+    }
+
+    actions.focusMessage({ chatId, threadId, messageId });
+  })();
 });
 
 addReducer('openSupportChat', (global, actions) => {
@@ -162,7 +197,7 @@ addReducer('loadMoreChats', (global, actions, payload) => {
   const oldestChat = listIds
     ? listIds
       .map((id) => global.chats.byId[id])
-      .filter((chat) => Boolean(chat && chat.lastMessage) && !selectIsChatPinned(global, chat.id))
+      .filter((chat) => Boolean(chat?.lastMessage) && !selectIsChatPinned(global, chat.id))
       .sort((chat1, chat2) => (chat1.lastMessage!.date - chat2.lastMessage!.date))[0]
     : undefined;
 
@@ -171,6 +206,24 @@ addReducer('loadMoreChats', (global, actions, payload) => {
   } else {
     runThrottledForLoadChats(() => loadChats(listType));
   }
+});
+
+addReducer('preloadArchivedChats', () => {
+  (async () => {
+    while (!getGlobal().chats.isFullyLoaded.archived) {
+      const currentGlobal = getGlobal();
+      const listIds = currentGlobal.chats.listIds.archived;
+      const oldestChat = listIds
+        ? listIds
+          .map((id) => currentGlobal.chats.byId[id])
+          .filter((chat) => Boolean(chat?.lastMessage) && !selectIsChatPinned(currentGlobal, chat.id))
+          .sort((chat1, chat2) => (chat1.lastMessage!.date - chat2.lastMessage!.date))[0]
+        : undefined;
+
+      await loadChats('archived', oldestChat?.id, oldestChat?.lastMessage!.date);
+      await pause(CHATS_PRELOAD_INTERVAL);
+    }
+  })();
 });
 
 addReducer('loadFullChat', (global, actions, payload) => {
@@ -245,7 +298,7 @@ addReducer('joinChannel', (global, actions, payload) => {
 
 addReducer('deleteChatUser', (global, actions, payload) => {
   (async () => {
-    const { chatId, userId } : { chatId: number; userId: number } = payload!;
+    const { chatId, userId }: { chatId: number; userId: number } = payload!;
     const chat = selectChat(global, chatId);
     const user = selectUser(global, userId);
     if (!chat || !user) {
@@ -262,7 +315,7 @@ addReducer('deleteChatUser', (global, actions, payload) => {
 
 addReducer('deleteChat', (global, actions, payload) => {
   (async () => {
-    const { chatId } : { chatId: number } = payload!;
+    const { chatId }: { chatId: number } = payload!;
     const chat = selectChat(global, chatId);
     if (!chat) {
       return;
@@ -382,6 +435,37 @@ addReducer('loadRecommendedChatFolders', () => {
   void loadRecommendedChatFolders();
 });
 
+addReducer('editChatFolders', (global, actions, payload) => {
+  const { chatId, idsToRemove, idsToAdd } = payload!;
+
+  (idsToRemove as number[]).forEach(async (id) => {
+    const folder = selectChatFolder(global, id);
+    if (folder) {
+      await callApi('editChatFolder', {
+        id,
+        folderUpdate: {
+          ...folder,
+          pinnedChatIds: folder.pinnedChatIds?.filter((pinnedId) => pinnedId !== chatId),
+          includedChatIds: folder.includedChatIds.filter((includedId) => includedId !== chatId),
+        },
+      });
+    }
+  });
+
+  (idsToAdd as number[]).forEach(async (id) => {
+    const folder = selectChatFolder(global, id);
+    if (folder) {
+      await callApi('editChatFolder', {
+        id,
+        folderUpdate: {
+          ...folder,
+          includedChatIds: folder.includedChatIds.concat(chatId),
+        },
+      });
+    }
+  });
+});
+
 addReducer('editChatFolder', (global, actions, payload) => {
   const { id, folderUpdate } = payload!;
   const folder = selectChatFolder(global, id);
@@ -402,7 +486,7 @@ addReducer('editChatFolder', (global, actions, payload) => {
 addReducer('addChatFolder', (global, actions, payload) => {
   const { folder } = payload!;
   const { orderedIds } = global.chatFolders;
-  const maxId = orderedIds && orderedIds.length ? Math.max.apply(Math.max, orderedIds) : ARCHIVED_FOLDER_ID;
+  const maxId = orderedIds?.length ? Math.max.apply(Math.max, orderedIds) : ARCHIVED_FOLDER_ID;
 
   void createChatFolder(folder, maxId);
 });
@@ -432,33 +516,56 @@ addReducer('toggleChatUnread', (global, actions, payload) => {
   }
 });
 
+addReducer('openChatByInvite', (global, actions, payload) => {
+  const { hash } = payload!;
+
+  (async () => {
+    const result = await callApi('openChatByInvite', hash);
+    if (!result) {
+      return;
+    }
+
+    actions.openChat({ id: result.chatId });
+  })();
+});
+
 addReducer('openTelegramLink', (global, actions, payload) => {
   const { url } = payload!;
-  let match = RE_TME_INVITE_LINK.exec(url);
-
-  if (match) {
-    const hash = match[1];
-
-    (async () => {
-      const result = await callApi('openChatByInvite', hash);
-      if (!result) {
-        return;
-      }
-
-      actions.openChat({ id: result.chatId });
-    })();
+  const stickersMatch = RE_TME_ADDSTICKERS_LINK.exec(url);
+  if (stickersMatch) {
+    actions.openStickerSetShortName({
+      stickerSetShortName: stickersMatch[1],
+    });
+  } else if (url.match(RE_TG_LINK)) {
+    processDeepLink(url.match(RE_TG_LINK)[0]);
   } else {
-    match = RE_TME_LINK.exec(url)!;
+    let match = RE_TME_INVITE_LINK.exec(url);
 
-    const username = match[1];
-    const chatOrChannelPostId = match[2] ? Number(match[2]) : undefined;
-    const messageId = match[3] ? Number(match[3]) : undefined;
+    if (match) {
+      const hash = match[1];
 
-    // Open message in private chat
-    if (username === 'c' && chatOrChannelPostId && messageId) {
-      actions.focusMessage({ chatId: -chatOrChannelPostId, messageId });
+      actions.openChatByInvite({ hash });
     } else {
-      void openChatByUsername(actions, username, chatOrChannelPostId);
+      match = RE_TME_LINK.exec(url)!;
+
+      const username = match[1];
+      const chatOrChannelPostId = match[2] ? Number(match[2]) : undefined;
+      const messageId = match[3] ? Number(match[3]) : undefined;
+      const commentId = match[4] === 'comment' && match[5] ? Number(match[5]) : undefined;
+
+      // Open message in private group
+      if (username === 'c' && chatOrChannelPostId && messageId) {
+        actions.focusMessage({
+          chatId: -chatOrChannelPostId,
+          messageId,
+        });
+      } else {
+        actions.openChatByUsername({
+          username,
+          messageId,
+          commentId,
+        });
+      }
     }
   }
 });
@@ -476,9 +583,18 @@ addReducer('acceptInviteConfirmation', (global, actions, payload) => {
 });
 
 addReducer('openChatByUsername', (global, actions, payload) => {
-  const { username } = payload!;
+  const { username, messageId, commentId } = payload!;
 
-  void openChatByUsername(actions, username);
+  (async () => {
+    if (!commentId) {
+      await openChatByUsername(actions, username, messageId);
+      return;
+    }
+
+    if (!messageId) return;
+
+    await openCommentsByUsername(actions, username, messageId, commentId);
+  })();
 });
 
 addReducer('togglePreHistoryHidden', (global, actions, payload) => {
@@ -738,7 +854,7 @@ addReducer('unlinkDiscussionGroup', (global, actions, payload) => {
   }
 
   let chat: ApiChat | undefined;
-  if (channel.fullInfo && channel.fullInfo.linkedChatId) {
+  if (channel.fullInfo?.linkedChatId) {
     chat = selectChat(global, channel.fullInfo.linkedChatId);
   }
 
@@ -768,7 +884,7 @@ addReducer('loadMoreMembers', (global) => {
       return;
     }
 
-    const offset = (chat.fullInfo && chat.fullInfo.members && chat.fullInfo.members.length) || undefined;
+    const offset = (chat.fullInfo?.members?.length) || undefined;
     const result = await callApi('fetchMembers', chat.id, chat.accessHash!, 'recent', offset);
     if (!result) {
       return;
@@ -1027,42 +1143,79 @@ async function deleteChatFolder(id: number) {
   await callApi('deleteChatFolder', id);
 }
 
+async function fetchChatByUsername(
+  username: string,
+) {
+  const global = getGlobal();
+  const localChat = selectChatByUsername(global, username);
+  if (localChat && !localChat.isMin) {
+    return localChat;
+  }
+
+  const chat = await callApi('getChatByUsername', username);
+  if (!chat) {
+    return undefined;
+  }
+
+  setGlobal(updateChat(getGlobal(), chat.id, chat));
+
+  return chat;
+}
+
 async function openChatByUsername(
   actions: GlobalActions,
   username: string,
   channelPostId?: number,
 ) {
-  const global = getGlobal();
-  const localChat = selectChatByUsername(global, username);
-  if (localChat && !localChat.isMin) {
-    if (channelPostId) {
-      actions.focusMessage({ chatId: localChat.id, messageId: channelPostId });
-    } else {
-      actions.openChat({ id: localChat.id });
-    }
-    return;
-  }
-
-  const previousChat = selectCurrentChat(global);
   // Open temporary empty chat to make the click response feel faster
   actions.openChat({ id: TMP_CHAT_ID });
 
-  const chat = await callApi('getChatByUsername', username);
+  const chat = await fetchChatByUsername(username);
+
   if (!chat) {
-    if (previousChat) {
-      actions.openChat({ id: previousChat.id });
-    }
-
+    actions.openPreviousChat();
     actions.showNotification({ message: 'User does not exist' });
-
     return;
   }
-
-  setGlobal(updateChat(getGlobal(), chat.id, chat));
 
   if (channelPostId) {
     actions.focusMessage({ chatId: chat.id, messageId: channelPostId });
   } else {
     actions.openChat({ id: chat.id });
   }
+}
+
+async function openCommentsByUsername(
+  actions: GlobalActions,
+  username: string,
+  messageId: number,
+  commentId: number,
+) {
+  actions.openChat({ id: TMP_CHAT_ID });
+
+  const chat = await fetchChatByUsername(username);
+
+  if (!chat) return;
+
+  const global = getGlobal();
+
+  const threadInfo = selectThreadInfo(global, chat.id, messageId);
+  let discussionChatId: number | undefined;
+
+  if (!threadInfo) {
+    const result = await callApi('requestThreadInfoUpdate', { chat, threadId: messageId });
+    if (!result) return;
+
+    discussionChatId = result.discussionChatId;
+  } else {
+    discussionChatId = threadInfo.chatId;
+  }
+
+  if (!discussionChatId) return;
+
+  actions.focusMessage({
+    chatId: discussionChatId,
+    threadId: messageId,
+    messageId: Number(commentId),
+  });
 }

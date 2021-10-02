@@ -94,8 +94,6 @@ import DropArea, { DropAreaState } from './DropArea.async';
 import WebPagePreview from './WebPagePreview';
 import Portal from '../../ui/Portal';
 import CalendarModal from '../../common/CalendarModal.async';
-import PaymentModal from '../../payment/PaymentModal.async';
-import ReceiptModal from '../../payment/ReceiptModal.async';
 
 import './Composer.scss';
 
@@ -118,8 +116,6 @@ type StateProps = {
   isSelectModeActive?: boolean;
   isForwarding?: boolean;
   isPollModalOpen?: boolean;
-  isPaymentModalOpen?: boolean;
-  isReceiptModalOpen?: boolean;
   botKeyboardMessageId?: number;
   botKeyboardPlaceholder?: string;
   withScheduledButton?: boolean;
@@ -146,8 +142,8 @@ type StateProps = {
 type DispatchProps = Pick<GlobalActions, (
   'sendMessage' | 'editMessage' | 'saveDraft' | 'forwardMessages' |
   'clearDraft' | 'showDialog' | 'setStickerSearchQuery' | 'setGifSearchQuery' |
-  'openPollModal' | 'closePollModal' | 'loadScheduledHistory' | 'openChat' | 'closePaymentModal' |
-  'clearReceipt' | 'addRecentEmoji' | 'sendInlineBotResult'
+  'openPollModal' | 'closePollModal' | 'loadScheduledHistory' | 'openChat' |
+  'addRecentEmoji' | 'sendInlineBotResult'
 )>;
 
 enum MainButtonState {
@@ -187,8 +183,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   isSelectModeActive,
   isForwarding,
   isPollModalOpen,
-  isPaymentModalOpen,
-  isReceiptModalOpen,
   botKeyboardMessageId,
   botKeyboardPlaceholder,
   withScheduledButton,
@@ -219,9 +213,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
   openPollModal,
   closePollModal,
   loadScheduledHistory,
-  closePaymentModal,
   openChat,
-  clearReceipt,
   addRecentEmoji,
   sendInlineBotResult,
 }) => {
@@ -250,7 +242,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
 
   useEffect(() => {
     if (chatId && lastSyncTime && threadId === MAIN_THREAD_ID && isReady) {
-      loadScheduledHistory();
+      loadScheduledHistory({ chatId });
     }
   }, [isReady, chatId, loadScheduledHistory, lastSyncTime, threadId]);
 
@@ -424,16 +416,15 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [closeStickerTooltip, closeCalendar, closeMentionTooltip, closeEmojiTooltip, closeSymbolMenu]);
 
-  // Handle chat change
-  const prevChatId = usePrevious(chatId);
+  // Handle chat change (ref is used to avoid redundant effect calls)
+  const stopRecordingVoiceRef = useRef<typeof stopRecordingVoice>();
+  stopRecordingVoiceRef.current = stopRecordingVoice;
   useEffect(() => {
-    if (!prevChatId || chatId === prevChatId) {
-      return;
-    }
-
-    stopRecordingVoice();
-    resetComposer();
-  }, [chatId, prevChatId, resetComposer, stopRecordingVoice]);
+    return () => {
+      stopRecordingVoiceRef.current!();
+      resetComposer();
+    };
+  }, [chatId, resetComposer, stopRecordingVoiceRef]);
 
   const handleEditComplete = useEditing(htmlRef, setHtml, editingMessage, resetComposer, openDeleteModal, editMessage);
   useDraft(draft, chatId, threadId, html, htmlRef, setHtml, editingMessage, saveDraft, clearDraft);
@@ -821,14 +812,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         onClear={closePollModal}
         onSend={handlePollSend}
       />
-      <PaymentModal
-        isOpen={Boolean(isPaymentModalOpen)}
-        onClose={closePaymentModal}
-      />
-      <ReceiptModal
-        isOpen={Boolean(isReceiptModalOpen)}
-        onClose={clearReceipt}
-      />
       {renderedEditedMessage && (
         <DeleteMessageModal
           isOpen={isDeleteModalOpen}
@@ -876,7 +859,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <ResponsiveHoverButton
               className={buildClassName('bot-commands', isBotCommandMenuOpen && 'activated')}
               round
-              faded
               disabled={botCommands === undefined}
               color="translucent"
               onActivate={handleActivateBotCommandMenu}
@@ -889,7 +871,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <Button
               className={symbolMenuButtonClassName}
               round
-              faded
               color="translucent"
               onClick={isSymbolMenuOpen ? closeSymbolMenu : handleSymbolMenuOpen}
               ariaLabel="Choose emoji, sticker or GIF"
@@ -902,7 +883,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <ResponsiveHoverButton
               className={isSymbolMenuOpen ? 'activated' : ''}
               round
-              faded
               color="translucent"
               onActivate={handleActivateSymbolMenu}
               ariaLabel="Choose emoji, sticker or GIF"
@@ -945,7 +925,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <ResponsiveHoverButton
               className={isBotKeyboardOpen ? 'activated' : ''}
               round
-              faded
               color="translucent"
               onActivate={openBotKeyboard}
               ariaLabel="Open bot command keyboard"
@@ -957,7 +936,6 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
             <ResponsiveHoverButton
               className={isAttachMenuOpen ? 'activated' : ''}
               round
-              faded
               color="translucent"
               onActivate={openAttachMenu}
               ariaLabel="Add an attachment"
@@ -1058,7 +1036,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         selectedAt={scheduledDefaultDate.getTime()}
         maxAt={getDayStartAt(scheduledMaxDate)}
         isFutureMode
-        secondButtonLabel={canScheduleUntilOnline ? 'Send When Online' : undefined}
+        secondButtonLabel={canScheduleUntilOnline ? lang('Schedule.SendWhenOnline') : undefined}
         onClose={handleCloseCalendar}
         onSubmit={handleMessageSchedule}
         onSecondButtonClick={canScheduleUntilOnline ? handleMessageScheduleUntilOnline : undefined}
@@ -1098,26 +1076,24 @@ export default memo(withGlobal<OwnProps>(
       withScheduledButton: (
         threadId === MAIN_THREAD_ID
         && messageListType === 'thread'
-        && Boolean(scheduledIds && scheduledIds.length)
+        && Boolean(scheduledIds?.length)
       ),
       shouldSchedule: messageListType === 'scheduled',
       botKeyboardMessageId,
-      botKeyboardPlaceholder: keyboardMessage ? keyboardMessage.keyboardPlaceholder : undefined,
+      botKeyboardPlaceholder: keyboardMessage?.keyboardPlaceholder,
       isForwarding: chatId === global.forwardMessages.toChatId,
       isPollModalOpen: global.isPollModalOpen,
       stickersForEmoji: global.stickers.forEmoji.stickers,
-      groupChatMembers: chat && chat.fullInfo && chat.fullInfo.members,
-      topInlineBotIds: global.topInlineBots && global.topInlineBots.userIds,
+      groupChatMembers: chat?.fullInfo?.members,
+      topInlineBotIds: global.topInlineBots?.userIds,
       currentUserId: global.currentUserId,
       usersById: global.users.byId,
       lastSyncTime: global.lastSyncTime,
       contentToBeScheduled: global.messages.contentToBeScheduled,
-      isPaymentModalOpen: global.payment.isPaymentModalOpen,
-      isReceiptModalOpen: Boolean(global.payment.receipt),
       shouldSuggestStickers: global.settings.byKey.shouldSuggestStickers,
       recentEmojis: global.recentEmojis,
-      baseEmojiKeywords: baseEmojiKeywords ? baseEmojiKeywords.keywords : undefined,
-      emojiKeywords: emojiKeywords ? emojiKeywords.keywords : undefined,
+      baseEmojiKeywords: baseEmojiKeywords?.keywords,
+      emojiKeywords: emojiKeywords?.keywords,
       serverTimeOffset: global.serverTimeOffset,
       inlineBots: global.inlineBots.byUsername,
       isInlineBotLoading: global.inlineBots.isLoading,
@@ -1136,8 +1112,6 @@ export default memo(withGlobal<OwnProps>(
     'forwardMessages',
     'openPollModal',
     'closePollModal',
-    'closePaymentModal',
-    'clearReceipt',
     'loadScheduledHistory',
     'openChat',
     'addRecentEmoji',

@@ -13,12 +13,12 @@ import {
   MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   SAFE_SCREEN_WIDTH_FOR_CHAT_INFO,
-  CONTENT_TYPES_FOR_QUICK_UPLOAD,
   ANIMATION_LEVEL_MAX,
   ANIMATION_END_DELAY,
   DARK_THEME_BG_COLOR,
   LIGHT_THEME_BG_COLOR,
   ANIMATION_LEVEL_MIN,
+  SUPPORTED_IMAGE_CONTENT_TYPES,
 } from '../../config';
 import {
   IS_SINGLE_COLUMN_LAYOUT,
@@ -58,6 +58,8 @@ import Button from '../ui/Button';
 import MobileSearch from './MobileSearch.async';
 import MessageSelectToolbar from './MessageSelectToolbar.async';
 import UnpinAllMessagesModal from '../common/UnpinAllMessagesModal.async';
+import PaymentModal from '../payment/PaymentModal.async';
+import ReceiptModal from '../payment/ReceiptModal.async';
 
 import './MiddleColumn.scss';
 
@@ -82,6 +84,8 @@ type StateProps = {
   isBackgroundBlurred?: boolean;
   isMobileSearchActive?: boolean;
   isSelectModeActive?: boolean;
+  isPaymentModalOpen?: boolean;
+  isReceiptModalOpen?: boolean;
   animationLevel?: number;
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
@@ -89,13 +93,14 @@ type StateProps = {
 };
 
 type DispatchProps = Pick<GlobalActions, (
-  'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode'
+  'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode' |
+  'closePaymentModal' | 'clearReceipt'
 )>;
 
 const CLOSE_ANIMATION_DURATION = IS_SINGLE_COLUMN_LAYOUT ? 450 + ANIMATION_END_DELAY : undefined;
 
-function canBeQuicklyUploaded(item: DataTransferItem) {
-  return item.kind === 'file' && item.type && CONTENT_TYPES_FOR_QUICK_UPLOAD.has(item.type);
+function isImage(item: DataTransferItem) {
+  return item.kind === 'file' && item.type && SUPPORTED_IMAGE_CONTENT_TYPES.has(item.type);
 }
 
 const MiddleColumn: FC<StateProps & DispatchProps> = ({
@@ -119,6 +124,8 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   isBackgroundBlurred,
   isMobileSearchActive,
   isSelectModeActive,
+  isPaymentModalOpen,
+  isReceiptModalOpen,
   animationLevel,
   shouldSkipHistoryAnimations,
   currentTransitionKey,
@@ -127,6 +134,8 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   loadUser,
   closeLocalTextSearch,
   exitMessageSelectMode,
+  closePaymentModal,
+  clearReceipt,
 }) => {
   const { width: windowWidth } = useWindowSize();
 
@@ -175,6 +184,28 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     }
   }, [animationLevel]);
 
+  // Fix for mobile virtual keyboard
+  useEffect(() => {
+    const { visualViewport } = window as any;
+    if (!visualViewport) {
+      return undefined;
+    }
+
+    const handleResize = () => {
+      if (window.visualViewport.height !== document.documentElement.clientHeight) {
+        document.body.classList.add('keyboard-visible');
+      } else {
+        document.body.classList.remove('keyboard-visible');
+      }
+    };
+
+    visualViewport.addEventListener('resize', handleResize);
+
+    return () => {
+      visualViewport.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
     if (e.propertyName === 'transform' && e.target === e.currentTarget) {
       setIsReady(Boolean(chatId));
@@ -197,7 +228,8 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
       // Filter unnecessary element for drag and drop images in Firefox (https://github.com/Ajaxy/telegram-tt/issues/49)
       // https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Recommended_drag_types#image
       .filter((item) => item.type !== 'text/uri-list')
-      .every(canBeQuicklyUploaded);
+      // As of September 2021, native clients suggest "send quick, but compressed" only for images
+      .every(isImage);
 
     setDropAreaState(shouldDrawQuick ? DropAreaState.QuickFile : DropAreaState.Document);
   }, []);
@@ -269,6 +301,8 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 
   useHistoryBack(isMobileSearchActive, closeLocalTextSearch);
   useHistoryBack(isSelectModeActive, exitMessageSelectMode);
+
+  const isMessagingDisabled = Boolean(!isPinnedMessageList && !renderingCanPost && messageSendingRestrictionReason);
 
   return (
     <div
@@ -348,7 +382,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                         </Button>
                       </div>
                     )}
-                    {!isPinnedMessageList && !renderingCanPost && messageSendingRestrictionReason && (
+                    {isMessagingDisabled && (
                       <div className={messagingDisabledClassName}>
                         <div className="messaging-disabled-inner">
                           <span>
@@ -362,6 +396,14 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                       isActive={isSelectModeActive}
                       canPost={renderingCanPost}
                     />
+                    <PaymentModal
+                      isOpen={Boolean(isPaymentModalOpen)}
+                      onClose={closePaymentModal}
+                    />
+                    <ReceiptModal
+                      isOpen={Boolean(isReceiptModalOpen)}
+                      onClose={clearReceipt}
+                    />
                   </div>
                 </>
               )}
@@ -370,6 +412,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
             <ScrollDownButton
               isShown={renderingIsFabShown}
               canPost={renderingCanPost}
+              withExtraShift={isMessagingDisabled || isSelectModeActive || isPinnedMessageList}
             />
           </div>
           {IS_SINGLE_COLUMN_LAYOUT && <MobileSearch isActive={Boolean(isMobileSearchActive)} />}
@@ -409,6 +452,8 @@ export default memo(withGlobal(
       isBackgroundBlurred,
       isMobileSearchActive: Boolean(IS_SINGLE_COLUMN_LAYOUT && selectCurrentTextSearch(global)),
       isSelectModeActive: selectIsInSelectMode(global),
+      isPaymentModalOpen: global.payment.isPaymentModalOpen,
+      isReceiptModalOpen: Boolean(global.payment.receipt),
       animationLevel: global.settings.byKey.animationLevel,
       currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
     };
@@ -436,11 +481,11 @@ export default memo(withGlobal(
       canPost: !isPinnedMessageList && (!chat || canPost) && !isBotNotStarted,
       isPinnedMessageList,
       isScheduledMessageList,
-      currentUserBannedRights: chat && chat.currentUserBannedRights,
-      defaultBannedRights: chat && chat.defaultBannedRights,
+      currentUserBannedRights: chat?.currentUserBannedRights,
+      defaultBannedRights: chat?.defaultBannedRights,
       hasPinnedOrAudioMessage: (
         threadId !== MAIN_THREAD_ID
-        || Boolean(pinnedIds && pinnedIds.length)
+        || Boolean(pinnedIds?.length)
         || Boolean(audioChatId && audioMessageId)
       ),
       pinnedMessagesCount: pinnedIds ? pinnedIds.length : 0,
@@ -450,5 +495,6 @@ export default memo(withGlobal(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'openChat', 'unpinAllMessages', 'loadUser', 'closeLocalTextSearch', 'exitMessageSelectMode',
+    'closePaymentModal', 'clearReceipt',
   ]),
 )(MiddleColumn));

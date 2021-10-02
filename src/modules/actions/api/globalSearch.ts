@@ -57,7 +57,7 @@ addReducer('searchMessagesGlobal', (global, actions, payload) => {
   } = global.globalSearch;
   const maxDate = date ? timestampPlusDay(date) : date;
   const { type } = payload;
-  const { nextOffsetId } = (resultsByType && resultsByType[type as ApiGlobalMessageSearchType]) || {};
+  const nextOffsetId = (resultsByType?.[type as ApiGlobalMessageSearchType])?.nextOffsetId;
 
   const chat = chatId ? selectChat(global, chatId) : undefined;
 
@@ -94,8 +94,8 @@ async function searchChats(query: string) {
     },
     globalResults: {
       ...global.globalSearch.globalResults,
-      chatIds: globalUsers.map(({ id }) => id),
-      userIds: globalChats.map(({ id }) => id),
+      chatIds: globalChats.map(({ id }) => id),
+      userIds: globalUsers.map(({ id }) => id),
     },
   });
 

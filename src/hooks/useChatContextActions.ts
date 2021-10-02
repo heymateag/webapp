@@ -12,6 +12,7 @@ export default ({
   chat,
   privateChatUser,
   handleDelete,
+  handleChatFolderChange,
   folderId,
   isPinned,
   isMuted,
@@ -19,29 +20,30 @@ export default ({
   chat: ApiChat | undefined;
   privateChatUser: ApiUser | undefined;
   handleDelete: () => void;
+  handleChatFolderChange: () => void;
   folderId?: number;
   isPinned?: boolean;
   isMuted?: boolean;
-}) => {
+}, isInSearch = false) => {
   const lang = useLang();
-
-  const {
-    toggleChatPinned,
-    updateChatMutedState,
-    toggleChatArchived,
-    toggleChatUnread,
-  } = getDispatch();
 
   return useMemo(() => {
     if (!chat) {
       return undefined;
     }
 
-    const isChatWithSelf = privateChatUser && privateChatUser.isSelf;
+    const {
+      toggleChatPinned,
+      updateChatMutedState,
+      toggleChatArchived,
+      toggleChatUnread,
+    } = getDispatch();
 
-    const actionUnreadMark = chat.unreadCount || chat.hasUnreadMark
-      ? { title: lang('MarkAsRead'), icon: 'readchats', handler: () => toggleChatUnread({ id: chat.id }) }
-      : { title: lang('MarkAsUnread'), icon: 'unread', handler: () => toggleChatUnread({ id: chat.id }) };
+    const actionAddToFolder = {
+      title: lang('ChatList.Filter.AddToFolder'),
+      icon: 'folder',
+      handler: handleChatFolderChange,
+    };
 
     const actionPin = isPinned
       ? {
@@ -50,6 +52,14 @@ export default ({
         handler: () => toggleChatPinned({ id: chat.id, folderId }),
       }
       : { title: lang('PinToTop'), icon: 'pin', handler: () => toggleChatPinned({ id: chat.id, folderId }) };
+
+    if (isInSearch) {
+      return [actionPin, actionAddToFolder];
+    }
+
+    const actionUnreadMark = chat.unreadCount || chat.hasUnreadMark
+      ? { title: lang('MarkAsRead'), icon: 'readchats', handler: () => toggleChatUnread({ id: chat.id }) }
+      : { title: lang('MarkAsUnread'), icon: 'unread', handler: () => toggleChatUnread({ id: chat.id }) };
 
     const actionMute = isMuted
       ? {
@@ -79,16 +89,16 @@ export default ({
     };
 
     return [
+      actionAddToFolder,
       actionUnreadMark,
       actionPin,
-      ...(!isChatWithSelf ? [
+      ...(!privateChatUser?.isSelf ? [
         actionMute,
         actionArchive,
       ] : []),
       actionDelete,
     ];
   }, [
-    chat, privateChatUser, lang, isPinned, handleDelete, toggleChatUnread, toggleChatPinned, folderId,
-    updateChatMutedState, toggleChatArchived, isMuted,
+    chat, isPinned, lang, isInSearch, isMuted, handleDelete, handleChatFolderChange, privateChatUser?.isSelf, folderId,
   ]);
 };

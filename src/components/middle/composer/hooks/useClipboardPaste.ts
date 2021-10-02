@@ -24,15 +24,16 @@ export default (
       }
 
       const { items } = e.clipboardData;
-      const media = Array.from(items).find((item) => CLIPBOARD_ACCEPTED_TYPES.includes(item.type));
+      const media = Array.from(items)
+        .find((item) => CLIPBOARD_ACCEPTED_TYPES.includes(item.type) && item.kind === 'file');
       const file = media && media.getAsFile();
       const pastedText = e.clipboardData.getData('text').substring(0, MAX_MESSAGE_LENGTH);
+
+      e.preventDefault();
 
       if (!file && !pastedText) {
         return;
       }
-
-      e.preventDefault();
 
       if (file && !editedMessage) {
         const attachment = await buildAttachment(file.name, file, true);
@@ -43,7 +44,7 @@ export default (
       }
 
       if (pastedText) {
-        insertTextAndUpdateCursor(pastedText, input ? input.id : undefined);
+        insertTextAndUpdateCursor(pastedText, input?.id);
       }
     }
 

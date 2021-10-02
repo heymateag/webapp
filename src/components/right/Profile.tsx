@@ -7,11 +7,11 @@ import {
   ApiMessage,
   ApiChatMember,
   ApiUser,
-  MAIN_THREAD_ID,
+  MAIN_THREAD_ID, ApiChat,
 } from '../../api/types';
 import { GlobalActions } from '../../global/types';
 import {
-  NewChatMembersProgress, ISettings, MediaViewerOrigin, ProfileState, ProfileTabType, SharedMediaType,
+  NewChatMembersProgress, ISettings, MediaViewerOrigin, ProfileState, ProfileTabType, SharedMediaType, AudioOrigin,
 } from '../../types';
 
 import {
@@ -33,6 +33,7 @@ import {
 } from '../../modules/selectors';
 import { pick } from '../../util/iteratees';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
+import { getSenderName } from '../left/search/helpers/getSenderName';
 import useCacheBuster from '../../hooks/useCacheBuster';
 import useProfileViewportIds from './hooks/useProfileViewportIds';
 import useProfileState from './hooks/useProfileState';
@@ -78,7 +79,8 @@ type StateProps = {
   canAddMembers?: boolean;
   canDeleteMembers?: boolean;
   members?: ApiChatMember[];
-  usersById?: Record<number, ApiUser>;
+  chatsById: Record<number, ApiChat>;
+  usersById: Record<number, ApiUser>;
   isRightColumnShown: boolean;
   isRestricted?: boolean;
   lastSyncTime?: number;
@@ -95,6 +97,7 @@ const TABS = [
   { type: 'documents', title: 'SharedFilesTab2' },
   { type: 'links', title: 'SharedLinksTab2' },
   { type: 'audio', title: 'SharedMusicTab2' },
+  { type: 'voice', title: 'SharedVoiceTab2' },
 ];
 
 const HIDDEN_RENDER_DELAY = 1000;
@@ -116,6 +119,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   canDeleteMembers,
   members,
   usersById,
+  chatsById,
   isRightColumnShown,
   isRestricted,
   lastSyncTime,
@@ -190,7 +194,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [profileId, openMediaViewer]);
 
   const handlePlayAudio = useCallback((messageId: number) => {
-    openAudioPlayer({ chatId: profileId, messageId });
+    openAudioPlayer({ chatId: profileId, messageId, origin: AudioOrigin.SharedMedia });
   }, [profileId, openAudioPlayer]);
 
   const handleMemberClick = useCallback((id: number) => {
@@ -267,13 +271,16 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
           text = areMembersHidden ? 'You have no access to group members list.' : 'No members found';
           break;
         case 'documents':
-          text = lang('lng_media_file_empty_search');
+          text = lang('lng_media_file_empty');
           break;
         case 'links':
-          text = lang('lng_media_link_empty_search');
+          text = lang('lng_media_link_empty');
           break;
         case 'audio':
-          text = lang('lng_media_song_empty_search');
+          text = lang('lng_media_song_empty');
+          break;
+        case 'voice':
+          text = lang('lng_media_audio_empty');
           break;
         default:
           text = lang('SharedMedia.EmptyTitle');
@@ -325,7 +332,22 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
               key={id}
               theme={theme}
               message={chatMessages[id]}
-              target="sharedMedia"
+              origin={AudioOrigin.SharedMedia}
+              date={chatMessages[id].date}
+              lastSyncTime={lastSyncTime}
+              className="scroll-item"
+              onPlay={handlePlayAudio}
+              onDateClick={handleMessageFocus}
+            />
+          ))
+        ) : resultType === 'voice' ? (
+          viewportIds!.map((id) => chatMessages[id] && (
+            <Audio
+              key={id}
+              theme={theme}
+              message={chatMessages[id]}
+              senderTitle={getSenderName(lang, chatMessages[id], chatsById, usersById)}
+              origin={AudioOrigin.SharedMedia}
               date={chatMessages[id].date}
               lastSyncTime={lastSyncTime}
               className="scroll-item"
@@ -383,7 +405,6 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
             {renderSharedMedia}
           </Transition>
           <TabList big activeTab={activeTab} tabs={tabs} onSwitchTab={setActiveTab} />
-
         </div>
       )}
 
@@ -434,11 +455,12 @@ export default memo(withGlobal<OwnProps>(
     const { foundIds } = (resultsByType && mediaSearchType && resultsByType[mediaSearchType]) || {};
 
     const { byId: usersById } = global.users;
+    const { byId: chatsById } = global.chats;
 
     const isGroup = chat && isChatGroup(chat);
     const isChannel = chat && isChatChannel(chat);
     const hasMembersTab = isGroup || (isChannel && isChatAdmin(chat!));
-    const members = chat && chat.fullInfo && chat.fullInfo.members;
+    const members = chat?.fullInfo?.members;
     const areMembersHidden = hasMembersTab && chat && chat.fullInfo && !chat.fullInfo.canViewMembers;
     const canAddMembers = hasMembersTab && chat && (getHasAdminRight(chat, 'inviteUsers') || chat.isCreator);
     const canDeleteMembers = hasMembersTab && chat && (getHasAdminRight(chat, 'banUsers') || chat.isCreator);
@@ -463,13 +485,12 @@ export default memo(withGlobal<OwnProps>(
       canDeleteMembers,
       currentUserId: global.currentUserId,
       isRightColumnShown: selectIsRightColumnShown(global),
-      isRestricted: chat && chat.isRestricted,
+      isRestricted: chat?.isRestricted,
       lastSyncTime: global.lastSyncTime,
       serverTimeOffset: global.serverTimeOffset,
-      ...(hasMembersTab && members && {
-        members,
-        usersById,
-      }),
+      usersById,
+      chatsById,
+      ...(hasMembersTab && members && { members }),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

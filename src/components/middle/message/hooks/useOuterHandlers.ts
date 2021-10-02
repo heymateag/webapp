@@ -18,6 +18,7 @@ export default function useOuterHandlers(
   isLocal: boolean,
   isAlbum: boolean,
   isInSelectMode: boolean,
+  canReply: boolean,
   onContextMenu: (e: React.MouseEvent) => void,
   handleBeforeContextMenu: (e: React.MouseEvent) => void,
 ) {
@@ -54,6 +55,11 @@ export default function useOuterHandlers(
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
     if (IS_ANDROID) {
+      if ((e.target as HTMLElement).matches('a[href]')) {
+        return;
+      }
+
+      e.preventDefault();
       selectMessage();
     } else {
       onContextMenu(e);
@@ -69,7 +75,7 @@ export default function useOuterHandlers(
   }
 
   useEffect(() => {
-    if (!IS_TOUCH_ENV || isInSelectMode) {
+    if (!IS_TOUCH_ENV || isInSelectMode || !canReply) {
       return undefined;
     }
 
@@ -100,7 +106,7 @@ export default function useOuterHandlers(
         startedAt = undefined;
       },
     });
-  }, [containerRef, isInSelectMode, messageId, setReplyingToId, markSwiped, unmarkSwiped]);
+  }, [containerRef, isInSelectMode, messageId, setReplyingToId, markSwiped, unmarkSwiped, canReply]);
 
   return {
     handleMouseDown: !isInSelectMode ? handleMouseDown : undefined,

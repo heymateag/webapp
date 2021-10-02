@@ -50,6 +50,7 @@ import LastMessageMeta from '../../common/LastMessageMeta';
 import DeleteChatModal from '../../common/DeleteChatModal';
 import ListItem from '../../ui/ListItem';
 import Badge from './Badge';
+import ChatFolderModal from '../ChatFolderModal.async';
 
 import './Chat.scss';
 
@@ -111,7 +112,9 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useFlag();
+  const [isChatFolderModalOpen, openChatFolderModal, closeChatFolderModal] = useFlag();
   const [shouldRenderDeleteModal, markRenderDeleteModal, unmarkRenderDeleteModal] = useFlag();
+  const [shouldRenderChatFolderModal, markRenderChatFolderModal, unmarkRenderChatFolderModal] = useFlag();
 
   const { lastMessage, typingStatus } = chat || {};
   const isAction = lastMessage && isActionMessage(lastMessage);
@@ -126,7 +129,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const actionTargetUsers = useMemo(() => {
     return actionTargetUserIds
-      ? actionTargetUserIds.map((userId) => usersById && usersById[userId]).filter<ApiUser>(Boolean as any)
+      ? actionTargetUserIds.map((userId) => usersById?.[userId]).filter<ApiUser>(Boolean as any)
       : undefined;
   }, [actionTargetUserIds, usersById]);
 
@@ -185,10 +188,16 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
     openDeleteModal();
   }
 
+  function handleChatFolderChange() {
+    markRenderChatFolderModal();
+    openChatFolderModal();
+  }
+
   const contextActions = useChatContextActions({
     chat,
     privateChatUser,
     handleDelete,
+    handleChatFolderChange,
     folderId,
     isPinned,
     isMuted,
@@ -205,7 +214,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
       return <TypingStatus typingStatus={typingStatus} />;
     }
 
-    if (draft && draft.text.length) {
+    if (draft?.text.length) {
       return (
         <p className="last-message" dir={lang.isRtl ? 'auto' : 'ltr'}>
           <span className="draft">{lang('Draft')}</span>
@@ -273,7 +282,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
           chat={chat}
           user={privateChatUser}
           withOnlineStatus
-          isSavedMessages={privateChatUser && privateChatUser.isSelf}
+          isSavedMessages={privateChatUser?.isSelf}
           lastSyncTime={lastSyncTime}
         />
       </div>
@@ -297,6 +306,14 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
           onClose={closeDeleteModal}
           onCloseAnimationEnd={unmarkRenderDeleteModal}
           chat={chat}
+        />
+      )}
+      {shouldRenderChatFolderModal && (
+        <ChatFolderModal
+          isOpen={isChatFolderModalOpen}
+          onClose={closeChatFolderModal}
+          onCloseAnimationEnd={unmarkRenderChatFolderModal}
+          chatId={chatId}
         />
       )}
     </ListItem>

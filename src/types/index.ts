@@ -239,6 +239,12 @@ export enum MediaViewerOrigin {
   SearchResult,
 }
 
+export enum AudioOrigin {
+  Inline,
+  SharedMedia,
+  Search,
+}
+
 export enum ChatCreationProgress {
   Idle,
   InProgress,
@@ -266,8 +272,8 @@ export enum NewChatMembersProgress {
   Loading,
 }
 
-export type ProfileTabType = 'members' | 'media' | 'documents' | 'links' | 'audio';
-export type SharedMediaType = 'media' | 'documents' | 'links' | 'audio';
+export type ProfileTabType = 'members' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
+export type SharedMediaType = 'media' | 'documents' | 'links' | 'audio' | 'voice';
 export type ApiPrivacyKey = 'phoneNumber' | 'lastSeen' | 'profilePhoto' | 'forwards' | 'chatInvite';
 export type PrivacyVisibility = 'everybody' | 'contacts' | 'nonContacts' | 'nobody';
 

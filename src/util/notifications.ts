@@ -3,7 +3,7 @@ import {
   ApiChat, ApiMediaFormat, ApiMessage, ApiUser,
 } from '../api/types';
 import { renderActionMessageText } from '../components/common/helpers/renderActionMessageText';
-import { DEBUG } from '../config';
+import { DEBUG, IS_TEST } from '../config';
 import { getDispatch, getGlobal, setGlobal } from '../lib/teact/teactn';
 import {
   getChatAvatarHash,
@@ -332,7 +332,7 @@ export async function showNewMessageNotification({
   const icon = await getAvatar(chat);
 
   if (checkIfPushSupported()) {
-    if (navigator.serviceWorker.controller) {
+    if (navigator.serviceWorker?.controller) {
       // notify service worker about new message notification
       navigator.serviceWorker.controller.postMessage({
         type: 'newMessageNotification',
@@ -378,9 +378,17 @@ export async function showNewMessageNotification({
   }
 }
 
+export function closeMessageNotifications(payload: { chatId: number; lastReadInboxMessageId?: number }) {
+  if (IS_TEST || !navigator.serviceWorker?.controller) return;
+  navigator.serviceWorker.controller.postMessage({
+    type: 'closeMessageNotifications',
+    payload,
+  });
+}
+
 // Notify service worker that client is fully loaded
 export function notifyClientReady() {
-  if (!navigator.serviceWorker.controller) return;
+  if (!navigator.serviceWorker?.controller) return;
   navigator.serviceWorker.controller.postMessage({
     type: 'clientReady',
   });

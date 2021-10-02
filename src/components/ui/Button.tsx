@@ -18,6 +18,7 @@ export type OwnProps = {
   size?: 'default' | 'smaller' | 'tiny';
   color?: 'primary' | 'secondary' | 'gray' | 'danger' | 'translucent' | 'translucent-white'
   | 'dark' | 'hm-primary' | 'hm-primary-red';
+  backgroundImage?: string;
   className?: string;
   round?: boolean;
   pill?: boolean;
@@ -55,6 +56,7 @@ const Button: FC<OwnProps> = ({
   children,
   size = 'default',
   color = 'primary',
+  backgroundImage,
   className,
   round,
   pill,
@@ -92,6 +94,7 @@ const Button: FC<OwnProps> = ({
     ripple && 'has-ripple',
     faded && 'faded',
     isClicked && 'clicked',
+    backgroundImage && 'with-image',
   );
 
   const handleClick = useCallback((e: ReactMouseEvent<HTMLButtonElement, MouseEvent>) => {
@@ -147,13 +150,20 @@ const Button: FC<OwnProps> = ({
       title={ariaLabel}
       tabIndex={tabIndex}
       dir={isRtl ? 'rtl' : undefined}
+      // @ts-ignore
+      style={backgroundImage ? `background-image: url(${backgroundImage})` : undefined}
     >
       {isLoading ? (
         <div>
-          <span dir={isRtl ? 'auto' : undefined}>Please wait..</span>
+          <span dir={isRtl ? 'auto' : undefined}>Please wait...</span>
           <Spinner color={isText ? 'blue' : 'white'} />
         </div>
-      ) : children}
+      ) : (
+        <>
+          {backgroundImage && <div className="backdrop" />}
+          {children}
+        </>
+      )}
       {!disabled && ripple && (
         <RippleEffect />
       )}
