@@ -185,6 +185,10 @@
       }
     }
 
+  &.is-swiped {
+    transform: translateX(-2.5rem) !important;
+  }
+
   /*  ================= END Hm Message types */
   > .Avatar,
   > .message-content-wrapper {
@@ -428,7 +432,7 @@
     }
 
     img, video {
-      transition: transform var(--select-transition);
+      transition: transform var(--select-transition), opacity ease 300ms;
     }
 
     &.is-selected {
@@ -593,7 +597,7 @@
       font-size: 1.625rem;
     }
 
-    .tmye-dark & {
+    .theme-dark & {
       border-color: #ffffff80;
     }
   }

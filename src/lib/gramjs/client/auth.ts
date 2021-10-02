@@ -50,7 +50,6 @@ export async function authFlow(
     client._log.info('Signed in successfully as', utils.getDisplayName(me));
 }
 
-
 export async function checkAuthorization(client: TelegramClient) {
     try {
         await client.invoke(new Api.updates.GetState());
@@ -208,7 +207,7 @@ async function signInUserWithQrCode(
         }
     })();
 
-    const updatePromise = new Promise((resolve) => {
+    const updatePromise = new Promise<void>((resolve) => {
         client.addEventHandler((update: Api.TypeUpdate) => {
             if (update instanceof Api.UpdateLoginToken) {
                 resolve();

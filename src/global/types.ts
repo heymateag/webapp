@@ -169,6 +169,7 @@ export type GlobalState = {
     messageId?: number;
     direction?: FocusDirection;
     noHighlight?: boolean;
+    isResizingContainer?: boolean;
   };
 
   selectedMessages?: {
@@ -344,18 +345,22 @@ export type GlobalState = {
   };
 
   payment: {
+    chatId?: number;
     messageId?: number;
     step?: PaymentStep;
     shippingOptions?: ShippingOption[];
     formId?: string;
+    requestId?: string;
     savedInfo?: ApiPaymentSavedInfo;
     canSaveCredentials?: boolean;
     invoice?: Invoice;
     invoiceContent?: {
       title?: string;
       text?: string;
-      description?: string;
       photoUrl?: string;
+      amount?: number;
+      currency?: string;
+      isTest?: boolean;
     };
     nativeProvider?: string;
     providerId?: number;
@@ -377,7 +382,7 @@ export type GlobalState = {
     receipt?: Receipt;
     error?: {
       field?: string;
-      fieldError?: string;
+      message?: string;
       description: string;
     };
     isPaymentModalOpen?: boolean;
@@ -421,6 +426,7 @@ export type GlobalState = {
 
   safeLinkModalUrl?: string;
   historyCalendarSelectedAt?: number;
+  openedStickerSetShortName?: string;
 
   // TODO To be removed in August 2021
   shouldShowContextMenuHint?: boolean;
@@ -491,15 +497,16 @@ export type ActionTypes = (
   'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
   'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
   'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' | 'loadGreetingStickers' |
+  'openStickerSetShortName' |
   // bots
   'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
-  'resetInlineBot' | 'restartBot' |
+  'resetInlineBot' | 'restartBot' | 'startBot' |
   // misc
   'openMediaViewer' | 'closeMediaViewer' | 'openAudioPlayer' | 'closeAudioPlayer' | 'openPollModal' | 'closePollModal' |
   'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' | 'setDeviceToken' |
   'deleteDeviceToken' |
   // payment
-  'openPaymentModal' | 'closePaymentModal' |
+  'openPaymentModal' | 'closePaymentModal' | 'addPaymentError' |
   'validateRequestedInfo' | 'setPaymentStep' | 'sendPaymentForm' | 'getPaymentForm' | 'getReceipt' |
   'sendCredentialsInfo' | 'setInvoiceMessageInfo' | 'clearPaymentError' | 'clearReceipt'
 );

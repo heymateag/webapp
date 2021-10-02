@@ -3,6 +3,7 @@ import {
   ApiChat,
   ApiChatAdminRights,
   ApiChatBannedRights,
+  ApiBotCommand,
   ApiChatFolder,
   ApiChatMember,
   ApiRestrictionReason,
@@ -12,6 +13,7 @@ import {
   isInputPeerChannel, isInputPeerChat, isInputPeerUser, isPeerChat, isPeerUser,
 } from './peers';
 import { omitVirtualClassFields } from './helpers';
+import { getServerTime } from '../../../util/serverTime';
 
 type PeerEntityApiChatFields = Omit<ApiChat, (
   'id' | 'type' | 'title' |
@@ -63,7 +65,7 @@ export function buildApiChatFromDialog(
     peer, folderId, unreadMark, unreadCount, unreadMentionsCount, notifySettings: { silent, muteUntil },
     readOutboxMaxId, readInboxMaxId, draft,
   } = dialog;
-  const isMuted = silent || (typeof muteUntil === 'number' && Date.now() + serverTimeOffset * 1000 < muteUntil * 1000);
+  const isMuted = silent || (typeof muteUntil === 'number' && getServerTime(serverTimeOffset) < muteUntil);
 
   return {
     id: getApiChatIdFromMtpPeer(peer),
@@ -374,4 +376,15 @@ export function buildApiChatFolderFromSuggested({
     ...buildApiChatFolder(filter),
     description,
   };
+}
+
+export function buildApiChatBotCommands(botInfos: GramJs.BotInfo[]) {
+  return botInfos.reduce((botCommands, botInfo) => {
+    botCommands = botCommands.concat(botInfo.commands.map((mtpCommand) => ({
+      botId: botInfo.userId,
+      ...omitVirtualClassFields(mtpCommand),
+    })));
+
+    return botCommands;
+  }, [] as ApiBotCommand[]);
 }

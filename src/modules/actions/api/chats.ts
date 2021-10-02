@@ -94,6 +94,14 @@ addReducer('openChat', (global, actions, payload) => {
     actions.toggleChatUnread({ id });
   }
 
+  // Please telegram send us some updates about linked chat 🙏
+  if (chat && chat.lastMessage && chat.lastMessage.threadInfo) {
+    actions.requestThreadInfoUpdate({
+      chatId: chat.lastMessage.threadInfo.chatId,
+      threadId: chat.lastMessage.threadInfo.threadId,
+    });
+  }
+
   if (!chat) {
     if (id === currentUserId) {
       void callApi('fetchChat', { type: 'self' });
@@ -237,7 +245,7 @@ addReducer('joinChannel', (global, actions, payload) => {
 
 addReducer('deleteChatUser', (global, actions, payload) => {
   (async () => {
-    const { chatId, userId } : {chatId: number; userId: number} = payload!;
+    const { chatId, userId } : { chatId: number; userId: number } = payload!;
     const chat = selectChat(global, chatId);
     const user = selectUser(global, userId);
     if (!chat || !user) {
@@ -254,7 +262,7 @@ addReducer('deleteChatUser', (global, actions, payload) => {
 
 addReducer('deleteChat', (global, actions, payload) => {
   (async () => {
-    const { chatId } : {chatId: number } = payload!;
+    const { chatId } : { chatId: number } = payload!;
     const chat = selectChat(global, chatId);
     if (!chat) {
       return;
@@ -742,7 +750,6 @@ addReducer('unlinkDiscussionGroup', (global, actions, payload) => {
   })();
 });
 
-
 addReducer('setActiveChatFolder', (global, actions, payload) => {
   return {
     ...global,
@@ -856,7 +863,6 @@ async function loadChats(listType: 'active' | 'archived', offsetId?: number, off
       global, chatId, MAIN_THREAD_ID, 'replyingToId', result.replyingToById[chatId],
     );
   });
-
 
   if (chatIds.length === 0 && !global.chats.isFullyLoaded[listType]) {
     global = {

@@ -30,6 +30,7 @@ import {
   replaceScheduledMessages,
   updateThreadInfos,
   updateChat,
+  updateThreadUnreadFromForwardedMessage,
 } from '../../reducers';
 import {
   selectChat,
@@ -50,13 +51,14 @@ import {
   selectEditingMessage,
   selectScheduledMessage,
   selectNoWebPage,
+  selectFirstUnreadId,
 } from '../../selectors';
-import { rafPromise, throttle } from '../../../util/schedulers';
+import { debounce, rafPromise } from '../../../util/schedulers';
 import { IS_IOS } from '../../../util/environment';
 
 const uploadProgressCallbacks = new Map<number, ApiOnProgress>();
 
-const runThrottledForMarkRead = throttle((cb) => cb(), 1000, true);
+const runDebouncedForMarkRead = debounce((cb) => cb(), 500, false);
 
 addReducer('loadViewportMessages', (global, actions, payload) => {
   const {
@@ -144,14 +146,29 @@ async function loadWithBudget(
 }
 
 addReducer('loadMessage', (global, actions, payload) => {
-  const { chatId, messageId, replyOriginForId } = payload!;
+  const {
+    chatId, messageId, replyOriginForId, threadUpdate,
+  } = payload!;
   const chat = selectChat(global, chatId);
 
   if (!chat) {
     return;
   }
 
-  void loadMessage(chat, messageId, replyOriginForId);
+  (async () => {
+    const message = await loadMessage(chat, messageId, replyOriginForId);
+    if (message && threadUpdate) {
+      const { lastMessageId, isDeleting } = threadUpdate;
+
+      setGlobal(updateThreadUnreadFromForwardedMessage(
+        getGlobal(),
+        message,
+        chatId,
+        lastMessageId,
+        isDeleting,
+      ));
+    }
+  })();
 });
 
 addReducer('sendMessage', (global, actions, payload) => {
@@ -443,21 +460,42 @@ addReducer('markMessageListRead', (global, actions, payload) => {
   const { serverTimeOffset } = global;
   const currentMessageList = selectCurrentMessageList(global);
   if (!currentMessageList) {
-    return;
+    return undefined;
   }
 
   const { chatId, threadId } = currentMessageList;
   const chat = selectThreadOriginChat(global, chatId, threadId);
   if (!chat) {
-    return;
+    return undefined;
   }
 
   const { maxId } = payload!;
 
-  runThrottledForMarkRead(() => {
+  runDebouncedForMarkRead(() => {
     void callApi('markMessageListRead', {
       serverTimeOffset, chat, threadId, maxId,
     });
+  });
+
+  // TODO Support local marking read for threads
+  if (threadId !== MAIN_THREAD_ID) {
+    return undefined;
+  }
+
+  const viewportIds = selectViewportIds(global, chatId, threadId);
+  const minId = selectFirstUnreadId(global, chatId, threadId);
+  if (!viewportIds || !minId || !chat.unreadCount) {
+    return undefined;
+  }
+
+  const readCount = countSortedIds(viewportIds!, minId, maxId);
+  if (!readCount) {
+    return undefined;
+  }
+
+  return updateChat(global, chatId, {
+    lastReadInboxMessageId: maxId,
+    unreadCount: Math.max(0, chat.unreadCount - readCount),
   });
 });
 
@@ -661,7 +699,7 @@ async function loadViewportMessages(
 async function loadMessage(chat: ApiChat, messageId: number, replyOriginForId: number) {
   const result = await callApi('fetchMessage', { chat, messageId });
   if (!result) {
-    return;
+    return undefined;
   }
 
   if (result === MESSAGE_DELETED) {
@@ -675,13 +713,15 @@ async function loadMessage(chat: ApiChat, messageId: number, replyOriginForId: n
       setGlobal(global);
     }
 
-    return;
+    return undefined;
   }
 
   let global = getGlobal();
   global = updateChatMessage(global, chat.id, messageId, result.message);
   global = addUsers(global, buildCollectionByKey(result.users, 'id'));
   setGlobal(global);
+
+  return result.message;
 }
 
 function findClosestIndex(sourceIds: number[], offsetId: number) {
@@ -891,4 +931,20 @@ async function loadScheduledHistory(chat: ApiChat, historyHash?: number) {
   global = replaceScheduledMessages(global, chat.id, byId, hash);
   global = replaceThreadParam(global, chat.id, MAIN_THREAD_ID, 'scheduledIds', ids);
   setGlobal(global);
+}
+
+function countSortedIds(ids: number[], from: number, to: number) {
+  let count = 0;
+
+  for (let i = 0, l = ids.length; i < l; i++) {
+    if (ids[i] >= from && ids[i] <= to) {
+      count++;
+    }
+
+    if (ids[i] >= to) {
+      break;
+    }
+  }
+
+  return count;
 }

@@ -6,6 +6,7 @@ import { GlobalActions, GlobalState } from '../../global/types';
 import '../../modules/actions/initial';
 import { pick } from '../../util/iteratees';
 import { PLATFORM_ENV } from '../../util/environment';
+import windowSize from '../../util/windowSize';
 import useHistoryBack from '../../hooks/useHistoryBack';
 
 import UiLoader from '../common/UiLoader';
@@ -14,7 +15,6 @@ import AuthCode from './AuthCode.async';
 import AuthPassword from './AuthPassword.async';
 import AuthRegister from './AuthRegister.async';
 import AuthQrCode from './AuthQrCode';
-import AuthOnBoarding from './AuthOnBoarding';
 import './Auth.scss';
 
 type StateProps = Pick<GlobalState, 'authState'>;
@@ -42,6 +42,15 @@ const Auth: FC<StateProps & DispatchProps> = ({
     (!isMobile && authState === 'authorizationStateWaitPhoneNumber')
     || (isMobile && authState === 'authorizationStateWaitQrCode'), handleChangeAuthorizationMethod,
   );
+
+  // Prevent refresh when rotating device
+  useEffect(() => {
+    windowSize.disableRefresh();
+
+    return () => {
+      windowSize.enableRefresh();
+    };
+  }, []);
 
   switch (authState) {
     case 'authorizationStateWaitCode':

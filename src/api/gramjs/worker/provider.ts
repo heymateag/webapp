@@ -1,11 +1,10 @@
-import Worker from 'worker-loader!./worker';
-
 import { ApiInitialArgs, ApiOnProgress, OnApiUpdate } from '../../types';
 import { Methods, MethodArgs, MethodResponse } from '../methods/types';
 import { WorkerMessageEvent, ThenArg, OriginRequest } from './types';
 
 import { DEBUG } from '../../../config';
 import generateIdFor from '../../../util/generateIdFor';
+import { pause } from '../../../util/schedulers';
 
 type RequestStates = {
   messageId: string;
@@ -13,6 +12,9 @@ type RequestStates = {
   reject: Function;
   callback?: AnyToVoidFunction;
 };
+
+const HEALTH_CHECK_TIMEOUT = 150;
+const HEALTH_CHECK_MIN_DELAY = 5 * 1000; // 5 sec
 
 let worker: Worker;
 const requestStates = new Map<string, RequestStates>();
@@ -27,8 +29,12 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
       console.log('>>> START LOAD WORKER');
     }
 
-    worker = new Worker();
+    worker = new Worker(new URL('./worker.ts', import.meta.url));
     subscribeToWorker(onUpdate);
+
+    if (initialArgs.platform === 'iOS') {
+      setupIosHealthCheck();
+    }
   }
 
   return makeRequest({
@@ -106,7 +112,7 @@ function makeRequest(message: OriginRequest) {
     Object.assign(requestState, { resolve, reject });
   });
 
-  if (typeof payload.args[1] === 'function') {
+  if (('args' in payload) && typeof payload.args[1] === 'function') {
     const callback = payload.args.pop() as AnyToVoidFunction;
     requestState.callback = callback;
     requestStatesByCallback.set(callback, requestState);
@@ -126,4 +132,25 @@ function makeRequest(message: OriginRequest) {
   worker.postMessage(payload);
 
   return promise;
+}
+
+const startedAt = Date.now();
+
+// Workaround for iOS sometimes stops interacting with worker
+function setupIosHealthCheck() {
+  window.addEventListener('focus', async () => {
+    try {
+      await Promise.race([
+        makeRequest({ type: 'ping' }),
+        pause(HEALTH_CHECK_TIMEOUT).then(() => Promise.reject(new Error('HEALTH_CHECK_TIMEOUT'))),
+      ]);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(err);
+
+      if (Date.now() - startedAt >= HEALTH_CHECK_MIN_DELAY) {
+        window.location.reload();
+      }
+    }
+  });
 }

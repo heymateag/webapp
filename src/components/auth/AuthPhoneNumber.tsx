@@ -118,7 +118,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   const handleLangChange = useCallback(() => {
     markIsLoading();
 
-    setLanguage(suggestedLanguage!, () => {
+    void setLanguage(suggestedLanguage, () => {
       unmarkIsLoading();
 
       setSettingOption({ language: suggestedLanguage });
@@ -154,7 +154,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     if (!isPreloadInitiated) {
       isPreloadInitiated = true;
       preloadFonts();
-      preloadImage(monkeyPath);
+      void preloadImage(monkeyPath);
     }
 
     const { value, selectionStart, selectionEnd } = e.target;

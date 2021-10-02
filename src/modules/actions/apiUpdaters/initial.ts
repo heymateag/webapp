@@ -17,6 +17,8 @@ import { subscribe } from '../../../util/notifications';
 import { updateUser } from '../../reducers';
 import { setLanguage } from '../../../util/langProvider';
 import { selectNotifySettings } from '../../selectors';
+import { forceWebsync } from '../../../util/websync';
+import { getShippingError } from '../../../util/getReadableErrorText';
 
 addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
   if (DEBUG) {
@@ -55,23 +57,29 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       onUpdateCurrentUser(update);
       break;
 
-    case 'error':
+    case 'error': {
       if (update.error.message === 'SESSION_REVOKED') {
         actions.signOut();
       }
 
-      if (actions.showDialog) {
+      const paymentShippingError = getShippingError(update.error);
+      if (paymentShippingError) {
+        actions.addPaymentError({ error: paymentShippingError });
+      } else if (actions.showDialog) {
         actions.showDialog({ data: { ...update.error, hasErrorKey: true } });
       }
 
       break;
+    }
   }
 });
 
 function onUpdateApiReady(global: GlobalState) {
   const { hasWebNotifications, hasPushNotifications } = selectNotifySettings(global);
-  if (hasWebNotifications && hasPushNotifications) subscribe();
-  setLanguage(global.settings.byKey.language);
+  if (hasWebNotifications && hasPushNotifications) {
+    void subscribe();
+  }
+  void setLanguage(global.settings.byKey.language);
 }
 
 function onUpdateAuthorizationState(update: ApiUpdateAuthorizationState) {
@@ -90,6 +98,8 @@ function onUpdateAuthorizationState(update: ApiUpdateAuthorizationState) {
 
   switch (authState) {
     case 'authorizationStateLoggingOut':
+      void forceWebsync(false);
+
       setGlobal({
         ...global,
         isLoggingOut: true,
@@ -118,6 +128,8 @@ function onUpdateAuthorizationState(update: ApiUpdateAuthorizationState) {
       if (wasAuthReady) {
         break;
       }
+
+      void forceWebsync(true);
 
       setGlobal({
         ...global,

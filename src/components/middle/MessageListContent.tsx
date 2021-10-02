@@ -26,9 +26,11 @@ interface OwnProps {
   noAvatars: boolean;
   containerRef: RefObject<HTMLDivElement>;
   anchorIdRef: { current: string | undefined };
+  memoUnreadDividerBeforeIdRef: { current: number | undefined };
   memoFirstUnreadIdRef: { current: number | undefined };
   threadId: number;
   type: MessageListType;
+  isActive: boolean;
   threadTopMessageId: number | undefined;
   hasLinkedChat: boolean | undefined;
   isSchedule: boolean;
@@ -49,9 +51,11 @@ const MessageListContent: FC<OwnProps> = ({
   noAvatars,
   containerRef,
   anchorIdRef,
+  memoUnreadDividerBeforeIdRef,
   memoFirstUnreadIdRef,
   threadId,
   type,
+  isActive,
   threadTopMessageId,
   hasLinkedChat,
   isSchedule,
@@ -78,6 +82,7 @@ const MessageListContent: FC<OwnProps> = ({
     isUnread,
     onFabToggle,
     onNotchToggle,
+    isActive,
   );
 
   const lang = useLang();
@@ -111,7 +116,7 @@ const MessageListContent: FC<OwnProps> = ({
         );
 
         return compact([
-          message.id === memoFirstUnreadIdRef.current && unreadDivider,
+          message.id === memoUnreadDividerBeforeIdRef.current && unreadDivider,
           <ActionMessage
             key={message.id}
             message={message}
@@ -162,7 +167,7 @@ const MessageListContent: FC<OwnProps> = ({
         const key = type !== 'scheduled' ? originalId : `${message.date}_${originalId}`;
 
         return compact([
-          message.id === memoFirstUnreadIdRef.current ? unreadDivider : undefined,
+          message.id === memoUnreadDividerBeforeIdRef.current && unreadDivider,
           <Message
             key={key}
             message={message}

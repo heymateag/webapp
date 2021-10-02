@@ -185,7 +185,7 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
       let updatesContainer;
       if (result instanceof GramJs.Updates || result instanceof GramJs.UpdatesCombined) {
         updatesContainer = result;
-      } else if ('updates' in result && (
+      } else if ('updates' in (result as ResultWithUpdates) && (
         (result as ResultWithUpdates).updates instanceof GramJs.Updates
         || (result as ResultWithUpdates).updates instanceof GramJs.UpdatesCombined
       )) {
@@ -225,7 +225,7 @@ export async function invokeRequest<T extends GramJs.AnyRequest>(
 }
 
 export function downloadMedia(
-  args: { url: string; mediaFormat: ApiMediaFormat; start?: number; end?: number },
+  args: { url: string; mediaFormat: ApiMediaFormat; start?: number; end?: number; isHtmlAllowed?: boolean },
   onProgress?: ApiOnProgress,
 ) {
   return downloadMediaWithClient(args, client, isConnected, onProgress);

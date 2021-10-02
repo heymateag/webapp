@@ -232,6 +232,7 @@ export enum MediaViewerOrigin {
   ScheduledInline,
   SharedMedia,
   ProfileAvatar,
+  SettingsAvatar,
   MiddleHeaderAvatar,
   Album,
   ScheduledAlbum,
@@ -280,7 +281,7 @@ export enum PaymentStep {
   ShippingInfo,
   Shipping,
   PaymentInfo,
-  Checkout
+  Checkout,
 }
 
 export const UPLOADING_WALLPAPER_SLUG = 'UPLOADING_WALLPAPER_SLUG';

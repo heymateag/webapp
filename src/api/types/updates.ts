@@ -9,7 +9,9 @@ import {
   ApiFormattedText, ApiMessage, ApiPhoto, ApiPoll, ApiStickerSet, ApiThreadInfo,
 } from './messages';
 import { ApiUser, ApiUserFullInfo, ApiUserStatus } from './users';
-import { ApiNotifyException, ApiSessionData } from './misc';
+import {
+  ApiError, ApiInviteInfo, ApiNotifyException, ApiSessionData,
+} from './misc';
 
 export type ApiUpdateReady = {
   '@type': 'updateApiReady';
@@ -307,24 +309,6 @@ export type ApiUpdateMessageImage = {
   dataUri: string;
 };
 
-export type ApiNotification = {
-  message: string;
-};
-
-export type ApiError = {
-  message: string;
-  hasErrorKey?: boolean;
-  isSlowMode?: boolean;
-  textParams?: Record<string, string>;
-};
-
-export type ApiInviteInfo = {
-  title: string;
-  hash: string;
-  isChannel?: boolean;
-  participantsCount?: number;
-};
-
 export type ApiUpdateError = {
   '@type': 'error';
   error: ApiError;
@@ -360,7 +344,7 @@ export type ApiUpdateNotifyExceptions = {
   '@type': 'updateNotifyExceptions';
 } & ApiNotifyException;
 
-export type updateTwoFaStateWaitCode = {
+export type ApiUpdateTwoFaStateWaitCode = {
   '@type': 'updateTwoFaStateWaitCode';
   length: number;
 };
@@ -388,7 +372,6 @@ export type ApiUpdateServerTimeOffset = {
   serverTimeOffset: number;
 };
 
-
 export type ApiUpdate = (
   ApiUpdateReady | ApiUpdateSession |
   ApiUpdateAuthorizationState | ApiUpdateAuthorizationError | ApiUpdateConnectionState | ApiUpdateCurrentUser |
@@ -404,7 +387,7 @@ export type ApiUpdate = (
   ApiUpdateFavoriteStickers | ApiUpdateStickerSet |
   ApiUpdateNewScheduledMessage | ApiUpdateScheduledMessageSendSucceeded | ApiUpdateScheduledMessage |
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages |
-  ApiUpdateTwoFaError | updateTwoFaStateWaitCode |
+  ApiUpdateTwoFaError | ApiUpdateTwoFaStateWaitCode |
   ApiUpdateNotifySettings | ApiUpdateNotifyExceptions | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
   ApiUpdateServerTimeOffset | ApiUpdateShowInvite
 );

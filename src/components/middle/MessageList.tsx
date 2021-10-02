@@ -56,6 +56,7 @@ type OwnProps = {
   type: MessageListType;
   canPost: boolean;
   isReady: boolean;
+  isActive: boolean;
   onFabToggle: (shouldShow: boolean) => void;
   onNotchToggle: (shouldShow: boolean) => void;
   hasTools?: boolean;
@@ -87,7 +88,7 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, 'loadViewportMessages' | 'setScrollOffset' | 'openHistoryCalendar'>;
 
-const BOTTOM_THRESHOLD = 100;
+const BOTTOM_THRESHOLD = 20;
 const UNREAD_DIVIDER_TOP = 10;
 const UNREAD_DIVIDER_TOP_WITH_TOOLS = 60;
 const SCROLL_DEBOUNCE = 200;
@@ -110,6 +111,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   isGroupChat,
   canPost,
   isReady,
+  isActive,
   isChatWithSelf,
   isCreator,
   isBot,
@@ -140,9 +142,8 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   const anchorIdRef = useRef<string>();
   const anchorTopRef = useRef<number>();
   const listItemElementsRef = useRef<HTMLDivElement[]>();
-  const memoUnreadDividerBeforeIdRef = useRef<number | undefined>();
-  // Updated every time (to be used from intersection callback closure)
   const memoFirstUnreadIdRef = useRef<number>();
+  const memoUnreadDividerBeforeIdRef = useRef<number | undefined>();
   const memoFocusingIdRef = useRef<number>();
   const isScrollTopJustUpdatedRef = useRef(false);
   const shouldAnimateAppearanceRef = useRef(Boolean(lastMessage));
@@ -160,14 +161,17 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [areMessagesLoaded]);
 
+  // Updated every time (to be used from intersection callback closure)
   useOnChange(() => {
     memoFirstUnreadIdRef.current = firstUnreadId;
-
-    // Updated only once (to preserve divider even after messages are read)
-    if (!memoUnreadDividerBeforeIdRef.current) {
-      memoUnreadDividerBeforeIdRef.current = firstUnreadId;
-    }
   }, [firstUnreadId]);
+
+  // Updated only once when messages are loaded (as we want the unread divider to keep its position)
+  useOnChange(() => {
+    if (areMessagesLoaded) {
+      memoUnreadDividerBeforeIdRef.current = memoFirstUnreadIdRef.current;
+    }
+  }, [areMessagesLoaded]);
 
   useOnChange(() => {
     memoFocusingIdRef.current = focusingId;
@@ -300,7 +304,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   useLayoutEffectWithPrevDeps(([
     prevMessageIds, prevIsViewportNewest, prevContainerHeight,
   ]: [
-    typeof messageIds, typeof isViewportNewest, typeof containerHeight
+    typeof messageIds, typeof isViewportNewest, typeof containerHeight,
   ]) => {
     const container = containerRef.current!;
     listItemElementsRef.current = Array.from(container.querySelectorAll<HTMLDivElement>('.message-list-item'));
@@ -329,27 +333,30 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       }, FOCUSING_DURATION);
     }
 
-    const { scrollTop, scrollHeight, offsetHeight } = container;
-    const scrollOffset = scrollOffsetRef.current!;
-    const lastItemElement = listItemElementsRef.current[listItemElementsRef.current.length - 1];
-
-    // If two messages come at once (e.g. via Quiz Bot) then the first message will update `scrollOffset`
-    // right away (before animation) which creates inconsistency until the animation completes.
-    // To workaround that, we calculate `isAtBottom` with a "buffer" of the latest message height (this is approximate).
-    const lastItemHeight = lastItemElement ? lastItemElement.offsetHeight : 0;
-    const isAtBottom = isViewportNewest && prevIsViewportNewest && (
-      scrollOffset - (prevContainerHeight || offsetHeight) - lastItemHeight <= BOTTOM_THRESHOLD
-    );
-
-    let newScrollTop!: number;
-
     const hasFirstMessageChanged = messageIds && prevMessageIds && messageIds[0] !== prevMessageIds[0];
     const hasLastMessageChanged = (
       messageIds && prevMessageIds && messageIds[messageIds.length - 1] !== prevMessageIds[prevMessageIds.length - 1]
     );
+    const wasMessageAdded = hasLastMessageChanged && !hasFirstMessageChanged;
     const isAlreadyFocusing = messageIds && memoFocusingIdRef.current === messageIds[messageIds.length - 1];
 
-    if (isAtBottom && hasLastMessageChanged && !hasFirstMessageChanged && !isAlreadyFocusing) {
+    const { scrollTop, scrollHeight, offsetHeight } = container;
+    const scrollOffset = scrollOffsetRef.current!;
+    const lastItemElement = listItemElementsRef.current[listItemElementsRef.current.length - 1];
+
+    let bottomOffset = scrollOffset - (prevContainerHeight || offsetHeight);
+    if (wasMessageAdded) {
+      // If two new messages come at once (e.g. when bot responds) then the first message will update `scrollOffset`
+      // right away (before animation) which creates inconsistency until the animation completes. To workaround that,
+      // we calculate `isAtBottom` with a "buffer" of the latest message height (this is approximate).
+      const lastItemHeight = lastItemElement ? lastItemElement.offsetHeight : 0;
+      bottomOffset -= lastItemHeight;
+    }
+    const isAtBottom = isViewportNewest && prevIsViewportNewest && bottomOffset <= BOTTOM_THRESHOLD;
+
+    let newScrollTop!: number;
+
+    if (wasMessageAdded && isAtBottom && !isAlreadyFocusing) {
       if (lastItemElement) {
         fastRaf(() => {
           fastSmoothScroll(
@@ -357,10 +364,6 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
             lastItemElement,
             'end',
             BOTTOM_FOCUS_MARGIN,
-            undefined,
-            undefined,
-            undefined,
-            true,
           );
         });
       }
@@ -435,10 +438,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf);
   const noAvatars = Boolean(!withUsers || isChannelChat);
   const shouldRenderGreeting = isChatPrivate(chatId) && !isChatWithSelf && !isBot
-    && ((
-      !messageGroups && !lastMessage && messageIds
-      // Used to avoid flickering when deleting a greeting that has just been sent
-      && (!listItemElementsRef.current || listItemElementsRef.current.length === 0))
+    && (
+      (
+        !messageGroups && !lastMessage && messageIds
+        // Used to avoid flickering when deleting a greeting that has just been sent
+        && (!listItemElementsRef.current || listItemElementsRef.current.length === 0)
+      )
       || checkSingleMessageActionByType('contactSignUp', messageGroups)
       || (lastMessage && lastMessage.content.action && lastMessage.content.action.type === 'contactSignUp')
     );
@@ -490,9 +495,11 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
           noAvatars={noAvatars}
           containerRef={containerRef}
           anchorIdRef={anchorIdRef}
-          memoFirstUnreadIdRef={memoUnreadDividerBeforeIdRef}
+          memoUnreadDividerBeforeIdRef={memoUnreadDividerBeforeIdRef}
+          memoFirstUnreadIdRef={memoFirstUnreadIdRef}
           threadId={threadId}
           type={type}
+          isActive={isActive}
           threadTopMessageId={threadTopMessageId}
           hasLinkedChat={hasLinkedChat}
           isSchedule={messageGroups ? type === 'scheduled' : false}
@@ -510,12 +517,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
 function checkSingleMessageActionByType(type: ApiAction['type'], messageGroups?: MessageDateGroup[]) {
   return messageGroups
-  && messageGroups.length === 1
-  && messageGroups[0].senderGroups.length === 1
-  && messageGroups[0].senderGroups[0].length === 1
-  && 'content' in messageGroups[0].senderGroups[0][0]
-  && messageGroups[0].senderGroups[0][0].content.action
-  && messageGroups[0].senderGroups[0][0].content.action.type === type;
+    && messageGroups.length === 1
+    && messageGroups[0].senderGroups.length === 1
+    && messageGroups[0].senderGroups[0].length === 1
+    && 'content' in messageGroups[0].senderGroups[0][0]
+    && messageGroups[0].senderGroups[0][0].content.action
+    && messageGroups[0].senderGroups[0][0].content.action.type === type;
 }
 
 export default memo(withGlobal<OwnProps>(
@@ -547,10 +554,9 @@ export default memo(withGlobal<OwnProps>(
       && !messageIds && !chat.unreadCount && !focusingId && lastMessage && !lastMessage.groupedId
     );
 
-    const bot = selectChatBot(global, chatId);
+    const chatBot = selectChatBot(global, chatId)!;
     let botDescription: string | undefined;
     if (selectIsChatBotNotStarted(global, chatId)) {
-      const chatBot = selectChatBot(global, chatId)!;
       if (chatBot.fullInfo) {
         botDescription = chatBot.fullInfo.botDescription || 'NoMessages';
       } else {
@@ -566,7 +572,7 @@ export default memo(withGlobal<OwnProps>(
       isGroupChat: isChatGroup(chat),
       isCreator: chat.isCreator,
       isChatWithSelf: selectIsChatWithSelf(global, chatId),
-      isBot: Boolean(bot),
+      isBot: Boolean(chatBot),
       messageIds,
       messagesById,
       firstUnreadId: selectFirstUnreadId(global, chatId, threadId),

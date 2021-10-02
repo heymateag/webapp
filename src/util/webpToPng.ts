@@ -1,13 +1,6 @@
-import WebpWorker from 'worker-loader!../lib/webp/webp_wasm.worker';
 import { isWebpSupported } from './environment';
 import { dataUriToBlob, blobToDataUri } from './files';
 import { pause } from './schedulers';
-
-type TEncodedImage = {
-  result: Uint8ClampedArray;
-  width: number;
-  height: number;
-};
 
 const WORKER_INITIALIZATION_TIMEOUT = 2000;
 
@@ -50,7 +43,7 @@ export async function webpToPngBase64(key: string, url: string): Promise<string>
 
 function initWebpWorker() {
   if (!worker) {
-    worker = new WebpWorker() as IWebpWorker;
+    worker = new Worker(new URL('../lib/webp/webp_wasm.worker.js', import.meta.url)) as IWebpWorker;
     worker.wasmReady = false;
     worker.onmessage = handleLibWebpMessage;
   }
@@ -97,7 +90,10 @@ function handleLibWebpMessage(e: MessageEvent) {
 
 function getDecodePromise(url: string, blob: Blob): Promise<TEncodedImage> {
   return new Promise((resolve) => {
-    worker.requests = worker.requests || new Map();
+    if (!worker.requests) {
+      worker.requests = new Map();
+    }
+
     worker.requests.set(url, resolve);
     worker.postMessage({ id: url, blob });
   });

@@ -32,7 +32,6 @@ export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
 export const LANG_CACHE_NAME = 'tt-lang-packs-v5';
 export const ASSET_CACHE_NAME = 'tt-assets';
-export const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 
 export const DOWNLOAD_WORKERS = 16;
 export const UPLOAD_WORKERS = 16;
@@ -134,6 +133,7 @@ export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_
 
 // MTProto constants
 export const SERVICE_NOTIFICATIONS_USER_ID = 777000;
+export const REPLIES_USER_ID = 1271266957;
 export const ALL_FOLDER_ID = 0;
 export const ARCHIVED_FOLDER_ID = 1;
 export const DELETED_COMMENTS_CHANNEL_ID = 777;

@@ -256,7 +256,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         closeTextFormatter();
         onSend();
       }
-    } else if (e.key === 'ArrowUp' && !html.length && !e.metaKey) {
+    } else if (e.key === 'ArrowUp' && !html.length && !e.metaKey && !e.altKey) {
       e.preventDefault();
       editLastMessage();
     } else {
@@ -329,7 +329,9 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
       return;
     }
 
-    focusInput();
+    if (shouldSetFocus) {
+      focusInput();
+    }
   }, [currentChatId, focusInput, replyingToId, shouldSetFocus]);
 
   useEffect(() => {

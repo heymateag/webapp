@@ -11,7 +11,7 @@ interface IAccount {
 const createAccount = () => {
   // @ts-ignore
   const web3 = new Web3(process.env.CELO_NET_URL);
-  const client = newKitFromWeb3(web3);
+  // const client = newKitFromWeb3(web3);
 
   const account = web3.eth.accounts.create();
   const userAccount = JSON.stringify(account);
@@ -38,12 +38,13 @@ export const getAccountBalance = async (account: IAccount) => {
   // Initialize account from our private key
   // @ts-ignore
   const web3 = new Web3(process.env.CELO_NET_URL);
+  // @ts-ignore
   const client = newKitFromWeb3(web3);
   const userAccount = web3.eth.accounts.privateKeyToAccount(account.privateKey);
   // 1. Query account balances
   const accountBalances = await client.getTotalBalance(userAccount.address)
     .catch((err) => { throw new Error(`Could not fetch account: ${err}`); });
-  let temp = {
+  const temp = {
     CELO: '0',
     cUSD: '0',
   };

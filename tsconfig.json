@@ -6,8 +6,6 @@
     "paths": {
       "teact/*": ["src/lib/teact/*"],
       "teact-dom": ["teact/teact-dom"],
-//      "react": ["teact/teact"],
-//      "react-dom": ["teact/teact-dom"],
     },
     "lib": [
       "dom",
@@ -28,6 +26,7 @@
     "jsx": "react"
   },
   "include": [
-    "src"
+    "src",
+    "tests"
   ]
 }

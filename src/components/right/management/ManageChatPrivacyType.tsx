@@ -60,9 +60,9 @@ const ManageChatPrivacyType: FC<OwnProps & StateProps & DispatchProps> = ({
   const [username, setUsername] = useState();
   const [isRevokeConfirmDialogOpen, openRevokeConfirmDialog, closeRevokeConfirmDialog] = useFlag();
 
-  const canUpdate = (
+  const canUpdate = Boolean(
     (privacyType === 'public' && username && isUsernameAvailable)
-    || (privacyType === 'private' && isPublic)
+    || (privacyType === 'private' && isPublic),
   );
 
   useHistoryBack(isActive, onClose);

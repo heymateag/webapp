@@ -1,4 +1,4 @@
-import { ApiError } from '../api/types';
+import { ApiError, ApiFieldError } from '../api/types';
 
 const READABLE_ERROR_MESSAGES: Record<string, string> = {
   CHAT_RESTRICTED: 'You can\'t send messages in this chat, you were restricted',
@@ -40,11 +40,12 @@ const READABLE_ERROR_MESSAGES: Record<string, string> = {
   // TODO Bring back after fixing the weird bug
   // CHANNEL_INVALID: 'An error occurred. Please try again later',
   LINK_NOT_MODIFIED: 'This discussion is already linked to the channel',
+  MESSAGE_TOO_LONG: 'Message is too long',
 
   // Non-API errors
   SERVICE_WORKER_DISABLED: 'Service Worker is disabled. Please reload the page without holding <Shift> key.',
   // eslint-disable-next-line max-len
-  CAPTION_TOO_LONG_PLEASE_REMOVE_CHARACTERS: 'The provided caption is too long. Please remove {EXTRA_CHARS_COUNT} character{PLURAL_S}.',
+  MESSAGE_TOO_LONG_PLEASE_REMOVE_CHARACTERS: 'The provided message is too long. Please remove {EXTRA_CHARS_COUNT} character{PLURAL_S}.',
   // eslint-disable-next-line max-len
   FRESH_RESET_AUTHORISATION_FORBIDDEN: 'You can’t logout other sessions if less than 24 hours have passed since you logged on the current session',
 
@@ -64,6 +65,45 @@ const READABLE_ERROR_MESSAGES: Record<string, string> = {
   WALLPAPER_DIMENSIONS_INVALID: 'The wallpaper dimensions are invalid, please select another file',
 };
 
+export const SHIPPING_ERRORS: Record<string, ApiFieldError> = {
+  ADDRESS_STREET_LINE1_INVALID: {
+    field: 'streetLine1',
+    message: 'Incorrect street address',
+  },
+  ADDRESS_STREET_LINE2_INVALID: {
+    field: 'streetLine2',
+    message: 'Incorrect street address',
+  },
+  ADDRESS_CITY_INVALID: {
+    field: 'city',
+    message: 'Incorrect city',
+  },
+  ADDRESS_COUNTRY_INVALID: {
+    field: 'countryIso2',
+    message: 'Incorrect country',
+  },
+  ADDRESS_POSTCODE_INVALID: {
+    field: 'postCode',
+    message: 'Incorrect post code',
+  },
+  ADDRESS_STATE_INVALID: {
+    field: 'state',
+    message: 'Incorrect state',
+  },
+  REQ_INFO_NAME_INVALID: {
+    field: 'fullName',
+    message: 'Incorrect name',
+  },
+  REQ_INFO_PHONE_INVALID: {
+    field: 'phone',
+    message: 'Incorrect phone',
+  },
+  REQ_INFO_EMAIL_INVALID: {
+    field: 'email',
+    message: 'Incorrect email',
+  },
+};
+
 export default function getReadableErrorText(error: ApiError) {
   const { message, isSlowMode, textParams } = error;
   // Currently, Telegram API doesn't return `SLOWMODE_WAIT_X` error as described in the docs
@@ -78,4 +118,8 @@ export default function getReadableErrorText(error: ApiError) {
     }, errorMessage as string);
   }
   return errorMessage;
+}
+
+export function getShippingError(error: ApiError): ApiFieldError | undefined {
+  return SHIPPING_ERRORS[error.message];
 }

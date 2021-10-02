@@ -36,7 +36,7 @@ type DispatchProps = Pick<GlobalActions, (
 
 enum ContentType {
   Main,
-  // eslint-disable-next-line no-shadow
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   Settings,
   Archived,
   // eslint-disable-next-line no-shadow

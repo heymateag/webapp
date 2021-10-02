@@ -1,4 +1,6 @@
 .Tab {
+  display: flex;
+  justify-content: center;
   flex: 1 1 auto;
   appearance: none;
   background: none;
@@ -33,7 +35,7 @@
 
   > span {
     position: relative;
-    display: inline-flex;
+    display: flex;
     align-items: center;
   }
 

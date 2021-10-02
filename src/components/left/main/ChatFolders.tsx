@@ -39,6 +39,7 @@ type StateProps = {
   activeChatFolder: number;
   currentUserId?: number;
   lastSyncTime?: number;
+  shouldSkipHistoryAnimations?: boolean;
 };
 
 type DispatchProps = Pick<GlobalActions, 'loadChatFolders' | 'setActiveChatFolder' | 'openChat'>;
@@ -56,6 +57,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
   activeChatFolder,
   currentUserId,
   lastSyncTime,
+  shouldSkipHistoryAnimations,
   foldersDispatch,
   onScreenSelect,
   loadChatFolders,
@@ -135,12 +137,17 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     return captureEvents(transitionRef.current, {
+      selectorToPreventScroll: '.chat-list',
       onSwipe: ((e, direction) => {
         if (direction === SwipeDirection.Left) {
           setActiveChatFolder(Math.min(activeChatFolder + 1, folderTabs.length - 1));
+          return true;
         } else if (direction === SwipeDirection.Right) {
           setActiveChatFolder(Math.max(0, activeChatFolder - 1));
+          return true;
         }
+
+        return false;
       }),
     });
   }, [activeChatFolder, folderTabs, setActiveChatFolder]);
@@ -220,7 +227,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
       ) : undefined}
       <Transition
         ref={transitionRef}
-        name={lang.isRtl ? 'slide-reversed' : 'slide'}
+        name={shouldSkipHistoryAnimations ? 'none' : lang.isRtl ? 'slide-reversed' : 'slide'}
         activeKey={activeChatFolder}
         renderCount={folderTabs ? folderTabs.length : undefined}
       >
@@ -242,6 +249,7 @@ export default memo(withGlobal<OwnProps>(
       },
       currentUserId,
       lastSyncTime,
+      shouldSkipHistoryAnimations,
     } = global;
 
     return {
@@ -254,6 +262,7 @@ export default memo(withGlobal<OwnProps>(
       notifyExceptions: selectNotifyExceptions(global),
       activeChatFolder,
       currentUserId,
+      shouldSkipHistoryAnimations,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

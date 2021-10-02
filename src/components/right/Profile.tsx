@@ -46,10 +46,10 @@ import TabList from '../ui/TabList';
 import Spinner from '../ui/Spinner';
 import ListItem from '../ui/ListItem';
 import PrivateChatInfo from '../common/PrivateChatInfo';
-import ProfileInfo from './ProfileInfo';
+import ProfileInfo from '../common/ProfileInfo';
 import Document from '../common/Document';
 import Audio from '../common/Audio';
-import ChatExtra from './ChatExtra';
+import ChatExtra from '../common/ChatExtra';
 import Media from '../common/Media';
 import WebLink from '../common/WebLink';
 import NothingFound from '../common/NothingFound';
@@ -211,12 +211,17 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     return captureEvents(transitionRef.current, {
+      selectorToPreventScroll: '.Profile',
       onSwipe: ((e, direction) => {
         if (direction === SwipeDirection.Left) {
           setActiveTab(Math.min(activeTab + 1, tabs.length - 1));
+          return true;
         } else if (direction === SwipeDirection.Right) {
           setActiveTab(Math.max(0, activeTab - 1));
+          return true;
         }
+
+        return false;
       }),
     });
   }, [activeTab, tabs.length]);
@@ -333,7 +338,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
             <ListItem
               key={id}
               teactOrderKey={i}
-              className="chat-item-clickable scroll-item"
+              className="chat-item-clickable scroll-item small-icon"
               onClick={() => handleMemberClick(id)}
               contextActions={getMemberContextAction(id)}
             >
@@ -405,11 +410,8 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
 function renderProfileInfo(chatId: number, resolvedUserId?: number) {
   return (
     <div className="profile-info">
-      <ProfileInfo
-        userId={resolvedUserId || chatId}
-        forceShowSelf={resolvedUserId !== chatId}
-      />
-      <ChatExtra chatOrUserId={resolvedUserId || chatId} forceShowSelf={resolvedUserId !== chatId} />
+      <ProfileInfo userId={resolvedUserId || chatId} />
+      <ChatExtra chatOrUserId={resolvedUserId || chatId} />
     </div>
   );
 }

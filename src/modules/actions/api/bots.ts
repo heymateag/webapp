@@ -15,8 +15,9 @@ import { addChats, addUsers, removeBlockedContact } from '../../reducers';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { debounce } from '../../../util/schedulers';
 import { replaceInlineBotSettings, replaceInlineBotsIsLoading } from '../../reducers/bots';
+import { getServerTime } from '../../../util/serverTime';
 
-const TOP_PEERS_REQUEST_COOLDOWN = 60000; // 1 min
+const TOP_PEERS_REQUEST_COOLDOWN = 60; // 1 min
 const runDebouncedForSearch = debounce((cb) => cb(), 500, false);
 
 addReducer('clickInlineButton', (global, actions, payload) => {
@@ -55,9 +56,9 @@ addReducer('clickInlineButton', (global, actions, payload) => {
       if (value) {
         actions.getReceipt({ receiptMessageId: value, chatId: chat.id, messageId });
       } else {
-        actions.getPaymentForm({ messageId });
+        actions.getPaymentForm({ chat, messageId });
         actions.setInvoiceMessageInfo(selectChatMessage(global, chat.id, messageId));
-        actions.openPaymentModal({ messageId });
+        actions.openPaymentModal({ chatId: chat.id, messageId });
       }
       break;
     }
@@ -96,10 +97,9 @@ addReducer('restartBot', (global, actions, payload) => {
 });
 
 addReducer('loadTopInlineBots', (global) => {
-  const { serverTimeOffset } = global;
   const { hash, lastRequestedAt } = global.topInlineBots;
 
-  if (lastRequestedAt && Date.now() + serverTimeOffset - lastRequestedAt < TOP_PEERS_REQUEST_COOLDOWN) {
+  if (lastRequestedAt && getServerTime(global.serverTimeOffset) - lastRequestedAt < TOP_PEERS_REQUEST_COOLDOWN) {
     return;
   }
 
@@ -119,7 +119,7 @@ addReducer('loadTopInlineBots', (global) => {
         ...newGlobal.topInlineBots,
         hash: newHash,
         userIds: ids,
-        lastRequestedAt: Date.now(),
+        lastRequestedAt: getServerTime(global.serverTimeOffset),
       },
     };
     setGlobal(newGlobal);
@@ -200,7 +200,7 @@ addReducer('sendInlineBotResult', (global, actions, payload) => {
   });
 });
 
-addReducer('resetInlineBot', ((global, actions, payload) => {
+addReducer('resetInlineBot', (global, actions, payload) => {
   const { username } = payload;
 
   let inlineBotData = global.inlineBots.byUsername[username];
@@ -219,7 +219,23 @@ addReducer('resetInlineBot', ((global, actions, payload) => {
   };
 
   setGlobal(replaceInlineBotSettings(global, username, inlineBotData));
-}));
+});
+
+addReducer('startBot', (global, actions, payload) => {
+  const { botId, param } = payload;
+
+  const bot = selectUser(global, botId);
+  if (!bot) {
+    return;
+  }
+
+  (async () => {
+    await callApi('startBot', {
+      bot,
+      startParam: param,
+    });
+  })();
+});
 
 async function searchInlineBot({
   username,

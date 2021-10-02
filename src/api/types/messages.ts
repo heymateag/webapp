@@ -43,6 +43,7 @@ export interface ApiStickerSet {
   stickers?: ApiSticker[];
   packs?: Record<string, ApiSticker[]>;
   covers?: ApiSticker[];
+  shortName: string;
 }
 
 export interface ApiVideo {
@@ -130,8 +131,10 @@ export interface ApiInvoice {
   text: string;
   title: string;
   photoUrl?: string;
-  description?: string;
+  amount: number;
+  currency: string;
   receiptMsgId?: number;
+  isTest?: boolean;
 }
 
 export type ApiNewPoll = {
@@ -149,6 +152,8 @@ export interface ApiAction {
   targetChatId?: number;
   type: 'historyClear' | 'contactSignUp' | 'chatCreate' | 'other';
   photo?: ApiPhoto;
+  amount?: number;
+  currency?: string;
   translationValues: string[];
 }
 
@@ -168,6 +173,7 @@ export interface ApiWebPage {
 
 export interface ApiMessageForwardInfo {
   isChannelPost: boolean;
+  channelPostId?: number;
   isLinkedChannelPost?: boolean;
   fromChatId?: number;
   senderUserId?: number;

@@ -4,7 +4,7 @@ import {
 
 export type ApiInlineResultType = (
   'article' | 'audio' | 'contact' | 'document' | 'game' | 'gif' | 'location' | 'mpeg4_gif' |
-  'photo' | 'sticker'| 'venue' | 'video' | 'voice'
+  'photo' | 'sticker' | 'venue' | 'video' | 'voice'
 );
 
 export interface ApiWebDocument {
@@ -37,4 +37,10 @@ export interface ApiBotInlineMediaResult {
 export interface ApiBotInlineSwitchPm {
   text: string;
   startParam: string;
+}
+
+export interface ApiBotCommand {
+  botId: number;
+  command: string;
+  description: string;
 }

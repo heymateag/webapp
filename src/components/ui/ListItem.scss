@@ -1,6 +1,34 @@
 .ListItem {
   position: relative;
 
+  body.is-ios &, body.is-android & {
+    &:not(:last-of-type)::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 4.5rem;
+      right: 0;
+      height: 0.03125rem;
+      background: var(--color-dividers);
+    }
+
+    &.small-icon::after {
+      left: 3.875rem;
+    }
+
+    &.no-icon::after {
+      left: 0;
+    }
+  }
+
+  // Using half-pixel height is efficient on iOS but not supported on Android, so `transform` is used instead
+  body.is-android & {
+    &:not(:last-of-type)::after {
+      height: 0.0625rem;
+      transform: scaleY(0.25);
+    }
+  }
+
   .ListItem-button {
     width: 100%;
     background-color: var(--background-color);
@@ -48,7 +76,7 @@
     .ListItem-button {
       cursor: pointer;
 
-      @media (hover:hover) {
+      @media (hover: hover) {
         &:hover, &:focus {
           --background-color: var(--color-chat-hover);
         }

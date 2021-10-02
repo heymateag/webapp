@@ -228,7 +228,6 @@ export function deleteChatMessages(
       }
     });
 
-
     global = replaceThreadParam(global, chatId, threadId, 'listedIds', listedIds);
     global = replaceThreadParam(global, chatId, threadId, 'outlyingIds', outlyingIds);
     global = replaceThreadParam(global, chatId, threadId, 'viewportIds', viewportIds);
@@ -432,7 +431,7 @@ function updateScheduledMessages(
 }
 
 export function updateFocusedMessage(
-  global: GlobalState, chatId?: number, messageId?: number, noHighlight = false,
+  global: GlobalState, chatId?: number, messageId?: number, noHighlight = false, isResizingContainer = false,
 ): GlobalState {
   return {
     ...global,
@@ -441,6 +440,7 @@ export function updateFocusedMessage(
       chatId,
       messageId,
       noHighlight,
+      isResizingContainer,
     },
   };
 }
@@ -527,4 +527,25 @@ export function exitMessageSelectMode(global: GlobalState): GlobalState {
     ...global,
     selectedMessages: undefined,
   };
+}
+
+export function updateThreadUnreadFromForwardedMessage(
+  global: GlobalState,
+  originMessage: ApiMessage,
+  chatId: number,
+  lastMessageId: number,
+  isDeleting?: boolean,
+) {
+  const { channelPostId, fromChatId } = originMessage.forwardInfo || {};
+  if (channelPostId && fromChatId) {
+    const threadInfoOld = selectThreadInfo(global, chatId, channelPostId);
+    if (threadInfoOld) {
+      global = replaceThreadParam(global, chatId, channelPostId, 'threadInfo', {
+        ...threadInfoOld,
+        lastMessageId,
+        messagesCount: threadInfoOld.messagesCount + (isDeleting ? -1 : 1),
+      });
+    }
+  }
+  return global;
 }

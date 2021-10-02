@@ -23,26 +23,26 @@ self.addEventListener('activate', (e) => {
     console.log('ServiceWorker activated');
   }
 
-  // Become available to all pages
   e.waitUntil(clearAssetCache());
+  // Become available to all pages
   e.waitUntil(self.clients.claim());
 });
 
 // eslint-disable-next-line no-restricted-globals
 self.addEventListener('fetch', (e: FetchEvent) => {
-  e.respondWith((() => {
-    const { url } = e.request;
+  const { url } = e.request;
 
-    if (url.includes('/progressive/')) {
-      return respondForProgressive(e);
-    }
+  if (url.includes('/progressive/')) {
+    e.respondWith(respondForProgressive(e));
+    return true;
+  }
 
-    if (url.startsWith('http') && url.match(ASSET_CACHE_PATTERN)) {
-      return respondWithCache(e);
-    }
+  if (url.startsWith('http') && url.match(ASSET_CACHE_PATTERN)) {
+    e.respondWith(respondWithCache(e));
+    return true;
+  }
 
-    return fetch(e.request);
-  })());
+  return false;
 });
 
 self.addEventListener('push', handlePush);

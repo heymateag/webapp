@@ -116,6 +116,7 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
       onDrag: handleColorDrag,
       onRelease: unmarkIsDragging,
       onClick: unmarkIsDragging,
+      selectorToPreventScroll: '.SettingsGeneralBackgroundColor',
       withCursor: true,
     });
 
@@ -132,6 +133,7 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
       onDrag: handleHueDrag,
       onRelease: unmarkIsDragging,
       onClick: unmarkIsDragging,
+      selectorToPreventScroll: '.SettingsGeneralBackgroundColor',
       withCursor: true,
     });
   }, [markIsDragging, unmarkIsDragging]);
