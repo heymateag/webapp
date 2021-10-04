@@ -1,4 +1,3 @@
-
 import React, { FC, memo } from '../../../lib/teact/teact';
 import { OwnProps } from './Wallet';
 import { Bundles } from '../../../util/moduleLoader';
