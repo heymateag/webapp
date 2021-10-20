@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useEffect, useRef, useState,
+  FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../../../lib/teact/teact';
 import Button from '../../../ui/Button';
 import TaggedText from '../../../ui/TaggedText';
@@ -11,53 +11,65 @@ import datetime from '../../../../assets/heymate/date-time.svg';
 import time from '../../../../assets/heymate/time.svg';
 // @ts-ignore
 import play from '../../../../assets/heymate/play.svg';
-
-
 import './OnlineMeeting.scss';
-import buildClassName from '../../../../util/buildClassName';
+import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
+import Menu from '../../../ui/Menu';
+import MenuItem from '../../../ui/MenuItem';
+import useLang from '../../../../hooks/useLang';
 
-const OnlineMeeting: FC<{
-  status?: 'UPCOMING' | 'WAITING_START' | 'CONFIRM_START' | 'IN_PROGRESS' | 'CONFIRMATION' | 'FINISHED';
-}> = ({
-  status = 'FINISHED',
+type OwnProps = {
+  props: IMyOrders;
+};
+
+const OnlineMeeting: FC<OwnProps> = ({
+  props,
 }) => {
-  const [tagStatus, setTagStatus] = useState<{text: string; color: any}>({
+  const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
   });
+  const lang = useLang();
   useEffect(() => {
-    switch (status) {
-      case 'UPCOMING':
+    switch (props.status) {
+      case ReservationStatus.BOOKED:
         setTagStatus({
           color: 'green',
           text: 'Upcoming',
         });
         break;
-      case 'FINISHED':
+      case ReservationStatus.FINISHED:
         setTagStatus({
           color: 'gray',
           text: 'Finished',
         });
         break;
-      case 'IN_PROGRESS':
+      case ReservationStatus.STARTED:
         setTagStatus({
           color: 'blue',
           text: 'In progress',
         });
         break;
-      case 'WAITING_START':
-      case 'CONFIRM_START':
-      case 'CONFIRMATION':
+      case ReservationStatus.MARKED_AS_STARTED:
+      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
         setTagStatus({
           color: 'yellow',
           text: 'Pending',
         });
         break;
     }
-  }, [status]);
+  }, [props.status, props.time_slot.form_time]);
+  // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const handleHeaderMenuOpen = useCallback(() => {
+    debugger
+    setIsMenuOpen(true);
+  }, []);
+
+  const handleClose = () => {
+    setIsMenuOpen(false);
+  };
   return (
     <div className="OnlineMeeting">
       <div className="offer-content">
@@ -67,10 +79,46 @@ const OnlineMeeting: FC<{
               <img src={offer1} alt="" />
             </div>
             <div className="offer-details">
-              <h4>{tagStatus.text}</h4>
-              <span className="offer-location">English Class - Single</span>
+              <h4>{props.offer.title}</h4>
+              <span className="offer-location">{props.offer.description}</span>
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>{tagStatus.text}</TaggedText>
+              </div>
+              <div className="date-time">
+                <div className="date-time">
+                  {props.status === ReservationStatus.BOOKED && (
+                    <>
+                      <img src={datetime} alt="" />
+                      <span>2days</span>
+                      <span>02:00:00</span>
+                    </>
+                  )}
+                  {props.status === ReservationStatus.MARKED_AS_STARTED && (
+                    <>
+                      <img src={time} alt="" />
+                      <span>Waiting for your confirmation</span>
+                    </>
+                  )}
+                  {props.status === ReservationStatus.FINISHED && (
+                    <>
+                      <img src={time} alt="" />
+                      <span>Waiting for your confirmation</span>
+                    </>
+                  )}
+                  {props.status === ReservationStatus.STARTED && (
+                    <>
+                      <img src={play} alt="" />
+                      <span>In progress</span>
+                      <span>01:20:35</span>
+                    </>
+                  )}
+                  {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
+                    <>
+                      <img src={play} alt="" />
+                      <span>Waiting for your Cancel confirmation</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -80,70 +128,51 @@ const OnlineMeeting: FC<{
               className={isMenuOpen ? 'active' : ''}
               round
               ripple
+              onClick={handleHeaderMenuOpen}
               size="smaller"
               color="translucent"
               ariaLabel="More actions"
             >
               <i className="icon-more" />
             </Button>
+            <Menu
+              className="offer-operation-menu"
+              isOpen={isMenuOpen}
+              positionX="right"
+              positionY="top"
+              autoClose
+              onClose={handleClose}
+            >
+              <MenuItem icon="channel">View Details</MenuItem>
+              <MenuItem icon="group">Re-Schedule</MenuItem>
+              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
+            </Menu>
           </div>
         </div>
         <div className="offer-footer">
           <div className="btn-holder">
-
-            { status === 'UPCOMING' && (
-              <div className="status-bar">
-                <div className={buildClassName('status-info', status.toLowerCase())}>
-                  <i className="hm-date-time" />
-                  <span>02:25:16 to start</span>
-                </div>
-                <div className="btn-finish">
-                  <Button size="tiny" color="primary" disabled>
-                    Confirm
-                  </Button>
-                </div>
+            { (props.status === ReservationStatus.BOOKED
+              || props.status === ReservationStatus.MARKED_AS_STARTED) && (
+              <div className="btn-cancel">
+                <Button size="tiny" color="translucent" disabled={props.status === ReservationStatus.BOOKED}>
+                  Join
+                </Button>
               </div>
             )}
-            { (status === 'WAITING_START' || status === 'CONFIRM_START') && (
-              <div className="status-bar">
-                <div className={buildClassName('status-info', status.toLowerCase())}>
-                  <i className="hm-time" />
-                  {status === 'WAITING_START' && (
-                    <span>Waiting for service provider to start</span>
-                  )}
-                  {status === 'CONFIRM_START' && (
-                    <span>Waiting for you to confirm</span>
-                  )}
-                </div>
-                <div className="btn-finish">
-                  <Button size="tiny" color="primary" disabled={status === 'WAITING_START'}>
-                    Confirm
-                  </Button>
-                </div>
+            { (props.status === ReservationStatus.FINISHED
+              || props.status === ReservationStatus.STARTED) && (
+              <div className="btn-finish">
+                <Button size="tiny" color="hm-primary-red" disabled={props.status === ReservationStatus.STARTED}>
+                  Confirm End
+                </Button>
               </div>
             )}
-            { (status === 'IN_PROGRESS' || status === 'CONFIRMATION') && (
-              <div className="status-bar">
-                <div className={buildClassName('status-info', status.toLowerCase())}>
-
-                  {status === 'IN_PROGRESS' && (
-                    <>
-                      <i className="hm-play" />
-                      <span>01:30:00 remains</span>
-                    </>
-                  )}
-                  {status === 'CONFIRMATION' && (
-                    <>
-                      <i className="hm-time" />
-                      <span>Waiting for you to confirm</span>
-                    </>
-                  )}
-                </div>
-                <div className="btn-finish">
-                  <Button size="tiny" color="hm-primary-red" disabled={status === 'IN_PROGRESS'}>
-                    Confirm End
-                  </Button>
-                </div>
+            { (props.status === ReservationStatus.MARKED_AS_STARTED
+              || props.status === ReservationStatus.STARTED) && (
+              <div className="btn-confirm">
+                <Button ripple size="tiny" color="primary" disabled={props.status === ReservationStatus.STARTED}>
+                  Confirm Start
+                </Button>
               </div>
             )}
           </div>

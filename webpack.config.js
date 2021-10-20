@@ -102,7 +102,14 @@ module.exports = (env = {}, argv = {}) => {
         path: require.resolve("path-browserify"),
         os: require.resolve("os-browserify/browser"),
         buffer: require.resolve("buffer/"),
+        stream: require.resolve("stream-browserify"),
+        https: require.resolve("https-browserify"),
+        crypto: require.resolve("crypto-browserify"),
+        http: require.resolve("stream-http"),
+        assert: require.resolve("assert"),
+        net: false,
         fs: false,
+        electron: false,
       }
     },
     plugins: [
@@ -117,14 +124,15 @@ module.exports = (env = {}, argv = {}) => {
       new EnvironmentPlugin({
         APP_NAME: 'Telegram WebZ',
         APP_VERSION: 'dev',
-        APP_ENV: 'production',
+        APP_ENV: 'development',
         TELEGRAM_T_API_ID: '',
         TELEGRAM_T_API_HASH: '',
         CELO_NET_URL: '',
         TEST_SESSION: '',
+        NODE_DEBUG: ''
       }),
       new ProvidePlugin({
-        Buffer: ['buffer', 'Buffer'],
+        Buffer: [require.resolve("buffer/"), "Buffer"],
       }),
       ...(argv.mode === 'production' ? [
         new BundleAnalyzerPlugin({

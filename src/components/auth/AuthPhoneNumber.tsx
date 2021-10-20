@@ -1,5 +1,6 @@
 import { ChangeEvent } from 'react';
-
+import { axiosService } from '../../api/services/axiosService';
+import { HEYMATE_URL } from '../../config';
 // @ts-ignore
 import monkeyPath from '../../assets/monkey.svg';
 
@@ -29,6 +30,8 @@ import InputText from '../ui/InputText';
 import Loading from '../ui/Loading';
 import CountryCodeInput from './CountryCodeInput';
 import AuthOnBoarding from './AuthOnBoarding';
+
+import {IAuth} from "../../types/HeymateTypes/Auth.model";
 
 type StateProps = Pick<GlobalState, (
   'connectionState' | 'authState' |
@@ -192,7 +195,25 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   const handleKeepSessionChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setAuthRememberMe(e.target.checked);
   }, [setAuthRememberMe]);
-
+  /**
+   * Sign In To Heymate Back With Phone Number
+   * @param phone_number
+   */
+  const handleHeymateLogin = async (phone_number: any) => {
+    const userPhone = phone_number.replace(/ /g, '');
+    const response: IAuth = await axiosService({
+      url: `${HEYMATE_URL}/auth/login`,
+      method: 'POST',
+      body: {
+        phone_number: userPhone,
+        password: '123456',
+      },
+    });
+    if (response.status === 201) {
+      const token = response.data.accessToken.jwtToken;
+      localStorage.setItem('HM_TOKEN', token);
+    }
+  };
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -201,6 +222,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
 
     if (canSubmit) {
+      handleHeymateLogin(fullNumber);
       setAuthPhoneNumber({ phoneNumber: fullNumber });
     }
   }

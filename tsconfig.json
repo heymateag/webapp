@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
+    "noImplicitAny": false,
     // We don't care about this since Parcel runs Babel after TypeScript
     "target": "esnext",
+    "baseUrl": ".",
+    "paths": {
+      "teact/*": ["src/lib/teact/*"],
+      "teact-dom": ["teact/teact-dom"]
+    },
     "lib": [
       "dom",
       "webworker",

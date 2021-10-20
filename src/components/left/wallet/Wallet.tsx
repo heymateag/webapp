@@ -1,14 +1,15 @@
 import React, { FC, useEffect, useState } from 'teact/teact';
+import WalletConnect from '@walletconnect/client';
+import QRCodeModal from '@walletconnect/qrcode-modal';
 import useLang from '../../../hooks/useLang';
 import { getAccount, getAccountBalance } from './AccountManager/AccountMannager';
 import Spinner from '../../ui/Spinner';
 
 import './Wallet.scss';
 import Button from '../../ui/Button';
-import TransactionRow from "./TransactionRow/TransactionRow";
+import TransactionRow from './TransactionRow/TransactionRow';
 // @ts-ignore
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
-
 
 export type OwnProps = {
   onReset: () => void;
@@ -21,14 +22,58 @@ interface IBalance {
   CELO: string;
   cUSD: string;
 }
+interface IWalletConnect {
+  accounts: string[];
+  bridge: string;
+  chainId: number;
+  clientId: string;
+  clientMeta: any;
+  connected: boolean;
+  handshakeId: number;
+  handshakeTopic: string;
+  key: string;
+  peerId: string;
+  peerMeta: any;
+}
+interface IWalletConnectPayLoad {
+  accounts: string[];
+  chainId: number;
+}
 const Wallet: FC <OwnProps> = ({ onReset }) => {
   const [loadingBalance, setLoadingBalance] = useState(true);
+  const [walletObject, setWalletObject] = useState<IWalletConnectPayLoad>();
   const [account, setAccount] = useState<IAccount>();
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
     CELO: '0',
   });
   const lang = useLang();
+  /**
+   * BEGIN Wallet Connect Operations To Connect
+   */
+  const connector = new WalletConnect({
+    bridge: 'https://bridge.walletconnect.org', // Required
+    qrcodeModal: QRCodeModal,
+  });
+  if (!connector.connected) {
+    // create new session
+    connector.createSession();
+  } else {
+    const { session } = connector;
+    setWalletObject({
+      accounts: session.accounts, chainId: session.chainId,
+    });
+  }
+  // Subscribe to connection events
+  connector.on('connect', (error, payload) => {
+    if (error) {
+      throw error;
+    }
+    const { accounts, chainId } = payload.params[0];
+    setWalletObject({
+      accounts, chainId,
+    });
+  });
   /**
    * On Wallet Mount
    */
