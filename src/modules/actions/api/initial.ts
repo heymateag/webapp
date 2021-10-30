@@ -1,5 +1,8 @@
 import {
-  addReducer, getDispatch, getGlobal, setGlobal,
+  addReducer,
+  getDispatch,
+  getGlobal,
+  setGlobal,
 } from '../../../lib/teact/teactn';
 
 import { initApi, callApi } from '../../../api/gramjs';
@@ -210,4 +213,13 @@ addReducer('deleteDeviceToken', (global) => {
   const newGlobal = { ...global };
   delete newGlobal.push;
   setGlobal(newGlobal);
+});
+
+addReducer('setShowHeymate', (global, actions, payload) => {
+  const { showHeymate } = payload!;
+
+  return {
+    ...global,
+    showHeymate,
+  };
 });

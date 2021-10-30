@@ -1,4 +1,4 @@
-@import '../../styles/mixins';
+@import "../../styles/mixins";
 
 @mixin mobile-header-styles() {
   .HeaderPinnedMessage-wrapper,
@@ -21,11 +21,11 @@
       content: "";
       display: block;
       position: absolute;
-      top: -.1875rem;
+      top: -0.1875rem;
       left: 0;
       right: 0;
-      height: .125rem;
-      box-shadow: 0 .125rem .125rem var(--color-light-shadow);
+      height: 0.125rem;
+      box-shadow: 0 0.125rem 0.125rem var(--color-light-shadow);
     }
 
     .HeaderPinnedMessage {
@@ -47,7 +47,7 @@
 
     &-content {
       padding: 0 0.5rem;
-      flex-grow: 1
+      flex-grow: 1;
     }
 
     > .Button {
@@ -81,7 +81,7 @@
   width: 100%;
   box-shadow: 0 2px 2px var(--color-light-shadow);
   background: var(--color-background);
-  padding: .5rem .8125rem .5rem 1.5rem;
+  padding: 0.5rem 0.8125rem 0.5rem 1.5rem;
   position: relative;
   z-index: var(--z-middle-header);
 
@@ -284,19 +284,21 @@
       }
     }
 
-    .user-status, .status {
+    .user-status,
+    .status {
       unicode-bidi: plaintext;
     }
   }
 
   .Avatar {
-    margin-right: .625rem;
+    margin-right: 0.625rem;
     width: 2.5rem;
     height: 2.5rem;
     font-size: 1.0625rem;
   }
 
-  .status, .typing-status {
+  .status,
+  .typing-status {
     font-size: 0.875rem;
     line-height: 1.125rem;
     margin: 0;
@@ -381,7 +383,7 @@
         background-color: var(--color-primary-opacity);
         position: relative;
         will-change: transform;
-        transition: transform .25s ease-in-out;
+        transition: transform 0.25s ease-in-out;
       }
 
       .pinned-message-border-mark {
@@ -392,7 +394,7 @@
         background: var(--color-primary);
         border-radius: 0.0625rem;
         will-change: transform;
-        transition: transform .25s ease-in-out;
+        transition: transform 0.25s ease-in-out;
       }
     }
 
@@ -417,7 +419,7 @@
         text-align: initial;
 
         body.is-ios & {
-          font-size: .9375rem;
+          font-size: 0.9375rem;
         }
       }
 
@@ -431,7 +433,7 @@
         margin: 0;
 
         body.is-ios & {
-          font-size: .9375rem;
+          font-size: 0.9375rem;
         }
       }
     }
@@ -471,12 +473,13 @@
     }
   }
 
-  .HeaderPinnedMessage-wrapper, .HeaderActions {
+  .HeaderPinnedMessage-wrapper,
+  .HeaderActions {
     .Button {
       margin-left: 0.25rem;
 
       &.tiny {
-        margin-right: .625rem;
+        margin-right: 0.625rem;
       }
     }
   }
@@ -500,4 +503,8 @@
   to {
     opacity: 1;
   }
+}
+
+.schedule-header {
+  padding: 0 !important;
 }

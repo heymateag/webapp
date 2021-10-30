@@ -21,10 +21,12 @@ type DispatchProps = Pick<GlobalActions, "setShowHeymate">;
 
 export type OwnProps = {
   onReset: () => void;
+  activeTab: number;
 };
 enum ManageOffer {
   MY_ORDERS,
   MY_OFFERS,
+  MY_SUBSCRIPTIONS,
 }
 interface IManageOfferTab {
   title: string;
@@ -34,38 +36,23 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   setShowHeymate,
   showHeymate,
+  activeTab
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
-    { type: ManageOffer.MY_ORDERS, title: "My Orders" },
     { type: ManageOffer.MY_OFFERS, title: "My Offers" },
+    { type: ManageOffer.MY_ORDERS, title: "My Orders" },
+    { type: ManageOffer.MY_SUBSCRIPTIONS, title: "Subscriptions" },
   ];
-  const [activeTab, setActiveTab] = useState<ManageOffer>(
-    ManageOffer.MY_ORDERS
-  );
-  const handleSwitchTab = useCallback((index: number) => {
-    setActiveTab(index);
-  }, []);
+  // const [activeTab, setActiveTab] = useState<ManageOffer>(
+  //   ManageOffer.MY_ORDERS,
+  // );
+  // const handleSwitchTab = useCallback((index: number) => {
+  //   setActiveTab(index);
+  // }, []);
 
   return (
     <div className="ManageOffers">
-      <div className="left-header">
-        <Button
-          round
-          size="smaller"
-          color="translucent"
-          onClick={onReset}
-          ariaLabel="Return to chat list"
-        >
-          <i className="icon-arrow-left" />
-        </Button>
-        <h3>{lang("ManageOffers")}</h3>
-      </div>
-      <TabList
-        activeTab={activeTab}
-        tabs={tabs}
-        onSwitchTab={handleSwitchTab}
-      />
       <Transition
         className="full-content"
         name={lang.isRtl ? "slide-reversed" : "slide"}
@@ -86,6 +73,22 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
                     }
                   >
                     On Going
+                  </span>
+                  <div className="offer-scroll custom-scroll">
+                    <OnlineMetting />
+                  </div>
+                </>
+              );
+            case ManageOffer.MY_SUBSCRIPTIONS:
+              return (
+                <>
+                  <span
+                    className="page-caption"
+                    onClick={() =>
+                      setShowHeymate({ showHeymate: !showHeymate })
+                    }
+                  >
+                    subscriptions
                   </span>
                   <div className="offer-scroll custom-scroll">
                     <OnlineMetting />

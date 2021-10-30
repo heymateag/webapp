@@ -9,7 +9,10 @@ import { ApiMessage } from '../../api/types';
 
 import '../../modules/actions/all';
 import {
-  BASE_EMOJI_KEYWORD_LANG, DEBUG, INACTIVE_MARKER, PAGE_TITLE,
+  BASE_EMOJI_KEYWORD_LANG,
+  DEBUG,
+  INACTIVE_MARKER,
+  PAGE_TITLE,
 } from '../../config';
 import { pick } from '../../util/iteratees';
 import {
@@ -61,12 +64,20 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
   language?: LangCode;
   openedStickerSetShortName?: string;
+  showHeymate?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'loadAnimatedEmojis' | 'loadNotificationSettings' | 'loadNotificationExceptions' | 'updateIsOnline' |
-  'loadTopInlineBots' | 'loadEmojiKeywords' | 'openStickerSetShortName' | 'loadCountryList'
-)>;
+type DispatchProps = Pick<
+GlobalActions,
+| 'loadAnimatedEmojis'
+| 'loadNotificationSettings'
+| 'loadNotificationExceptions'
+| 'updateIsOnline'
+| 'loadTopInlineBots'
+| 'loadEmojiKeywords'
+| 'openStickerSetShortName'
+| 'loadCountryList'
+>;
 
 const NOTIFICATION_INTERVAL = 1000;
 
@@ -123,23 +134,40 @@ const Main: FC<StateProps & DispatchProps> = ({
       loadCountryList({ langCode: language });
     }
   }, [
-    lastSyncTime, loadAnimatedEmojis, loadNotificationExceptions, loadNotificationSettings, updateIsOnline,
-    loadTopInlineBots, loadEmojiKeywords, loadCountryList, language,
+    lastSyncTime,
+    loadAnimatedEmojis,
+    loadNotificationExceptions,
+    loadNotificationSettings,
+    updateIsOnline,
+    loadTopInlineBots,
+    loadEmojiKeywords,
+    loadCountryList,
+    language,
   ]);
 
   useEffect(() => {
     if (lastSyncTime && LOCATION_HASH.startsWith('#?tgaddr=')) {
-      processDeepLink(decodeURIComponent(LOCATION_HASH.substr('#?tgaddr='.length)));
+      processDeepLink(
+        decodeURIComponent(LOCATION_HASH.substr('#?tgaddr='.length)),
+      );
     }
   }, [lastSyncTime]);
 
-  const {
-    transitionClassNames: middleColumnTransitionClassNames,
-  } = useShowTransition(!isLeftColumnShown, undefined, true, undefined, shouldSkipHistoryAnimations);
+  const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
+    !isLeftColumnShown,
+    undefined,
+    true,
+    undefined,
+    shouldSkipHistoryAnimations,
+  );
 
-  const {
-    transitionClassNames: rightColumnTransitionClassNames,
-  } = useShowTransition(isRightColumnShown, undefined, true, undefined, shouldSkipHistoryAnimations);
+  const { transitionClassNames: rightColumnTransitionClassNames } = useShowTransition(
+    isRightColumnShown,
+    undefined,
+    true,
+    undefined,
+    shouldSkipHistoryAnimations,
+  );
 
   const className = buildClassName(
     middleColumnTransitionClassNames.replace(/([\w-]+)/g, 'middle-column-$1'),
@@ -148,36 +176,45 @@ const Main: FC<StateProps & DispatchProps> = ({
   );
 
   // Dispatch heavy transition event when opening middle column
-  useOnChange(([prevIsLeftColumnShown]) => {
-    if (prevIsLeftColumnShown === undefined || animationLevel === 0) {
-      return;
-    }
+  useOnChange(
+    ([prevIsLeftColumnShown]) => {
+      if (prevIsLeftColumnShown === undefined || animationLevel === 0) {
+        return;
+      }
 
-    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+      const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
 
-    waitForTransitionEnd(document.getElementById('MiddleColumn')!, dispatchHeavyAnimationEnd);
-  }, [isLeftColumnShown]);
+      waitForTransitionEnd(
+        document.getElementById('MiddleColumn')!,
+        dispatchHeavyAnimationEnd,
+      );
+    },
+    [isLeftColumnShown],
+  );
 
   // Dispatch heavy transition event and add body class when opening right column
-  useOnChange(([prevIsRightColumnShown]) => {
-    if (prevIsRightColumnShown === undefined || animationLevel === 0) {
-      return;
-    }
-
-    fastRaf(() => {
-      document.body.classList.add('animating-right-column');
-    });
-
-    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
-
-    waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
-      dispatchHeavyAnimationEnd();
+  useOnChange(
+    ([prevIsRightColumnShown]) => {
+      if (prevIsRightColumnShown === undefined || animationLevel === 0) {
+        return;
+      }
 
       fastRaf(() => {
-        document.body.classList.remove('animating-right-column');
+        document.body.classList.add('animating-right-column');
       });
-    });
-  }, [isRightColumnShown]);
+
+      const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+
+      waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
+        dispatchHeavyAnimationEnd();
+
+        fastRaf(() => {
+          document.body.classList.remove('animating-right-column');
+        });
+      });
+    },
+    [isRightColumnShown],
+  );
 
   const handleBlur = useCallback(() => {
     updateIsOnline(false);
@@ -195,7 +232,9 @@ const Main: FC<StateProps & DispatchProps> = ({
       if (index % 2 === 0) {
         const newUnread = selectCountNotMutedUnread(getGlobal()) - initialUnread;
         if (newUnread > 0) {
-          updatePageTitle(`${newUnread} notification${newUnread > 1 ? 's' : ''}`);
+          updatePageTitle(
+            `${newUnread} notification${newUnread > 1 ? 's' : ''}`,
+          );
           updateIcon(true);
         }
       } else {
@@ -236,7 +275,12 @@ const Main: FC<StateProps & DispatchProps> = ({
   }
 
   return (
-    <div id="Main" className={className} onDrop={stopEvent} onDragOver={stopEvent}>
+    <div
+      id="Main"
+      className={className}
+      onDrop={stopEvent}
+      onDragOver={stopEvent}
+    >
       <LeftColumn />
       <MiddleColumn />
       <RightColumn />
@@ -244,7 +288,14 @@ const Main: FC<StateProps & DispatchProps> = ({
       <ForwardPicker isOpen={isForwardModalOpen} />
       <Notifications isOpen={hasNotifications} />
       <Dialogs isOpen={hasDialogs} />
-      {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} origin={audioOrigin} noUi />}
+      {audioMessage && (
+        <AudioPlayer
+          key={audioMessage.id}
+          message={audioMessage}
+          origin={audioOrigin}
+          noUi
+        />
+      )}
       <SafeLinkModal url={safeLinkModalUrl} />
       <HistoryCalendar isOpen={isHistoryCalendarOpen} />
       <StickerSetModal
@@ -257,7 +308,8 @@ const Main: FC<StateProps & DispatchProps> = ({
 };
 
 function updateIcon(asUnread: boolean) {
-  document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')
+  document
+    .querySelectorAll<HTMLLinkElement>('link[rel="icon"]')
     .forEach((link) => {
       if (asUnread) {
         if (!link.href.includes('favicon-unread')) {
@@ -277,33 +329,46 @@ function updatePageTitle(nextTitle: string) {
   }
 }
 
-export default memo(withGlobal(
-  (global): StateProps => {
-    const { chatId: audioChatId, messageId: audioMessageId, origin } = global.audioPlayer;
-    const audioMessage = audioChatId && audioMessageId
-      ? selectChatMessage(global, audioChatId, audioMessageId)
-      : undefined;
+export default memo(
+  withGlobal(
+    (global): StateProps => {
+      const {
+        chatId: audioChatId,
+        messageId: audioMessageId,
+        origin,
+      } = global.audioPlayer;
+      const audioMessage = audioChatId && audioMessageId
+        ? selectChatMessage(global, audioChatId, audioMessageId)
+        : undefined;
 
-    return {
-      animationLevel: global.settings.byKey.animationLevel,
-      lastSyncTime: global.lastSyncTime,
-      isLeftColumnShown: global.isLeftColumnShown,
-      isRightColumnShown: selectIsRightColumnShown(global),
-      isMediaViewerOpen: selectIsMediaViewerOpen(global),
-      isForwardModalOpen: selectIsForwardModalOpen(global),
-      hasNotifications: Boolean(global.notifications.length),
-      hasDialogs: Boolean(global.dialogs.length),
-      audioMessage,
-      audioOrigin: origin,
-      safeLinkModalUrl: global.safeLinkModalUrl,
-      isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
-      shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
-      language: global.settings.byKey.language,
-      openedStickerSetShortName: global.openedStickerSetShortName,
-    };
-  },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
-    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList',
-  ]),
-)(Main));
+      return {
+        animationLevel: global.settings.byKey.animationLevel,
+        lastSyncTime: global.lastSyncTime,
+        isLeftColumnShown: global.isLeftColumnShown,
+        isRightColumnShown: selectIsRightColumnShown(global),
+        isMediaViewerOpen: selectIsMediaViewerOpen(global),
+        isForwardModalOpen: selectIsForwardModalOpen(global),
+        hasNotifications: Boolean(global.notifications.length),
+        hasDialogs: Boolean(global.dialogs.length),
+        audioMessage,
+        audioOrigin: origin,
+        safeLinkModalUrl: global.safeLinkModalUrl,
+        isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
+        shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
+        language: global.settings.byKey.language,
+        openedStickerSetShortName: global.openedStickerSetShortName,
+      };
+    },
+    (setGlobal, actions): DispatchProps =>
+      pick(actions, [
+        'loadAnimatedEmojis',
+        'loadNotificationSettings',
+        'loadNotificationExceptions',
+        'updateIsOnline',
+        'loadTopInlineBots',
+        'loadEmojiKeywords',
+        'openStickerSetShortName',
+        'loadCountryList',
+      ]),
+  )(Main),
+);

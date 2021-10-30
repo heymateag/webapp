@@ -83,7 +83,7 @@ export type GlobalState = {
   currentUserId?: number;
   lastSyncTime?: number;
   serverTimeOffset: number;
-
+  showHeymate?: boolean;
   // TODO Move to `auth`.
   isLoggingOut?: boolean;
   authState?: ApiUpdateAuthorizationStateType;
@@ -143,10 +143,13 @@ export type GlobalState = {
   };
 
   messages: {
-    byChatId: Record<number, {
+    byChatId: Record<
+    number,
+    {
       byId: Record<number, ApiMessage>;
       threadsById: Record<number, Thread>;
-    }>;
+    }
+    >;
     messageLists: MessageList[];
     contentToBeScheduled?: {
       gif?: ApiVideo;
@@ -157,10 +160,13 @@ export type GlobalState = {
   };
 
   scheduledMessages: {
-    byChatId: Record<number, {
+    byChatId: Record<
+    number,
+    {
       byId: Record<number, ApiMessage>;
       hash: number;
-    }>;
+    }
+    >;
   };
 
   chatFolders: {
@@ -185,9 +191,12 @@ export type GlobalState = {
   };
 
   fileUploads: {
-    byMessageLocalId: Record<string, {
+    byMessageLocalId: Record<
+    string,
+    {
       progress: number;
-    }>;
+    }
+    >;
   };
 
   recentEmojis: string[];
@@ -263,11 +272,16 @@ export type GlobalState = {
       chatIds?: number[];
       userIds?: number[];
     };
-    resultsByType?: Partial<Record<ApiGlobalMessageSearchType, {
+    resultsByType?: Partial<
+    Record<
+    ApiGlobalMessageSearchType,
+    {
       totalCount?: number;
       nextOffsetId: number;
       foundIds: string[];
-    }>>;
+    }
+    >
+    >;
   };
 
   userSearch: {
@@ -278,7 +292,9 @@ export type GlobalState = {
   };
 
   localTextSearch: {
-    byChatThreadKey: Record<string, {
+    byChatThreadKey: Record<
+    string,
+    {
       isActive: boolean;
       query?: string;
       results?: {
@@ -286,27 +302,39 @@ export type GlobalState = {
         nextOffsetId?: number;
         foundIds?: number[];
       };
-    }>;
+    }
+    >;
   };
 
   localMediaSearch: {
-    byChatId: Record<number, {
+    byChatId: Record<
+    number,
+    {
       currentType?: SharedMediaType;
-      resultsByType?: Partial<Record<SharedMediaType, {
+      resultsByType?: Partial<
+      Record<
+      SharedMediaType,
+      {
         totalCount?: number;
         nextOffsetId: number;
         foundIds: number[];
-      }>>;
-    }>;
+      }
+      >
+      >;
+    }
+    >;
   };
 
   management: {
     progress?: ManagementProgress;
-    byChatId: Record<number, {
+    byChatId: Record<
+    number,
+    {
       isActive: boolean;
       isUsernameAvailable?: boolean;
       error?: string;
-    }>;
+    }
+    >;
   };
 
   mediaViewer: {
@@ -440,85 +468,264 @@ export type GlobalState = {
   shouldShowContextMenuHint?: boolean;
 };
 
-export type ActionTypes = (
-  // system
-  'init' | 'reset' | 'disconnect' | 'initApi' | 'apiUpdate' | 'sync' | 'saveSession' | 'afterSync' |
-  'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' |
+export type ActionTypes =
+  | // system
+  'init'
+  | 'reset'
+  | 'disconnect'
+  | 'initApi'
+  | 'apiUpdate'
+  | 'sync'
+  | 'saveSession'
+  | 'afterSync'
+  | 'showNotification'
+  | 'dismissNotification'
+  | 'showDialog'
+  | 'dismissDialog'
   // ui
-  'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
-  'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |
-  'setNewChatMembersDialogState' | 'disableHistoryAnimations' |
+  | 'toggleChatInfo'
+  | 'setIsUiReady'
+  | 'addRecentEmoji'
+  | 'addRecentSticker'
+  | 'toggleLeftColumn'
+  | 'toggleSafeLinkModal'
+  | 'openHistoryCalendar'
+  | 'closeHistoryCalendar'
+  | 'disableContextMenuHint'
+  | 'setNewChatMembersDialogState'
+  | 'disableHistoryAnimations'
   // auth
-  'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
-  'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |
+  | 'setAuthPhoneNumber'
+  | 'setAuthCode'
+  | 'setAuthPassword'
+  | 'signUp'
+  | 'returnToAuthPhoneNumber'
+  | 'signOut'
+  | 'setAuthRememberMe'
+  | 'clearAuthError'
+  | 'uploadProfilePhoto'
+  | 'goToAuthQrCode'
+  | 'clearCache'
   // chats
-  'preloadTopChatMessages' | 'preloadArchivedChats' | 'loadChats' | 'loadMoreChats' | 'openChat' |
-  'openChatWithInfo' | 'openLinkedChat' |
-  'openSupportChat' | 'openTipsChat' | 'focusMessageInComments' |
-  'loadFullChat' | 'loadTopChats' | 'requestChatUpdate' | 'updateChatMutedState' |
-  'joinChannel' | 'leaveChannel' | 'deleteChannel' | 'toggleChatPinned' | 'toggleChatArchived' | 'toggleChatUnread' |
-  'loadChatFolders' | 'loadRecommendedChatFolders' | 'editChatFolder' | 'addChatFolder' | 'deleteChatFolder' |
-  'updateChat' | 'toggleSignatures' | 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup' |
-  'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
-  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' | 'editChatFolders' |
+  | 'preloadTopChatMessages'
+  | 'preloadArchivedChats'
+  | 'loadChats'
+  | 'loadMoreChats'
+  | 'openChat'
+  | 'openChatWithInfo'
+  | 'openLinkedChat'
+  | 'openSupportChat'
+  | 'openTipsChat'
+  | 'focusMessageInComments'
+  | 'loadFullChat'
+  | 'loadTopChats'
+  | 'requestChatUpdate'
+  | 'updateChatMutedState'
+  | 'joinChannel'
+  | 'leaveChannel'
+  | 'deleteChannel'
+  | 'toggleChatPinned'
+  | 'toggleChatArchived'
+  | 'toggleChatUnread'
+  | 'loadChatFolders'
+  | 'loadRecommendedChatFolders'
+  | 'editChatFolder'
+  | 'addChatFolder'
+  | 'deleteChatFolder'
+  | 'updateChat'
+  | 'toggleSignatures'
+  | 'loadGroupsForDiscussion'
+  | 'linkDiscussionGroup'
+  | 'unlinkDiscussionGroup'
+  | 'loadProfilePhotos'
+  | 'loadMoreMembers'
+  | 'setActiveChatFolder'
+  | 'openNextChat'
+  | 'addChatMembers'
+  | 'deleteChatMember'
+  | 'openPreviousChat'
+  | 'editChatFolders'
   // messages
-  'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
-  'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
-  'editMessage' | 'deleteHistory' | 'enterMessageSelectMode' | 'toggleMessageSelection' | 'exitMessageSelectMode' |
-  'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |
-  'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
-  'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
-  'reportMessages' | 'focusNextReply' | 'openChatByInvite' |
+  | 'loadViewportMessages'
+  | 'selectMessage'
+  | 'sendMessage'
+  | 'cancelSendingMessage'
+  | 'pinMessage'
+  | 'deleteMessages'
+  | 'markMessageListRead'
+  | 'markMessagesRead'
+  | 'loadMessage'
+  | 'focusMessage'
+  | 'focusLastMessage'
+  | 'sendPollVote'
+  | 'editMessage'
+  | 'deleteHistory'
+  | 'enterMessageSelectMode'
+  | 'toggleMessageSelection'
+  | 'exitMessageSelectMode'
+  | 'openTelegramLink'
+  | 'openChatByUsername'
+  | 'requestThreadInfoUpdate'
+  | 'setScrollOffset'
+  | 'unpinAllMessages'
+  | 'setReplyingToId'
+  | 'setEditingId'
+  | 'editLastMessage'
+  | 'saveDraft'
+  | 'clearDraft'
+  | 'loadPinnedMessages'
+  | 'toggleMessageWebPage'
+  | 'replyToNextMessage'
+  | 'deleteChatUser'
+  | 'deleteChat'
+  | 'reportMessages'
+  | 'focusNextReply'
+  | 'openChatByInvite'
   // scheduled messages
-  'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
+  | 'loadScheduledHistory'
+  | 'sendScheduledMessages'
+  | 'rescheduleMessage'
+  | 'deleteScheduledMessages'
   // poll result
-  'openPollResults' | 'closePollResults' | 'loadPollOptionResults' |
+  | 'openPollResults'
+  | 'closePollResults'
+  | 'loadPollOptionResults'
   // forwarding messages
-  'openForwardMenu' | 'exitForwardMode' | 'setForwardChatId' | 'forwardMessages' |
-  'openForwardMenuForSelectedMessages' |
+  | 'openForwardMenu'
+  | 'exitForwardMode'
+  | 'setForwardChatId'
+  | 'forwardMessages'
+  | 'openForwardMenuForSelectedMessages'
   // global search
-  'setGlobalSearchQuery' | 'searchMessagesGlobal' | 'addRecentlyFoundChatId' | 'clearRecentlyFoundChats' |
-  'setGlobalSearchContent' | 'setGlobalSearchChatId' | 'setGlobalSearchDate' |
+  | 'setGlobalSearchQuery'
+  | 'searchMessagesGlobal'
+  | 'addRecentlyFoundChatId'
+  | 'clearRecentlyFoundChats'
+  | 'setGlobalSearchContent'
+  | 'setGlobalSearchChatId'
+  | 'setGlobalSearchDate'
   // message search
-  'openLocalTextSearch' | 'closeLocalTextSearch' | 'setLocalTextSearchQuery' | 'setLocalMediaSearchType' |
-  'searchTextMessagesLocal' | 'searchMediaMessagesLocal' | 'searchMessagesByDate' |
+  | 'openLocalTextSearch'
+  | 'closeLocalTextSearch'
+  | 'setLocalTextSearchQuery'
+  | 'setLocalMediaSearchType'
+  | 'searchTextMessagesLocal'
+  | 'searchMediaMessagesLocal'
+  | 'searchMessagesByDate'
   // management
-  'toggleManagement' | 'closeManagement' | 'checkPublicLink' | 'updatePublicLink' | 'updatePrivateLink' |
+  | 'toggleManagement'
+  | 'closeManagement'
+  | 'checkPublicLink'
+  | 'updatePublicLink'
+  | 'updatePrivateLink'
   // groups
-  'togglePreHistoryHidden' | 'updateChatDefaultBannedRights' | 'updateChatMemberBannedRights' | 'updateChatAdmin' |
-  'acceptInviteConfirmation' |
+  | 'togglePreHistoryHidden'
+  | 'updateChatDefaultBannedRights'
+  | 'updateChatMemberBannedRights'
+  | 'updateChatAdmin'
+  | 'acceptInviteConfirmation'
   // users
-  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadCountryList' | 'loadTopUsers' | 'loadContactList' |
-  'loadCurrentUser' | 'updateProfile' | 'checkUsername' | 'updateContact' |
-  'deleteUser' | 'loadUser' | 'setUserSearchQuery' |
+  | 'loadFullUser'
+  | 'openUserInfo'
+  | 'loadNearestCountry'
+  | 'loadCountryList'
+  | 'loadTopUsers'
+  | 'loadContactList'
+  | 'loadCurrentUser'
+  | 'updateProfile'
+  | 'checkUsername'
+  | 'updateContact'
+  | 'deleteUser'
+  | 'loadUser'
+  | 'setUserSearchQuery'
   // Channel / groups creation
-  'createChannel' | 'createGroupChat' | 'resetChatCreation' |
+  | 'createChannel'
+  | 'createGroupChat'
+  | 'resetChatCreation'
   // settings
-  'setSettingOption' | 'loadPasswordInfo' | 'clearTwoFaError' |
-  'updatePassword' | 'updateRecoveryEmail' | 'clearPassword' | 'provideTwoFaEmailCode' | 'checkPassword' |
-  'loadBlockedContacts' | 'blockContact' | 'unblockContact' |
-  'loadAuthorizations' | 'terminateAuthorization' | 'terminateAllAuthorizations' |
-  'loadNotificationSettings' | 'updateContactSignUpNotification' | 'updateNotificationSettings' |
-  'updateWebNotificationSettings' | 'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' |
-  'setPrivacySettings' | 'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' |
-  'loadContentSettings' | 'updateContentSettings' |
+  | 'setSettingOption'
+  | 'loadPasswordInfo'
+  | 'clearTwoFaError'
+  | 'updatePassword'
+  | 'updateRecoveryEmail'
+  | 'clearPassword'
+  | 'provideTwoFaEmailCode'
+  | 'checkPassword'
+  | 'loadBlockedContacts'
+  | 'blockContact'
+  | 'unblockContact'
+  | 'loadAuthorizations'
+  | 'terminateAuthorization'
+  | 'terminateAllAuthorizations'
+  | 'loadNotificationSettings'
+  | 'updateContactSignUpNotification'
+  | 'updateNotificationSettings'
+  | 'updateWebNotificationSettings'
+  | 'loadLanguages'
+  | 'loadPrivacySettings'
+  | 'setPrivacyVisibility'
+  | 'setPrivacySettings'
+  | 'loadNotificationExceptions'
+  | 'setThemeSettings'
+  | 'updateIsOnline'
+  | 'loadContentSettings'
+  | 'updateContentSettings'
   // Stickers & GIFs
-  'loadStickerSets' | 'loadAddedStickers' | 'loadRecentStickers' | 'loadFavoriteStickers' | 'loadFeaturedStickers' |
-  'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
-  'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
-  'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' | 'loadGreetingStickers' |
-  'openStickerSetShortName' |
+  | 'loadStickerSets'
+  | 'loadAddedStickers'
+  | 'loadRecentStickers'
+  | 'loadFavoriteStickers'
+  | 'loadFeaturedStickers'
+  | 'loadStickers'
+  | 'setStickerSearchQuery'
+  | 'loadSavedGifs'
+  | 'setGifSearchQuery'
+  | 'searchMoreGifs'
+  | 'faveSticker'
+  | 'unfaveSticker'
+  | 'toggleStickerSet'
+  | 'loadAnimatedEmojis'
+  | 'loadStickersForEmoji'
+  | 'clearStickersForEmoji'
+  | 'loadEmojiKeywords'
+  | 'loadGreetingStickers'
+  | 'openStickerSetShortName'
   // bots
-  'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
-  'resetInlineBot' | 'restartBot' | 'startBot' |
+  | 'clickInlineButton'
+  | 'sendBotCommand'
+  | 'loadTopInlineBots'
+  | 'queryInlineBot'
+  | 'sendInlineBotResult'
+  | 'resetInlineBot'
+  | 'restartBot'
+  | 'startBot'
   // misc
-  'openMediaViewer' | 'closeMediaViewer' | 'openAudioPlayer' | 'closeAudioPlayer' | 'openPollModal' | 'closePollModal' |
-  'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' | 'setDeviceToken' |
-  'deleteDeviceToken' |
+  | 'openMediaViewer'
+  | 'closeMediaViewer'
+  | 'openAudioPlayer'
+  | 'closeAudioPlayer'
+  | 'openPollModal'
+  | 'closePollModal'
+  | 'loadWebPagePreview'
+  | 'clearWebPagePreview'
+  | 'loadWallpapers'
+  | 'uploadWallpaper'
+  | 'setDeviceToken'
+  | 'deleteDeviceToken'
   // payment
-  'openPaymentModal' | 'closePaymentModal' | 'addPaymentError' |
-  'validateRequestedInfo' | 'setPaymentStep' | 'sendPaymentForm' | 'getPaymentForm' | 'getReceipt' |
-  'sendCredentialsInfo' | 'setInvoiceMessageInfo' | 'clearPaymentError' | 'clearReceipt'
-);
+  | 'openPaymentModal'
+  | 'closePaymentModal'
+  | 'addPaymentError'
+  | 'validateRequestedInfo'
+  | 'setPaymentStep'
+  | 'sendPaymentForm'
+  | 'getPaymentForm'
+  | 'getReceipt'
+  | 'sendCredentialsInfo'
+  | 'setInvoiceMessageInfo'
+  | 'clearPaymentError'
+  | 'clearReceipt'
+  // showHeymate
+  | 'setShowHeymate';
 
 export type GlobalActions = Record<ActionTypes, (...args: any[]) => void>;

@@ -145,7 +145,10 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   const [isNotchShown, setIsNotchShown] = useState<boolean | undefined>();
   const [isUnpinModalOpen, setIsUnpinModalOpen] = useState(false);
   const [isReady, setIsReady] = useState(!IS_SINGLE_COLUMN_LAYOUT || animationLevel === ANIMATION_LEVEL_MIN);
-
+  const [activeTab, setActiveTab] = useState(
+    // ManageOffer.MY_ORDERS,
+    0,
+  );
   const hasTools = hasPinnedOrAudioMessage && (
     windowWidth < MOBILE_SCREEN_MAX_WIDTH
     || (
@@ -256,6 +259,10 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     openChat({ id: chatId });
   }, [openChat, chatId]);
 
+  const handleSwitchTab = useCallback((index: number) => {
+    setActiveTab(index);
+  }, []);
+
   const customBackgroundValue = useCustomBackground(theme, customBackground);
 
   const className = buildClassName(
@@ -337,6 +344,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
               threadId={renderingThreadId}
               messageListType={renderingMessageListType}
               isReady={isReady}
+              handleSwitchTab={handleSwitchTab}
             />
             <Transition
               name={shouldSkipHistoryAnimations ? 'none' : animationLevel === ANIMATION_LEVEL_MAX ? 'slide' : 'fade'}
@@ -356,6 +364,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                     onNotchToggle={setIsNotchShown}
                     isReady={isReady}
                     isActive={isActive}
+                    activeTab={activeTab}
                   />
                   <div className={footerClassName}>
                     {renderingCanPost && (

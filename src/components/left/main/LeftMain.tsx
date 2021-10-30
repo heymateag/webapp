@@ -1,9 +1,13 @@
 import React, {
-  FC, useState, useRef, useCallback, useEffect,
+  FC,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
 } from '../../../lib/teact/teact';
 import { withGlobal } from '../../../lib/teact/teactn';
 
-import { GlobalState } from '../../../global/types';
+import { GlobalState, GlobalActions } from '../../../global/types';
 import { LeftColumnContent, SettingsScreens } from '../../../types';
 import { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
 
@@ -40,6 +44,8 @@ type OwnProps = {
   onReset: () => void;
 };
 
+type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
+
 type StateProps = Pick<GlobalState, 'connectionState'>;
 
 const TRANSITION_RENDER_COUNT = Object.keys(LeftColumnContent).length / 2;
@@ -48,7 +54,7 @@ const APP_OUTDATED_TIMEOUT = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 let closeTimeout: number | undefined;
 
-const LeftMain: FC<OwnProps & StateProps> = ({
+const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   content,
   searchQuery,
   searchDate,
@@ -60,6 +66,7 @@ const LeftMain: FC<OwnProps & StateProps> = ({
   onScreenSelect,
   onReset,
   connectionState,
+  setShowHeymate,
 }) => {
   const [isNewChatButtonShown, setIsNewChatButtonShown] = useState(IS_TOUCH_ENV);
 
@@ -89,8 +96,9 @@ const LeftMain: FC<OwnProps & StateProps> = ({
   }, [onContentChange]);
 
   const handleSelectManageOffers = useCallback(() => {
-    onContentChange(LeftColumnContent.Offers);
-  }, [onContentChange]);
+    setShowHeymate({ showHeymate: true });
+    // onContentChange(LeftColumnContent.Offers);
+  }, [setShowHeymate]);
 
   const handleSelectWallet = useCallback(() => {
     onContentChange(LeftColumnContent.wallet);
@@ -159,7 +167,11 @@ const LeftMain: FC<OwnProps & StateProps> = ({
         onReset={onReset}
         shouldSkipTransition={shouldSkipTransition}
       />
-      <ShowTransition isOpen={isConnecting} isCustom className="connection-state-wrapper opacity-transition slow">
+      <ShowTransition
+        isOpen={isConnecting}
+        isCustom
+        className="connection-state-wrapper opacity-transition slow"
+      >
         {() => <ConnectionState />}
       </ShowTransition>
       <Transition
@@ -173,7 +185,12 @@ const LeftMain: FC<OwnProps & StateProps> = ({
         {(isActive) => {
           switch (content) {
             case LeftColumnContent.ChatList:
-              return <ChatFolders onScreenSelect={onScreenSelect} foldersDispatch={foldersDispatch} />;
+              return (
+                <ChatFolders
+                  onScreenSelect={onScreenSelect}
+                  foldersDispatch={foldersDispatch}
+                />
+              );
             case LeftColumnContent.GlobalSearch:
               return (
                 <LeftSearch
@@ -184,7 +201,13 @@ const LeftMain: FC<OwnProps & StateProps> = ({
                 />
               );
             case LeftColumnContent.Contacts:
-              return <ContactList filter={contactsFilter} isActive={isActive} onReset={onReset} />;
+              return (
+                <ContactList
+                  filter={contactsFilter}
+                  isActive={isActive}
+                  onReset={onReset}
+                />
+              );
             default:
               return undefined;
           }
@@ -231,5 +254,6 @@ function useAppOutdatedCheck() {
 }
 
 export default withGlobal<OwnProps>(
-  (global): StateProps => pick(global, ['connectionState']),
+  (global): StateProps => pick(global, ['connectionState', 'showHeymate']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
 )(LeftMain);

@@ -1,15 +1,31 @@
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  FC,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import {
-  ApiMessage, ApiRestrictionReason, MAIN_THREAD_ID,
+  ApiMessage,
+  ApiRestrictionReason,
+  MAIN_THREAD_ID,
 } from '../../api/types';
-import { GlobalActions, MessageListType } from '../../global/types';
+import {
+  GlobalActions,
+  GlobalState,
+  MessageListType,
+} from '../../global/types';
 import { LoadMoreDirection } from '../../types';
 
-import { ANIMATION_END_DELAY, LOCAL_MESSAGE_ID_BASE, MESSAGE_LIST_SLICE } from '../../config';
+import {
+  ANIMATION_END_DELAY,
+  LOCAL_MESSAGE_ID_BASE,
+  MESSAGE_LIST_SLICE,
+} from '../../config';
 import {
   selectChatMessages,
   selectIsViewportNewest,
@@ -43,7 +59,9 @@ import useOnChange from '../../hooks/useOnChange';
 import useStickyDates from './hooks/useStickyDates';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import resetScroll from '../../util/resetScroll';
-import fastSmoothScroll, { isAnimatingScroll } from '../../util/fastSmoothScroll';
+import fastSmoothScroll, {
+  isAnimatingScroll,
+} from '../../util/fastSmoothScroll';
 import renderText from '../common/helpers/renderText';
 import useLang from '../../hooks/useLang';
 import useWindowSize from '../../hooks/useWindowSize';
@@ -54,6 +72,7 @@ import ContactGreeting from './ContactGreeting';
 import NoMessages from './NoMessages';
 
 import './MessageList.scss';
+import ManageOffers from './manageOffers/ManageOffers';
 
 type OwnProps = {
   chatId: number;
@@ -65,6 +84,7 @@ type OwnProps = {
   onFabToggle: (shouldShow: boolean) => void;
   onNotchToggle: (shouldShow: boolean) => void;
   hasTools?: boolean;
+  activeTab?: number;
 };
 
 type StateProps = {
@@ -89,9 +109,12 @@ type StateProps = {
   threadTopMessageId?: number;
   threadFirstMessageId?: number;
   hasLinkedChat?: boolean;
-};
+} & Pick<GlobalState, 'showHeymate'>;
 
-type DispatchProps = Pick<GlobalActions, 'loadViewportMessages' | 'setScrollOffset' | 'openHistoryCalendar'>;
+type DispatchProps = Pick<
+  GlobalActions,
+  'loadViewportMessages' | 'setScrollOffset' | 'openHistoryCalendar'
+>;
 
 const BOTTOM_THRESHOLD = 20;
 const UNREAD_DIVIDER_TOP = 10;
@@ -137,13 +160,18 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   threadTopMessageId,
   hasLinkedChat,
   openHistoryCalendar,
+  showHeymate,
+  activeTab,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
 
   // We update local cached `scrollOffsetRef` when opening chat.
   // Then we update global version every second on scrolling.
-  const scrollOffsetRef = useRef<number>((type === 'thread' && selectScrollOffset(getGlobal(), chatId, threadId)) || 0);
+  const scrollOffsetRef = useRef<number>(
+    (type === 'thread' && selectScrollOffset(getGlobal(), chatId, threadId))
+    || 0,
+  );
   const anchorIdRef = useRef<string>();
   const anchorTopRef = useRef<number>();
   const listItemElementsRef = useRef<HTMLDivElement[]>();
@@ -187,7 +215,8 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       return undefined;
     }
 
-    const viewportIds = threadTopMessageId && (!messageIds[0] || threadFirstMessageId === messageIds[0])
+    const viewportIds = threadTopMessageId
+      && (!messageIds[0] || threadFirstMessageId === messageIds[0])
       ? [threadTopMessageId, ...messageIds]
       : messageIds;
 
@@ -195,8 +224,13 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       return undefined;
     }
 
-    const listedMessages = viewportIds.map((id) => messagesById[id]).filter(Boolean);
-    return groupMessages(orderBy(listedMessages, ['date', 'id']), memoUnreadDividerBeforeIdRef.current);
+    const listedMessages = viewportIds
+      .map((id) => messagesById[id])
+      .filter(Boolean);
+    return groupMessages(
+      orderBy(listedMessages, ['date', 'id']),
+      memoUnreadDividerBeforeIdRef.current,
+    );
   }, [messageIds, messagesById, threadFirstMessageId, threadTopMessageId]);
 
   const loadMoreAround = useMemo(() => {
@@ -204,7 +238,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       return undefined;
     }
 
-    return debounce(() => loadViewportMessages({ direction: LoadMoreDirection.Around }), 1000, true, false);
+    return debounce(
+      () => loadViewportMessages({ direction: LoadMoreDirection.Around }),
+      1000,
+      true,
+      false,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadViewportMessages, messageIds]);
 
@@ -231,7 +270,11 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
         scrollOffsetRef.current = container.scrollHeight - container.scrollTop;
 
         if (type === 'thread') {
-          setScrollOffset({ chatId, threadId, scrollOffset: scrollOffsetRef.current });
+          setScrollOffset({
+            chatId,
+            threadId,
+            scrollOffset: scrollOffsetRef.current,
+          });
         }
       });
     });
@@ -264,7 +307,9 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   useEffect(() => {
     if (isReady) {
-      containerRef.current!.dataset.normalHeight = String(containerRef.current!.offsetHeight);
+      containerRef.current!.dataset.normalHeight = String(
+        containerRef.current!.offsetHeight,
+      );
     }
   }, [windowHeight, isReady, canPost]);
 
@@ -282,10 +327,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
     const container = containerRef.current!;
 
-    if (!messageIds || (
-      messageIds.length < MESSAGE_LIST_SLICE / 2
-      && (container.firstElementChild as HTMLDivElement).clientHeight <= container.offsetHeight
-    )) {
+    if (
+      !messageIds
+      || (messageIds.length < MESSAGE_LIST_SLICE / 2
+        && (container.firstElementChild as HTMLDivElement).clientHeight
+        <= container.offsetHeight)
+    ) {
       loadMoreAround();
     }
   }, [isChatLoaded, messageIds, loadMoreAround, focusingId, isRestricted]);
@@ -296,8 +343,9 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       return;
     }
 
-    const preservedItemElements = listItemElementsRef.current
-      .filter((element) => messageIds.includes(Number(element.dataset.messageId)));
+    const preservedItemElements = listItemElementsRef.current.filter(
+      (element) => messageIds.includes(Number(element.dataset.messageId)),
+    );
 
     // We avoid the very first item as it may be a partly-loaded album
     // and also because it may be removed when messages limit is reached
@@ -312,157 +360,185 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [messageIds, isViewportNewest, containerHeight, hasTools, isReady]);
 
   // Handles updated message list, takes care of scroll repositioning
-  useLayoutEffectWithPrevDeps(([
-    prevMessageIds, prevIsViewportNewest, prevContainerHeight,
-  ]: [
-    typeof messageIds, typeof isViewportNewest, typeof containerHeight,
-  ]) => {
-    const container = containerRef.current!;
-    listItemElementsRef.current = Array.from(container.querySelectorAll<HTMLDivElement>('.message-list-item'));
+  useLayoutEffectWithPrevDeps(
+    ([prevMessageIds, prevIsViewportNewest, prevContainerHeight]: [
+      typeof messageIds,
+      typeof isViewportNewest,
+      typeof containerHeight]) => {
+      const container = containerRef.current!;
+      listItemElementsRef.current = Array.from(
+        container.querySelectorAll<HTMLDivElement>('.message-list-item'),
+      );
 
-    // During animation
-    if (!container.offsetParent) {
-      return;
-    }
+      // During animation
+      if (!container.offsetParent) {
+        return;
+      }
 
-    // Add extra height when few messages to allow smooth scroll animation. Uses assumption that `parentElement`
-    // is a Transition slide and its CSS class can not be reset in a declarative way.
-    const shouldForceScroll = (
-      isViewportNewest
-      && (messageIds && messageIds.length < MESSAGE_LIST_SLICE / 2)
-      && !container.parentElement!.classList.contains('force-messages-scroll')
-      && (container.firstElementChild as HTMLDivElement)!.clientHeight <= container.offsetHeight * 2
-    );
+      // Add extra height when few messages to allow smooth scroll animation. Uses assumption that `parentElement`
+      // is a Transition slide and its CSS class can not be reset in a declarative way.
+      const shouldForceScroll = isViewportNewest
+        && messageIds
+        && messageIds.length < MESSAGE_LIST_SLICE / 2
+        && !container.parentElement!.classList.contains('force-messages-scroll')
+        && (container.firstElementChild as HTMLDivElement)!.clientHeight
+        <= container.offsetHeight * 2;
 
-    if (shouldForceScroll) {
-      container.parentElement!.classList.add('force-messages-scroll');
+      if (shouldForceScroll) {
+        container.parentElement!.classList.add('force-messages-scroll');
 
-      setTimeout(() => {
-        if (container.parentElement) {
-          container.parentElement.classList.remove('force-messages-scroll');
+        setTimeout(() => {
+          if (container.parentElement) {
+            container.parentElement.classList.remove('force-messages-scroll');
+          }
+        }, FOCUSING_DURATION);
+      }
+
+      const hasLastMessageChanged = messageIds
+        && prevMessageIds
+        && messageIds[messageIds.length - 1]
+        !== prevMessageIds[prevMessageIds.length - 1];
+      const hasViewportShifted = messageIds?.[0] !== prevMessageIds?.[0]
+        && messageIds?.length === MESSAGE_LIST_SLICE / 2 + 1;
+      const wasMessageAdded = hasLastMessageChanged && !hasViewportShifted;
+      const isAlreadyFocusing = messageIds
+        && memoFocusingIdRef.current === messageIds[messageIds.length - 1];
+
+      const { scrollTop, scrollHeight, offsetHeight } = container;
+      const scrollOffset = scrollOffsetRef.current!;
+      const lastItemElement = listItemElementsRef.current[listItemElementsRef.current.length - 1];
+
+      let bottomOffset = scrollOffset - (prevContainerHeight || offsetHeight);
+      if (wasMessageAdded) {
+        // If two new messages come at once (e.g. when bot responds) then the first message will update `scrollOffset`
+        // right away (before animation) which creates inconsistency until the animation completes. To workaround that,
+        // we calculate `isAtBottom` with a 'buffer' of the latest message height (this is approximate).
+        const lastItemHeight = lastItemElement
+          ? lastItemElement.offsetHeight
+          : 0;
+        bottomOffset -= lastItemHeight;
+      }
+      const isAtBottom = isViewportNewest
+        && prevIsViewportNewest
+        && bottomOffset <= BOTTOM_THRESHOLD;
+
+      let newScrollTop!: number;
+
+      if (wasMessageAdded && isAtBottom && !isAlreadyFocusing) {
+        if (lastItemElement) {
+          fastRaf(() => {
+            fastSmoothScroll(
+              container,
+              lastItemElement,
+              'end',
+              BOTTOM_FOCUS_MARGIN,
+            );
+          });
         }
-      }, FOCUSING_DURATION);
-    }
 
-    const hasLastMessageChanged = (
-      messageIds && prevMessageIds && messageIds[messageIds.length - 1] !== prevMessageIds[prevMessageIds.length - 1]
-    );
-    const hasViewportShifted = (
-      messageIds?.[0] !== prevMessageIds?.[0] && messageIds?.length === (MESSAGE_LIST_SLICE / 2 + 1)
-    );
-    const wasMessageAdded = hasLastMessageChanged && !hasViewportShifted;
-    const isAlreadyFocusing = messageIds && memoFocusingIdRef.current === messageIds[messageIds.length - 1];
+        newScrollTop = scrollHeight - offsetHeight;
+        scrollOffsetRef.current = Math.max(
+          Math.ceil(scrollHeight - newScrollTop),
+          offsetHeight,
+        );
 
-    const { scrollTop, scrollHeight, offsetHeight } = container;
-    const scrollOffset = scrollOffsetRef.current!;
-    const lastItemElement = listItemElementsRef.current[listItemElementsRef.current.length - 1];
+        // Scroll still needs to be restored after container resize
+        if (!shouldForceScroll) {
+          return;
+        }
+      }
 
-    let bottomOffset = scrollOffset - (prevContainerHeight || offsetHeight);
-    if (wasMessageAdded) {
-      // If two new messages come at once (e.g. when bot responds) then the first message will update `scrollOffset`
-      // right away (before animation) which creates inconsistency until the animation completes. To workaround that,
-      // we calculate `isAtBottom` with a "buffer" of the latest message height (this is approximate).
-      const lastItemHeight = lastItemElement ? lastItemElement.offsetHeight : 0;
-      bottomOffset -= lastItemHeight;
-    }
-    const isAtBottom = isViewportNewest && prevIsViewportNewest && bottomOffset <= BOTTOM_THRESHOLD;
+      if (process.env.APP_ENV === 'perf') {
+        // eslint-disable-next-line no-console
+        console.time('scrollTop');
+      }
 
-    let newScrollTop!: number;
+      const isResized = prevContainerHeight !== undefined
+        && prevContainerHeight !== containerHeight;
+      const anchor = anchorIdRef.current
+        && container.querySelector(`#${anchorIdRef.current}`);
+      const unreadDivider = !anchor
+        && memoUnreadDividerBeforeIdRef.current
+        && container.querySelector<HTMLDivElement>(`.${UNREAD_DIVIDER_CLASS}`);
 
-    if (wasMessageAdded && isAtBottom && !isAlreadyFocusing) {
-      if (lastItemElement) {
+      if (isAtBottom && isResized) {
+        if (isAnimatingScroll()) {
+          return;
+        }
+
+        newScrollTop = scrollHeight - offsetHeight;
+      } else if (anchor) {
+        const newAnchorTop = anchor.getBoundingClientRect().top;
+        newScrollTop = scrollTop + (newAnchorTop - (anchorTopRef.current || 0));
+      } else if (unreadDivider) {
+        newScrollTop = Math.min(
+          unreadDivider.offsetTop
+          - (hasTools ? UNREAD_DIVIDER_TOP_WITH_TOOLS : UNREAD_DIVIDER_TOP),
+          scrollHeight - scrollOffset,
+        );
+      } else {
+        newScrollTop = scrollHeight - scrollOffset;
+      }
+
+      resetScroll(container, Math.ceil(newScrollTop));
+
+      if (!memoFocusingIdRef.current) {
+        isScrollTopJustUpdatedRef.current = true;
         fastRaf(() => {
-          fastSmoothScroll(
-            container,
-            lastItemElement,
-            'end',
-            BOTTOM_FOCUS_MARGIN,
-          );
+          isScrollTopJustUpdatedRef.current = false;
         });
       }
 
-      newScrollTop = scrollHeight - offsetHeight;
-      scrollOffsetRef.current = Math.max(Math.ceil(scrollHeight - newScrollTop), offsetHeight);
-
-      // Scroll still needs to be restored after container resize
-      if (!shouldForceScroll) {
-        return;
-      }
-    }
-
-    if (process.env.APP_ENV === 'perf') {
-      // eslint-disable-next-line no-console
-      console.time('scrollTop');
-    }
-
-    const isResized = prevContainerHeight !== undefined && prevContainerHeight !== containerHeight;
-    const anchor = anchorIdRef.current && container.querySelector(`#${anchorIdRef.current}`);
-    const unreadDivider = (
-      !anchor
-      && memoUnreadDividerBeforeIdRef.current
-      && container.querySelector<HTMLDivElement>(`.${UNREAD_DIVIDER_CLASS}`)
-    );
-
-    if (isAtBottom && isResized) {
-      if (isAnimatingScroll()) {
-        return;
-      }
-
-      newScrollTop = scrollHeight - offsetHeight;
-    } else if (anchor) {
-      const newAnchorTop = anchor.getBoundingClientRect().top;
-      newScrollTop = scrollTop + (newAnchorTop - (anchorTopRef.current || 0));
-    } else if (unreadDivider) {
-      newScrollTop = Math.min(
-        unreadDivider.offsetTop - (hasTools ? UNREAD_DIVIDER_TOP_WITH_TOOLS : UNREAD_DIVIDER_TOP),
-        scrollHeight - scrollOffset,
+      scrollOffsetRef.current = Math.max(
+        Math.ceil(scrollHeight - newScrollTop),
+        offsetHeight,
       );
-    } else {
-      newScrollTop = scrollHeight - scrollOffset;
-    }
 
-    resetScroll(container, Math.ceil(newScrollTop));
+      if (process.env.APP_ENV === 'perf') {
+        // eslint-disable-next-line no-console
+        console.timeEnd('scrollTop');
+      }
+      // This should match deps for `useOnChange` above
+    },
+    [messageIds, isViewportNewest, containerHeight, hasTools],
+  );
 
-    if (!memoFocusingIdRef.current) {
-      isScrollTopJustUpdatedRef.current = true;
-      fastRaf(() => {
-        isScrollTopJustUpdatedRef.current = false;
-      });
-    }
-
-    scrollOffsetRef.current = Math.max(Math.ceil(scrollHeight - newScrollTop), offsetHeight);
-
-    if (process.env.APP_ENV === 'perf') {
-      // eslint-disable-next-line no-console
-      console.timeEnd('scrollTop');
-    }
-    // This should match deps for `useOnChange` above
-  }, [messageIds, isViewportNewest, containerHeight, hasTools]);
-
-  useEffectWithPrevDeps(([prevIsSelectModeActive]) => {
-    if (prevIsSelectModeActive !== undefined) {
-      dispatchHeavyAnimationEvent(SELECT_MODE_ANIMATION_DURATION + ANIMATION_END_DELAY);
-    }
-  }, [isSelectModeActive]);
+  useEffectWithPrevDeps(
+    ([prevIsSelectModeActive]) => {
+      if (prevIsSelectModeActive !== undefined) {
+        dispatchHeavyAnimationEvent(
+          SELECT_MODE_ANIMATION_DURATION + ANIMATION_END_DELAY,
+        );
+      }
+    },
+    [isSelectModeActive],
+  );
 
   const lang = useLang();
 
   const isPrivate = Boolean(chatId && isChatPrivate(chatId));
-  const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat);
+  const withUsers = Boolean(
+    (!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat,
+  );
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = isChatPrivate(chatId) && !isChatWithSelf && !isBot
-    && (
-      (
-        !messageGroups && !lastMessage && messageIds
-        // Used to avoid flickering when deleting a greeting that has just been sent
-        && (!listItemElementsRef.current || listItemElementsRef.current.length === 0)
-      )
-      || (messageIds?.length === 1 && messagesById?.[messageIds[0]]?.content.action?.type === 'contactSignUp')
-      || (lastMessage?.content?.action?.type === 'contactSignUp')
-    );
+  const shouldRenderGreeting = isChatPrivate(chatId)
+    && !isChatWithSelf
+    && !isBot
+    && ((!messageGroups
+      && !lastMessage
+      && messageIds
+      // Used to avoid flickering when deleting a greeting that has just been sent
+      && (!listItemElementsRef.current
+        || listItemElementsRef.current.length === 0))
+      || (messageIds?.length === 1
+        && messagesById?.[messageIds[0]]?.content.action?.type
+        === 'contactSignUp')
+      || lastMessage?.content?.action?.type === 'contactSignUp');
 
-  const isGroupChatJustCreated = isGroupChat && isCreator
-    && messageIds?.length === 1 && messagesById?.[messageIds[0]]?.content.action?.type === 'chatCreate';
+  const isGroupChatJustCreated = isGroupChat
+    && isCreator
+    && messageIds?.length === 1
+    && messagesById?.[messageIds[0]]?.content.action?.type === 'chatCreate';
 
   const className = buildClassName(
     'MessageList custom-scroll',
@@ -481,14 +557,22 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       onScroll={handleScroll}
       onMouseDown={preventMessageInputBlur}
     >
-      {isRestricted ? (
+      {showHeymate ? (
+        <ManageOffers activeTab={activeTab} />
+      ) : isRestricted ? (
         <div className="empty">
           <span>
-            {restrictionReason ? restrictionReason.text : `This is a private ${isChannelChat ? 'channel' : 'chat'}`}
+            {restrictionReason
+              ? restrictionReason.text
+              : `This is a private ${isChannelChat ? 'channel' : 'chat'}`}
           </span>
         </div>
       ) : botDescription ? (
-        <div className="empty"><span>{renderText(lang(botDescription), ['br', 'emoji', 'links'])}</span></div>
+        <div className="empty">
+          <span>
+            {renderText(lang(botDescription), ['br', 'emoji', 'links'])}
+          </span>
+        </div>
       ) : shouldRenderGreeting ? (
         <ContactGreeting userId={chatId} />
       ) : messageIds && (!messageGroups || isGroupChatJustCreated) ? (
@@ -498,7 +582,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
           isChatWithSelf={isChatWithSelf}
           isGroupChatJustCreated={isGroupChatJustCreated}
         />
-      ) : ((messageIds && messageGroups) || lastMessage) ? (
+      ) : (messageIds && messageGroups) || lastMessage ? (
         <MessageListContent
           messageIds={messageIds || [lastMessage!.id]}
           messageGroups={messageGroups || groupMessages([lastMessage!])}
@@ -516,7 +600,9 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
           threadTopMessageId={threadTopMessageId}
           hasLinkedChat={hasLinkedChat}
           isSchedule={messageGroups ? type === 'scheduled' : false}
-          noAppearanceAnimation={!messageGroups || !shouldAnimateAppearanceRef.current}
+          noAppearanceAnimation={
+            !messageGroups || !shouldAnimateAppearanceRef.current
+          }
           onFabToggle={onFabToggle}
           onNotchToggle={onNotchToggle}
           openHistoryCalendar={openHistoryCalendar}
@@ -528,72 +614,94 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  (global, { chatId, threadId, type }): StateProps => {
-    const chat = selectChat(global, chatId);
-    if (!chat) {
-      return {};
-    }
-
-    const messageIds = selectCurrentMessageIds(global, chatId, threadId, type);
-    const messagesById = type === 'scheduled'
-      ? selectScheduledMessages(global, chatId)
-      : selectChatMessages(global, chatId);
-    const threadTopMessageId = selectThreadTopMessageId(global, chatId, threadId);
-
-    if (
-      threadId !== MAIN_THREAD_ID
-      && !(messagesById && threadTopMessageId && messagesById[threadTopMessageId])
-    ) {
-      return {};
-    }
-
-    const { isRestricted, restrictionReason, lastMessage } = chat;
-    const focusingId = selectFocusedMessageId(global, chatId);
-
-    const withLastMessageWhenPreloading = (
-      threadId === MAIN_THREAD_ID
-      && !messageIds && !chat.unreadCount && !focusingId && lastMessage && !lastMessage.groupedId
-    );
-
-    const chatBot = selectChatBot(global, chatId)!;
-    let botDescription: string | undefined;
-    if (selectIsChatBotNotStarted(global, chatId)) {
-      if (chatBot.fullInfo) {
-        botDescription = chatBot.fullInfo.botDescription || 'NoMessages';
-      } else {
-        botDescription = 'Updating bot info...';
+export default memo(
+  withGlobal<OwnProps>(
+    (global, { chatId, threadId, type }): StateProps => {
+      const { showHeymate } = global;
+      const chat = selectChat(global, chatId);
+      if (!chat) {
+        return {};
       }
-    }
 
-    return {
-      isChatLoaded: true,
-      isRestricted,
-      restrictionReason,
-      isChannelChat: isChatChannel(chat),
-      isGroupChat: isChatGroup(chat),
-      isCreator: chat.isCreator,
-      isChatWithSelf: selectIsChatWithSelf(global, chatId),
-      isRepliesChat: isChatWithRepliesBot(chatId),
-      isBot: Boolean(chatBot),
-      messageIds,
-      messagesById,
-      firstUnreadId: selectFirstUnreadId(global, chatId, threadId),
-      isViewportNewest: type !== 'thread' || selectIsViewportNewest(global, chatId, threadId),
-      threadFirstMessageId: selectFirstMessageId(global, chatId, threadId),
-      focusingId,
-      isSelectModeActive: selectIsInSelectMode(global),
-      botDescription,
-      threadTopMessageId,
-      hasLinkedChat: chat.fullInfo && ('linkedChatId' in chat.fullInfo)
-        ? Boolean(chat.fullInfo.linkedChatId)
-        : undefined,
-      ...(withLastMessageWhenPreloading && { lastMessage }),
-    };
-  },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadViewportMessages',
-    'setScrollOffset',
-    'openHistoryCalendar',
-  ]),
-)(MessageList));
+      const messageIds = selectCurrentMessageIds(
+        global,
+        chatId,
+        threadId,
+        type,
+      );
+      const messagesById = type === 'scheduled'
+        ? selectScheduledMessages(global, chatId)
+        : selectChatMessages(global, chatId);
+      const threadTopMessageId = selectThreadTopMessageId(
+        global,
+        chatId,
+        threadId,
+      );
+
+      if (
+        threadId !== MAIN_THREAD_ID
+        && !(
+          messagesById
+          && threadTopMessageId
+          && messagesById[threadTopMessageId]
+        )
+      ) {
+        return {};
+      }
+
+      const { isRestricted, restrictionReason, lastMessage } = chat;
+      const focusingId = selectFocusedMessageId(global, chatId);
+
+      const withLastMessageWhenPreloading = threadId === MAIN_THREAD_ID
+        && !messageIds
+        && !chat.unreadCount
+        && !focusingId
+        && lastMessage
+        && !lastMessage.groupedId;
+
+      const chatBot = selectChatBot(global, chatId)!;
+      let botDescription: string | undefined;
+      if (selectIsChatBotNotStarted(global, chatId)) {
+        if (chatBot.fullInfo) {
+          botDescription = chatBot.fullInfo.botDescription || 'NoMessages';
+        } else {
+          botDescription = 'Updating bot info...';
+        }
+      }
+
+      return {
+        showHeymate,
+        isChatLoaded: true,
+        isRestricted,
+        restrictionReason,
+        isChannelChat: isChatChannel(chat),
+        isGroupChat: isChatGroup(chat),
+        isCreator: chat.isCreator,
+        isChatWithSelf: selectIsChatWithSelf(global, chatId),
+        isRepliesChat: isChatWithRepliesBot(chatId),
+        isBot: Boolean(chatBot),
+        messageIds,
+        messagesById,
+        firstUnreadId: selectFirstUnreadId(global, chatId, threadId),
+        isViewportNewest:
+          type !== 'thread' || selectIsViewportNewest(global, chatId, threadId),
+        threadFirstMessageId: selectFirstMessageId(global, chatId, threadId),
+        focusingId,
+        isSelectModeActive: selectIsInSelectMode(global),
+        botDescription,
+        threadTopMessageId,
+        hasLinkedChat:
+          chat.fullInfo && 'linkedChatId' in chat.fullInfo
+            ? Boolean(chat.fullInfo.linkedChatId)
+            : undefined,
+        ...(withLastMessageWhenPreloading && { lastMessage }),
+      };
+    },
+    (setGlobal, actions): DispatchProps =>
+      pick(actions, [
+        'loadViewportMessages',
+        'setScrollOffset',
+        'openHistoryCalendar',
+      ])
+  )(MessageList),
+);
