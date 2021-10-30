@@ -1,0 +1,143 @@
+.OfferModal {
+  .modal-dialog {
+    max-height: 520px;
+    width: 480px;
+    .modal-header {
+      flex-direction: row-reverse;
+      .modal-title {
+        text-align: center;
+      }
+    }
+    .offer-details-modal-container {
+      .offer-images {
+        height: 224px;
+        margin: 0 -1rem;
+        position: relative;
+        #share-offer {
+          cursor: pointer;
+          position: absolute;
+          right: 1rem;
+          bottom: -1rem;
+          width: 40px;
+          height: 40px;
+          background: var(--color-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          i {
+            color: var(--color-white);
+          }
+        }
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover ;
+        }
+      }
+      .title-and-sub {
+        margin-top: 1rem;
+        display: flex;
+        flex-flow: row wrap;
+        span {
+          &#offer-title {
+            font-weight: 500;
+          }
+          &#offer-category {
+            color: var(--color-gray);
+            font-size: 14px;
+            font-weight: 400;
+          }
+          display: flex;
+          width: 100%;
+        }
+      }
+      .offer-type {
+        display: inline-block;
+        margin: 16px 0;
+      }
+      .offer-description {
+        margin-top: 1rem;
+        font-size: 14px;
+        font-weight: 400;
+      }
+      .offer-expiration {
+        margin: 1rem 0;
+        display: flex;
+        justify-content: space-between;
+        #expire-date {
+          font-size: 14px;
+          font-weight: 500;
+        }
+        .expire-icon-and-text {
+          display: flex;
+          align-items: center;
+          #expire-icon {
+            font-size: 16px;
+          }
+          #expire-text {
+            margin-left: 0.5rem;
+            font-size: 14px;
+            font-weight: 400;
+          }
+        }
+      }
+      .my-offer-types {
+        display: flex;
+        justify-content: space-between;
+        .radios-grp {
+          .radio-group {
+            .Radio {
+              padding-left: 3.5rem;
+            }
+          }
+        }
+        .price-grp {
+          display: flex;
+          flex-flow: row wrap;
+          padding-right: 16px;
+          .prices {
+            display: block;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            text-align: right;
+            &.active {
+              color: var(--color-primary);
+            }
+          }
+        }
+      }
+      .btn-group {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        .Button {
+          width: 128px;
+          text-transform: none;
+          &.book-offer {
+            margin-left: 1rem;
+          }
+          &.see-details {
+            color: var(--color-text);
+          }
+        }
+      }
+      .offer-text {
+        word-break: break-all;
+        color: var(--color-gray);
+      }
+    }
+  }
+}
+.BookOfferModal {
+  .btn-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    .Button {
+      text-transform: none;
+      width: 49%;
+    }
+  }
+}

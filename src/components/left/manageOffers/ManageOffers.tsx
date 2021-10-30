@@ -1,6 +1,5 @@
-// eslint-disable-next-line import/no-unresolved
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  FC, memo, useCallback, useState,
 } from 'teact/teact';
 
 import useLang from '../../../hooks/useLang';
@@ -9,11 +8,7 @@ import Button from '../../ui/Button';
 import TabList from '../../ui/TabList';
 import Transition from '../../ui/Transition';
 
-import Offer from './Offer/Offer';
-import OnlineMetting from './OnlineMeeting/OnlineMetting';
 import MyOrders from './MyOrders/MyOrders';
-import { axiosService } from '../../../api/services/axiosService';
-import { HEYMATE_URL } from '../../../config';
 
 export type OwnProps = {
   onReset: () => void;
@@ -69,7 +64,7 @@ const ManageOffers: FC<OwnProps> = ({ onReset }) => {
                 <>
                   <span className="page-caption">On Going</span>
                   <div className="offer-scroll custom-scroll">
-                    <OnlineMetting />
+                    My Orders
                   </div>
                 </>
               );

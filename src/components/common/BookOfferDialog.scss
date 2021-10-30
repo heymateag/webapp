@@ -1,0 +1,72 @@
+.BookOfferModal {
+  .modal-dialog {
+    max-height: 520px;
+    width: 480px;
+    .modal-header {
+      flex-direction: row-reverse;
+      .modal-title {
+        text-align: center;
+      }
+    }
+    .book-offer-content {
+      max-height: 623px;
+      .TabList {
+        z-index: 1;
+      }
+      .Transition {
+        .TimeSlots {
+          .time-slots-picker {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem;
+            #caption {
+              font-size: 16px;
+              font-weight: 400;
+              color: var(--color-text);
+            }
+            #time-picker {
+              font-size: 16px;
+              font-weight: 500;
+              color: var(--color-primary);
+            }
+          }
+          .time-slots-rows {
+            height: 300px;
+            overflow-y: scroll;
+            .time-slot-row {
+              display: flex;
+              align-items: center;
+              height: 64px;
+              border: 1px solid var(--color-borders-input);
+              border-radius: var(--border-radius-messages);
+              &.active {
+                border-color: var(--color-primary);
+                label {
+                  color: var(--color-primary);
+                }
+              }
+              .Radio {
+                margin-bottom: 0;
+                line-height: 0;
+              }
+              label {
+                margin-bottom: 0;
+              }
+            }
+          }
+        }
+        padding: 1rem 0;
+
+      }
+    }
+    .btn-group {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      .Button {
+        width: 49%;
+      }
+    }
+  }
+
+}
