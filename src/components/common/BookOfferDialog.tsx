@@ -2,39 +2,49 @@ import React, {
   FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
 import Modal from '../ui/Modal';
-import RadioGroup from '../ui/RadioGroup';
 import Radio from '../ui/Radio';
-import Button from '../ui/Button';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
 import { axiosService } from '../../api/services/axiosService';
 import { HEYMATE_URL } from '../../config';
 import TabList from '../ui/TabList';
 import { ITimeSlotModel } from '../../types/HeymateTypes/TimeSlot.model';
-
+import Button from '../ui/Button';
 import Transition from '../ui/Transition';
 
 import useLang from '../../hooks/useLang';
 import './BookOfferDialog.scss';
+import { ChangeEvent } from 'react';
 
 type OwnProps = {
   offer: IOffer;
   openModal: boolean;
   onCloseModal: () => void;
+  purchasePlanType?: 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 };
 
 enum BookOfferModalTabs {
   TIME_SLOTS,
   CALENDAR,
 }
-
+interface ITimeSlotsRender extends ITimeSlotModel{
+  fromDateLocal?: string;
+  toDateLocal?: string;
+}
+interface IBookOfferModel {
+  offerId: string;
+  serviceProviderId: string;
+  timeSlotId: string;
+  meetingId: string;
+}
 const BookOfferDialog: FC<OwnProps> = ({
   offer,
   openModal = false,
   onCloseModal,
+  purchasePlanType = 'SINGLE',
 }) => {
   const lang = useLang();
 
-  const [timeSlots, setTimeSlots] = useState<ITimeSlotModel[]>([]);
+  const [timeSlots, setTimeSlots] = useState<ITimeSlotsRender[]>([]);
 
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
@@ -56,34 +66,69 @@ const BookOfferDialog: FC<OwnProps> = ({
 
   useEffect(() => {
     if (offer) {
-      getOfferTimeSlots(offer.id).then((r) => {
-        setTimeSlots(r);
+      getOfferTimeSlots(offer.id).then((res) => {
+        const temp = res.data.map((item: ITimeSlotsRender) => {
+          let fromTs = parseInt(item.form_time, 10);
+          let toTs = parseInt(item.to_time, 10);
+          if (item.form_time.length <= 10) {
+            fromTs *= 1000;
+            toTs *= 1000;
+          }
+          item.fromDateLocal = new Date(fromTs).toLocaleTimeString();
+          item.toDateLocal = new Date(toTs).toLocaleTimeString();
+          return item;
+        });
+        setTimeSlots(temp);
       });
     }
   }, [offer]);
-  const TIME_SLOTS: { value: string; label: string; subLabel: string }[] = [
-    { value: 'single', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-    { value: 'bundle1', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-    { value: 'bundle2', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-    { value: 'bundle3', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-    { value: 'bundle4', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-    { value: 'bundle5', label: 'Monday, 6.17.2021', subLabel: '12:00 - 18:00' },
-  ];
 
-  const [selectedReason, setSelectedReason] = useState('single');
+  const [selectedTimeSlotId, setSelectedTimeSlotId] = useState('');
 
-  const handleSelectType = useCallback((value: string) => {
-    setSelectedReason(value);
+  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.currentTarget;
+    setSelectedTimeSlotId(value);
   }, []);
 
+  const purchaseAPlan = async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation`,
+      method: 'POST',
+      body: {
+        planType: purchasePlanType,
+        offerId: offer.id,
+      },
+    });
+    return response.data;
+  };
+
+  const handleBookOffer = async () => {
+    if (purchasePlanType !== 'SINGLE') {
+
+    }
+    const data: IBookOfferModel = {
+      offerId: offer.id,
+      serviceProviderId: offer.userId,
+      timeSlotId: selectedTimeSlotId,
+      meetingId: '',
+    };
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation`,
+      method: 'POST',
+      body: data,
+    });
+    if (response.status === 201) {
+      alert('Offer Booked Successfuly !');
+    } else {
+      alert('some thing went wrong !');
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<BookOfferModalTabs>(BookOfferModalTabs.TIME_SLOTS);
+
   const handleSwitchTab = useCallback((index: number) => {
     setActiveTab(index);
   }, []);
-
-  const handleChange = () => {
-    console.log('change happend');
-  };
 
   return (
     <Modal
@@ -98,7 +143,7 @@ const BookOfferDialog: FC<OwnProps> = ({
         <TabList activeTab={activeTab} tabs={tabs} onSwitchTab={handleSwitchTab} />
         <Transition
           className="full-content"
-          name={lang.isRtl ? 'slide-reversed' : 'slide'}
+          name={lang.isRtl ? 'slide-reversed' : 'mv-slide'}
           renderCount={tabs.length}
           activeKey={activeTab}
         >
@@ -112,21 +157,23 @@ const BookOfferDialog: FC<OwnProps> = ({
                       <span id="time-picker">May 20,2021</span>
                     </div>
                     <div className="time-slots-rows custom-scroll">
-                      <div className="time-slot-row actions">
-                        <Radio
-                          name="abs"
-                          label="12:00 PM - 01:30 PM"
-                          value="15245454545"
-                          checked={false}
-                          onChange={handleChange}
-                        />
-                      </div>
+                      {timeSlots.length > 0 && timeSlots.map((item) => (
+                        <div className="time-slot-row actions">
+                          <Radio
+                            name="abs"
+                            label={`${item.fromDateLocal} - ${item.toDateLocal}`}
+                            value={item.id}
+                            checked={false}
+                            onChange={handleChange}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
               case BookOfferModalTabs.CALENDAR:
                 return (
-                  <div>
+                  <div className="Calendar">
                     Calendar Content
                   </div>
                 );
@@ -142,7 +189,7 @@ const BookOfferDialog: FC<OwnProps> = ({
         <Button className="book-offer" size="smaller" color="translucent">
           <span>Cancel</span>
         </Button>
-        <Button className="see-details" size="smaller" color="primary">
+        <Button onClick={handleBookOffer} className="see-details" size="smaller" color="primary">
           Book Now
         </Button>
       </div>

@@ -15,6 +15,7 @@ type OwnProps = {
   offer: IOffer;
   openModal: boolean;
   onCloseModal: () => void;
+  onBookClicked: (planType: string) => void;
   message: ApiMessage;
 };
 interface IPurchasePlan {
@@ -23,12 +24,15 @@ interface IPurchasePlan {
   subLabel: string;
 }
 
+type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
+
 type DispatchProps = Pick<GlobalActions, ('openForwardMenu')>;
 const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   offer,
   openModal = false,
   openForwardMenu,
   onCloseModal,
+  onBookClicked,
   message,
 }) => {
   const handleCLoseDetailsModal = () => {
@@ -37,12 +41,12 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
 
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
 
-  const [selectedReason, setSelectedReason] = useState('single');
+  const [selectedPlan, setSelectedPlan] = useState('SINGLE');
 
   const [bundlePrice, setBundlePrice] = useState(0);
 
   const handleSelectType = useCallback((value: string) => {
-    setSelectedReason(value);
+    setSelectedPlan(value.toUpperCase());
   }, []);
 
   const handleForward = useCallback(() => {
@@ -121,7 +125,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
               name="report-message"
               options={purchasePlan}
               onChange={handleSelectType}
-              selected={selectedReason}
+              selected={selectedPlan}
             />
           </div>
           <div className="price-grp">
@@ -136,7 +140,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
           <Button className="see-details" size="smaller" color="secondary">
             Promote
           </Button>
-          <Button className="book-offer" size="smaller" color="primary">
+          <Button onClick={() => onBookClicked(selectedPlan)} className="book-offer" size="smaller" color="primary">
             <span>Book Now</span>
           </Button>
         </div>

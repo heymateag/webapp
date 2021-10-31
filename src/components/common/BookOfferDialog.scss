@@ -10,6 +10,7 @@
     }
     .book-offer-content {
       max-height: 623px;
+      min-height: 430px;
       .TabList {
         z-index: 1;
       }
@@ -39,6 +40,7 @@
               height: 64px;
               border: 1px solid var(--color-borders-input);
               border-radius: var(--border-radius-messages);
+              margin-top: 0.5rem;
               &.active {
                 border-color: var(--color-primary);
                 label {
@@ -55,16 +57,20 @@
             }
           }
         }
+        //min-height: 430px;
         padding: 1rem 0;
 
+      }
+      .Calendar {
+        height: 300px;
       }
     }
     .btn-group {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       width: 100%;
       .Button {
-        width: 49%;
+        width: 128px;
       }
     }
   }

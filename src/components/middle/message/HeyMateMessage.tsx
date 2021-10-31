@@ -14,6 +14,9 @@ import './HeyMateMessage.scss';
 type OwnProps = {
   message: ApiMessage;
 };
+
+type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
+
 const HeyMateMessage: FC<OwnProps> = ({
   message,
 }) => {
@@ -67,6 +70,14 @@ const HeyMateMessage: FC<OwnProps> = ({
   const handleOpenBookOfferModal = () => {
     setOpenBookOfferModal(true);
   };
+
+  const [planType, setPlanType] = useState<PlanType>('SINGLE');
+
+  const handleBookOfferClicked = (plan: PlanType) => {
+    setPlanType(plan);
+    setOpenDetailsModal(false);
+    setOpenBookOfferModal(true);
+  };
   // @ts-ignore
   return (
     <div>
@@ -115,11 +126,13 @@ const HeyMateMessage: FC<OwnProps> = ({
         </div>
       </div>
       <BookOfferDialog
+        purchasePlanType={planType}
         offer={offerMsg}
         openModal={openBookOfferModal}
         onCloseModal={handleCLoseBookOfferModal}
       />
       <OfferDetailsDialog
+        onBookClicked={handleBookOfferClicked}
         message={message}
         openModal={openDetailsModal}
         offer={offerMsg}
