@@ -37,7 +37,7 @@ const WEEKDAY_LETTERS = [
   'lng_weekday7',
 ];
 
-const CalendarModal: FC<OwnProps> = ({
+export const CalendarModal: FC<OwnProps> = ({
   selectedAt,
   maxAt,
   isFutureMode,

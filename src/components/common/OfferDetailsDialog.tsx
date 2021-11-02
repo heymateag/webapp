@@ -15,7 +15,7 @@ type OwnProps = {
   offer: IOffer;
   openModal: boolean;
   onCloseModal: () => void;
-  onBookClicked: (planType: string) => void;
+  onBookClicked: (planType: PlanType) => void;
   message: ApiMessage;
 };
 interface IPurchasePlan {
@@ -41,12 +41,25 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
 
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
 
-  const [selectedPlan, setSelectedPlan] = useState('SINGLE');
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>('SINGLE');
 
   const [bundlePrice, setBundlePrice] = useState(0);
 
   const handleSelectType = useCallback((value: string) => {
-    setSelectedPlan(value.toUpperCase());
+    const val = value.toUpperCase();
+    switch (val) {
+      case 'SINGLE':
+        setSelectedPlan('SINGLE');
+        break;
+      case 'BUNDLE':
+        setSelectedPlan('SINGLE');
+        break;
+      case 'SUBSCRIPTION':
+        setSelectedPlan('SUBSCRIPTION');
+        break;
+      default:
+        setSelectedPlan('SINGLE');
+    }
   }, []);
 
   const handleForward = useCallback(() => {
@@ -149,7 +162,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   );
 };
 
-export default memo(withGlobal(
+export default memo(withGlobal<OwnProps>(
   (): any => {
     return {
     };
