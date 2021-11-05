@@ -4,7 +4,7 @@ import React, {
 import { withGlobal } from '../../lib/teact/teactn';
 
 import { ApiChatBannedRights, MAIN_THREAD_ID } from '../../api/types';
-import { GlobalActions, MessageListType, MessageList as GlobalMessageList } from '../../global/types';
+import { GlobalActions, MessageListType, MessageList as GlobalMessageList, GlobalState } from '../../global/types';
 import { ThemeKey } from '../../types';
 
 import {
@@ -90,7 +90,7 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
   messageLists?: GlobalMessageList[];
-};
+} & Pick<GlobalState, 'showHeymate'>;
 
 type DispatchProps = Pick<GlobalActions, (
   'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode' |
@@ -129,6 +129,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   animationLevel,
   shouldSkipHistoryAnimations,
   currentTransitionKey,
+  showHeymate,
   openChat,
   unpinAllMessages,
   loadUser,
@@ -138,7 +139,6 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   clearReceipt,
 }) => {
   const { width: windowWidth } = useWindowSize();
-
   const lang = useLang();
   const [dropAreaState, setDropAreaState] = useState(DropAreaState.None);
   const [isFabShown, setIsFabShown] = useState<boolean | undefined>();
@@ -336,7 +336,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
         style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
       />
       <div id="middle-column-portals" />
-      {renderingChatId && renderingThreadId && (
+      {((renderingChatId && renderingThreadId) || showHeymate) && (
         <>
           <div className="messages-layout" onDragEnter={renderingCanPost ? handleDragEnter : undefined}>
             <MiddleHeader
@@ -443,6 +443,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 export default memo(withGlobal(
   (global): StateProps => {
     const theme = selectTheme(global);
+    const { showHeymate } = global;
     const {
       isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
     } = global.settings.themes[theme] || {};
@@ -450,7 +451,6 @@ export default memo(withGlobal(
     const { messageLists } = global.messages;
     const currentMessageList = selectCurrentMessageList(global);
     const { isLeftColumnShown, chats: { listIds } } = global;
-
     const state: StateProps = {
       theme,
       customBackground,
@@ -465,6 +465,7 @@ export default memo(withGlobal(
       isReceiptModalOpen: Boolean(global.payment.receipt),
       animationLevel: global.settings.byKey.animationLevel,
       currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
+      showHeymate,
     };
 
     if (!currentMessageList || !listIds.active) {
@@ -500,6 +501,7 @@ export default memo(withGlobal(
       pinnedMessagesCount: pinnedIds ? pinnedIds.length : 0,
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
       messageLists,
+      showHeymate,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

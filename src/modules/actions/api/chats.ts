@@ -91,11 +91,10 @@ addReducer('openChat', (global, actions, payload) => {
   const { id, threadId } = payload!;
   const { currentUserId } = global;
   const chat = selectChat(global, id);
-
   if (chat?.hasUnreadMark) {
     actions.toggleChatUnread({ id });
   }
-
+  actions.setShowHeymate(false);
   // Please telegram send us some updates about linked chat 🙏
   if (chat && chat.lastMessage && chat.lastMessage.threadInfo) {
     actions.requestThreadInfoUpdate({

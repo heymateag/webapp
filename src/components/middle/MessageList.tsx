@@ -165,7 +165,6 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
-
   // We update local cached `scrollOffsetRef` when opening chat.
   // Then we update global version every second on scrolling.
   const scrollOffsetRef = useRef<number>(
@@ -620,7 +619,7 @@ export default memo(
       const { showHeymate } = global;
       const chat = selectChat(global, chatId);
       if (!chat) {
-        return {};
+        return { showHeymate };
       }
 
       const messageIds = selectCurrentMessageIds(
