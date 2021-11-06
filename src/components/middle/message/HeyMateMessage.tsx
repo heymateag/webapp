@@ -14,7 +14,11 @@ import './HeyMateMessage.scss';
 type OwnProps = {
   message: ApiMessage;
 };
-
+interface IPurchasePlan {
+  value: string;
+  label: string;
+  subLabel: string;
+}
 type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 
 const HeyMateMessage: FC<OwnProps> = ({
@@ -25,6 +29,11 @@ const HeyMateMessage: FC<OwnProps> = ({
    * @param uuid
    */
   const [offerMsg, setOfferMsg] = useState<IOffer>();
+
+  const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
+
+  const [bundlePrice, setBundlePrice] = useState(0);
+
   async function getOfferById(uuid) {
     const response = await axiosService({
       url: `${HEYMATE_URL}/offer/${uuid}`,
@@ -51,6 +60,43 @@ const HeyMateMessage: FC<OwnProps> = ({
   const handleSelectType = useCallback((value: string) => {
     setSelectedReason(value);
   }, []);
+
+  useEffect(() => {
+    if (offerMsg && purchasePlan.length === 0) {
+      const temp: IPurchasePlan[] = [];
+      if (offerMsg?.pricing?.bundle || offerMsg?.pricing?.subscription) {
+        if (offerMsg.pricing) {
+          temp.push({
+            label: 'Single',
+            value: 'single',
+            subLabel: '1 Session',
+          });
+        }
+        if (offerMsg.pricing.bundle) {
+          let total = offerMsg.pricing.bundle.count * offerMsg.pricing.price;
+          let discount = 0;
+          if (offerMsg.pricing.bundle.discount_percent) {
+            discount = (total * offerMsg.pricing.bundle.discount_percent) / 100;
+          }
+          total -= discount;
+          setBundlePrice(total);
+          temp.push({
+            label: 'Bundle',
+            value: 'bundle',
+            subLabel: `${offerMsg.pricing.bundle.count} Sessions`,
+          });
+        }
+        if (offerMsg.pricing.subscription) {
+          temp.push({
+            label: 'Subscription',
+            value: 'subscription',
+            subLabel: `${offerMsg.pricing.subscription.period}`,
+          });
+        }
+        setPurchasePlan(temp);
+      }
+    }
+  }, [purchasePlan, offerMsg]);
   /**
    * Heymate Message Type
    */
@@ -97,15 +143,17 @@ const HeyMateMessage: FC<OwnProps> = ({
             <div className="radios-grp">
               <RadioGroup
                 name="report-message"
-                options={REPORT_OPTIONS}
+                options={purchasePlan}
                 onChange={handleSelectType}
                 selected={selectedReason}
               />
             </div>
             <div className="price-grp">
-              <span className="prices active">$50</span>
-              <span className="prices">$490</span>
-              <span className="prices">$600</span>
+              <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
+              <span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>
+              <span className="prices">
+                {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`}
+              </span>
             </div>
           </div>
           <div className="refer-offer">

@@ -17,6 +17,7 @@ import './BookOfferDialog.scss';
 
 import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
+import buildClassName from '../../util/buildClassName';
 
 type OwnProps = {
   offer: IOffer;
@@ -30,6 +31,8 @@ enum BookOfferModalTabs {
   CALENDAR,
 }
 interface ITimeSlotsRender extends ITimeSlotModel{
+  fromTs: number;
+  toTs: number;
   fromDateLocal?: string;
   toDateLocal?: string;
 }
@@ -49,8 +52,11 @@ const BookOfferDialog: FC<OwnProps> = ({
   const lang = useLang();
 
   const [timeSlots, setTimeSlots] = useState<ITimeSlotsRender[]>([]);
+  const [filteredDate, setFilteredDate] = useState<ITimeSlotsRender[]>([]);
 
   const [bookOfferLoading, setBookOfferLoading] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState<string>('All');
 
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
@@ -80,11 +86,14 @@ const BookOfferDialog: FC<OwnProps> = ({
             fromTs *= 1000;
             toTs *= 1000;
           }
+          item.fromTs = fromTs;
+          item.toTs = toTs;
           item.fromDateLocal = new Date(fromTs).toLocaleTimeString();
           item.toDateLocal = new Date(toTs).toLocaleTimeString();
           return item;
         });
         setTimeSlots(temp);
+        setFilteredDate(temp);
       });
     }
   }, [offer]);
@@ -151,8 +160,17 @@ const BookOfferDialog: FC<OwnProps> = ({
   };
 
   const handleRescheduleMessage = useCallback((date: Date) => {
-    console.log(date);
-  }, []);
+    let startDate: any = date;
+    let endDate: any = date;
+    const stringDateArr = date.toString().split(' ');
+    const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
+    setSelectedDate(stringDate);
+    startDate = startDate.setHours(0, 0, 0, 0);
+    endDate = endDate.setHours(23, 59, 59, 999);
+    const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setIsCalendarOpen(false);
+    setFilteredDate(filterDates);
+  }, [timeSlots]);
 
   return (
     <div>
@@ -182,21 +200,31 @@ const BookOfferDialog: FC<OwnProps> = ({
                         <span
                           id="time-picker"
                           onClick={handleOpenCalendarModal}
-                        >All
+                        >{selectedDate}
                         </span>
                       </div>
                       <div className="time-slots-rows custom-scroll">
-                        {timeSlots.length > 0 && timeSlots.map((item) => (
-                          <div className="time-slot-row actions">
+                        {filteredDate.length > 0 ? filteredDate.map((item) => (
+                          <div
+                            className={buildClassName('time-slot-row',
+                              (selectedTimeSlotId === item.id) && 'active')}
+                          >
                             <Radio
-                              name="abs"
+                              name={item.id}
                               label={`${item.fromDateLocal} - ${item.toDateLocal}`}
                               value={item.id}
                               checked={false}
                               onChange={handleChange}
                             />
                           </div>
-                        ))}
+                        )) : (
+                          <div className="no-time-slot-founds">
+                            <i className="hm-calendar" />
+                            <div className="content-for-no-ts">
+                              <p>There’s no available time for the selected date.</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

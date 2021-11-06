@@ -93,6 +93,7 @@
     display: flex;
     justify-content: space-between;
     .Button {
+      text-transform: none;
       flex: 50%;
     }
     .book-offer {

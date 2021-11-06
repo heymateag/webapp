@@ -1,10 +1,12 @@
-import React, { FC, useEffect, useState } from 'teact/teact';
-import WalletConnect from '@walletconnect/client';
-import QRCodeModal from '@walletconnect/qrcode-modal';
+import React, {
+  FC, useEffect, useRef, useState,
+} from 'teact/teact';
+import { WalletConnectWallet } from '@celo/wallet-walletconnect';
+import QrCreator from 'qr-creator';
 import useLang from '../../../hooks/useLang';
 import { getAccount, getAccountBalance } from './AccountManager/AccountMannager';
 import Spinner from '../../ui/Spinner';
-
+import Modal from '../../ui/Modal';
 import './Wallet.scss';
 import Button from '../../ui/Button';
 import TransactionRow from './TransactionRow/TransactionRow';
@@ -22,24 +24,16 @@ interface IBalance {
   CELO: string;
   cUSD: string;
 }
-interface IWalletConnect {
-  accounts: string[];
-  bridge: string;
-  chainId: number;
-  clientId: string;
-  clientMeta: any;
-  connected: boolean;
-  handshakeId: number;
-  handshakeTopic: string;
-  key: string;
-  peerId: string;
-  peerMeta: any;
-}
+
 interface IWalletConnectPayLoad {
   accounts: string[];
   chainId: number;
 }
 const Wallet: FC <OwnProps> = ({ onReset }) => {
+  const [openModal, setOpenModal] = useState(false);
+  // eslint-disable-next-line no-null/no-null
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const [walletUri, setWalletUri] = useState<any>('');
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [walletObject, setWalletObject] = useState<IWalletConnectPayLoad>();
   const [account, setAccount] = useState<IAccount>();
@@ -49,39 +43,45 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
   });
   const lang = useLang();
   /**
-   * BEGIN Wallet Connect Operations To Connect
+   * Init Celo Wallet Connect
    */
-  const connector = new WalletConnect({
-    bridge: 'https://bridge.walletconnect.org', // Required
-    qrcodeModal: QRCodeModal,
-  });
-  if (!connector.connected) {
-    // create new session
-    connector.createSession();
-  } else {
-    const { session } = connector;
-    setWalletObject({
-      accounts: session.accounts, chainId: session.chainId,
+  const connect = async () => {
+    const wallet = new WalletConnectWallet({
+      connect: {
+        metadata: {
+          name: 'The name of your awesome DApp',
+          description: 'Your DApp description',
+          url: 'https://example.com',
+          icons: ['https://example.com/favicon.ico'],
+        },
+      },
     });
-  }
-  // Subscribe to connection events
-  connector.on('connect', (error, payload) => {
-    if (error) {
-      throw error;
-    }
-    const { accounts, chainId } = payload.params[0];
-    setWalletObject({
-      accounts, chainId,
-    });
-  });
-  /**
-   * On Wallet Mount
-   */
-  useEffect(() => {
-    getAccount().then((res) => {
-      setAccount(res);
-    });
-  }, []);
+    const container = qrCodeRef.current!;
+    // container.innerHTML = '';
+    container.classList.remove('pre-animate');
+    const uri = await wallet.getUri();
+    setWalletUri(uri);
+    QrCreator.render({
+      text: `${uri}`,
+      radius: 0.5,
+      ecLevel: 'M',
+      fill: '#4E96D4',
+      size: 280,
+    }, container);
+    setOpenModal(true);
+  };
+
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+  };
+
+  const handleOpenWCModal = () => {
+    setOpenModal(true);
+    setTimeout(() => {
+      connect();
+    }, 100);
+  };
+
   /**
    * Get Account Balance
    */
@@ -127,8 +127,8 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
             </Button>
           </div>
           <div id="cashout" className="btn-holder">
-            <Button isText size="smaller" color="primary">
-              <span>Cashout</span>
+            <Button onClick={handleOpenWCModal} isText size="smaller" color="primary">
+              <span>Connect</span>
             </Button>
           </div>
         </div>
@@ -145,6 +145,16 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
         <TransactionRow />
         <TransactionRow />
       </div>
+      <Modal
+        hasCloseButton
+        isOpen={openModal}
+        onClose={handleCLoseWCModal}
+        onEnter={openModal ? handleCLoseWCModal : undefined}
+        className="BookOfferModal"
+        title="Wallet Connect"
+      >
+        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      </Modal>
     </div>
   );
 };

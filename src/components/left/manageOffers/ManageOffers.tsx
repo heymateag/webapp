@@ -61,12 +61,7 @@ const ManageOffers: FC<OwnProps> = ({ onReset }) => {
               );
             case ManageOffer.MY_OFFERS:
               return (
-                <>
-                  <span className="page-caption">On Going</span>
-                  <div className="offer-scroll custom-scroll">
-                    My Orders
-                  </div>
-                </>
+                <MyOrders scheduleType="MyOffers" />
               );
             default:
               return (
