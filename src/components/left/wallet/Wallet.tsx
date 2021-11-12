@@ -1,10 +1,10 @@
 import React, {
-  FC, useEffect, useRef, useState,
+  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
 } from 'teact/teact';
 import { WalletConnectWallet } from '@celo/wallet-walletconnect';
 import QrCreator from 'qr-creator';
 import useLang from '../../../hooks/useLang';
-import { getAccount, getAccountBalance } from './AccountManager/AccountMannager';
+import { newKitBalances, getAccountBalance } from './AccountManager/AccountMannager';
 import Spinner from '../../ui/Spinner';
 import Modal from '../../ui/Modal';
 import './Wallet.scss';
@@ -25,42 +25,34 @@ interface IBalance {
   cUSD: string;
 }
 
-interface IWalletConnectPayLoad {
-  accounts: string[];
-  chainId: number;
-}
 const Wallet: FC <OwnProps> = ({ onReset }) => {
   const [openModal, setOpenModal] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(true);
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
-  const [walletUri, setWalletUri] = useState<any>('');
+
   const [loadingBalance, setLoadingBalance] = useState(true);
-  const [walletObject, setWalletObject] = useState<IWalletConnectPayLoad>();
-  const [account, setAccount] = useState<IAccount>();
+  const walletObj = new WalletConnectWallet({
+    connect: {
+      metadata: {
+        name: 'Heymate Dapp',
+        description: 'Dapp Description',
+        url: 'https://www.example.com',
+        icons: ['https://www.example.com/favicon.ico'],
+      },
+    },
+  });
+
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
     CELO: '0',
   });
   const lang = useLang();
-  /**
-   * Init Celo Wallet Connect
-   */
+
   const connect = async () => {
-    const wallet = new WalletConnectWallet({
-      connect: {
-        metadata: {
-          name: 'The name of your awesome DApp',
-          description: 'Your DApp description',
-          url: 'https://example.com',
-          icons: ['https://example.com/favicon.ico'],
-        },
-      },
-    });
     const container = qrCodeRef.current!;
-    // container.innerHTML = '';
-    container.classList.remove('pre-animate');
-    const uri = await wallet.getUri();
-    setWalletUri(uri);
+    container.innerHTML = '';
+    const uri = await walletObj.getUri();
     QrCreator.render({
       text: `${uri}`,
       radius: 0.5,
@@ -68,7 +60,10 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
       fill: '#4E96D4',
       size: 280,
     }, container);
-    setOpenModal(true);
+    setLoadingQr(false);
+    await walletObj.init().catch((e) => {
+      alert(e.message);
+    });
   };
 
   const handleCLoseWCModal = () => {
@@ -77,22 +72,34 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
 
   const handleOpenWCModal = () => {
     setOpenModal(true);
+    setLoadingQr(true);
     setTimeout(() => {
       connect();
     }, 100);
   };
-
   /**
    * Get Account Balance
    */
+
+  walletObj.onSessionDeleted = () => {
+    alert('session deleted !');
+    localStorage.removeItem('wc_session');
+    localStorage.removeItem('wallet');
+  };
+
+  walletObj.onSessionCreated = (session) => {
+    alert('session Created !');
+    localStorage.setItem('wc-session', JSON.stringify(session));
+    setOpenModal(false);
+  };
+
   useEffect(() => {
-    if (account) {
-      getAccountBalance(account).then((res) => {
-        setLoadingBalance(false);
-        setBalance(res);
-      });
-    }
-  }, [account]);
+    const reconnect = async () => {
+      await walletObj.init();
+      newKitBalances(walletObj);
+    };
+    reconnect();
+  }, [walletObj]);
   return (
     <div className="UserWallet">
       <div className="left-header">
@@ -117,8 +124,10 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
             <Spinner color="gray" />
           </div>
         )}
-        {!loadingBalance && (
+        {(!loadingBalance && balance.cUSD !== '0') ? (
           <h3 id="balance">$ {balance.cUSD}</h3>
+        ) : (
+          <span id="balance">Connect Your Account</span>
         )}
         <div className="btn-row">
           <div id="add-money" className="btn-holder">
@@ -150,13 +159,18 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
         isOpen={openModal}
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="BookOfferModal"
+        className="WalletQrModal"
         title="Wallet Connect"
       >
+        {loadingQr && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
       </Modal>
     </div>
   );
 };
 
-export default Wallet;
+export default memo(Wallet);
