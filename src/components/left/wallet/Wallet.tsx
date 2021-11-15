@@ -51,8 +51,12 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
 
   const connect = async () => {
     const container = qrCodeRef.current!;
+
     container.innerHTML = '';
+    container.classList.remove('pre-animate');
+
     const uri = await walletObj.getUri();
+    console.log(uri);
     QrCreator.render({
       text: `${uri}`,
       radius: 0.5,
@@ -95,8 +99,9 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
 
   useEffect(() => {
     const reconnect = async () => {
-      await walletObj.init();
-      newKitBalances(walletObj);
+      await walletObj.init().then((value) => {
+        newKitBalances(walletObj);
+      });
     };
     reconnect();
   }, [walletObj]);
