@@ -1,10 +1,13 @@
 import React, {
-  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
+  FC, useEffect, useRef, useState, memo, useMemo,
 } from 'teact/teact';
-import { WalletConnectWallet } from '@celo/wallet-walletconnect';
+import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
+import Web3 from 'web3';
+import { newKitFromWeb3 } from '@celo/contractkit';
+import { withGlobal } from 'teact/teactn';
+import { newKitBalances, sendcUSD } from './AccountManager/AccountMannager';
 import useLang from '../../../hooks/useLang';
-import { newKitBalances, getAccountBalance } from './AccountManager/AccountMannager';
 import Spinner from '../../ui/Spinner';
 import Modal from '../../ui/Modal';
 import './Wallet.scss';
@@ -12,36 +15,41 @@ import Button from '../../ui/Button';
 import TransactionRow from './TransactionRow/TransactionRow';
 // @ts-ignore
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
+import { GlobalActions } from '../../../global/types';
+import { pick } from '../../../util/iteratees';
 
 export type OwnProps = {
   onReset: () => void;
 };
-interface IAccount {
-  address: string;
-  privateKey: string;
-}
+
 interface IBalance {
   CELO: string;
   cUSD: string;
 }
 
-const Wallet: FC <OwnProps> = ({ onReset }) => {
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+
+const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
   const [openModal, setOpenModal] = useState(false);
   const [loadingQr, setLoadingQr] = useState(true);
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
-
+  const [kit, setKit] = useState<any>();
+  const [isConnected, setIsConnected] = useState(false);
   const [loadingBalance, setLoadingBalance] = useState(true);
-  const walletObj = new WalletConnectWallet({
-    connect: {
-      metadata: {
-        name: 'Heymate Dapp',
-        description: 'Dapp Description',
-        url: 'https://www.example.com',
-        icons: ['https://www.example.com/favicon.ico'],
+  const [uri, setUri] = useState<string>('');
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
       },
-    },
-  });
+      qrcode: false,
+    });
+  }, []);
+
+  const [wcProvider, setWcProvider] = useState<any>(provider);
 
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
@@ -49,62 +57,113 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
   });
   const lang = useLang();
 
-  const connect = async () => {
-    const container = qrCodeRef.current!;
+  const renderUriAsQr = (givenUri?) => {
+    setOpenModal(true);
+    setLoadingQr(true);
 
-    container.innerHTML = '';
-    container.classList.remove('pre-animate');
+    setTimeout(() => {
+      const validUri = givenUri || uri;
 
-    const uri = await walletObj.getUri();
-    console.log(uri);
-    QrCreator.render({
-      text: `${uri}`,
-      radius: 0.5,
-      ecLevel: 'M',
-      fill: '#4E96D4',
-      size: 280,
-    }, container);
-    setLoadingQr(false);
-    await walletObj.init().catch((e) => {
-      alert(e.message);
-    });
+      const container = qrCodeRef.current!;
+      container.innerHTML = '';
+      container.classList.remove('pre-animate');
+
+      QrCreator.render({
+        text: `${validUri}`,
+        radius: 0.5,
+        ecLevel: 'M',
+        fill: '#4E96D4',
+        size: 280,
+      }, container);
+      setLoadingQr(false);
+    }, 100);
   };
 
   const handleCLoseWCModal = () => {
     setOpenModal(false);
+    provider.isConnecting = false;
+    setLoadingBalance(false);
   };
 
-  const handleOpenWCModal = () => {
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
     setOpenModal(true);
     setLoadingQr(true);
-    setTimeout(() => {
-      connect();
-    }, 100);
+    renderUriAsQr();
   };
   /**
    * Get Account Balance
    */
+  provider.connector.on('display_uri', (err, payload) => {
+    setIsConnected(false);
+    const wcUri = payload.params[0];
+    setUri(wcUri);
 
-  walletObj.onSessionDeleted = () => {
-    alert('session deleted !');
-    localStorage.removeItem('wc_session');
-    localStorage.removeItem('wallet');
+    renderUriAsQr(wcUri);
+
+    setLoadingQr(false);
+  });
+
+  const makeKitsFromProvideAndGetBalance = async (address?: string) => {
+    // @ts-ignore
+    const web3 = new Web3(provider);
+    // @ts-ignore
+    const myKit = newKitFromWeb3(web3);
+
+    const walletAddress = address || provider.accounts[0];
+
+    const accountBalance = await newKitBalances(myKit, walletAddress);
+    setBalance(accountBalance);
+
+    setLoadingBalance(false);
+
+    setKit(myKit);
+    setWcProvider(provider);
   };
 
-  walletObj.onSessionCreated = (session) => {
-    alert('session Created !');
-    localStorage.setItem('wc-session', JSON.stringify(session));
+  provider.on('accountsChanged', (accounts) => {
+    console.log(accounts);
+  });
+
+  provider.on('disconnect', (code: number, reason: string) => {
+    showNotification({ message: reason });
+    setIsConnected(false);
+    setWcProvider(provider);
+  });
+
+  provider.onConnect(() => {
     setOpenModal(false);
-  };
+    setIsConnected(true);
+    showNotification({ message: 'Successfully Connected to Valor !' });
+    setWcProvider(provider);
+    makeKitsFromProvideAndGetBalance();
+  });
 
   useEffect(() => {
-    const reconnect = async () => {
-      await walletObj.init().then((value) => {
-        newKitBalances(walletObj);
-      });
+    const reconnectToProvider = async () => {
+      await provider.enable()
+        .then((res) => {
+          setIsConnected(true);
+          makeKitsFromProvideAndGetBalance(res[0]);
+        });
     };
-    reconnect();
-  }, [walletObj]);
+    if (provider.isWalletConnect) {
+      reconnectToProvider();
+    } else {
+      setLoadingBalance(false);
+    }
+  }, [provider]);
+
+  const doTransaction = () => {
+    sendcUSD(kit).then((res) => {
+      console.log(res);
+    }).catch((err) => {
+      showNotification({ message: err.message });
+    });
+  };
+
   return (
     <div className="UserWallet">
       <div className="left-header">
@@ -129,22 +188,28 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
             <Spinner color="gray" />
           </div>
         )}
-        {(!loadingBalance && balance.cUSD !== '0') ? (
+        {(!loadingBalance && isConnected) && (
           <h3 id="balance">$ {balance.cUSD}</h3>
-        ) : (
+        )}
+        {(!loadingBalance && !isConnected) && (
           <span id="balance">Connect Your Account</span>
         )}
         <div className="btn-row">
-          <div id="add-money" className="btn-holder">
-            <Button size="smaller" color="primary">
-              Add Money
-            </Button>
-          </div>
-          <div id="cashout" className="btn-holder">
-            <Button onClick={handleOpenWCModal} isText size="smaller" color="primary">
-              <span>Connect</span>
-            </Button>
-          </div>
+          {isConnected && (
+            <div id="add-money" className="btn-holder">
+              <Button onClick={doTransaction} size="smaller" color="primary">
+                Add Money
+              </Button>
+            </div>
+          )}
+          { (!loadingBalance && !isConnected)
+            && (
+              <div id="cashout" className="btn-holder">
+                <Button onClick={handleOpenWCModal} isText size="smaller" color="primary">
+                  <span>Connect</span>
+                </Button>
+              </div>
+            )}
         </div>
       </div>
       <div className="wallet-transactions custom-scroll">
@@ -178,4 +243,12 @@ const Wallet: FC <OwnProps> = ({ onReset }) => {
   );
 };
 
-export default memo(Wallet);
+export default memo(withGlobal<OwnProps>(
+  (): any => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(Wallet));
