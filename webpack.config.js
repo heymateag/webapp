@@ -3,6 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 const { EnvironmentPlugin, ProvidePlugin } = require('webpack');
+const CopyPlugin = require("copy-webpack-plugin");
 const HtmlPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
@@ -133,6 +134,11 @@ module.exports = (env = {}, argv = {}) => {
       }),
       new ProvidePlugin({
         Buffer: [require.resolve("buffer/"), "Buffer"],
+      }),
+      new CopyPlugin({
+        patterns: [
+          {from:'node_modules/@zoom/videosdk/dist/lib', to:'public/zoom-libs'}
+        ]
       }),
       ...(argv.mode === 'production' ? [
         new BundleAnalyzerPlugin({

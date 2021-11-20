@@ -46,6 +46,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
+      // clientMeta: [
+      //
+      // ],
     });
   }, []);
 

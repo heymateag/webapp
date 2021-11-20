@@ -1,6 +1,8 @@
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../../../lib/teact/teact';
+import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
+import VideoSessionDialog from '../../../common/VideoSessionDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 
@@ -40,6 +42,15 @@ const Offer: FC<OwnProps> = ({
     text: '',
     color: 'green',
   });
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+
+  const [zoomClient, setZoomClient] = useState();
+
+  const [zoomStream, setZoomStream] = useState();
+
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
+  };
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -111,6 +122,15 @@ const Offer: FC<OwnProps> = ({
   const handleClose = () => {
     setIsMenuOpen(false);
   };
+
+  const joinMetting = () => {
+    const client = new ZoomClient();
+    setZoomClient(client);
+    const signature = client.generateZoomSignature('85393027289', '4zV9L5');
+    client.joinTOSession({ signature, userName: 'bouAzar' });
+
+  };
+
   return (
     <div className="Offer">
       <div className="offer-content">
@@ -194,8 +214,8 @@ const Offer: FC<OwnProps> = ({
             { (props.status === ReservationStatus.BOOKED
               || props.status === ReservationStatus.MARKED_AS_STARTED) && (
               <div className="btn-cancel">
-                <Button size="tiny" color="translucent">
-                  cancel
+                <Button onClick={joinMetting} size="tiny" color="translucent">
+                  join meeting
                 </Button>
               </div>
             )}
@@ -218,6 +238,12 @@ const Offer: FC<OwnProps> = ({
           </div>
         </div>
       </div>
+      <VideoSessionDialog
+        openModal={openVideoDialog}
+        onCloseModal={handleCloseVideoDialog}
+        stream={}
+        zoomClient={}
+      />
     </div>
   );
 };
