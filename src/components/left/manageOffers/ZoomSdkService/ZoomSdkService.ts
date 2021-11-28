@@ -1,7 +1,8 @@
 import ZoomVideo from '@zoom/videosdk';
-import { JoinSession } from './types';
-
-const KJUR = require('jsrsasign');
+// @ts-ignore
+import state from './js/meeting/session/simple-state';
+// @ts-ignore
+import { generateSessionToken } from './js/tool';
 
 /**
  * Generate Zoom Video Session
@@ -9,13 +10,16 @@ const KJUR = require('jsrsasign');
  * @param sessionPasscode
  */
 export class ZoomClient {
-  constructor() {
-    this.client = ZoomVideo.createClient();
-    // this.client.init('en-US', '/public/zoom-libs');
-    this.client.init('en-US', 'Global');
+  constructor(sessionTopic: string, sessionPasscode: string, userName: string) {
+    this.zmClient = ZoomVideo.createClient();
+    this.zmClient.init('en-US', 'Global');
+    this.userName = userName;
+    this.sessionName = sessionTopic;
+    this.sessionPass = sessionPasscode;
+    this.signature = generateSessionToken(sessionTopic, sessionPasscode);
   }
 
-  public client;
+  public zmClient;
 
   public signature;
 
@@ -23,36 +27,46 @@ export class ZoomClient {
 
   private sessionPass;
 
-  generateZoomSignature = (sessionName: string, sessionPasscode: string) => {
-    this.sessionName = sessionName;
-    this.sessionPass = sessionPasscode;
-    const iat = Math.round(new Date().getTime() / 1000);
-    const exp = iat + 60 * 60 * 2;
+  private readonly userName: string;
 
-    const oHeader = { alg: 'HS256', typ: 'JWT' };
+  public mediaStream;
 
-    const oPayload = {
-      app_key: 'oeg5Fynw3nkRIT06qoMNv66RtTSzROUQMmaj',
-      iat,
-      exp,
-      tpc: sessionName,
-      pwd: sessionPasscode,
-    };
-
-    const sHeader = JSON.stringify(oHeader);
-    const sPayload = JSON.stringify(oPayload);
-    this.signature = KJUR.jws.JWS.sign('HS256', sHeader, sPayload, 'UYC0eqAhuPrHE5f1TCXOp1ozWpKvZySOwsxn');
-
-    return this.signature;
+  initAndJoinSession = async () => {
+    try {
+      await this.zmClient
+        .join(this.sessionName, this.signature, this.userName, this.sessionPass);
+      this.mediaStream = this.zmClient.getMediaStream();
+      state.selfId = this.zmClient.getSessionInfo().userId;
+    } catch (error) {
+      console.log(error);
+    }
   };
 
-  joinTOSession = async (meetData: JoinSession) => {
-    this.client.join(this.sessionName, meetData.signature, meetData.userName, this.sessionPass)
-      .then((data) => {
-        console.log(data);
-        return this.client.getMediaStream();
-      }).catch((error) => {
-        throw error;
-      });
+  startAudioMuted = async () => {
+    await this.mediaStream.startAudio();
+    if (!this.mediaStream.isAudioMuted()) {
+      await this.mediaStream.muteAudio();
+    }
+  };
+
+  join = async () => {
+    console.log('======= Initializing video session =======');
+    await this.initAndJoinSession();
+    /**
+     * Note: it is STRONGLY recommended to initialize the client listeners as soon as
+     * the session is initialized. Once the user joins the session, updates are sent to
+     * the event listeners that help update the session's participant state.
+     *
+     * If you choose not to do so, you'll have to manually deal with race conditions.
+     * You should be able to call "zmClient.getAllUser()" after the app has reached
+     * steady state, meaning a sufficiently-long time
+     */
+    // console.log('======= Initializing client event handlers =======');
+    // initClientEventListeners(zmClient, mediaStream);
+    // console.log('======= Starting audio muted =======');
+    // await this.startAudioMuted();
+    // console.log('======= Initializing button click handlers =======');
+    // // await initButtonClickHandlers(zmClient, mediaStream);
+    // console.log('======= Session joined =======');
   };
 }

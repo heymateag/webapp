@@ -1,3 +1,4 @@
+import { ConnectionState } from '@zoom/videosdk';
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../../../lib/teact/teact';
@@ -5,7 +6,7 @@ import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
 import VideoSessionDialog from '../../../common/VideoSessionDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-
+import { ClientType } from '../ZoomSdkService/types';
 import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
 import './Offer.scss';
 
@@ -36,6 +37,8 @@ const Offer: FC<OwnProps> = ({
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
@@ -44,9 +47,15 @@ const Offer: FC<OwnProps> = ({
   });
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
 
-  const [zoomClient, setZoomClient] = useState();
+  const [zoomClient, setZoomClient] = useState<ClientType>();
 
   const [zoomStream, setZoomStream] = useState();
+
+  const [isFailover, setIsFailover] = useState<boolean>(false);
+
+  const [status, setStatus] = useState<string>('closed');
+
+  const [loadingText, setLoadingText] = useState('');
 
   const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
@@ -123,13 +132,54 @@ const Offer: FC<OwnProps> = ({
     setIsMenuOpen(false);
   };
 
-  const joinMetting = () => {
-    const client = new ZoomClient();
-    setZoomClient(client);
-    const signature = client.generateZoomSignature('85393027289', '4zV9L5');
-    client.joinTOSession({ signature, userName: 'bouAzar' });
+  const joinMeeting = async () => {
+    const client = new ZoomClient('bouAzar', '5AR8pk', 'akbaram ?!');
 
+    await client.join();
+
+    setZoomClient(client.zmClient);
+    if (client.mediaStream) {
+      setZoomStream(client.mediaStream);
+      setOpenVideoDialog(true);
+      setJoinMeetingLoader(false);
+    } else {
+      alert('unable to join !');
+      setJoinMeetingLoader(false);
+    }
   };
+
+  const onConnectionChange = useCallback(
+    (payload) => {
+      debugger
+      if (payload.state === ConnectionState.Reconnecting) {
+        // setIsLoading(true);
+        setIsFailover(true);
+        setStatus('connecting');
+        const { reason } = payload;
+        if (reason === 'failover') {
+          setLoadingText('Session Disconnected,Try to reconnect');
+        }
+      } else if (payload.state === ConnectionState.Connected) {
+        setStatus('connected');
+        if (isFailover) {
+          // setIsLoading(false);
+        }
+      } else if (payload.state === ConnectionState.Closed) {
+        setStatus('closed');
+        if (payload.reason === 'ended by host') {
+          // TODO use general notification here !
+        }
+      }
+    },
+    [isFailover],
+  );
+
+  useEffect(() => {
+    zoomClient.on('connection-change', onConnectionChange);
+    return () => {
+      zoomClient.off('connection-change', onConnectionChange);
+    };
+  }, [zoomClient, onConnectionChange]);
 
   return (
     <div className="Offer">
@@ -214,7 +264,7 @@ const Offer: FC<OwnProps> = ({
             { (props.status === ReservationStatus.BOOKED
               || props.status === ReservationStatus.MARKED_AS_STARTED) && (
               <div className="btn-cancel">
-                <Button onClick={joinMetting} size="tiny" color="translucent">
+                <Button isLoading={joinMeetingLoader} onClick={joinMeeting} size="tiny" color="primary">
                   join meeting
                 </Button>
               </div>
@@ -239,10 +289,11 @@ const Offer: FC<OwnProps> = ({
         </div>
       </div>
       <VideoSessionDialog
+        status={status}
         openModal={openVideoDialog}
         onCloseModal={handleCloseVideoDialog}
-        stream={}
-        zoomClient={}
+        stream={zoomStream}
+        zoomClient={zoomClient}
       />
     </div>
   );

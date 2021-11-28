@@ -1,8 +1,9 @@
 import React, {
   FC, memo, useCallback, useEffect, useRef,
 } from 'teact/teact';
-
 import Modal from '../ui/Modal';
+// @ts-ignore
+import state from '../left/manageOffers/ZoomSdkService/js/meeting/session/simple-state';
 
 type OwnProps = {
   openModal: boolean;
@@ -14,6 +15,7 @@ type OwnProps = {
   videoQuality? : number;
   stream: any;
   zoomClient: any;
+  status: string;
 };
 
 const VideoSessionDialog : FC<OwnProps> = ({
@@ -26,6 +28,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   videoQuality = 2,
   stream,
   zoomClient,
+  status,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoCanvas = useRef<HTMLCanvasElement>(null);
@@ -36,13 +39,20 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const startVideo = useCallback(async () => {
     const canvas = videoCanvas.current!;
-
     if (!stream.isCapturingVideo()) {
       try {
-        await stream.startVideo();
-
+        // await stream.startVideo();
         const session = zoomClient.getSessionInfo();
-        stream.renderVideo(canvas, session.userId, canvasWidth, canvasHeight, xOffset, yOffset, videoQuality);
+        await stream.startVideo();
+        await stream.renderVideo(
+          canvas,
+          session.userId,
+          canvasWidth,
+          canvasHeight,
+          xOffset,
+          yOffset,
+          videoQuality,
+        );
       } catch (error) {
         console.log(error);
       }
@@ -51,11 +61,9 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const stopVideo = useCallback(async () => {
     const canvas = videoCanvas.current!;
-
     if (stream.isCapturingVideo()) {
       try {
         await stream.stopVideo();
-
         const session = zoomClient.getSessionInfo();
         stream.stopRenderVideo(canvas, session.userId);
       } catch (error) {
@@ -67,8 +75,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
   useEffect(() => {
     if (openModal) {
       startVideo();
-    } else {
-      stopVideo();
     }
   }, [openModal, startVideo, stopVideo]);
   return (
@@ -78,7 +84,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       onClose={handleCLoseDetailsModal}
       onEnter={openModal ? handleCLoseDetailsModal : undefined}
       className="VideoSessionDialog"
-      title="Schedule"
+      title="Zoom Video"
     >
       <canvas ref={videoCanvas} width="640" height="360" />
     </Modal>

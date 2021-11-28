@@ -123,12 +123,14 @@ module.exports = (env = {}, argv = {}) => {
         ignoreOrder: true,
       }),
       new EnvironmentPlugin({
-        APP_NAME: 'Telegram WebZ',
+        APP_NAME: 'Heymate App',
         APP_VERSION: 'dev',
         APP_ENV: 'development',
         TELEGRAM_T_API_ID: '',
         TELEGRAM_T_API_HASH: '',
         CELO_NET_URL: '',
+        ZOOM_SDK_KEY: '',
+        ZOOM_SDK_SECRET: '',
         TEST_SESSION: '',
         NODE_DEBUG: ''
       }),
@@ -136,9 +138,17 @@ module.exports = (env = {}, argv = {}) => {
         Buffer: [require.resolve("buffer/"), "Buffer"],
       }),
       new CopyPlugin({
-        patterns: [
-          {from:'node_modules/@zoom/videosdk/dist/lib', to:'public/zoom-libs'}
-        ]
+        patterns: [{
+          from: path.resolve(
+            __dirname,
+            'node_modules',
+            '@zoom',
+            'videosdk',
+            'dist',
+            'lib',
+          ),
+          to: path.resolve(__dirname, 'public', 'lib'),
+        }, ]
       }),
       ...(argv.mode === 'production' ? [
         new BundleAnalyzerPlugin({
