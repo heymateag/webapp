@@ -211,7 +211,10 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     });
     if (response.status === 201) {
       const token = response.data.accessToken.jwtToken;
+      const refreshToken = response.data.refreshToken.token;
       localStorage.setItem('HM_TOKEN', token);
+      localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
+      localStorage.setItem('HM_PHONE', userPhone);
     }
   };
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
