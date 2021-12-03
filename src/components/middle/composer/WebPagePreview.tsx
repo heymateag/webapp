@@ -5,11 +5,12 @@ import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
 import { ApiMessage, ApiMessageEntityTypes, ApiWebPage } from '../../../api/types';
+import { ISettings } from '../../../types';
 
 import { RE_LINK_TEMPLATE } from '../../../config';
-import { selectNoWebPage } from '../../../modules/selectors';
+import { selectNoWebPage, selectTheme } from '../../../modules/selectors';
 import { pick } from '../../../util/iteratees';
-import parseMessageInput from './helpers/parseMessageInput';
+import parseMessageInput from '../../../util/parseMessageInput';
 import useOnChange from '../../../hooks/useOnChange';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useCurrentOrPrev from '../../../hooks/useCurrentOrPrev';
@@ -21,7 +22,7 @@ import Button from '../../ui/Button';
 import './WebPagePreview.scss';
 
 type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   messageText: string;
   disabled?: boolean;
@@ -30,6 +31,7 @@ type OwnProps = {
 type StateProps = {
   webPagePreview?: ApiWebPage;
   noWebPage?: boolean;
+  theme: ISettings['theme'];
 };
 type DispatchProps = Pick<GlobalActions, 'loadWebPagePreview' | 'clearWebPagePreview' | 'toggleMessageWebPage'>;
 
@@ -42,6 +44,7 @@ const WebPagePreview: FC<OwnProps & StateProps & DispatchProps> = ({
   disabled,
   webPagePreview,
   noWebPage,
+  theme,
   loadWebPagePreview,
   clearWebPagePreview,
   toggleMessageWebPage,
@@ -103,7 +106,7 @@ const WebPagePreview: FC<OwnProps & StateProps & DispatchProps> = ({
         <Button round faded color="translucent" ariaLabel="Clear Webpage Preview" onClick={handleClearWebpagePreview}>
           <i className="icon-close" />
         </Button>
-        <WebPage message={messageStub} inPreview />
+        <WebPage message={messageStub} inPreview theme={theme} />
       </div>
     </div>
   );
@@ -113,6 +116,7 @@ export default memo(withGlobal<OwnProps>(
   (global, { chatId, threadId }): StateProps => {
     const noWebPage = selectNoWebPage(global, chatId, threadId);
     return {
+      theme: selectTheme(global),
       webPagePreview: global.webPagePreview,
       noWebPage,
     };

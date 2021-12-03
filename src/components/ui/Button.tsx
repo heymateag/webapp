@@ -33,6 +33,7 @@ export type OwnProps = {
   faded?: boolean;
   tabIndex?: number;
   isRtl?: boolean;
+  withClickPropagation?: boolean;
   onClick?: (e: ReactMouseEvent<HTMLButtonElement, MouseEvent>) => void;
   onContextMenu?: (e: ReactMouseEvent<HTMLButtonElement, MouseEvent>) => void;
   onMouseDown?: (e: ReactMouseEvent<HTMLButtonElement>) => void;
@@ -71,6 +72,7 @@ const Button: FC<OwnProps> = ({
   faded,
   tabIndex,
   isRtl,
+  withClickPropagation,
 }) => {
   // eslint-disable-next-line no-null/no-null
   let elementRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null);
@@ -109,11 +111,11 @@ const Button: FC<OwnProps> = ({
   }, [disabled, onClick]);
 
   const handleMouseDown = useCallback((e: ReactMouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
+    if (!withClickPropagation) e.preventDefault();
     if (!disabled && onMouseDown) {
       onMouseDown(e);
     }
-  }, [onMouseDown, disabled]);
+  }, [onMouseDown, disabled, withClickPropagation]);
 
   if (href) {
     return (
@@ -158,12 +160,7 @@ const Button: FC<OwnProps> = ({
           <span dir={isRtl ? 'auto' : undefined}>Please wait...</span>
           <Spinner color={isText ? 'blue' : 'white'} />
         </div>
-      ) : (
-        <>
-          {backgroundImage && <div className="backdrop" />}
-          {children}
-        </>
-      )}
+      ) : children }
       {!disabled && ripple && (
         <RippleEffect />
       )}

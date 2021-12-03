@@ -1,4 +1,4 @@
-@import "../../styles/mixins";
+@import '../../styles/mixins';
 
 @mixin mobile-header-styles() {
   .HeaderPinnedMessage-wrapper,
@@ -8,8 +8,7 @@
     left: 0;
     right: 0;
     height: 2.875rem;
-    overflow: hidden;
-    box-shadow: 0 2px 2px var(--color-light-shadow);
+    box-shadow: 0 .125rem .125rem var(--color-light-shadow);
 
     display: flex;
     flex-direction: row-reverse;
@@ -21,11 +20,11 @@
       content: "";
       display: block;
       position: absolute;
-      top: -0.1875rem;
+      top: -.1875rem;
       left: 0;
       right: 0;
-      height: 0.125rem;
-      box-shadow: 0 0.125rem 0.125rem var(--color-light-shadow);
+      height: .125rem;
+      box-shadow: 0 .125rem .125rem var(--color-light-shadow);
     }
 
     .HeaderPinnedMessage {
@@ -40,18 +39,17 @@
   }
 
   .AudioPlayer {
-    height: 3.25rem;
-
     flex-direction: row;
-    padding: 0.375rem 0.5rem;
+    margin-top: 0;
+    padding: 0.25rem 0.5rem;
 
     &-content {
       padding: 0 0.5rem;
-      flex-grow: 1;
+      flex-grow: 1
     }
 
     > .Button {
-      margin: 0;
+      margin: -.0625rem 0 0;
     }
 
     > .player-close {
@@ -73,6 +71,10 @@
       max-width: none;
     }
   }
+
+  .HeaderPinnedMessage-wrapper.full-width {
+    display: none;
+  }
 }
 
 .MiddleHeader {
@@ -81,7 +83,7 @@
   width: 100%;
   box-shadow: 0 2px 2px var(--color-light-shadow);
   background: var(--color-background);
-  padding: 0.5rem 0.8125rem 0.5rem 1.5rem;
+  padding: .5rem .8125rem .5rem 1.5rem;
   position: relative;
   z-index: var(--z-middle-header);
 
@@ -151,6 +153,10 @@
     overflow: hidden;
   }
 
+  body.animation-level-0 & .HeaderPinnedMessage-wrapper {
+    transition: none !important;
+  }
+
   .header-tools {
     display: flex;
     align-items: center;
@@ -160,7 +166,6 @@
 
     body.animation-level-0 & {
       &,
-      .HeaderPinnedMessage-wrapper,
       .AudioPlayer,
       .HeaderActions {
         transition: none !important;
@@ -194,39 +199,32 @@
   }
 
   @media (min-width: 1276px) and (max-width: 1439px) {
-    &:not(.tools-stacked) .header-tools {
-      .HeaderPinnedMessage-wrapper,
-      .AudioPlayer {
-        opacity: 1;
+    &:not(.tools-stacked) .HeaderPinnedMessage-wrapper,
+    &:not(.tools-stacked) .AudioPlayer {
+      opacity: 1;
 
-        #Main.right-column-open & {
-          opacity: 0;
-        }
+      #Main.right-column-open & {
+        opacity: 0;
       }
     }
   }
 
-  &.tools-stacked .header-tools {
+  &.tools-stacked .AudioPlayer {
     @include mobile-header-styles();
 
     @media (min-width: 1150px) {
       #Main.right-column-open & {
-        .HeaderPinnedMessage-wrapper,
-        .AudioPlayer {
-          padding-right: calc(0.5rem + var(--right-column-width));
-        }
+        padding-right: calc(0.5rem + var(--right-column-width));
       }
     }
   }
 
-  &.tools-stacked.animated .header-tools {
-    .HeaderPinnedMessage-wrapper,
-    .AudioPlayer {
-      animation: fade-in var(--layer-transition) forwards;
+  &.tools-stacked.animated .HeaderPinnedMessage-wrapper,
+  &.tools-stacked.animated .AudioPlayer {
+    animation: fade-in var(--layer-transition) forwards;
 
-      body.animation-level-0 & {
-        animation: none;
-      }
+    body.animation-level-0 & {
+      animation: none;
     }
   }
 
@@ -284,21 +282,33 @@
       }
     }
 
-    .user-status,
     .status {
+      display: flex;
       unicode-bidi: plaintext;
+    }
+
+    .user-status {
+      unicode-bidi: plaintext;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      @media (min-width: 1275px) {
+        #Main.right-column-open & {
+          max-width: calc(100% - var(--right-column-width));
+        }
+      }
     }
   }
 
   .Avatar {
-    margin-right: 0.625rem;
-    width: 2.5rem;
-    height: 2.5rem;
+    margin-right: .625rem;
+    // TODO For some reason webpack imports `Audio.scss` second time when loading calls bundle
+    width: 2.5rem !important;
+    height: 2.5rem !important;
     font-size: 1.0625rem;
   }
 
-  .status,
-  .typing-status {
+  .status, .typing-status {
     font-size: 0.875rem;
     line-height: 1.125rem;
     margin: 0;
@@ -332,6 +342,7 @@
     margin-left: auto;
     cursor: default;
     flex-direction: row-reverse;
+    background: var(--color-background);
 
     body.animation-level-1 & {
       .ripple-container {
@@ -339,12 +350,64 @@
       }
     }
 
+    @media (min-width: 1276px) {
+      transform: translate3d(0, 0, 0);
+      transition: transform var(--layer-transition);
+
+      #Main.right-column-open & {
+        transform: translate3d(calc(var(--right-column-width) * -1), 0, 0);
+      }
+    }
+
+
     .HeaderPinnedMessage {
       min-width: 16rem;
     }
 
     > .Button {
       flex-shrink: 0;
+    }
+
+    &.full-width {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      background: var(--color-background);
+      padding: .25rem .8125rem .25rem 1rem;
+      box-shadow: 0 .125rem .125rem var(--color-light-shadow);
+      transform: translate3d(0, 0, 0);
+      transition: transform var(--layer-transition);
+
+      &::before {
+        content: "";
+        display: block;
+        position: absolute;
+        top: -.1875rem;
+        left: 0;
+        right: 0;
+        height: .125rem;
+        box-shadow: 0 .125rem .125rem var(--color-light-shadow);
+      }
+
+      .HeaderPinnedMessage {
+        margin-top: 0;
+        margin-bottom: 0;
+        flex: 1;
+
+        .message-text {
+          max-width: none;
+        }
+      }
+
+      @media (min-width: 1276px) {
+        transform: translate3d(0, 0, 0);
+        transition: transform var(--layer-transition);
+
+        #Main.right-column-open & {
+          padding-left: calc(var(--right-column-width) + 1rem);
+        }
+      }
     }
   }
 
@@ -383,7 +446,7 @@
         background-color: var(--color-primary-opacity);
         position: relative;
         will-change: transform;
-        transition: transform 0.25s ease-in-out;
+        transition: transform .25s ease-in-out;
       }
 
       .pinned-message-border-mark {
@@ -394,7 +457,7 @@
         background: var(--color-primary);
         border-radius: 0.0625rem;
         will-change: transform;
-        transition: transform 0.25s ease-in-out;
+        transition: transform .25s ease-in-out;
       }
     }
 
@@ -419,7 +482,7 @@
         text-align: initial;
 
         body.is-ios & {
-          font-size: 0.9375rem;
+          font-size: .9375rem;
         }
       }
 
@@ -433,7 +496,7 @@
         margin: 0;
 
         body.is-ios & {
-          font-size: 0.9375rem;
+          font-size: .9375rem;
         }
       }
     }
@@ -473,26 +536,18 @@
     }
   }
 
-  .HeaderPinnedMessage-wrapper,
-  .HeaderActions {
+  .HeaderPinnedMessage-wrapper, .HeaderActions {
     .Button {
       margin-left: 0.25rem;
 
       &.tiny {
-        margin-right: 0.625rem;
+        margin-right: .625rem;
       }
     }
   }
 
   @media (max-width: 600px) {
     @include mobile-header-styles();
-  }
-
-  @media (min-width: 925px) and (max-width: 1149.9px) {
-    .HeaderPinnedMessage-wrapper,
-    .AudioPlayer {
-      position: absolute;
-    }
   }
 }
 
@@ -504,7 +559,6 @@
     opacity: 1;
   }
 }
-
 .schedule-header {
   padding: 0 !important;
 }

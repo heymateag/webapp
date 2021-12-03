@@ -24,8 +24,10 @@ import { setMessageBuilderCurrentUserId } from '../apiBuilders/messages';
 import downloadMediaWithClient from './media';
 import { buildApiUserFromFull } from '../apiBuilders/users';
 import localDb from '../localDb';
+import { buildApiPeerId } from '../apiBuilders/peers';
 
 const DEFAULT_USER_AGENT = 'Unknown UserAgent';
+const DEFAULT_PLATFORM = 'Unknown platform';
 const APP_CODE_NAME = 'Z';
 
 GramJsLogger.setLevel(DEBUG_GRAMJS ? 'debug' : 'warn');
@@ -45,7 +47,7 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
   onUpdate = _onUpdate;
 
   const {
-    userAgent, platform, sessionData, isMovSupported,
+    userAgent, platform, sessionData, isTest, isMovSupported,
   } = initialArgs;
   const session = new sessions.CallbackSession(sessionData, onSessionUpdate);
 
@@ -58,9 +60,11 @@ export async function init(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) 
     process.env.TELEGRAM_T_API_HASH,
     {
       deviceModel: navigator.userAgent || userAgent || DEFAULT_USER_AGENT,
+      systemVersion: platform || DEFAULT_PLATFORM,
       appVersion: `${APP_VERSION} ${APP_CODE_NAME}`,
       useWSS: true,
       additionalDcsDisabled: IS_TEST,
+      testServers: isTest,
     } as any,
   );
 
@@ -253,7 +257,7 @@ export async function fetchCurrentUser() {
     return;
   }
 
-  localDb.users[userFull.user.id] = userFull.user;
+  localDb.users[buildApiPeerId(userFull.user.id, 'user')] = userFull.user;
   const currentUser = buildApiUserFromFull(userFull);
 
   setMessageBuilderCurrentUserId(currentUser.id);

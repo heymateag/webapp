@@ -38,8 +38,9 @@ import {
   selectFirstUnreadId,
   selectChat,
   selectIsChatWithBot,
+  selectIsServiceChatReady,
 } from '../../selectors';
-import { getMessageContent, isChatPrivate, isMessageLocal } from '../../helpers';
+import { getMessageContent, isUserId, isMessageLocal } from '../../helpers';
 
 const ANIMATION_DELAY = 350;
 
@@ -277,7 +278,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       const { id: chatId } = update;
       const messagesById = selectChatMessages(global, chatId);
 
-      if (messagesById && !isChatPrivate(chatId)) {
+      if (messagesById && !isUserId(chatId)) {
         global = deleteChatMessages(global, chatId, Object.keys(messagesById).map(Number));
         setGlobal(global);
         actions.loadFullChat({ chatId, force: true });
@@ -433,11 +434,21 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
 
       break;
     }
+
+    case 'updateServiceNotification': {
+      const { message } = update;
+
+      if (selectIsServiceChatReady(global)) {
+        actions.createServiceNotification({ message });
+      }
+
+      break;
+    }
   }
 });
 
 function updateWithLocalMedia(
-  global: GlobalState, chatId: number, id: number, message: Partial<ApiMessage>, isScheduled = false,
+  global: GlobalState, chatId: string, id: number, message: Partial<ApiMessage>, isScheduled = false,
 ) {
   // Preserve locally uploaded media.
   const currentMessage = isScheduled
@@ -540,7 +551,7 @@ function updateListedAndViewportIds(global: GlobalState, actions: GlobalActions,
 
 function updateChatLastMessage(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   message: ApiMessage,
   force = false,
 ) {
@@ -560,7 +571,7 @@ function updateChatLastMessage(
   return updateChat(global, chatId, { lastMessage: message });
 }
 
-function findLastMessage(global: GlobalState, chatId: number) {
+function findLastMessage(global: GlobalState, chatId: string) {
   const byId = selectChatMessages(global, chatId);
   const listedIds = selectListedIds(global, chatId, MAIN_THREAD_ID);
 
@@ -579,7 +590,7 @@ function findLastMessage(global: GlobalState, chatId: number) {
   return undefined;
 }
 
-function deleteMessages(chatId: number | undefined, ids: number[], actions: GlobalActions, global: GlobalState) {
+function deleteMessages(chatId: string | undefined, ids: number[], actions: GlobalActions, global: GlobalState) {
   // Channel update
 
   if (chatId) {
@@ -629,7 +640,7 @@ function deleteMessages(chatId: number | undefined, ids: number[], actions: Glob
 
   // Common box update
 
-  const chatsIdsToUpdate: number[] = [];
+  const chatsIdsToUpdate: string[] = [];
 
   ids.forEach((id) => {
     const commonBoxChatId = selectCommonBoxChatId(global, id);
@@ -659,7 +670,7 @@ function deleteMessages(chatId: number | undefined, ids: number[], actions: Glob
 }
 
 function deleteScheduledMessages(
-  chatId: number | undefined, ids: number[], actions: GlobalActions, global: GlobalState,
+  chatId: string | undefined, ids: number[], actions: GlobalActions, global: GlobalState,
 ) {
   if (!chatId) {
     return;

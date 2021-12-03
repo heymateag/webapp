@@ -1,9 +1,14 @@
 import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 
-import { MAIN_THREAD_ID } from '../../../api/types';
+import { ApiMessage, MAIN_THREAD_ID } from '../../../api/types';
 import { FocusDirection } from '../../../types';
 
-import { ANIMATION_END_DELAY, FAST_SMOOTH_MAX_DURATION } from '../../../config';
+import {
+  ANIMATION_END_DELAY,
+  APP_VERSION,
+  FAST_SMOOTH_MAX_DURATION,
+  SERVICE_NOTIFICATIONS_USER_ID,
+} from '../../../config';
 import { IS_TOUCH_ENV } from '../../../util/environment';
 import {
   enterMessageSelectMode,
@@ -29,10 +34,16 @@ import {
   selectReplyStack,
 } from '../../selectors';
 import { findLast } from '../../../util/iteratees';
+import { getServerTime } from '../../../util/serverTime';
+
+// @ts-ignore
+import versionNotification from '../../../versionNotification.txt';
+import parseMessageInput from '../../../util/parseMessageInput';
 
 const FOCUS_DURATION = 1500;
 const FOCUS_NO_HIGHLIGHT_DURATION = FAST_SMOOTH_MAX_DURATION + ANIMATION_END_DELAY;
 const POLL_RESULT_OPEN_DELAY_MS = 450;
+const SERVICE_NOTIFICATIONS_MAX_AMOUNT = 1e3;
 
 let blurTimeout: number | undefined;
 
@@ -159,7 +170,7 @@ addReducer('closeMediaViewer', (global) => {
 
 addReducer('openAudioPlayer', (global, actions, payload) => {
   const {
-    chatId, threadId, messageId, origin,
+    chatId, threadId, messageId, origin, volume, playbackRate, isMuted,
   } = payload!;
 
   return {
@@ -168,6 +179,65 @@ addReducer('openAudioPlayer', (global, actions, payload) => {
       chatId,
       threadId,
       messageId,
+      origin: origin ?? global.audioPlayer.origin,
+      volume: volume ?? global.audioPlayer.volume,
+      playbackRate: playbackRate || global.audioPlayer.playbackRate,
+      isMuted: isMuted || global.audioPlayer.isMuted,
+    },
+  };
+});
+
+addReducer('setAudioPlayerVolume', (global, actions, payload) => {
+  const {
+    volume,
+  } = payload!;
+
+  return {
+    ...global,
+    audioPlayer: {
+      ...global.audioPlayer,
+      volume,
+    },
+  };
+});
+
+addReducer('setAudioPlayerPlaybackRate', (global, actions, payload) => {
+  const {
+    playbackRate,
+  } = payload!;
+
+  return {
+    ...global,
+    audioPlayer: {
+      ...global.audioPlayer,
+      playbackRate,
+    },
+  };
+});
+
+addReducer('setAudioPlayerMuted', (global, actions, payload) => {
+  const {
+    isMuted,
+  } = payload!;
+
+  return {
+    ...global,
+    audioPlayer: {
+      ...global.audioPlayer,
+      isMuted,
+    },
+  };
+});
+
+addReducer('setAudioPlayerOrigin', (global, actions, payload) => {
+  const {
+    origin,
+  } = payload!;
+
+  return {
+    ...global,
+    audioPlayer: {
+      ...global.audioPlayer,
       origin,
     },
   };
@@ -176,7 +246,11 @@ addReducer('openAudioPlayer', (global, actions, payload) => {
 addReducer('closeAudioPlayer', (global) => {
   return {
     ...global,
-    audioPlayer: {},
+    audioPlayer: {
+      volume: global.audioPlayer.volume,
+      playbackRate: global.audioPlayer.playbackRate,
+      isMuted: global.audioPlayer.isMuted,
+    },
   };
 });
 
@@ -394,6 +468,53 @@ addReducer('openForwardMenuForSelectedMessages', (global, actions) => {
   actions.openForwardMenu({ fromChatId, messageIds });
 });
 
+addReducer('cancelMessageMediaDownload', (global, actions, payload) => {
+  const { message } = payload!;
+
+  const byChatId = global.activeDownloads.byChatId[message.chatId];
+  if (!byChatId || !byChatId.length) return;
+
+  setGlobal({
+    ...global,
+    activeDownloads: {
+      byChatId: {
+        ...global.activeDownloads.byChatId,
+        [message.chatId]: byChatId.filter((id) => id !== message.id),
+      },
+    },
+  });
+});
+
+addReducer('downloadMessageMedia', (global, actions, payload) => {
+  const { message } = payload!;
+  if (!message) return;
+
+  setGlobal({
+    ...global,
+    activeDownloads: {
+      byChatId: {
+        ...global.activeDownloads.byChatId,
+        [message.chatId]: [...(global.activeDownloads.byChatId[message.chatId] || []), message.id],
+      },
+    },
+  });
+});
+
+addReducer('downloadSelectedMessages', (global, actions) => {
+  if (!global.selectedMessages) {
+    return;
+  }
+
+  const { chatId, messageIds } = global.selectedMessages;
+  const { threadId } = selectCurrentMessageList(global) || {};
+
+  const chatMessages = selectChatMessages(global, chatId);
+  if (!chatMessages || !threadId) return;
+  const messages = messageIds.map((id) => chatMessages[id])
+    .filter((message) => selectAllowedMessageActions(global, message, threadId).canDownload);
+  messages.forEach((message) => actions.downloadMessageMedia({ message }));
+});
+
 addReducer('enterMessageSelectMode', (global, actions, payload) => {
   const { messageId } = payload || {};
   const openChat = selectCurrentChat(global);
@@ -458,4 +579,65 @@ addReducer('closePollModal', (global) => {
     ...global,
     isPollModalOpen: false,
   };
+});
+
+addReducer('checkVersionNotification', (global, actions) => {
+  const currentVersion = APP_VERSION.split('.').slice(0, 2).join('.');
+  const { serviceNotifications } = global;
+
+  if (serviceNotifications.find(({ version }) => version === currentVersion)) {
+    return;
+  }
+
+  const message: Omit<ApiMessage, 'id'> = {
+    chatId: SERVICE_NOTIFICATIONS_USER_ID,
+    date: getServerTime(global.serverTimeOffset),
+    content: {
+      text: parseMessageInput(versionNotification),
+    },
+    isOutgoing: false,
+  };
+
+  actions.createServiceNotification({
+    message,
+    version: currentVersion,
+  });
+});
+
+addReducer('createServiceNotification', (global, actions, payload) => {
+  const { message, version } = payload;
+  const { serviceNotifications } = global;
+  const serviceChat = selectChat(global, SERVICE_NOTIFICATIONS_USER_ID)!;
+
+  const maxId = Math.max(
+    serviceChat.lastMessage?.id || 0,
+    ...serviceNotifications.map(({ id }) => id),
+  );
+  const fractionalPart = (serviceNotifications.length + 1) / SERVICE_NOTIFICATIONS_MAX_AMOUNT;
+  // The fractional ID is made of the largest integer ID and an incremented fractional part
+  const id = Math.floor(maxId) + fractionalPart;
+
+  message.id = id;
+
+  const serviceNotification = {
+    id,
+    message,
+    version,
+    isUnread: true,
+  };
+
+  setGlobal({
+    ...global,
+    serviceNotifications: [
+      ...serviceNotifications.slice(-SERVICE_NOTIFICATIONS_MAX_AMOUNT),
+      serviceNotification,
+    ],
+  });
+
+  actions.apiUpdate({
+    '@type': 'newMessage',
+    id: message.id,
+    chatId: message.chatId,
+    message,
+  });
 });

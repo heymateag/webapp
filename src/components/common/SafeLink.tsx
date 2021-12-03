@@ -3,9 +3,10 @@ import { getDispatch } from '../../lib/teact/teactn';
 import convertPunycode from '../../lib/punycode';
 
 import {
-  DEBUG, RE_TG_LINK, RE_TME_ADDSTICKERS_LINK, RE_TME_INVITE_LINK, RE_TME_LINK,
+  DEBUG, RE_TG_LINK, RE_TME_LINK,
 } from '../../config';
 import buildClassName from '../../util/buildClassName';
+import { ensureProtocol } from '../../util/ensureProtocol';
 
 type OwnProps = {
   url?: string;
@@ -30,8 +31,7 @@ const SafeLink: FC<OwnProps> = ({
   const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     if (
       e.ctrlKey || e.altKey || e.shiftKey || e.metaKey
-      || !url || (!url.match(RE_TME_LINK) && !url.match(RE_TME_INVITE_LINK) && !url.match(RE_TG_LINK)
-      && !url.match(RE_TME_ADDSTICKERS_LINK))
+      || !url || (!url.match(RE_TME_LINK) && !url.match(RE_TG_LINK))
     ) {
       if (isNotSafe) {
         toggleSafeLinkModal({ url });
@@ -72,14 +72,6 @@ const SafeLink: FC<OwnProps> = ({
     </a>
   );
 };
-
-function ensureProtocol(url?: string) {
-  if (!url) {
-    return undefined;
-  }
-
-  return url.includes('://') ? url : `https://${url}`;
-}
 
 function getDomain(url?: string) {
   if (!url) {

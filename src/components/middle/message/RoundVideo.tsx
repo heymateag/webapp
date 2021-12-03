@@ -5,26 +5,26 @@ import React, {
   useRef,
   useState,
 } from '../../../lib/teact/teact';
+import { getDispatch } from '../../../lib/teact/teactn';
 
-import { ApiMessage } from '../../../api/types';
+import { ApiMediaFormat, ApiMessage } from '../../../api/types';
 
-import { ROUND_VIDEO_DIMENSIONS } from '../../common/helpers/mediaDimensions';
-import { formatMediaDuration } from '../../../util/dateFormat';
+import { ROUND_VIDEO_DIMENSIONS_PX } from '../../common/helpers/mediaDimensions';
 import { getMessageMediaFormat, getMessageMediaHash } from '../../../modules/helpers';
-import { ObserveFn, useIsIntersecting } from '../../../hooks/useIntersectionObserver';
-import useMediaWithDownloadProgress from '../../../hooks/useMediaWithDownloadProgress';
-import useShowTransition from '../../../hooks/useShowTransition';
-import useTransitionForMedia from '../../../hooks/useTransitionForMedia';
-import usePrevious from '../../../hooks/usePrevious';
-import useBuffering from '../../../hooks/useBuffering';
+import { formatMediaDuration } from '../../../util/dateFormat';
 import buildClassName from '../../../util/buildClassName';
 import { stopCurrentAudio } from '../../../util/audioPlayer';
-import useHeavyAnimationCheckForVideo from '../../../hooks/useHeavyAnimationCheckForVideo';
-import useVideoCleanup from '../../../hooks/useVideoCleanup';
-import usePauseOnInactive from './hooks/usePauseOnInactive';
-import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 import safePlay from '../../../util/safePlay';
 import { fastRaf } from '../../../util/schedulers';
+import { ObserveFn, useIsIntersecting } from '../../../hooks/useIntersectionObserver';
+import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
+import useShowTransition from '../../../hooks/useShowTransition';
+import useMediaTransition from '../../../hooks/useMediaTransition';
+import usePrevious from '../../../hooks/usePrevious';
+import useBuffering from '../../../hooks/useBuffering';
+import useVideoCleanup from '../../../hooks/useVideoCleanup';
+import useVideoAutoPause from './hooks/useVideoAutoPause';
+import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 
 import ProgressSpinner from '../../ui/ProgressSpinner';
 
@@ -33,9 +33,9 @@ import './RoundVideo.scss';
 type OwnProps = {
   message: ApiMessage;
   observeIntersection: ObserveFn;
-  shouldAutoLoad?: boolean;
-  shouldAutoPlay?: boolean;
+  canAutoLoad?: boolean;
   lastSyncTime?: number;
+  isDownloading?: boolean;
 };
 
 let currentOnRelease: NoneToVoidFunction;
@@ -53,9 +53,9 @@ function createCapture(onRelease: NoneToVoidFunction) {
 const RoundVideo: FC<OwnProps> = ({
   message,
   observeIntersection,
-  shouldAutoLoad,
-  shouldAutoPlay,
+  canAutoLoad,
   lastSyncTime,
+  isDownloading,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -68,24 +68,32 @@ const RoundVideo: FC<OwnProps> = ({
 
   const isIntersecting = useIsIntersecting(ref, observeIntersection);
 
-  const [isDownloadAllowed, setIsDownloadAllowed] = useState(shouldAutoLoad && shouldAutoPlay);
-  const shouldDownload = Boolean(isDownloadAllowed && isIntersecting && lastSyncTime);
-  const { mediaData, downloadProgress } = useMediaWithDownloadProgress(
+  const [isLoadAllowed, setIsLoadAllowed] = useState(canAutoLoad);
+  const shouldLoad = Boolean(isLoadAllowed && isIntersecting && lastSyncTime);
+  const { mediaData, loadProgress } = useMediaWithLoadProgress(
     getMessageMediaHash(message, 'inline'),
-    !shouldDownload,
+    !shouldLoad,
     getMessageMediaFormat(message, 'inline'),
+    lastSyncTime,
+  );
+
+  const { loadProgress: downloadProgress } = useMediaWithLoadProgress(
+    getMessageMediaHash(message, 'download'),
+    !isDownloading,
+    ApiMediaFormat.BlobUrl,
     lastSyncTime,
   );
   const thumbRef = useBlurredMediaThumbRef(message, mediaData);
 
   const { isBuffered, bufferingHandlers } = useBuffering();
-  const isTransferring = isDownloadAllowed && !isBuffered;
-  const wasDownloadDisabled = usePrevious(isDownloadAllowed) === false;
+  const isTransferring = (isLoadAllowed && !isBuffered) || isDownloading;
+  const wasLoadDisabled = usePrevious(isLoadAllowed) === false;
+
+  const transitionClassNames = useMediaTransition(mediaData);
   const {
     shouldRender: shouldSpinnerRender,
     transitionClassNames: spinnerClassNames,
-  } = useShowTransition(isTransferring || !isBuffered, undefined, wasDownloadDisabled);
-  const { shouldRenderThumb, transitionClassNames } = useTransitionForMedia(mediaData, 'slow');
+  } = useShowTransition(isTransferring || !isBuffered, undefined, wasLoadDisabled);
 
   const [isActivated, setIsActivated] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
@@ -95,7 +103,9 @@ const RoundVideo: FC<OwnProps> = ({
       return;
     }
 
-    const circumference = 94 * 2 * Math.PI;
+    const svgCenter = ROUND_VIDEO_DIMENSIONS_PX / 2;
+    const svgMargin = 6;
+    const circumference = (svgCenter - svgMargin) * 2 * Math.PI;
     const strokeDashOffset = circumference - progress * circumference;
 
     const playerEl = playerRef.current!;
@@ -103,8 +113,10 @@ const RoundVideo: FC<OwnProps> = ({
     const svgEl = playingProgressEl.firstElementChild;
 
     if (!svgEl) {
-      playingProgressEl.innerHTML = `<svg width="200px" height="200px">
-          <circle cx="100" cy="100" r="94" class="progress-circle" transform="rotate(-90, 100, 100)"
+      playingProgressEl.innerHTML = `
+        <svg width="${ROUND_VIDEO_DIMENSIONS_PX}px" height="${ROUND_VIDEO_DIMENSIONS_PX}px">
+          <circle cx="${svgCenter}" cy="${svgCenter}" r="${svgCenter - svgMargin}" class="progress-circle"
+            transform="rotate(-90, ${svgCenter}, ${svgCenter})"
             stroke-dasharray="${circumference} ${circumference}"
             stroke-dashoffset="${circumference}"
           />
@@ -142,14 +154,18 @@ const RoundVideo: FC<OwnProps> = ({
     }
   }, [shouldPlay]);
 
-  useHeavyAnimationCheckForVideo(playerRef, shouldPlay);
-  usePauseOnInactive(playerRef, Boolean(mediaData));
+  useVideoAutoPause(playerRef, shouldPlay);
   useVideoCleanup(playerRef, [mediaData]);
 
   const handleClick = useCallback(() => {
     if (!mediaData) {
-      setIsDownloadAllowed((isAllowed) => !isAllowed);
+      setIsLoadAllowed((isAllowed) => !isAllowed);
 
+      return;
+    }
+
+    if (isDownloading) {
+      getDispatch().cancelMessageMediaDownload({ message });
       return;
     }
 
@@ -171,7 +187,7 @@ const RoundVideo: FC<OwnProps> = ({
 
       setIsActivated(true);
     }
-  }, [capturePlaying, isActivated, mediaData]);
+  }, [capturePlaying, isActivated, isDownloading, mediaData, message]);
 
   const handleTimeUpdate = useCallback((e: React.UIEvent<HTMLVideoElement>) => {
     const playerEl = e.currentTarget;
@@ -187,24 +203,22 @@ const RoundVideo: FC<OwnProps> = ({
       className="RoundVideo media-inner"
       onClick={handleClick}
     >
-      {(shouldRenderThumb || mediaData) && (
-        <div className="thumbnail-wrapper">
-          <canvas
-            ref={thumbRef}
-            className="thumbnail"
-            // @ts-ignore teact feature
-            style={`width: ${ROUND_VIDEO_DIMENSIONS}px; height: ${ROUND_VIDEO_DIMENSIONS}px`}
-          />
-        </div>
-      )}
+      <div className="thumbnail-wrapper">
+        <canvas
+          ref={thumbRef}
+          className="thumbnail"
+          // @ts-ignore teact feature
+          style={`width: ${ROUND_VIDEO_DIMENSIONS_PX}px; height: ${ROUND_VIDEO_DIMENSIONS_PX}px`}
+        />
+      </div>
       {mediaData && (
         <div className="video-wrapper">
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={playerRef}
             className={videoClassName}
-            width={ROUND_VIDEO_DIMENSIONS}
-            height={ROUND_VIDEO_DIMENSIONS}
+            width={ROUND_VIDEO_DIMENSIONS_PX}
+            height={ROUND_VIDEO_DIMENSIONS_PX}
             autoPlay
             muted={!isActivated}
             loop={!isActivated}
@@ -221,15 +235,15 @@ const RoundVideo: FC<OwnProps> = ({
       <div className="progress" ref={playingProgressRef} />
       {shouldSpinnerRender && (
         <div className={`media-loading ${spinnerClassNames}`}>
-          <ProgressSpinner progress={downloadProgress} />
+          <ProgressSpinner progress={isDownloading ? downloadProgress : loadProgress} />
         </div>
       )}
-      {!mediaData && !isDownloadAllowed && (
-        <i className="icon-large-play" />
+      {!mediaData && !isLoadAllowed && (
+        <i className="icon-download" />
       )}
       <div className="message-media-duration">
         {isActivated ? formatMediaDuration(playerRef.current!.currentTime) : formatMediaDuration(video.duration)}
-        {(!isActivated || playerRef.current!.paused) && <i className="icon-muted-chat" />}
+        {(!isActivated || playerRef.current!.paused) && <i className="icon-muted" />}
       </div>
     </div>
   );

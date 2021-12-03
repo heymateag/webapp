@@ -7,10 +7,9 @@ import { ThemeKey, UPLOADING_WALLPAPER_SLUG } from '../../../types';
 import { CUSTOM_BG_CACHE_NAME } from '../../../config';
 import * as cacheApi from '../../../util/cacheApi';
 import { fetchBlob } from '../../../util/files';
-import useTransitionForMedia from '../../../hooks/useTransitionForMedia';
 import buildClassName from '../../../util/buildClassName';
 import useMedia from '../../../hooks/useMedia';
-import useMediaWithDownloadProgress from '../../../hooks/useMediaWithDownloadProgress';
+import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
 import useShowTransition from '../../../hooks/useShowTransition';
 import usePrevious from '../../../hooks/usePrevious';
 import useCanvasBlur from '../../../hooks/useCanvasBlur';
@@ -36,23 +35,22 @@ const WallpaperTile: FC<OwnProps> = ({
   const localMediaHash = `wallpaper${document.id!}`;
   const localBlobUrl = document.previewBlobUrl;
   const previewBlobUrl = useMedia(`${localMediaHash}?size=m`);
-  const thumbRef = useCanvasBlur(
-    document.thumbnail?.dataUri,
-    Boolean(previewBlobUrl),
-    true,
-  );
-  const {
-    shouldRenderThumb, shouldRenderFullMedia, transitionClassNames,
-  } = useTransitionForMedia(previewBlobUrl || localBlobUrl, 'slow');
-  const [isDownloadAllowed, setIsDownloadAllowed] = useState(false);
-  const {
-    mediaData: fullMedia, downloadProgress,
-  } = useMediaWithDownloadProgress(localMediaHash, !isDownloadAllowed);
-  const wasDownloadDisabled = usePrevious(isDownloadAllowed) === false;
-  const { shouldRender: shouldRenderSpinner, transitionClassNames: spinnerClassNames } = useShowTransition(
-    (isDownloadAllowed && !fullMedia) || slug === UPLOADING_WALLPAPER_SLUG,
+  const thumbRef = useCanvasBlur(document.thumbnail?.dataUri, Boolean(previewBlobUrl), true);
+  const { transitionClassNames } = useShowTransition(
+    Boolean(previewBlobUrl || localBlobUrl),
     undefined,
-    wasDownloadDisabled,
+    undefined,
+    'slow',
+  );
+  const [isLoadAllowed, setIsLoadAllowed] = useState(false);
+  const {
+    mediaData: fullMedia, loadProgress,
+  } = useMediaWithLoadProgress(localMediaHash, !isLoadAllowed);
+  const wasLoadDisabled = usePrevious(isLoadAllowed) === false;
+  const { shouldRender: shouldRenderSpinner, transitionClassNames: spinnerClassNames } = useShowTransition(
+    (isLoadAllowed && !fullMedia) || slug === UPLOADING_WALLPAPER_SLUG,
+    undefined,
+    wasLoadDisabled,
     'slow',
   );
   // To prevent triggering of the effect for useCallback
@@ -77,7 +75,7 @@ const WallpaperTile: FC<OwnProps> = ({
     if (fullMedia) {
       handleSelect();
     } else {
-      setIsDownloadAllowed((isAllowed) => !isAllowed);
+      setIsLoadAllowed((isAllowed) => !isAllowed);
     }
   }, [fullMedia, handleSelect]);
 
@@ -89,22 +87,18 @@ const WallpaperTile: FC<OwnProps> = ({
   return (
     <div className={className} onClick={handleClick}>
       <div className="media-inner">
-        {shouldRenderThumb && (
-          <canvas
-            ref={thumbRef}
-            className="thumbnail"
-          />
-        )}
-        {shouldRenderFullMedia && (
-          <img
-            src={previewBlobUrl || localBlobUrl}
-            className={`full-media ${transitionClassNames}`}
-            alt=""
-          />
-        )}
+        <canvas
+          ref={thumbRef}
+          className="thumbnail"
+        />
+        <img
+          src={previewBlobUrl || localBlobUrl}
+          className={buildClassName('full-media', transitionClassNames)}
+          alt=""
+        />
         {shouldRenderSpinner && (
           <div className={buildClassName('spinner-container', spinnerClassNames)}>
-            <ProgressSpinner progress={downloadProgress} onClick={handleClick} />
+            <ProgressSpinner progress={loadProgress} onClick={handleClick} />
           </div>
         )}
       </div>

@@ -1,13 +1,15 @@
 import React from '../../../lib/teact/teact';
 
-import { ApiChat, ApiMessage, ApiUser } from '../../../api/types';
+import {
+  ApiChat, ApiMessage, ApiUser, ApiGroupCall,
+} from '../../../api/types';
 import { LangFn } from '../../../hooks/useLang';
 import {
   getChatTitle,
   getMessageContent,
   getMessageSummaryText,
   getUserFullName,
-  isChatPrivate,
+  isUserId,
 } from '../../../modules/helpers';
 import trimText from '../../../util/trimText';
 import { formatCurrency } from '../../../util/formatCurrency';
@@ -17,6 +19,7 @@ import renderText from './renderText';
 import UserLink from '../UserLink';
 import MessageLink from '../MessageLink';
 import ChatLink from '../ChatLink';
+import GroupCallLink from '../GroupCallLink';
 
 interface ActionMessageTextOptions {
   maxTextLength?: number;
@@ -32,14 +35,14 @@ export function renderActionMessageText(
   actionOrigin?: ApiUser | ApiChat,
   targetUsers?: ApiUser[],
   targetMessage?: ApiMessage,
-  targetChatId?: number,
+  targetChatId?: string,
   options: ActionMessageTextOptions = {},
 ) {
   if (!message.content.action) {
     return [];
   }
   const {
-    text, translationValues, amount, currency,
+    text, translationValues, amount, currency, call,
   } = message.content.action;
   const content: TextPart[] = [];
   const textOptions: ActionMessageTextOptions = { ...options, maxTextLength: 32 };
@@ -115,6 +118,10 @@ export function renderActionMessageText(
     return content.join('').trim();
   }
 
+  if (call) {
+    return renderGroupCallContent(call, content);
+  }
+
   return content;
 }
 
@@ -167,9 +174,17 @@ function renderMessageContent(lang: LangFn, message: ApiMessage, options: Action
 }
 
 function renderOriginContent(lang: LangFn, origin: ApiUser | ApiChat, asPlain?: boolean) {
-  return isChatPrivate(origin.id)
+  return isUserId(origin.id)
     ? renderUserContent(origin as ApiUser, asPlain)
     : renderChatContent(lang, origin as ApiChat, asPlain);
+}
+
+function renderGroupCallContent(groupCall: Partial<ApiGroupCall>, text: TextPart[]): string | TextPart | undefined {
+  return (
+    <GroupCallLink groupCall={groupCall}>
+      {text}
+    </GroupCallLink>
+  );
 }
 
 function renderUserContent(sender: ApiUser, asPlain?: boolean): string | TextPart | undefined {
@@ -192,7 +207,7 @@ function renderChatContent(lang: LangFn, chat: ApiChat, asPlain?: boolean): stri
   return <ChatLink className="action-link" chatId={chat.id}>{chat && renderText(text!)}</ChatLink>;
 }
 
-function renderMigratedContent(chatId: number, asPlain?: boolean): string | TextPart | undefined {
+function renderMigratedContent(chatId: string, asPlain?: boolean): string | TextPart | undefined {
   const text = 'another chat';
 
   if (asPlain) {

@@ -4,11 +4,12 @@ import React, {
 import { withGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalActions } from '../../../global/types';
-import { SettingsScreens, ISettings } from '../../../types';
+import { SettingsScreens, ISettings, TimeFormat } from '../../../types';
 import { ApiSticker, ApiStickerSet } from '../../../api/types';
 
 import { IS_IOS, IS_MAC_OS, IS_TOUCH_ENV } from '../../../util/environment';
 import { pick } from '../../../util/iteratees';
+import { setTimeFormat } from '../../../util/langProvider';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
@@ -17,7 +18,7 @@ import useHistoryBack from '../../../hooks/useHistoryBack';
 import ListItem from '../../ui/ListItem';
 import RangeSlider from '../../ui/RangeSlider';
 import Checkbox from '../../ui/Checkbox';
-import RadioGroup from '../../ui/RadioGroup';
+import RadioGroup, { IRadioOption } from '../../ui/RadioGroup';
 import SettingsStickerSet from './SettingsStickerSet';
 import StickerSetModal from '../../common/StickerSetModal.async';
 
@@ -31,14 +32,9 @@ type StateProps = Pick<ISettings, (
   'messageTextSize' |
   'animationLevel' |
   'messageSendKeyCombo' |
-  'shouldAutoDownloadMediaFromContacts' |
-  'shouldAutoDownloadMediaInPrivateChats' |
-  'shouldAutoDownloadMediaInGroups' |
-  'shouldAutoDownloadMediaInChannels' |
-  'shouldAutoPlayGifs' |
-  'shouldAutoPlayVideos' |
   'shouldSuggestStickers' |
-  'shouldLoopStickers'
+  'shouldLoopStickers' |
+  'timeFormat'
 )> & {
   stickerSetIds?: string[];
   stickerSetsById?: Record<string, ApiStickerSet>;
@@ -54,6 +50,14 @@ const ANIMATION_LEVEL_OPTIONS = [
   'Lots of Stuff',
 ];
 
+const TIME_FORMAT_OPTIONS: IRadioOption[] = [{
+  label: '12-hour',
+  value: '12h',
+}, {
+  label: '24-hour',
+  value: '24h',
+}];
+
 const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
   isActive,
   onScreenSelect,
@@ -63,14 +67,9 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
   messageTextSize,
   animationLevel,
   messageSendKeyCombo,
-  shouldAutoDownloadMediaFromContacts,
-  shouldAutoDownloadMediaInPrivateChats,
-  shouldAutoDownloadMediaInGroups,
-  shouldAutoDownloadMediaInChannels,
-  shouldAutoPlayGifs,
-  shouldAutoPlayVideos,
   shouldSuggestStickers,
   shouldLoopStickers,
+  timeFormat,
   setSettingOption,
   loadStickerSets,
   loadAddedStickers,
@@ -121,6 +120,13 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
     setSettingOption({ messageTextSize: newSize });
   }, [setSettingOption]);
 
+  const handleTimeFormatChange = useCallback((newTimeFormat: string) => {
+    setSettingOption({ timeFormat: newTimeFormat });
+    setSettingOption({ wasTimeFormatSetManually: true });
+
+    setTimeFormat(newTimeFormat as TimeFormat);
+  }, [setSettingOption]);
+
   const handleStickerSetClick = useCallback((value: ApiSticker) => {
     setSticker(value);
     openModal();
@@ -139,8 +145,8 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
 
         <RangeSlider
           label={lang('TextSize')}
-          // TODO Remove memo-killer
-          range={{ min: 12, max: 20 }}
+          min={12}
+          max={20}
           value={messageTextSize}
           onChange={handleMessageTextSizeChange}
         />
@@ -151,6 +157,18 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
         >
           {lang('ChatBackground')}
         </ListItem>
+      </div>
+
+      <div className="settings-item">
+        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>
+          Time Format
+        </h4>
+        <RadioGroup
+          name="timeformat"
+          options={TIME_FORMAT_OPTIONS}
+          selected={timeFormat}
+          onChange={handleTimeFormatChange}
+        />
       </div>
 
       <div className="settings-item">
@@ -180,46 +198,6 @@ const SettingsGeneral: FC<OwnProps & StateProps & DispatchProps> = ({
           />
         </div>
       )}
-
-      <div className="settings-item">
-        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AutoDownloadMedia')}</h4>
-
-        <Checkbox
-          label={lang('Contacts')}
-          checked={shouldAutoDownloadMediaFromContacts}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoDownloadMediaFromContacts: isChecked })}
-        />
-        <Checkbox
-          label={lang('AutodownloadPrivateChats')}
-          checked={shouldAutoDownloadMediaInPrivateChats}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoDownloadMediaInPrivateChats: isChecked })}
-        />
-        <Checkbox
-          label={lang('AutodownloadGroupChats')}
-          checked={shouldAutoDownloadMediaInGroups}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoDownloadMediaInGroups: isChecked })}
-        />
-        <Checkbox
-          label={lang('FilterChannels')}
-          checked={shouldAutoDownloadMediaInChannels}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoDownloadMediaInChannels: isChecked })}
-        />
-      </div>
-
-      <div className="settings-item">
-        <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AutoplayMedia')}</h4>
-
-        <Checkbox
-          label={lang('GifsTab2')}
-          checked={shouldAutoPlayGifs}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoPlayGifs: isChecked })}
-        />
-        <Checkbox
-          label={lang('DataAndStorage.Autoplay.Videos')}
-          checked={shouldAutoPlayVideos}
-          onCheck={(isChecked) => setSettingOption({ shouldAutoPlayVideos: isChecked })}
-        />
-      </div>
 
       <div className="settings-item">
         <h4 className="settings-item-header" dir={lang.isRtl ? 'rtl' : undefined}>{lang('AccDescrStickers')}</h4>
@@ -264,16 +242,11 @@ export default memo(withGlobal<OwnProps>(
         'messageTextSize',
         'animationLevel',
         'messageSendKeyCombo',
-        'shouldAutoDownloadMediaFromContacts',
-        'shouldAutoDownloadMediaInPrivateChats',
-        'shouldAutoDownloadMediaInGroups',
-        'shouldAutoDownloadMediaInChannels',
-        'shouldAutoPlayGifs',
-        'shouldAutoPlayVideos',
         'shouldSuggestStickers',
         'shouldLoopStickers',
         'isSensitiveEnabled',
         'canChangeSensitive',
+        'timeFormat',
       ]),
       stickerSetIds: global.stickers.added.setIds,
       stickerSetsById: global.stickers.setsById,

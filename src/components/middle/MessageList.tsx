@@ -1,18 +1,10 @@
+import { getGlobal, withGlobal } from 'teact/teactn';
 import React, {
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
 import {
-  ApiMessage,
-  ApiRestrictionReason,
-  MAIN_THREAD_ID,
+  ApiMessage, ApiRestrictionReason, MAIN_THREAD_ID,
 } from '../../api/types';
 import {
   GlobalActions,
@@ -44,7 +36,7 @@ import {
 } from '../../modules/selectors';
 import {
   isChatChannel,
-  isChatPrivate,
+  isUserId,
   isChatWithRepliesBot,
   isChatGroup,
 } from '../../modules/helpers';
@@ -75,7 +67,7 @@ import './MessageList.scss';
 import ManageOffers from './manageOffers/ManageOffers';
 
 type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   type: MessageListType;
   canPost: boolean;
@@ -112,8 +104,8 @@ type StateProps = {
 } & Pick<GlobalState, 'showHeymate'>;
 
 type DispatchProps = Pick<
-  GlobalActions,
-  'loadViewportMessages' | 'setScrollOffset' | 'openHistoryCalendar'
+GlobalActions,
+'loadViewportMessages' | 'setScrollOffset' | 'openHistoryCalendar'
 >;
 
 const BOTTOM_THRESHOLD = 20;
@@ -319,8 +311,8 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     // Loading history while sending a message can return the same message and cause ambiguity
-    const isFirstMessageLocal = messageIds && messageIds[0] >= LOCAL_MESSAGE_ID_BASE;
-    if (isFirstMessageLocal) {
+    const isLastMessageLocal = messageIds && messageIds[messageIds.length - 1] >= LOCAL_MESSAGE_ID_BASE;
+    if (isLastMessageLocal) {
       return;
     }
 
@@ -455,7 +447,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       const isResized = prevContainerHeight !== undefined
         && prevContainerHeight !== containerHeight;
       const anchor = anchorIdRef.current
-        && container.querySelector(`#${anchorIdRef.current}`);
+        && document.getElementById(anchorIdRef.current);
       const unreadDivider = !anchor
         && memoUnreadDividerBeforeIdRef.current
         && container.querySelector<HTMLDivElement>(`.${UNREAD_DIVIDER_CLASS}`);
@@ -515,12 +507,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const lang = useLang();
 
-  const isPrivate = Boolean(chatId && isChatPrivate(chatId));
+  const isPrivate = Boolean(chatId && isUserId(chatId));
   const withUsers = Boolean(
     (!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat,
   );
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = isChatPrivate(chatId)
+  const shouldRenderGreeting = isUserId(chatId)
     && !isChatWithSelf
     && !isBot
     && ((!messageGroups
@@ -696,11 +688,10 @@ export default memo(
         ...(withLastMessageWhenPreloading && { lastMessage }),
       };
     },
-    (setGlobal, actions): DispatchProps =>
-      pick(actions, [
-        'loadViewportMessages',
-        'setScrollOffset',
-        'openHistoryCalendar',
-      ])
+    (setGlobal, actions): DispatchProps => pick(actions, [
+      'loadViewportMessages',
+      'setScrollOffset',
+      'openHistoryCalendar',
+    ]),
   )(MessageList),
 );

@@ -1,3 +1,4 @@
+import { getGlobal, withGlobal } from 'teact/teactn';
 import React, {
   FC,
   useCallback,
@@ -7,7 +8,6 @@ import React, {
   useRef,
   useState,
 } from '../../lib/teact/teact';
-import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 import cycleRestrict from '../../util/cycleRestrict';
 
 import { GlobalActions, MessageListType, GlobalState } from '../../global/types';
@@ -33,7 +33,7 @@ import {
   IS_TABLET_COLUMN_LAYOUT,
 } from '../../util/environment';
 import {
-  isChatPrivate,
+  isUserId,
   getMessageKey,
   getChatTitle,
   getSenderTitle,
@@ -71,6 +71,7 @@ import Button from '../ui/Button';
 import HeaderActions from './HeaderActions';
 import HeaderPinnedMessage from './HeaderPinnedMessage';
 import AudioPlayer from './AudioPlayer';
+import GroupCallTopPane from '../calls/group/GroupCallTopPane';
 
 import './MiddleHeader.scss';
 import ScheduleHeader from './manageOffers/ScheduleHeader';
@@ -79,7 +80,7 @@ const ANIMATION_DURATION = 350;
 const BACK_BUTTON_INACTIVE_TIME = 450;
 
 type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   messageListType: MessageListType;
   isReady?: boolean;
@@ -97,7 +98,7 @@ type StateProps = {
   isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
   audioMessage?: ApiMessage;
-  chatsById?: Record<number, ApiChat>;
+  chatsById?: Record<string, ApiChat>;
   messagesCount?: number;
   isChatWithSelf?: boolean;
   isChatWithBot?: boolean;
@@ -160,8 +161,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const pinnedMessageId = Array.isArray(pinnedMessageIds)
     ? pinnedMessageIds[pinnedMessageIndex]
     : pinnedMessageIds;
-  const pinnedMessage =
-    messagesById && pinnedMessageId ? messagesById[pinnedMessageId] : undefined;
+  const pinnedMessage = messagesById && pinnedMessageId ? messagesById[pinnedMessageId] : undefined;
   const pinnedMessagesCount = Array.isArray(pinnedMessageIds)
     ? pinnedMessageIds.length
     : pinnedMessageIds
@@ -187,8 +187,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const { width: windowWidth } = useWindowSize();
 
-  const isLeftColumnHideable =
-    windowWidth <= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN;
+  const isLeftColumnHideable = windowWidth <= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN;
   const shouldShowCloseButton = IS_TABLET_COLUMN_LAYOUT && isLeftColumnShown;
 
   // eslint-disable-next-line no-null/no-null
@@ -288,7 +287,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       toggleLeftColumn,
       exitMessageSelectMode,
       setBackButtonActive,
-    ]
+    ],
   );
 
   const unreadCount = useMemo(() => {
@@ -318,7 +317,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const {
     shouldRender: shouldRenderPinnedMessage,
     transitionClassNames: pinnedMessageClassNames,
-  } = useShowTransition(pinnedMessage && !shouldRenderAudioPlayer);
+  } = useShowTransition(Boolean(pinnedMessage));
 
   const renderingPinnedMessage = useCurrentOrPrev(pinnedMessage, true);
   const renderingPinnedMessagesCount = useCurrentOrPrev(
@@ -366,8 +365,8 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   ]);
 
   const isBrowserOnline = useBrowserOnline();
-  const isConnecting = (!isBrowserOnline || connectionState === 'connectionStateConnecting') &&
-    (IS_SINGLE_COLUMN_LAYOUT
+  const isConnecting = (!isBrowserOnline || connectionState === 'connectionStateConnecting')
+    && (IS_SINGLE_COLUMN_LAYOUT
       || (IS_TABLET_COLUMN_LAYOUT && !shouldShowCloseButton));
 
   function renderInfo() {
@@ -409,7 +408,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         {(isLeftColumnHideable || currentTransitionKey > 0)
           && renderBackButton(shouldShowCloseButton, true)}
         <div className="chat-info-wrapper" onClick={handleHeaderClick}>
-          {isChatPrivate(chatId) ? (
+          {isUserId(chatId) ? (
             <PrivateChatInfo
               userId={chatId}
               typingStatus={typingStatus}
@@ -441,7 +440,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           size="smaller"
           color="translucent"
           onClick={handleBackClick}
-          ariaLabel={asClose ? 'Close' : 'Back'}
+          ariaLabel={lang(asClose ? 'Close' : 'Back')}
         >
           <div
             className={buildClassName(
@@ -459,6 +458,8 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     );
   }
 
+  const isAudioPlayerRendered = Boolean(shouldRenderAudioPlayer && renderingAudioMessage);
+
   return (
     showHeymate ? (
       <div className="MiddleHeader schedule-header" ref={componentRef}>
@@ -473,27 +474,35 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           {renderInfo}
         </Transition>
 
+        <GroupCallTopPane
+          hasPinnedOffset={
+            (shouldRenderPinnedMessage
+            && !!renderingPinnedMessage
+            )
+          || (shouldRenderAudioPlayer && !!renderingAudioMessage)
+          }
+          chatId={chatId}
+        />
+
+        {shouldRenderPinnedMessage && renderingPinnedMessage && (
+          <HeaderPinnedMessage
+            key={chatId}
+            message={renderingPinnedMessage}
+            count={renderingPinnedMessagesCount || 0}
+            index={pinnedMessageIndex}
+            customTitle={renderingPinnedMessageTitle}
+            className={buildClassName(pinnedMessageClassNames, isAudioPlayerRendered && 'full-width')}
+            onUnpinMessage={
+              renderingCanUnpin ? handleUnpinMessage : undefined
+            }
+            onClick={handlePinnedMessageClick}
+            onAllPinnedClick={handleAllPinnedClick}
+          />
+        )}
         <div className="header-tools">
-          {shouldRenderPinnedMessage
-            && renderingPinnedMessage
-            && !shouldRenderAudioPlayer && (
-            <HeaderPinnedMessage
-              key={chatId}
-              message={renderingPinnedMessage}
-              count={renderingPinnedMessagesCount || 0}
-              index={pinnedMessageIndex}
-              customTitle={renderingPinnedMessageTitle}
-              className={pinnedMessageClassNames}
-              onUnpinMessage={
-                renderingCanUnpin ? handleUnpinMessage : undefined
-              }
-              onClick={handlePinnedMessageClick}
-              onAllPinnedClick={handleAllPinnedClick}
-            />
-          )}
-          {shouldRenderAudioPlayer && renderingAudioMessage && (
+          {isAudioPlayerRendered && (
             <AudioPlayer
-              key={getMessageKey(renderingAudioMessage)}
+              key={getMessageKey(renderingAudioMessage!)}
               message={renderingAudioMessage!}
               className={audioPlayerClassNames}
             />
@@ -502,6 +511,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             chatId={chatId}
             threadId={threadId}
             messageListType={messageListType}
+            canExpandActions={!isAudioPlayerRendered}
           />
         </div>
       </div>
@@ -604,16 +614,15 @@ export default memo(
 
       return state;
     },
-    (setGlobal, actions): DispatchProps =>
-      pick(actions, [
-        'openChatWithInfo',
-        'pinMessage',
-        'focusMessage',
-        'openChat',
-        'openPreviousChat',
-        'loadPinnedMessages',
-        'toggleLeftColumn',
-        'exitMessageSelectMode',
-      ]),
+    (setGlobal, actions): DispatchProps => pick(actions, [
+      'openChatWithInfo',
+      'pinMessage',
+      'focusMessage',
+      'openChat',
+      'openPreviousChat',
+      'loadPinnedMessages',
+      'toggleLeftColumn',
+      'exitMessageSelectMode',
+    ]),
   )(MiddleHeader),
 );

@@ -13,6 +13,8 @@ import {
   GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT,
   MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
+  DEFAULT_VOLUME,
+  DEFAULT_PLAYBACK_RATE,
 } from '../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../util/environment';
 import { ANIMATION_END_EVENT, ANIMATION_START_EVENT } from '../hooks/useHeavyAnimationCheck';
@@ -22,6 +24,7 @@ import { hasStoredSession } from '../util/sessions';
 import { INITIAL_STATE } from './initial';
 import { parseLocationHash } from '../util/routing';
 import { LOCATION_HASH } from '../hooks/useHistoryBack';
+import { isUserId } from '../modules/helpers';
 
 const UPDATE_THROTTLE = 5000;
 
@@ -104,23 +107,7 @@ function readCache(initialState: GlobalState): GlobalState {
   }
 
   if (cached) {
-    // Pre-fill defaults in nested objects which may be missing in older cache
-    cached.settings.byKey = {
-      ...initialState.settings.byKey,
-      ...cached.settings.byKey,
-    };
-    cached.settings.themes = {
-      ...initialState.settings.themes,
-      ...cached.settings.themes,
-    };
-    cached.chatFolders = {
-      ...initialState.chatFolders,
-      ...cached.chatFolders,
-    };
-
-    if (!cached.stickers.greeting) {
-      cached.stickers.greeting = initialState.stickers.greeting;
-    }
+    migrateCache(cached, initialState);
   }
 
   const newState = {
@@ -137,6 +124,75 @@ function readCache(initialState: GlobalState): GlobalState {
       messageLists: parsedMessageList ? [parsedMessageList] : [],
     },
   };
+}
+
+function migrateCache(cached: GlobalState, initialState: GlobalState) {
+  if ('shouldAutoDownloadMediaFromContacts' in cached.settings.byKey) {
+    const {
+      shouldAutoDownloadMediaFromContacts,
+      shouldAutoDownloadMediaInPrivateChats,
+      shouldAutoDownloadMediaInGroups,
+      shouldAutoDownloadMediaInChannels,
+      shouldAutoPlayVideos,
+      shouldAutoPlayGifs,
+      ...rest
+    } = cached.settings.byKey;
+
+    cached.settings.byKey = {
+      ...rest,
+      canAutoLoadPhotoFromContacts: shouldAutoDownloadMediaFromContacts,
+      canAutoLoadVideoFromContacts: shouldAutoDownloadMediaFromContacts,
+      canAutoLoadPhotoInPrivateChats: shouldAutoDownloadMediaInPrivateChats,
+      canAutoLoadVideoInPrivateChats: shouldAutoDownloadMediaInPrivateChats,
+      canAutoLoadPhotoInGroups: shouldAutoDownloadMediaInGroups,
+      canAutoLoadVideoInGroups: shouldAutoDownloadMediaInGroups,
+      canAutoLoadPhotoInChannels: shouldAutoDownloadMediaInChannels,
+      canAutoLoadVideoInChannels: shouldAutoDownloadMediaInChannels,
+      canAutoPlayVideos: shouldAutoPlayVideos,
+      canAutoPlayGifs: shouldAutoPlayGifs,
+    };
+  }
+
+  cached.settings.byKey = {
+    ...initialState.settings.byKey,
+    ...cached.settings.byKey,
+  };
+
+  cached.settings.themes = {
+    ...initialState.settings.themes,
+    ...cached.settings.themes,
+  };
+
+  cached.chatFolders = {
+    ...initialState.chatFolders,
+    ...cached.chatFolders,
+  };
+
+  if (!cached.stickers.greeting) {
+    cached.stickers.greeting = initialState.stickers.greeting;
+  }
+
+  if (!cached.activeDownloads) {
+    cached.activeDownloads = {
+      byChatId: {},
+    };
+  }
+
+  if (!cached.serviceNotifications) {
+    cached.serviceNotifications = [];
+  }
+
+  if (cached.audioPlayer.volume === undefined) {
+    cached.audioPlayer.volume = DEFAULT_VOLUME;
+  }
+
+  if (cached.audioPlayer.playbackRate === undefined) {
+    cached.audioPlayer.playbackRate = DEFAULT_PLAYBACK_RATE;
+  }
+
+  if (cached.groupCalls === undefined) {
+    cached.groupCalls = initialState.groupCalls;
+  }
 }
 
 function updateCache() {
@@ -164,7 +220,14 @@ function updateCache() {
       'recentEmojis',
       'push',
       'shouldShowContextMenuHint',
+      'leftColumnWidth',
+      'serviceNotifications',
     ]),
+    audioPlayer: {
+      volume: global.audioPlayer.volume,
+      playbackRate: global.audioPlayer.playbackRate,
+      isMuted: global.audioPlayer.isMuted,
+    },
     isChatInfoShown: reduceShowChatInfo(global),
     users: reduceUsers(global),
     chats: reduceChats(global),
@@ -174,6 +237,7 @@ function updateCache() {
     },
     settings: reduceSettings(global),
     chatFolders: reduceChatFolders(global),
+    groupCalls: reduceGroupCalls(global),
   };
 
   const json = JSON.stringify(reducedGlobal);
@@ -189,12 +253,12 @@ function reduceShowChatInfo(global: GlobalState): boolean {
 function reduceUsers(global: GlobalState): GlobalState['users'] {
   const { users: { byId, selectedId } } = global;
   const idsToSave = [
-    ...(global.chats.listIds.active || []).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT).filter((cid) => cid > 0),
+    ...(global.chats.listIds.active || []).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT).filter(isUserId),
     ...Object.keys(byId),
   ].slice(0, GLOBAL_STATE_CACHE_USER_LIST_LIMIT);
 
   return {
-    byId: pick(byId, idsToSave as number[]),
+    byId: pick(byId, idsToSave),
     selectedId: window.innerWidth > MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN ? selectedId : undefined,
   };
 }
@@ -266,6 +330,16 @@ function reduceChatFolders(global: GlobalState): GlobalState['chatFolders'] {
   return {
     ...global.chatFolders,
     activeChatFolder: 0,
+  };
+}
+
+function reduceGroupCalls(global: GlobalState): GlobalState['groupCalls'] {
+  return {
+    ...global.groupCalls,
+    byId: {},
+    activeGroupCallId: undefined,
+    isGroupCallPanelHidden: undefined,
+    isFallbackConfirmOpen: undefined,
   };
 }
 

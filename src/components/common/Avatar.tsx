@@ -1,18 +1,24 @@
 import { MouseEvent as ReactMouseEvent } from 'react';
-import React, { FC, useCallback, memo } from '../../lib/teact/teact';
+import React, { FC, memo, useCallback } from '../../lib/teact/teact';
 
-import { ApiUser, ApiChat, ApiMediaFormat } from '../../api/types';
+import { ApiChat, ApiMediaFormat, ApiUser } from '../../api/types';
 
 import { IS_TEST } from '../../config';
 import {
-  getChatAvatarHash, getChatTitle, isChatPrivate,
-  getUserFullName, isUserOnline, isDeletedUser, getUserColorKey, isChatWithRepliesBot,
+  getChatAvatarHash,
+  getChatTitle,
+  getUserColorKey,
+  getUserFullName,
+  isUserId,
+  isChatWithRepliesBot,
+  isDeletedUser,
+  isUserOnline,
 } from '../../modules/helpers';
 import { getFirstLetters } from '../../util/textFormat';
 import buildClassName from '../../util/buildClassName';
 import renderText from './helpers/renderText';
 import useMedia from '../../hooks/useMedia';
-import useTransitionForMedia from '../../hooks/useTransitionForMedia';
+import useShowTransition from '../../hooks/useShowTransition';
 import useLang from '../../hooks/useLang';
 
 import './Avatar.scss';
@@ -52,8 +58,9 @@ const Avatar: FC<OwnProps> = ({
     }
   }
 
-  const dataUri = useMedia(imageHash, false, ApiMediaFormat.DataUri, lastSyncTime);
-  const { shouldRenderFullMedia, transitionClassNames } = useTransitionForMedia(dataUri, 'slow');
+  const blobUrl = useMedia(imageHash, false, ApiMediaFormat.BlobUrl, lastSyncTime);
+  const hasBlobUrl = Boolean(blobUrl);
+  const { transitionClassNames } = useShowTransition(hasBlobUrl, undefined, hasBlobUrl, 'slow');
 
   const lang = useLang();
 
@@ -65,14 +72,16 @@ const Avatar: FC<OwnProps> = ({
     content = <i className="icon-avatar-deleted-account" />;
   } else if (isReplies) {
     content = <i className="icon-reply-filled" />;
-  } else if (shouldRenderFullMedia) {
-    content = <img src={dataUri} className={`${transitionClassNames} avatar-media`} alt="" decoding="async" />;
+  } else if (blobUrl) {
+    content = (
+      <img src={blobUrl} className={buildClassName('avatar-media', transitionClassNames)} alt="" decoding="async" />
+    );
   } else if (user) {
     const userFullName = getUserFullName(user);
     content = userFullName ? getFirstLetters(userFullName, 2) : undefined;
   } else if (chat) {
     const title = getChatTitle(lang, chat);
-    content = title && getFirstLetters(title, isChatPrivate(chat.id) ? 2 : 1);
+    content = title && getFirstLetters(title, isUserId(chat.id) ? 2 : 1);
   } else if (text) {
     content = getFirstLetters(text, 2);
   }
@@ -87,14 +96,15 @@ const Avatar: FC<OwnProps> = ({
     isReplies && 'replies-bot-account',
     withOnlineStatus && isOnline && 'online',
     onClick && 'interactive',
-    (!isSavedMessages && !shouldRenderFullMedia) && 'no-photo',
+    (!isSavedMessages && !blobUrl) && 'no-photo',
   );
 
+  const hasImage = Boolean(isSavedMessages || blobUrl);
   const handleClick = useCallback((e: ReactMouseEvent<HTMLDivElement, MouseEvent>) => {
     if (onClick) {
-      onClick(e, isSavedMessages || shouldRenderFullMedia);
+      onClick(e, hasImage);
     }
-  }, [onClick, isSavedMessages, shouldRenderFullMedia]);
+  }, [onClick, hasImage]);
 
   const senderId = (user || chat) && (user || chat)!.id;
 

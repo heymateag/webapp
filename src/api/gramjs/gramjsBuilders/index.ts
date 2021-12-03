@@ -5,20 +5,38 @@ import { ApiPrivacyKey } from '../../../types';
 
 import { generateRandomBytes, readBigIntFromBuffer } from '../../../lib/gramjs/Helpers';
 import {
-  ApiSticker,
-  ApiVideo,
-  ApiNewPoll,
+  ApiChatAdminRights,
+  ApiChatBannedRights,
+  ApiChatFolder,
+  ApiGroupCall,
   ApiMessageEntity,
   ApiMessageEntityTypes,
-  ApiChatFolder,
-  ApiChatBannedRights,
-  ApiChatAdminRights,
+  ApiNewPoll,
   ApiReportReason,
+  ApiSticker,
+  ApiVideo,
 } from '../../types';
 import localDb from '../localDb';
 import { pick } from '../../../util/iteratees';
 
-export function getEntityTypeById(chatOrUserId: number) {
+const CHANNEL_ID_MIN_LENGTH = 11; // Example: -1000000000
+
+export function getEntityTypeById(chatOrUserId: string) {
+  if (typeof chatOrUserId === 'number') {
+    return getEntityTypeByDeprecatedId(chatOrUserId);
+  }
+
+  if (!chatOrUserId.startsWith('-')) {
+    return 'user';
+  } else if (chatOrUserId.length >= CHANNEL_ID_MIN_LENGTH) {
+    return 'channel';
+  } else {
+    return 'chat';
+  }
+}
+
+// Workaround for old-fashioned IDs stored locally
+export function getEntityTypeByDeprecatedId(chatOrUserId: number) {
   if (chatOrUserId > 0) {
     return 'user';
   } else if (chatOrUserId <= -1000000000) {
@@ -28,81 +46,78 @@ export function getEntityTypeById(chatOrUserId: number) {
   }
 }
 
-export function buildPeer(chatOrUserId: number): GramJs.TypePeer {
-  if (chatOrUserId > 0) {
+export function buildPeer(chatOrUserId: string): GramJs.TypePeer {
+  const type = getEntityTypeById(chatOrUserId);
+
+  if (type === 'user') {
     return new GramJs.PeerUser({
-      userId: chatOrUserId,
+      userId: buildMtpPeerId(chatOrUserId, 'user'),
     });
-  } else if (chatOrUserId <= -1000000000) {
+  } else if (type === 'channel') {
     return new GramJs.PeerChannel({
-      channelId: -chatOrUserId,
+      channelId: buildMtpPeerId(chatOrUserId, 'channel'),
     });
   } else {
     return new GramJs.PeerChat({
-      chatId: -chatOrUserId,
+      chatId: buildMtpPeerId(chatOrUserId, 'chat'),
     });
   }
 }
 
-export function buildInputPeer(chatOrUserId: number, accessHash?: string): GramJs.TypeInputPeer {
-  if (chatOrUserId > 0 || chatOrUserId <= -1000000000) {
-    return chatOrUserId > 0
-      ? new GramJs.InputPeerUser({
-        userId: chatOrUserId,
-        accessHash: BigInt(accessHash!),
-      })
-      : new GramJs.InputPeerChannel({
-        channelId: -chatOrUserId,
-        accessHash: BigInt(accessHash!),
-      });
+export function buildInputPeer(chatOrUserId: string, accessHash?: string): GramJs.TypeInputPeer {
+  const type = getEntityTypeById(chatOrUserId);
+
+  if (type === 'user') {
+    return new GramJs.InputPeerUser({
+      userId: buildMtpPeerId(chatOrUserId, 'user'),
+      accessHash: BigInt(accessHash!),
+    });
+  } else if (type === 'channel') {
+    return new GramJs.InputPeerChannel({
+      channelId: buildMtpPeerId(chatOrUserId, 'channel'),
+      accessHash: BigInt(accessHash!),
+    });
   } else {
     return new GramJs.InputPeerChat({
-      chatId: -chatOrUserId,
+      chatId: buildMtpPeerId(chatOrUserId, 'chat'),
     });
   }
 }
 
-export function buildInputPeerFromLocalDb(chatOrUserId: number): GramJs.TypeInputPeer | undefined {
-  if (chatOrUserId > 0) {
-    const { accessHash } = localDb.users[chatOrUserId] || {};
+export function buildInputPeerFromLocalDb(chatOrUserId: string): GramJs.TypeInputPeer | undefined {
+  const type = getEntityTypeById(chatOrUserId);
+  let accessHash: BigInt.BigInteger | undefined;
 
-    return accessHash
-      ? new GramJs.InputPeerUser({
-        userId: chatOrUserId,
-        accessHash,
-      })
-      : undefined;
+  if (type === 'user') {
+    accessHash = localDb.users[chatOrUserId]?.accessHash;
+    if (!accessHash) {
+      return undefined;
+    }
+  } else if (type === 'channel') {
+    accessHash = (localDb.chats[chatOrUserId] as GramJs.Channel)?.accessHash;
+    if (!accessHash) {
+      return undefined;
+    }
   }
 
-  if (chatOrUserId <= -1000000000) {
-    const { accessHash } = (localDb.chats[-chatOrUserId] as GramJs.Channel) || {};
-
-    return accessHash
-      ? new GramJs.InputPeerChannel({
-        channelId: -chatOrUserId,
-        accessHash,
-      })
-      : undefined;
-  }
-
-  return new GramJs.InputPeerChat({
-    chatId: -chatOrUserId,
-  });
+  return buildInputPeer(chatOrUserId, String(accessHash));
 }
 
-export function buildInputEntity(chatOrUserId: number, accessHash?: string) {
-  if (chatOrUserId > 0) {
+export function buildInputEntity(chatOrUserId: string, accessHash?: string) {
+  const type = getEntityTypeById(chatOrUserId);
+
+  if (type === 'user') {
     return new GramJs.InputUser({
-      userId: chatOrUserId,
+      userId: buildMtpPeerId(chatOrUserId, 'user'),
       accessHash: BigInt(accessHash!),
     });
-  } else if (chatOrUserId <= -1000000000) {
+  } else if (type === 'channel') {
     return new GramJs.InputChannel({
-      channelId: -chatOrUserId,
+      channelId: buildMtpPeerId(chatOrUserId, 'channel'),
       accessHash: BigInt(accessHash!),
     });
   } else {
-    return -chatOrUserId;
+    return buildMtpPeerId(chatOrUserId, 'chat');
   }
 }
 
@@ -223,9 +238,13 @@ export function generateRandomBigInt() {
   return readBigIntFromBuffer(generateRandomBytes(8), true, true);
 }
 
+export function generateRandomInt() {
+  return readBigIntFromBuffer(generateRandomBytes(4), true, true).toJSNumber();
+}
+
 export function buildMessageFromUpdate(
   id: number,
-  chatId: number,
+  chatId: string,
   update: GramJs.UpdateShortSentMessage | GramJs.UpdateServiceNotification,
 ) {
   // This is not a proper message, but we only need these fields for downloading media through `localDb`.
@@ -269,22 +288,11 @@ export function buildMtpMessageEntity(entity: ApiMessageEntity): GramJs.TypeMess
       return new GramJs.InputMessageEntityMentionName({
         offset,
         length,
-        userId: new GramJs.InputUser({ userId: userId!, accessHash: user!.accessHash! }),
+        userId: new GramJs.InputUser({ userId: BigInt(userId!), accessHash: user!.accessHash! }),
       });
     default:
       return new GramJs.MessageEntityUnknown({ offset, length });
   }
-}
-
-// TODO: This formula is taken from API docs, but doesn't seem to calculate hash correctly
-export function calculateResultHash(ids: number[]) {
-  let hash = 0;
-  ids.forEach((id) => {
-    // eslint-disable-next-line no-bitwise
-    hash = (((hash * 0x4F25) & 0x7FFFFFFF) + id) & 0x7FFFFFFF;
-  });
-
-  return hash;
 }
 
 export function isMessageWithMedia(message: GramJs.Message | GramJs.UpdateServiceNotification) {
@@ -411,4 +419,20 @@ export function buildInputReportReason(reason: ApiReportReason) {
   }
 
   return undefined;
+}
+
+export function buildMtpPeerId(id: string, type: 'user' | 'chat' | 'channel') {
+  // Workaround for old-fashioned IDs stored locally
+  if (typeof id === 'number') {
+    return BigInt(Math.abs(id));
+  }
+
+  return type === 'user' ? BigInt(id) : BigInt(id.slice(1));
+}
+
+export function buildInputGroupCall(groupCall: Partial<ApiGroupCall>) {
+  return new GramJs.InputGroupCall({
+    id: BigInt(groupCall.id!),
+    accessHash: BigInt(groupCall.accessHash!),
+  });
 }

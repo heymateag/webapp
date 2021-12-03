@@ -3,23 +3,23 @@ import { Api as GramJs } from '../../../lib/gramjs';
 import {
   OnApiUpdate, ApiUser, ApiChat, ApiPhoto,
 } from '../../types';
-import { LangCode } from '../../../types';
 
-import { PROFILE_PHOTOS_LIMIT } from '../../../config';
+import { COMMON_CHATS_LIMIT, PROFILE_PHOTOS_LIMIT } from '../../../config';
 import { invokeRequest } from './client';
 import { searchMessagesLocal } from './messages';
 import {
   buildInputEntity,
-  calculateResultHash,
   buildInputPeer,
   buildInputContact,
+  buildMtpPeerId,
+  getEntityTypeById,
 } from '../gramjsBuilders';
 import { buildApiUser, buildApiUserFromFull } from '../apiBuilders/users';
 import { buildApiChatFromPreview } from '../apiBuilders/chats';
 import { buildApiPhoto } from '../apiBuilders/common';
 import localDb from '../localDb';
-import { addPhotoToLocalDb } from '../helpers';
-import { buildApiCountryList } from '../apiBuilders/misc';
+import { addChatToLocalDb, addPhotoToLocalDb } from '../helpers';
+import { buildApiPeerId } from '../apiBuilders/peers';
 
 let onUpdate: OnApiUpdate;
 
@@ -31,7 +31,7 @@ export async function fetchFullUser({
   id,
   accessHash,
 }: {
-  id: number;
+  id: string;
   accessHash?: string;
 }) {
   const input = buildInputEntity(id, accessHash);
@@ -56,26 +56,42 @@ export async function fetchFullUser({
   });
 }
 
+export async function fetchCommonChats(id: string, accessHash?: string, maxId?: string) {
+  const commonChats = await invokeRequest(new GramJs.messages.GetCommonChats({
+    userId: buildInputEntity(id, accessHash) as GramJs.InputUser,
+    maxId: maxId ? buildMtpPeerId(maxId, getEntityTypeById(maxId)) : undefined,
+    limit: COMMON_CHATS_LIMIT,
+  }));
+
+  if (!commonChats) {
+    return undefined;
+  }
+
+  updateLocalDb(commonChats);
+
+  const chatIds: string[] = [];
+  const chats: ApiChat[] = [];
+
+  commonChats.chats.forEach((mtpChat) => {
+    const chat = buildApiChatFromPreview(mtpChat);
+
+    if (chat) {
+      chats.push(chat);
+      chatIds.push(chat.id);
+    }
+  });
+
+  return { chats, chatIds, isFullyLoaded: chatIds.length < COMMON_CHATS_LIMIT };
+}
+
 export async function fetchNearestCountry() {
   const dcInfo = await invokeRequest(new GramJs.help.GetNearestDc());
 
   return dcInfo?.country;
 }
 
-export async function fetchCountryList({ langCode = 'en' }: { langCode?: LangCode }) {
-  const countryList = await invokeRequest(new GramJs.help.GetCountriesList({
-    langCode,
-  }));
-
-  if (!(countryList instanceof GramJs.help.CountriesList)) {
-    return undefined;
-  }
-  return buildApiCountryList(countryList.countries);
-}
-
-export async function fetchTopUsers({ hash = 0 }: { hash?: number }) {
+export async function fetchTopUsers() {
   const topPeers = await invokeRequest(new GramJs.contacts.GetTopPeers({
-    hash,
     correspondents: true,
   }));
   if (!(topPeers instanceof GramJs.contacts.TopPeers)) {
@@ -86,29 +102,24 @@ export async function fetchTopUsers({ hash = 0 }: { hash?: number }) {
   const ids = users.map(({ id }) => id);
 
   return {
-    hash: calculateResultHash(ids),
     ids,
     users,
   };
 }
 
-export async function fetchContactList({ hash = 0 }: { hash?: number }) {
-  const result = await invokeRequest(new GramJs.contacts.GetContacts({ hash }));
+export async function fetchContactList() {
+  const result = await invokeRequest(new GramJs.contacts.GetContacts({ hash: BigInt('0') }));
   if (!result || result instanceof GramJs.contacts.ContactsNotModified) {
     return undefined;
   }
 
   result.users.forEach((user) => {
     if (user instanceof GramJs.User) {
-      localDb.users[user.id] = user;
+      localDb.users[buildApiPeerId(user.id, 'user')] = user;
     }
   });
 
   return {
-    hash: calculateResultHash([
-      result.savedCount,
-      ...result.contacts.map(({ userId }) => userId),
-    ]),
     users: result.users.map(buildApiUser).filter<ApiUser>(Boolean as any),
     chats: result.users.map((user) => buildApiChatFromPreview(user)).filter<ApiChat>(Boolean as any),
   };
@@ -124,7 +135,7 @@ export async function fetchUsers({ users }: { users: ApiUser[] }) {
 
   result.forEach((user) => {
     if (user instanceof GramJs.User) {
-      localDb.users[user.id] = user;
+      localDb.users[buildApiPeerId(user.id, 'user')] = user;
     }
   });
 
@@ -149,11 +160,32 @@ export function updateContact({
   }));
 }
 
+export function addContact({
+  id,
+  accessHash,
+  phoneNumber = '',
+  firstName = '',
+  lastName = '',
+}: {
+  id: string;
+  accessHash?: string;
+  phoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+}) {
+  return invokeRequest(new GramJs.contacts.AddContact({
+    id: buildInputEntity(id, accessHash) as GramJs.InputUser,
+    firstName,
+    lastName,
+    phone: phoneNumber,
+  }), true);
+}
+
 export async function deleteUser({
   id,
   accessHash,
 }: {
-  id: number;
+  id: string;
   accessHash?: string;
 }) {
   const input = buildInputEntity(id, accessHash);
@@ -215,6 +247,12 @@ export async function fetchProfilePhotos(user?: ApiUser, chat?: ApiChat) {
   };
 }
 
-function updateLocalDb(result: (GramJs.photos.Photos | GramJs.photos.PhotosSlice)) {
-  result.photos.forEach(addPhotoToLocalDb);
+function updateLocalDb(result: (GramJs.photos.Photos | GramJs.photos.PhotosSlice | GramJs.messages.Chats)) {
+  if ('chats' in result) {
+    result.chats.forEach(addChatToLocalDb);
+  }
+
+  if ('photos' in result) {
+    result.photos.forEach(addPhotoToLocalDb);
+  }
 }

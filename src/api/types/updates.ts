@@ -1,3 +1,4 @@
+import { GroupCallConnectionData, GroupCallParticipant, GroupCallConnectionState } from '../../lib/secret-sauce';
 import {
   ApiChat,
   ApiChatFullInfo,
@@ -12,6 +13,9 @@ import { ApiUser, ApiUserFullInfo, ApiUserStatus } from './users';
 import {
   ApiError, ApiInviteInfo, ApiNotifyException, ApiSessionData,
 } from './misc';
+import {
+  ApiGroupCall,
+} from './calls';
 
 export type ApiUpdateReady = {
   '@type': 'updateApiReady';
@@ -65,7 +69,7 @@ export type ApiUpdateCurrentUser = {
 
 export type ApiUpdateChat = {
   '@type': 'updateChat';
-  id: number;
+  id: string;
   chat: Partial<ApiChat>;
   newProfilePhoto?: ApiPhoto;
   noTopChatsRequest?: boolean;
@@ -73,7 +77,7 @@ export type ApiUpdateChat = {
 
 export type ApiUpdateChatJoin = {
   '@type': 'updateChatJoin';
-  id: number;
+  id: string;
 };
 
 export type ApiUpdateShowInvite = {
@@ -83,50 +87,50 @@ export type ApiUpdateShowInvite = {
 
 export type ApiUpdateChatLeave = {
   '@type': 'updateChatLeave';
-  id: number;
+  id: string;
 };
 
 export type ApiUpdateChatInbox = {
   '@type': 'updateChatInbox';
-  id: number;
+  id: string;
   chat: Partial<ApiChat>;
 };
 
 export type ApiUpdateChatTypingStatus = {
   '@type': 'updateChatTypingStatus';
-  id: number;
+  id: string;
   typingStatus: ApiTypingStatus | undefined;
 };
 
 export type ApiUpdateChatFullInfo = {
   '@type': 'updateChatFullInfo';
-  id: number;
+  id: string;
   fullInfo: Partial<ApiChatFullInfo>;
 };
 
 export type ApiUpdateChatMembers = {
   '@type': 'updateChatMembers';
-  id: number;
+  id: string;
   replacedMembers?: ApiChatMember[];
   addedMember?: ApiChatMember;
-  deletedMemberId?: number;
+  deletedMemberId?: string;
 };
 
 export type ApiUpdatePinnedChatIds = {
   '@type': 'updatePinnedChatIds';
-  ids: number[];
+  ids: string[];
   folderId?: number;
 };
 
 export type ApiUpdateChatListType = {
   '@type': 'updateChatListType';
-  id: number;
+  id: string;
   folderId: number;
 };
 
 export type ApiUpdateChatPinned = {
   '@type': 'updateChatPinned';
-  id: number;
+  id: string;
   isPinned: boolean;
 };
 
@@ -148,14 +152,14 @@ export type ApiUpdateRecommendedChatFolders = {
 
 export type ApiUpdateNewScheduledMessage = {
   '@type': 'newScheduledMessage';
-  chatId: number;
+  chatId: string;
   id: number;
   message: Partial<ApiMessage>;
 };
 
 export type ApiUpdateNewMessage = {
   '@type': 'newMessage';
-  chatId: number;
+  chatId: string;
   id: number;
   message: Partial<ApiMessage>;
   shouldForceReply?: boolean;
@@ -163,28 +167,28 @@ export type ApiUpdateNewMessage = {
 
 export type ApiUpdateMessage = {
   '@type': 'updateMessage';
-  chatId: number;
+  chatId: string;
   id: number;
   message: Partial<ApiMessage>;
 };
 
 export type ApiUpdateScheduledMessage = {
   '@type': 'updateScheduledMessage';
-  chatId: number;
+  chatId: string;
   id: number;
   message: Partial<ApiMessage>;
 };
 
 export type ApiUpdatePinnedMessageIds = {
   '@type': 'updatePinnedIds';
-  chatId: number;
+  chatId: string;
   isPinned?: boolean;
   messageIds: number[];
 };
 
 export type ApiUpdateThreadInfo = {
   '@type': 'updateThreadInfo';
-  chatId: number;
+  chatId: string;
   threadId: number;
   threadInfo: Partial<ApiThreadInfo>;
   firstMessageId?: number;
@@ -192,21 +196,21 @@ export type ApiUpdateThreadInfo = {
 
 export type ApiUpdateScheduledMessageSendSucceeded = {
   '@type': 'updateScheduledMessageSendSucceeded';
-  chatId: number;
+  chatId: string;
   localId: number;
   message: ApiMessage;
 };
 
 export type ApiUpdateMessageSendSucceeded = {
   '@type': 'updateMessageSendSucceeded';
-  chatId: number;
+  chatId: string;
   localId: number;
   message: ApiMessage;
 };
 
 export type ApiUpdateMessageSendFailed = {
   '@type': 'updateMessageSendFailed';
-  chatId: number;
+  chatId: string;
   localId: number;
   sendingState: {
     '@type': 'messageSendingStateFailed';
@@ -221,7 +225,7 @@ export type ApiUpdateCommonBoxMessages = {
 
 export type ApiUpdateChannelMessages = {
   '@type': 'updateChannelMessages';
-  channelId: number;
+  channelId: string;
   ids: number[];
   messageUpdate: Partial<ApiMessage>;
 };
@@ -235,41 +239,46 @@ export type ApiUpdateMessagePoll = {
 export type ApiUpdateMessagePollVote = {
   '@type': 'updateMessagePollVote';
   pollId: string;
-  userId: number;
+  userId: string;
   options: string[];
+};
+
+export type ApiUpdateServiceNotification = {
+  '@type': 'updateServiceNotification';
+  message: ApiMessage;
 };
 
 export type ApiUpdateDeleteMessages = {
   '@type': 'deleteMessages';
   ids: number[];
-  chatId?: number;
+  chatId?: string;
 };
 
 export type ApiUpdateDeleteScheduledMessages = {
   '@type': 'deleteScheduledMessages';
   ids: number[];
-  chatId?: number;
+  chatId?: string;
 };
 
 export type ApiUpdateDeleteHistory = {
   '@type': 'deleteHistory';
-  chatId: number;
+  chatId: string;
 };
 
 export type ApiUpdateDeleteProfilePhotos = {
   '@type': 'deleteProfilePhotos';
   ids: string[];
-  chatId: number;
+  chatId: string;
 };
 
 export type ApiUpdateResetMessages = {
   '@type': 'resetMessages';
-  id: number;
+  id: string;
 };
 
 export type ApiUpdateDraftMessage = {
   '@type': 'draftMessage';
-  chatId: number;
+  chatId: string;
   formattedText?: ApiFormattedText;
   date?: number;
   replyingToId?: number;
@@ -277,30 +286,30 @@ export type ApiUpdateDraftMessage = {
 
 export type ApiDeleteUser = {
   '@type': 'deleteUser';
-  id: number;
+  id: string;
 };
 
 export type ApiUpdateUser = {
   '@type': 'updateUser';
-  id: number;
+  id: string;
   user: Partial<ApiUser>;
 };
 
 export type ApiUpdateUserStatus = {
   '@type': 'updateUserStatus';
-  userId: number;
+  userId: string;
   status: ApiUserStatus;
 };
 
 export type ApiUpdateUserFullInfo = {
   '@type': 'updateUserFullInfo';
-  id: number;
+  id: string;
   fullInfo: Partial<ApiUserFullInfo>;
 };
 
 export type ApiUpdateAvatar = {
   '@type': 'updateAvatar';
-  chatId: number;
+  chatId: string;
   dataUri: string;
 };
 
@@ -352,7 +361,7 @@ export type ApiUpdateTwoFaStateWaitCode = {
 
 export type ApiUpdatePeerBlocked = {
   '@type': 'updatePeerBlocked';
-  id: number;
+  id: string;
   isBlocked: boolean;
 };
 
@@ -361,16 +370,58 @@ export type ApiUpdatePrivacy = {
   key: 'phoneNumber' | 'lastSeen' | 'profilePhoto' | 'forwards' | 'chatInvite';
   rules: {
     visibility: 'everybody' | 'contacts' | 'nonContacts' | 'nobody';
-    allowUserIds: number[];
-    allowChatIds: number[];
-    blockUserIds: number[];
-    blockChatIds: number[];
+    allowUserIds: string[];
+    allowChatIds: string[];
+    blockUserIds: string[];
+    blockChatIds: string[];
   };
 };
 
 export type ApiUpdateServerTimeOffset = {
   '@type': 'updateServerTimeOffset';
   serverTimeOffset: number;
+};
+
+export type ApiUpdateGroupCall = {
+  '@type': 'updateGroupCall';
+  call: ApiGroupCall;
+};
+
+export type ApiUpdateGroupCallChatId = {
+  '@type': 'updateGroupCallChatId';
+  call: Partial<ApiGroupCall>;
+  chatId: string;
+};
+
+export type ApiUpdateGroupCallLeavePresentation = {
+  '@type': 'updateGroupCallLeavePresentation';
+};
+
+export type ApiUpdateGroupCallParticipants = {
+  '@type': 'updateGroupCallParticipants';
+  groupCallId: string;
+  participants: GroupCallParticipant[];
+  nextOffset?: string;
+};
+
+export type ApiUpdateGroupCallConnection = {
+  '@type': 'updateGroupCallConnection';
+  data: GroupCallConnectionData;
+  presentation: boolean;
+};
+
+export type ApiUpdateGroupCallStreams = {
+  '@type': 'updateGroupCallStreams';
+  userId: string;
+  hasAudioStream: boolean;
+  hasVideoStream: boolean;
+  hasPresentationStream: boolean;
+};
+
+export type ApiUpdateGroupCallConnectionState = {
+  '@type': 'updateGroupCallConnectionState';
+  connectionState: GroupCallConnectionState;
+  isSpeakerDisabled?: boolean;
 };
 
 export type ApiUpdate = (
@@ -381,7 +432,7 @@ export type ApiUpdate = (
   ApiUpdateChatListType | ApiUpdateChatFolder | ApiUpdateChatFoldersOrder | ApiUpdateRecommendedChatFolders |
   ApiUpdateNewMessage | ApiUpdateMessage | ApiUpdateThreadInfo | ApiUpdateCommonBoxMessages | ApiUpdateChannelMessages |
   ApiUpdateDeleteMessages | ApiUpdateMessagePoll | ApiUpdateMessagePollVote | ApiUpdateDeleteHistory |
-  ApiUpdateMessageSendSucceeded | ApiUpdateMessageSendFailed |
+  ApiUpdateMessageSendSucceeded | ApiUpdateMessageSendFailed | ApiUpdateServiceNotification |
   ApiDeleteUser | ApiUpdateUser | ApiUpdateUserStatus | ApiUpdateUserFullInfo | ApiUpdateDeleteProfilePhotos |
   ApiUpdateAvatar | ApiUpdateMessageImage | ApiUpdateDraftMessage |
   ApiUpdateError | ApiUpdateResetContacts |
@@ -390,7 +441,9 @@ export type ApiUpdate = (
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages |
   ApiUpdateTwoFaError | ApiUpdateTwoFaStateWaitCode |
   ApiUpdateNotifySettings | ApiUpdateNotifyExceptions | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
-  ApiUpdateServerTimeOffset | ApiUpdateShowInvite
+  ApiUpdateServerTimeOffset | ApiUpdateShowInvite |
+  ApiUpdateGroupCallParticipants | ApiUpdateGroupCallConnection | ApiUpdateGroupCall | ApiUpdateGroupCallStreams |
+  ApiUpdateGroupCallConnectionState | ApiUpdateGroupCallLeavePresentation | ApiUpdateGroupCallChatId
 );
 
 export type OnApiUpdate = (update: ApiUpdate) => void;

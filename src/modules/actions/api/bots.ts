@@ -6,7 +6,7 @@ import { ApiChat } from '../../../api/types';
 import { InlineBotSettings } from '../../../types';
 
 import {
-  RE_TG_LINK, RE_TME_ADDSTICKERS_LINK, RE_TME_INVITE_LINK, RE_TME_LINK,
+  RE_TG_LINK, RE_TME_LINK,
 } from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import {
@@ -30,8 +30,7 @@ addReducer('clickInlineButton', (global, actions, payload) => {
       actions.sendBotCommand({ command: button.value });
       break;
     case 'url':
-      if (button.value.match(RE_TME_INVITE_LINK) || button.value.match(RE_TME_LINK) || button.value.match(RE_TG_LINK)
-        || button.value.match(RE_TME_ADDSTICKERS_LINK)) {
+      if (button.value.match(RE_TME_LINK) || button.value.match(RE_TG_LINK)) {
         actions.openTelegramLink({ url: button.value });
       } else {
         actions.toggleSafeLinkModal({ url: button.value });
@@ -106,19 +105,19 @@ addReducer('restartBot', (global, actions, payload) => {
 });
 
 addReducer('loadTopInlineBots', (global) => {
-  const { hash, lastRequestedAt } = global.topInlineBots;
+  const { lastRequestedAt } = global.topInlineBots;
 
   if (lastRequestedAt && getServerTime(global.serverTimeOffset) - lastRequestedAt < TOP_PEERS_REQUEST_COOLDOWN) {
     return;
   }
 
   (async () => {
-    const result = await callApi('fetchTopInlineBots', { hash });
+    const result = await callApi('fetchTopInlineBots');
     if (!result) {
       return;
     }
 
-    const { hash: newHash, ids, users } = result;
+    const { ids, users } = result;
 
     let newGlobal = getGlobal();
     newGlobal = addUsers(newGlobal, buildCollectionByKey(users, 'id'));
@@ -126,7 +125,6 @@ addReducer('loadTopInlineBots', (global) => {
       ...newGlobal,
       topInlineBots: {
         ...newGlobal.topInlineBots,
-        hash: newHash,
         userIds: ids,
         lastRequestedAt: getServerTime(global.serverTimeOffset),
       },
@@ -255,7 +253,7 @@ async function searchInlineBot({
 }: {
   username: string;
   inlineBotData: InlineBotSettings;
-  chatId: number;
+  chatId: string;
   query: string;
   offset?: string;
 }) {
@@ -307,7 +305,7 @@ async function searchInlineBot({
   setGlobal(global);
 }
 
-async function sendBotCommand(chat: ApiChat, currentUserId: number, command: string, replyingTo?: number) {
+async function sendBotCommand(chat: ApiChat, currentUserId: string, command: string, replyingTo?: number) {
   await callApi('sendMessage', {
     chat,
     text: command,

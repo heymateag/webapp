@@ -1,0 +1,20 @@
+**Telegram Web Z was updated to version alpha 1.23**
+
+👏 **Harder**
+· An early version of **Video Chats** is available in all groups.
+
+🤩 **Better**
+· Various UI improvements.
+
+🚀 **Faster**
+· Optimized the rendering engine.
+. Optimized rendering the chat list.
+· Fixed memory leaks in large audio playlists.
+
+💪 **Stronger**
+· Fixed videos pausing during playback.
+· Fixed missing sounds when notifications are disabled.
+· Fixed page refresh when listening to voice messages.
+· Fixed incorrect track order in audio playlists.
+· Fixed opening links without `https://` formatting.
+· Fixed scroll jumps in new chats.

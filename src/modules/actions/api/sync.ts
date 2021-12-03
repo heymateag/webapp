@@ -3,15 +3,16 @@ import {
 } from '../../../lib/teact/teactn';
 
 import {
-  ApiChat, ApiFormattedText, ApiUser, MAIN_THREAD_ID,
+  ApiChat, ApiFormattedText, ApiMessage, ApiUser, MAIN_THREAD_ID,
 } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
 
 import {
-  CHAT_LIST_LOAD_SLICE, DEBUG, MESSAGE_LIST_SLICE,
+  CHAT_LIST_LOAD_SLICE, DEBUG, MESSAGE_LIST_SLICE, SERVICE_NOTIFICATIONS_USER_ID,
 } from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import { buildCollectionByKey } from '../../../util/iteratees';
+import { updateAppBadge } from '../../../util/appBadge';
 import {
   replaceChatListIds,
   replaceChats,
@@ -21,11 +22,21 @@ import {
   updateChatListSecondaryInfo,
   updateThreadInfos,
   replaceThreadParam,
+  updateListedIds,
+  safeReplaceViewportIds,
+  addChatMessagesById,
 } from '../../reducers';
 import {
-  selectUser, selectChat, selectCurrentMessageList, selectDraft, selectChatMessage, selectThreadInfo,
+  selectUser,
+  selectChat,
+  selectCurrentMessageList,
+  selectDraft,
+  selectChatMessage,
+  selectThreadInfo,
+  selectCountNotMutedUnread,
+  selectLastServiceNotification,
 } from '../../selectors';
-import { isChatPrivate } from '../../helpers';
+import { isUserId } from '../../helpers';
 
 addReducer('sync', (global, actions) => {
   void sync(actions.afterSync);
@@ -75,6 +86,8 @@ async function afterSync(actions: GlobalActions) {
 
   await callApi('fetchCurrentUser');
 
+  updateAppBadge(selectCountNotMutedUnread(getGlobal()));
+
   if (DEBUG) {
     // eslint-disable-next-line no-console
     console.log('>>> FINISH AFTER-SYNC');
@@ -82,16 +95,20 @@ async function afterSync(actions: GlobalActions) {
 }
 
 async function loadAndReplaceChats() {
+  let global = getGlobal();
+
   const result = await callApi('fetchChats', {
     limit: CHAT_LIST_LOAD_SLICE,
     withPinned: true,
-    serverTimeOffset: getGlobal().serverTimeOffset,
+    serverTimeOffset: global.serverTimeOffset,
+    lastLocalServiceMessage: selectLastServiceNotification(global)?.message,
   });
+
   if (!result) {
     return undefined;
   }
 
-  let global = getGlobal();
+  global = getGlobal();
 
   const { recentlyFoundChatIds } = global.globalSearch;
   const { userIds: contactIds } = global.contactList || {};
@@ -118,7 +135,7 @@ async function loadAndReplaceChats() {
       savedChats.push(selectedChat);
     }
 
-    if (isChatPrivate(currentChatId)) {
+    if (isUserId(currentChatId)) {
       const selectedChatUser = selectUser(global, currentChatId);
       if (selectedChatUser && !savedPrivateChatIds.includes(currentChatId)) {
         savedUsers.push(selectedChatUser);
@@ -141,11 +158,11 @@ async function loadAndReplaceChats() {
 
   global = updateChatListSecondaryInfo(global, 'active', result);
 
-  Object.keys(result.draftsById).map(Number).forEach((chatId) => {
+  Object.keys(result.draftsById).forEach((chatId) => {
     global = replaceThreadParam(global, chatId, MAIN_THREAD_ID, 'draft', result.draftsById[chatId]);
   });
 
-  Object.keys(result.replyingToById).map(Number).forEach((chatId) => {
+  Object.keys(result.replyingToById).forEach((chatId) => {
     global = replaceThreadParam(
       global, chatId, MAIN_THREAD_ID, 'replyingToId', result.replyingToById[chatId],
     );
@@ -188,10 +205,14 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
   const { chatId: currentChatId, threadId: currentThreadId } = selectCurrentMessageList(global) || {};
 
   // Memoize drafts
-  const draftChatIds = Object.keys(global.messages.byChatId).map(Number);
-  const draftsByChatId = draftChatIds.reduce<Record<number, ApiFormattedText>>((acc, chatId) => {
+  const draftChatIds = Object.keys(global.messages.byChatId);
+  const draftsByChatId = draftChatIds.reduce<Record<string, ApiFormattedText>>((acc, chatId) => {
     const draft = selectDraft(global, chatId, MAIN_THREAD_ID);
-    return draft ? { ...acc, [chatId]: draft } : acc;
+    if (draft) {
+      acc[chatId] = draft;
+    }
+
+    return acc;
   }, {});
 
   if (currentChatId) {
@@ -202,28 +223,24 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
 
     if (result && newCurrentChatId === currentChatId) {
       const currentMessageListInfo = global.messages.byChatId[currentChatId];
-      const byId = buildCollectionByKey(result.messages, 'id');
+      const localMessages = currentChatId === SERVICE_NOTIFICATIONS_USER_ID
+        ? global.serviceNotifications.map(({ message }) => message)
+        : [];
+      const allMessages = ([] as ApiMessage[]).concat(result.messages, localMessages);
+      const byId = buildCollectionByKey(allMessages, 'id');
       const listedIds = Object.keys(byId).map(Number);
 
       global = {
         ...global,
         messages: {
           ...global.messages,
-          byChatId: {
-            [currentChatId]: {
-              byId,
-              threadsById: {
-                [MAIN_THREAD_ID]: {
-                  ...(currentMessageListInfo?.threadsById[MAIN_THREAD_ID]),
-                  listedIds,
-                  viewportIds: listedIds,
-                  outlyingIds: undefined,
-                },
-              },
-            },
-          },
+          byChatId: {},
         },
       };
+
+      global = addChatMessagesById(global, currentChatId, byId);
+      global = updateListedIds(global, currentChatId, MAIN_THREAD_ID, listedIds);
+      global = safeReplaceViewportIds(global, currentChatId, MAIN_THREAD_ID, listedIds);
 
       if (currentThreadId && threadInfo && threadInfo.originChannelId) {
         const { originChannelId } = threadInfo;
@@ -231,8 +248,7 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
         const resultOrigin = await loadTopMessages(global.chats.byId[originChannelId]);
         if (resultOrigin) {
           const byIdOrigin = buildCollectionByKey(resultOrigin.messages, 'id');
-          const listedIdsOrigin = Object.keys(byIdOrigin)
-            .map(Number);
+          const listedIdsOrigin = Object.keys(byIdOrigin).map(Number);
 
           global = {
             ...global,
@@ -266,6 +282,7 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
           };
         }
       }
+
       global = updateChats(global, buildCollectionByKey(result.chats, 'id'));
       global = updateThreadInfos(global, currentChatId, result.threadInfos);
 
@@ -285,7 +302,7 @@ async function loadAndReplaceMessages(savedUsers?: ApiUser[]) {
   }
 
   // Restore drafts
-  Object.keys(draftsByChatId).map(Number).forEach((chatId) => {
+  Object.keys(draftsByChatId).forEach((chatId) => {
     global = replaceThreadParam(global, chatId, MAIN_THREAD_ID, 'draft', draftsByChatId[chatId]);
   });
 

@@ -3,7 +3,6 @@ import React, {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
 } from 'teact/teact';
@@ -38,11 +37,12 @@ import {
   selectSender,
   selectForwardedSender,
   selectThreadTopMessageId,
-  selectShouldAutoLoadMedia,
-  selectShouldAutoPlayMedia,
+  selectCanAutoLoadMedia,
+  selectCanAutoPlayMedia,
   selectShouldLoopStickers,
   selectTheme,
   selectAllowedMessageActions,
+  selectIsDownloading,
 } from '../../../modules/selectors';
 import {
   getMessageContent,
@@ -50,7 +50,7 @@ import {
   isReplyMessage,
   isAnonymousOwnMessage,
   isMessageLocal,
-  isChatPrivate,
+  isUserId,
   isChatWithRepliesBot,
   getMessageCustomShape,
   isChatChannel,
@@ -62,7 +62,7 @@ import buildClassName from '../../../util/buildClassName';
 import useEnsureMessage from '../../../hooks/useEnsureMessage';
 import useContextMenuHandlers from '../../../hooks/useContextMenuHandlers';
 import { renderMessageText } from '../../common/helpers/renderMessageText';
-import { ROUND_VIDEO_DIMENSIONS } from '../../common/helpers/mediaDimensions';
+import { ROUND_VIDEO_DIMENSIONS_PX } from '../../common/helpers/mediaDimensions';
 import { buildContentClassName, isEmojiOnlyMessage } from './helpers/buildContentClassName';
 import { getMinMediaWidth, calculateMediaDimensions } from './helpers/mediaDimensions';
 import { calculateAlbumLayout } from './helpers/calculateAlbumLayout';
@@ -153,11 +153,13 @@ type StateProps = {
   isInSelectMode?: boolean;
   isSelected?: boolean;
   isGroupSelected?: boolean;
+  isDownloading: boolean;
   threadId?: number;
   isPinnedList?: boolean;
-  shouldAutoLoadMedia?: boolean;
-  shouldAutoPlayMedia?: boolean;
+  canAutoLoadMedia?: boolean;
+  canAutoPlayMedia?: boolean;
   shouldLoopStickers?: boolean;
+  autoLoadFileMaxSizeMb: number;
 };
 
 type DispatchProps = Pick<GlobalActions, 'toggleMessageSelection' | 'clickInlineButton' | 'disableContextMenuHint'>;
@@ -165,9 +167,9 @@ type DispatchProps = Pick<GlobalActions, 'toggleMessageSelection' | 'clickInline
 const NBSP = '\u00A0';
 const GROUP_MESSAGE_HOVER_ATTRIBUTE = 'data-is-document-group-hover';
 // eslint-disable-next-line max-len
-const APPENDIX_OWN = '<svg width="9" height="20" xmlns="http://www.w3.org/2000/svg"><defs><filter x="-50%" y="-14.7%" width="200%" height="141.2%" filterUnits="objectBoundingBox" id="a"><feOffset dy="1" in="SourceAlpha" result="shadowOffsetOuter1"/><feGaussianBlur stdDeviation="1" in="shadowOffsetOuter1" result="shadowBlurOuter1"/><feColorMatrix values="0 0 0 0 0.0621962482 0 0 0 0 0.138574144 0 0 0 0 0.185037364 0 0 0 0.15 0" in="shadowBlurOuter1"/></filter></defs><g fill="none" fill-rule="evenodd"><path d="M6 17H0V0c.193 2.84.876 5.767 2.05 8.782.904 2.325 2.446 4.485 4.625 6.48A1 1 0 016 17z" fill="#000" filter="url(#a)"/><path d="M6 17H0V0c.193 2.84.876 5.767 2.05 8.782.904 2.325 2.446 4.485 4.625 6.48A1 1 0 016 17z" fill="#EEFFDE" class="corner"/></g></svg>';
+const APPENDIX_OWN = { __html: '<svg width="9" height="20" xmlns="http://www.w3.org/2000/svg"><defs><filter x="-50%" y="-14.7%" width="200%" height="141.2%" filterUnits="objectBoundingBox" id="a"><feOffset dy="1" in="SourceAlpha" result="shadowOffsetOuter1"/><feGaussianBlur stdDeviation="1" in="shadowOffsetOuter1" result="shadowBlurOuter1"/><feColorMatrix values="0 0 0 0 0.0621962482 0 0 0 0 0.138574144 0 0 0 0 0.185037364 0 0 0 0.15 0" in="shadowBlurOuter1"/></filter></defs><g fill="none" fill-rule="evenodd"><path d="M6 17H0V0c.193 2.84.876 5.767 2.05 8.782.904 2.325 2.446 4.485 4.625 6.48A1 1 0 016 17z" fill="#000" filter="url(#a)"/><path d="M6 17H0V0c.193 2.84.876 5.767 2.05 8.782.904 2.325 2.446 4.485 4.625 6.48A1 1 0 016 17z" fill="#EEFFDE" class="corner"/></g></svg>' };
 // eslint-disable-next-line max-len
-const APPENDIX_NOT_OWN = '<svg width="9" height="20" xmlns="http://www.w3.org/2000/svg"><defs><filter x="-50%" y="-14.7%" width="200%" height="141.2%" filterUnits="objectBoundingBox" id="a"><feOffset dy="1" in="SourceAlpha" result="shadowOffsetOuter1"/><feGaussianBlur stdDeviation="1" in="shadowOffsetOuter1" result="shadowBlurOuter1"/><feColorMatrix values="0 0 0 0 0.0621962482 0 0 0 0 0.138574144 0 0 0 0 0.185037364 0 0 0 0.15 0" in="shadowBlurOuter1"/></filter></defs><g fill="none" fill-rule="evenodd"><path d="M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 003 17z" fill="#000" filter="url(#a)"/><path d="M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 003 17z" fill="#FFF" class="corner"/></g></svg>';
+const APPENDIX_NOT_OWN = { __html: '<svg width="9" height="20" xmlns="http://www.w3.org/2000/svg"><defs><filter x="-50%" y="-14.7%" width="200%" height="141.2%" filterUnits="objectBoundingBox" id="a"><feOffset dy="1" in="SourceAlpha" result="shadowOffsetOuter1"/><feGaussianBlur stdDeviation="1" in="shadowOffsetOuter1" result="shadowBlurOuter1"/><feColorMatrix values="0 0 0 0 0.0621962482 0 0 0 0 0.138574144 0 0 0 0 0.185037364 0 0 0 0.15 0" in="shadowBlurOuter1"/></filter></defs><g fill="none" fill-rule="evenodd"><path d="M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 003 17z" fill="#000" filter="url(#a)"/><path d="M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 003 17z" fill="#FFF" class="corner"/></g></svg>' };
 const APPEARANCE_DELAY = 10;
 const NO_MEDIA_CORNERS_THRESHOLD = 18;
 
@@ -217,9 +219,11 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   threadId,
   messageListType,
   isPinnedList,
-  shouldAutoLoadMedia,
-  shouldAutoPlayMedia,
+  isDownloading,
+  canAutoLoadMedia,
+  canAutoPlayMedia,
   shouldLoopStickers,
+  autoLoadFileMaxSizeMb,
   toggleMessageSelection,
   clickInlineButton,
   disableContextMenuHint,
@@ -228,8 +232,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const ref = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
   const bottomMarkerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line no-null/no-null
-  const appendixRef = useRef<HTMLDivElement>(null);
+
   const lang = useLang();
 
   useOnIntersect(bottomMarkerRef, observeIntersectionForBottom);
@@ -267,7 +270,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const hasReply = isReplyMessage(message) && !shouldHideReply;
   const hasThread = Boolean(threadInfo) && messageListType === 'thread';
   const { forwardInfo, viaBotId } = message;
-  const asForwarded = forwardInfo && !isChatWithSelf && !isRepliesChat && !forwardInfo.isLinkedChannelPost;
+  const asForwarded = (
+    forwardInfo && (!isChatWithSelf || isScheduled) && !isRepliesChat && !forwardInfo.isLinkedChannelPost
+  );
   const isInDocumentGroup = Boolean(message.groupedId) && !message.isInAlbum;
   const isAlbum = Boolean(album) && album!.messages.length > 1;
   const {
@@ -296,17 +301,13 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
   const senderPeer = forwardInfo ? originSender : sender;
 
   const selectMessage = useCallback((e?: React.MouseEvent<HTMLDivElement, MouseEvent>, groupedId?: string) => {
-    if (isLocal) {
-      return;
-    }
-
     toggleMessageSelection({
       messageId,
       groupedId,
       ...(e?.shiftKey && { withShift: true }),
       ...(isAlbum && { childMessageIds: album!.messages.map(({ id }) => id) }),
     });
-  }, [isLocal, toggleMessageSelection, messageId, isAlbum, album]);
+  }, [toggleMessageSelection, messageId, isAlbum, album]);
 
   const {
     handleMouseDown,
@@ -319,7 +320,6 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     selectMessage,
     ref,
     messageId,
-    isLocal,
     isAlbum,
     Boolean(isInSelectMode),
     Boolean(canReply),
@@ -406,13 +406,6 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     message.id,
   );
   useFocusMessage(ref, chatId, isFocused, focusDirection, noFocusHighlight, isResizingContainer);
-  useLayoutEffect(() => {
-    if (!appendixRef.current) {
-      return;
-    }
-
-    appendixRef.current.innerHTML = isOwn ? APPENDIX_OWN : APPENDIX_NOT_OWN;
-  }, [isOwn, withAppendix]);
 
   let style = '';
   let calculatedWidth;
@@ -428,7 +421,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
       width = calculateMediaDimensions(message, noAvatars).width;
     } else if (video) {
       if (video.isRound) {
-        width = ROUND_VIDEO_DIMENSIONS;
+        width = ROUND_VIDEO_DIMENSIONS_PX;
       } else {
         width = calculateMediaDimensions(message, noAvatars).width;
       }
@@ -451,7 +444,7 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
     style = `width: ${calculatedWidth + extraPadding}px`;
   }
   function renderAvatar() {
-    const isAvatarPeerUser = avatarPeer && isChatPrivate(avatarPeer.id);
+    const isAvatarPeerUser = avatarPeer && isUserId(avatarPeer.id);
     const avatarUser = (avatarPeer && isAvatarPeerUser) ? avatarPeer as ApiUser : undefined;
     const avatarChat = (avatarPeer && !isAvatarPeerUser) ? avatarPeer as ApiChat : undefined;
     const hiddenName = (!avatarPeer && forwardInfo) ? forwardInfo.hiddenUserName : undefined;
@@ -517,8 +510,6 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             album={album!}
             albumLayout={albumLayout!}
             observeIntersection={observeIntersectionForMedia}
-            shouldAutoLoad={shouldAutoLoadMedia}
-            shouldAutoPlay={shouldAutoPlayMedia}
             isOwn={isOwn}
             hasCustomAppendix={hasCustomAppendix}
             lastSyncTime={lastSyncTime}
@@ -530,20 +521,22 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             message={message}
             observeIntersection={observeIntersectionForMedia}
             noAvatars={noAvatars}
-            shouldAutoLoad={shouldAutoLoadMedia}
+            canAutoLoad={canAutoLoadMedia}
             uploadProgress={uploadProgress}
             shouldAffectAppendix={hasCustomAppendix}
             onClick={handleMediaClick}
             onCancelUpload={handleCancelUpload}
+            isDownloading={isDownloading}
+            theme={theme}
           />
         )}
         {!isAlbum && video && video.isRound && (
           <RoundVideo
             message={message}
             observeIntersection={observeIntersectionForMedia}
-            shouldAutoLoad={shouldAutoLoadMedia}
-            shouldAutoPlay={shouldAutoPlayMedia}
+            canAutoLoad={canAutoLoadMedia}
             lastSyncTime={lastSyncTime}
+            isDownloading={isDownloading}
           />
         )}
         {!isAlbum && video && !video.isRound && (
@@ -551,12 +544,13 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             message={message}
             observeIntersection={observeIntersectionForMedia}
             noAvatars={noAvatars}
-            shouldAutoLoad={shouldAutoLoadMedia}
-            shouldAutoPlay={shouldAutoPlayMedia}
+            canAutoLoad={canAutoLoadMedia}
+            canAutoPlay={canAutoPlayMedia}
             uploadProgress={uploadProgress}
             lastSyncTime={lastSyncTime}
             onClick={handleMediaClick}
             onCancelUpload={handleCancelUpload}
+            isDownloading={isDownloading}
           />
         )}
         {(audio || voice) && (
@@ -571,17 +565,21 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             onPlay={handleAudioPlay}
             onReadMedia={voice && (!isOwn || isChatWithSelf) ? handleReadMedia : undefined}
             onCancelUpload={handleCancelUpload}
+            isDownloading={isDownloading}
           />
         )}
         {document && (
           <Document
             message={message}
             observeIntersection={observeIntersectionForMedia}
+            canAutoLoad={canAutoLoadMedia}
+            autoLoadFileMaxSizeMb={autoLoadFileMaxSizeMb}
             uploadProgress={uploadProgress}
             isSelectable={isInDocumentGroup}
             isSelected={isSelected}
             onMediaClick={handleMediaClick}
             onCancelUpload={handleCancelUpload}
+            isDownloading={isDownloading}
           />
         )}
         {contact && (
@@ -608,11 +606,13 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             message={message}
             observeIntersection={observeIntersectionForMedia}
             noAvatars={noAvatars}
-            shouldAutoLoad={shouldAutoLoadMedia}
-            shouldAutoPlay={shouldAutoPlayMedia}
+            canAutoLoad={canAutoLoadMedia}
+            canAutoPlay={canAutoPlayMedia}
             lastSyncTime={lastSyncTime}
             onMediaClick={handleMediaClick}
             onCancelMediaTransfer={handleCancelUpload}
+            isDownloading={isDownloading}
+            theme={theme}
           />
         )}
         {invoice && <Invoice message={message} />}
@@ -695,12 +695,12 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
         data-last-message-id={album ? album.messages[album.messages.length - 1].id : undefined}
         data-has-unread-mention={message.hasUnreadMention}
       />
-      {!isLocal && !isInDocumentGroup && (
+      {!isInDocumentGroup && (
         <div className="message-select-control">
           {isSelected && <i className="icon-select" />}
         </div>
       )}
-      {!isLocal && isLastInDocumentGroup && (
+      {isLastInDocumentGroup && (
         <div
           className={buildClassName('message-select-control group-select', isGroupSelected && 'is-selected')}
           onClick={handleDocumentGroupSelectAll}
@@ -763,7 +763,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             </Button>
           ) : undefined}
           {withCommentButton && <CommentButton message={message} disabled={noComments} />}
-          {withAppendix && !isHeymateMsg && <div className="svg-appendix" ref={appendixRef} />}
+          {withAppendix && !isHeymateMsg && (
+            <div className="svg-appendix" dangerouslySetInnerHTML={isOwn ? APPENDIX_OWN : APPENDIX_NOT_OWN} />
+          )}
         </div>
         {message.inlineButtons && (
           <InlineButtons message={message} onClick={clickInlineButton} />
@@ -827,7 +829,7 @@ export default memo(withGlobal<OwnProps>(
 
     const forceSenderName = !isChatWithSelf && isAnonymousOwnMessage(message);
     const canShowSender = withSenderName || withAvatar || forceSenderName;
-    const sender = canShowSender ? selectSender(global, message) : undefined;
+    const sender = selectSender(global, message);
     const originSender = selectForwardedSender(global, message);
     const botSender = viaBotId ? selectUser(global, viaBotId) : undefined;
 
@@ -865,12 +867,13 @@ export default memo(withGlobal<OwnProps>(
     }
 
     const { canReply } = (messageListType === 'thread' && selectAllowedMessageActions(global, message, threadId)) || {};
+    const isDownloading = selectIsDownloading(global, message);
 
     return {
       theme: selectTheme(global),
       chatUsername,
       forceSenderName,
-      sender,
+      sender: canShowSender ? sender : undefined,
       originSender,
       botSender,
       shouldHideReply,
@@ -893,9 +896,11 @@ export default memo(withGlobal<OwnProps>(
         !!message.groupedId && !message.isInAlbum && selectIsDocumentGroupSelected(global, chatId, message.groupedId)
       ),
       threadId,
+      isDownloading,
       isPinnedList: messageListType === 'pinned',
-      shouldAutoLoadMedia: chat ? selectShouldAutoLoadMedia(global, message, chat, sender) : undefined,
-      shouldAutoPlayMedia: selectShouldAutoPlayMedia(global, message),
+      canAutoLoadMedia: selectCanAutoLoadMedia(global, message),
+      canAutoPlayMedia: selectCanAutoPlayMedia(global, message),
+      autoLoadFileMaxSizeMb: global.settings.byKey.autoLoadFileMaxSizeMb,
       shouldLoopStickers: selectShouldLoopStickers(global),
       ...(isOutgoing && { outgoingStatus: selectOutgoingStatus(global, message, messageListType === 'scheduled') }),
       ...(typeof uploadProgress === 'number' && { uploadProgress }),

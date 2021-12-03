@@ -7,7 +7,8 @@ import {
   ApiMessage,
   ApiChatMember,
   ApiUser,
-  MAIN_THREAD_ID, ApiChat,
+  ApiChat,
+  MAIN_THREAD_ID,
 } from '../../api/types';
 import { GlobalActions } from '../../global/types';
 import {
@@ -22,7 +23,7 @@ import {
 } from '../../config';
 import { IS_TOUCH_ENV } from '../../util/environment';
 import {
-  getHasAdminRight, isChatAdmin, isChatChannel, isChatGroup, isChatPrivate,
+  getHasAdminRight, isChatAdmin, isChatChannel, isChatGroup, isUserBot, isUserId,
 } from '../../modules/helpers';
 import {
   selectChatMessages,
@@ -30,6 +31,8 @@ import {
   selectCurrentMediaSearch,
   selectIsRightColumnShown,
   selectTheme,
+  selectActiveDownloadIds,
+  selectUser,
 } from '../../modules/selectors';
 import { pick } from '../../util/iteratees';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
@@ -56,12 +59,13 @@ import WebLink from '../common/WebLink';
 import NothingFound from '../common/NothingFound';
 import FloatingActionButton from '../ui/FloatingActionButton';
 import DeleteMemberModal from './DeleteMemberModal';
+import GroupChatInfo from '../common/GroupChatInfo';
 
 import './Profile.scss';
 
 type OwnProps = {
-  chatId: number;
-  userId?: number;
+  chatId: string;
+  userId?: string;
   profileState: ProfileState;
   onProfileStateChange: (state: ProfileState) => void;
 };
@@ -69,27 +73,31 @@ type OwnProps = {
 type StateProps = {
   theme: ISettings['theme'];
   isChannel?: boolean;
-  currentUserId?: number;
-  resolvedUserId?: number;
+  currentUserId?: string;
+  resolvedUserId?: string;
   chatMessages?: Record<number, ApiMessage>;
   foundIds?: number[];
   mediaSearchType?: SharedMediaType;
+  hasCommonChatsTab?: boolean;
   hasMembersTab?: boolean;
   areMembersHidden?: boolean;
   canAddMembers?: boolean;
   canDeleteMembers?: boolean;
   members?: ApiChatMember[];
-  chatsById: Record<number, ApiChat>;
-  usersById: Record<number, ApiUser>;
+  commonChatIds?: string[];
+  chatsById: Record<string, ApiChat>;
+  usersById: Record<string, ApiUser>;
   isRightColumnShown: boolean;
   isRestricted?: boolean;
   lastSyncTime?: number;
   serverTimeOffset: number;
+  activeDownloadIds: number[];
 };
 
 type DispatchProps = Pick<GlobalActions, (
-  'setLocalMediaSearchType' | 'loadMoreMembers' | 'searchMediaMessagesLocal' | 'openMediaViewer' |
-  'openAudioPlayer' | 'openUserInfo' | 'focusMessage' | 'loadProfilePhotos' | 'setNewChatMembersDialogState'
+  'setLocalMediaSearchType' | 'loadMoreMembers' | 'searchMediaMessagesLocal' | 'openMediaViewer' | 'loadCommonChats' |
+  'openAudioPlayer' | 'openUserInfo' | 'focusMessage' | 'loadProfilePhotos' | 'setNewChatMembersDialogState' |
+  'openChat'
 )>;
 
 const TABS = [
@@ -113,18 +121,24 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   chatMessages,
   foundIds,
   mediaSearchType,
+  hasCommonChatsTab,
   hasMembersTab,
   areMembersHidden,
   canAddMembers,
   canDeleteMembers,
+  commonChatIds,
   members,
   usersById,
   chatsById,
   isRightColumnShown,
   isRestricted,
   lastSyncTime,
+  activeDownloadIds,
+  serverTimeOffset,
   setLocalMediaSearchType,
   loadMoreMembers,
+  loadCommonChats,
+  openChat,
   searchMediaMessagesLocal,
   openMediaViewer,
   openAudioPlayer,
@@ -132,7 +146,6 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   focusMessage,
   loadProfilePhotos,
   setNewChatMembersDialogState,
-  serverTimeOffset,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,19 +153,22 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   const transitionRef = useRef<HTMLDivElement>(null);
   const lang = useLang();
   const [activeTab, setActiveTab] = useState(0);
-  const [deletingUserId, setDeletingUserId] = useState<number | undefined>();
+  const [deletingUserId, setDeletingUserId] = useState<string | undefined>();
 
   const tabs = useMemo(() => ([
     ...(hasMembersTab ? [{
       type: 'members', title: isChannel ? 'ChannelSubscribers' : 'GroupMembers',
     }] : []),
     ...TABS,
-  ]), [hasMembersTab, isChannel]);
+    ...(hasCommonChatsTab ? [{
+      type: 'commonChats', title: 'SharedGroupsTab2',
+    }] : []),
+  ]), [hasCommonChatsTab, hasMembersTab, isChannel]);
   const tabType = tabs[activeTab].type as ProfileTabType;
 
   const [resultType, viewportIds, getMore, noProfileInfo] = useProfileViewportIds(
-    isRightColumnShown, loadMoreMembers, searchMediaMessagesLocal, tabType, mediaSearchType, members,
-    usersById, chatMessages, foundIds, chatId, lastSyncTime, serverTimeOffset,
+    isRightColumnShown, loadMoreMembers, loadCommonChats, searchMediaMessagesLocal, tabType, mediaSearchType, members,
+    commonChatIds, usersById, chatsById, chatMessages, foundIds, chatId, lastSyncTime, serverTimeOffset,
   );
   const activeKey = tabs.findIndex(({ type }) => type === resultType);
 
@@ -194,10 +210,10 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [profileId, openMediaViewer]);
 
   const handlePlayAudio = useCallback((messageId: number) => {
-    openAudioPlayer({ chatId: profileId, messageId, origin: AudioOrigin.SharedMedia });
+    openAudioPlayer({ chatId: profileId, messageId });
   }, [profileId, openAudioPlayer]);
 
-  const handleMemberClick = useCallback((id: number) => {
+  const handleMemberClick = useCallback((id: string) => {
     openUserInfo({ id });
   }, [openUserInfo]);
 
@@ -241,12 +257,12 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   }
   const canRenderContents = useAsyncRendering([chatId, resultType], renderingDelay);
 
-  function getMemberContextAction(id: number) {
-    return id === currentUserId || !canDeleteMembers ? undefined : [{
+  function getMemberContextAction(memberId: string) {
+    return memberId === currentUserId || !canDeleteMembers ? undefined : [{
       title: lang('lng_context_remove_from_group'),
       icon: 'stop',
       handler: () => {
-        setDeletingUserId(id);
+        setDeletingUserId(memberId);
       },
     }];
   }
@@ -269,6 +285,9 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
       switch (resultType) {
         case 'members':
           text = areMembersHidden ? 'You have no access to group members list.' : 'No members found';
+          break;
+        case 'commonChats':
+          text = lang('NoGroupsInCommon');
           break;
         case 'documents':
           text = lang('lng_media_file_empty');
@@ -300,7 +319,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
         teactFastList
       >
         {resultType === 'media' ? (
-          viewportIds!.map((id) => chatMessages[id] && (
+          (viewportIds as number[])!.map((id) => chatMessages[id] && (
             <Media
               key={id}
               message={chatMessages[id]}
@@ -308,7 +327,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
             />
           ))
         ) : resultType === 'documents' ? (
-          viewportIds!.map((id) => chatMessages[id] && (
+          (viewportIds as number[])!.map((id) => chatMessages[id] && (
             <Document
               key={id}
               message={chatMessages[id]}
@@ -316,10 +335,11 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
               smaller
               className="scroll-item"
               onDateClick={handleMessageFocus}
+              isDownloading={activeDownloadIds.includes(id)}
             />
           ))
         ) : resultType === 'links' ? (
-          viewportIds!.map((id) => chatMessages[id] && (
+          (viewportIds as number[])!.map((id) => chatMessages[id] && (
             <WebLink
               key={id}
               message={chatMessages[id]}
@@ -327,7 +347,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
             />
           ))
         ) : resultType === 'audio' ? (
-          viewportIds!.map((id) => chatMessages[id] && (
+          (viewportIds as number[])!.map((id) => chatMessages[id] && (
             <Audio
               key={id}
               theme={theme}
@@ -338,10 +358,11 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
               className="scroll-item"
               onPlay={handlePlayAudio}
               onDateClick={handleMessageFocus}
+              isDownloading={activeDownloadIds.includes(id)}
             />
           ))
         ) : resultType === 'voice' ? (
-          viewportIds!.map((id) => chatMessages[id] && (
+          (viewportIds as number[])!.map((id) => chatMessages[id] && (
             <Audio
               key={id}
               theme={theme}
@@ -353,10 +374,11 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
               className="scroll-item"
               onPlay={handlePlayAudio}
               onDateClick={handleMessageFocus}
+              isDownloading={activeDownloadIds.includes(id)}
             />
           ))
         ) : resultType === 'members' ? (
-          viewportIds!.map((id, i) => (
+          (viewportIds as string[])!.map((id, i) => (
             <ListItem
               key={id}
               teactOrderKey={i}
@@ -365,6 +387,17 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
               contextActions={getMemberContextAction(id)}
             >
               <PrivateChatInfo userId={id} forceShowSelf />
+            </ListItem>
+          ))
+        ) : resultType === 'commonChats' ? (
+          (viewportIds as string[])!.map((id, i) => (
+            <ListItem
+              key={id}
+              teactOrderKey={i}
+              className="chat-item-clickable scroll-item small-icon"
+              onClick={() => openChat({ id })}
+            >
+              <GroupChatInfo chatId={id} />
             </ListItem>
           ))
         ) : undefined}
@@ -428,7 +461,7 @@ const Profile: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-function renderProfileInfo(chatId: number, resolvedUserId?: number) {
+function renderProfileInfo(chatId: string, resolvedUserId?: string) {
   return (
     <div className="profile-info">
       <ProfileInfo userId={resolvedUserId || chatId} />
@@ -465,11 +498,19 @@ export default memo(withGlobal<OwnProps>(
     const canAddMembers = hasMembersTab && chat && (getHasAdminRight(chat, 'inviteUsers') || chat.isCreator);
     const canDeleteMembers = hasMembersTab && chat && (getHasAdminRight(chat, 'banUsers') || chat.isCreator);
 
+    const activeDownloadIds = selectActiveDownloadIds(global, chatId);
+
+    let hasCommonChatsTab;
     let resolvedUserId;
+    let user;
     if (userId) {
       resolvedUserId = userId;
-    } else if (isChatPrivate(chatId)) {
+    } else if (isUserId(chatId)) {
       resolvedUserId = chatId;
+    }
+    if (resolvedUserId) {
+      user = selectUser(global, resolvedUserId);
+      hasCommonChatsTab = user && !user.isSelf && !isUserBot(user);
     }
 
     return {
@@ -479,6 +520,7 @@ export default memo(withGlobal<OwnProps>(
       chatMessages,
       foundIds,
       mediaSearchType,
+      hasCommonChatsTab,
       hasMembersTab,
       areMembersHidden,
       canAddMembers,
@@ -488,9 +530,11 @@ export default memo(withGlobal<OwnProps>(
       isRestricted: chat?.isRestricted,
       lastSyncTime: global.lastSyncTime,
       serverTimeOffset: global.serverTimeOffset,
+      activeDownloadIds,
       usersById,
       chatsById,
       ...(hasMembersTab && members && { members }),
+      ...(hasCommonChatsTab && user && { commonChatIds: user.commonChats?.ids }),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
@@ -503,5 +547,7 @@ export default memo(withGlobal<OwnProps>(
     'focusMessage',
     'loadProfilePhotos',
     'setNewChatMembersDialogState',
+    'loadCommonChats',
+    'openChat',
   ]),
 )(Profile));

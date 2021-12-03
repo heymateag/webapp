@@ -11,17 +11,19 @@ import { CHAT_HEIGHT_PX } from '../../../config';
 import { formatPhoneNumberWithCode } from '../../../util/phoneNumber';
 import { pick } from '../../../util/iteratees';
 import {
-  getChatTitle, getUserFullName, isChatPrivate,
+  getChatTitle, getUserFullName, isUserId,
 } from '../../../modules/helpers';
 import renderText from '../../common/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
+import useFlag from '../../../hooks/useFlag';
 
 import ListItem from '../../ui/ListItem';
 import FloatingActionButton from '../../ui/FloatingActionButton';
 import Avatar from '../../common/Avatar';
 import Loading from '../../ui/Loading';
+import BlockUserModal from './BlockUserModal';
 
 type OwnProps = {
   isActive?: boolean;
@@ -30,9 +32,9 @@ type OwnProps = {
 };
 
 type StateProps = {
-  chatsByIds: Record<number, ApiChat>;
-  usersByIds: Record<number, ApiUser>;
-  blockedIds: number[];
+  chatsByIds: Record<string, ApiChat>;
+  usersByIds: Record<string, ApiUser>;
+  blockedIds: string[];
   phoneCodeList: ApiCountryCode[];
 };
 
@@ -48,16 +50,16 @@ const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = (
   phoneCodeList,
   unblockContact,
 }) => {
-  const handleUnblockClick = useCallback((contactId: number) => {
+  const lang = useLang();
+  const [isBlockUserModalOpen, openBlockUserModal, closeBlockUserModal] = useFlag();
+  const handleUnblockClick = useCallback((contactId: string) => {
     unblockContact({ contactId });
   }, [unblockContact]);
 
-  const lang = useLang();
-
   useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.PrivacyBlockedUsers);
 
-  function renderContact(contactId: number, i: number, viewportOffset: number) {
-    const isPrivate = isChatPrivate(contactId);
+  function renderContact(contactId: string, i: number, viewportOffset: number) {
+    const isPrivate = isUserId(contactId);
     const user = isPrivate ? usersByIds[contactId] : undefined;
     const chat = !isPrivate ? chatsByIds[contactId] : undefined;
 
@@ -110,9 +112,7 @@ const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = (
               {blockedIds!.map((contactId, i) => renderContact(contactId, i, 0))}
             </div>
           ) : blockedIds && !blockedIds.length ? (
-            <div className="no-results" dir="auto">
-              List is empty
-            </div>
+            <div className="no-results" dir="auto">{lang('NoBlocked')}</div>
           ) : (
             <Loading key="loading" />
           )}
@@ -121,13 +121,15 @@ const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = (
 
       <FloatingActionButton
         isShown
-        onClick={() => {
-        }}
-        className="not-implemented"
-        ariaLabel="Add a blocked user"
+        onClick={openBlockUserModal}
+        ariaLabel={lang('BlockContact')}
       >
         <i className="icon-add" />
       </FloatingActionButton>
+      <BlockUserModal
+        isOpen={isBlockUserModalOpen}
+        onClose={closeBlockUserModal}
+      />
     </div>
   );
 };

@@ -19,7 +19,7 @@ import VerifiedIcon from './VerifiedIcon';
 import TypingStatus from './TypingStatus';
 
 type OwnProps = {
-  userId: number;
+  userId: string;
   typingStatus?: ApiTypingStatus;
   avatarSize?: 'tiny' | 'small' | 'medium' | 'large' | 'jumbo';
   forceShowSelf?: boolean;
@@ -55,9 +55,9 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   isSavedMessages,
   areMessagesLoaded,
   lastSyncTime,
+  serverTimeOffset,
   loadFullUser,
   openMediaViewer,
-  serverTimeOffset,
 }) => {
   const { id: userId } = user || {};
   const fullName = getUserFullName(user);

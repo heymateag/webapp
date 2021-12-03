@@ -4,6 +4,7 @@ export interface ApiInitialArgs {
   userAgent: string;
   platform?: string;
   sessionData?: ApiSessionData;
+  isTest?: boolean;
   isMovSupported?: boolean;
 }
 
@@ -63,7 +64,7 @@ export interface ApiSessionData {
 }
 
 export type ApiNotifyException = {
-  chatId: number;
+  chatId: string;
   isMuted: boolean;
   isSilent?: boolean;
   shouldShowPreviews?: boolean;

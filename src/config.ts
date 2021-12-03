@@ -30,8 +30,9 @@ export const MEDIA_PROGRESSIVE_CACHE_DISABLED = false;
 export const MEDIA_PROGRESSIVE_CACHE_NAME = 'tt-media-progressive';
 export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
-export const LANG_CACHE_NAME = 'tt-lang-packs-v5';
+export const LANG_CACHE_NAME = 'tt-lang-packs-v6';
 export const ASSET_CACHE_NAME = 'tt-assets';
+export const AUTODOWNLOAD_FILESIZE_MB_LIMITS = [1, 5, 10, 50, 100, 500];
 
 export const DOWNLOAD_WORKERS = 16;
 export const UPLOAD_WORKERS = 16;
@@ -56,9 +57,14 @@ export const PINNED_MESSAGES_LIMIT = 50;
 export const BLOCKED_LIST_LIMIT = 100;
 export const PROFILE_PHOTOS_LIMIT = 40;
 export const PROFILE_SENSITIVE_AREA = 500;
+export const COMMON_CHATS_LIMIT = 100;
+export const GROUP_CALL_PARTICIPANTS_LIMIT = 100;
 
 export const TOP_CHAT_MESSAGES_PRELOAD_LIMIT = 20;
 export const ALL_CHATS_PRELOAD_DISABLED = false;
+
+export const DEFAULT_VOLUME = 1;
+export const DEFAULT_PLAYBACK_RATE = 1;
 
 export const ANIMATION_LEVEL_MIN = 0;
 export const ANIMATION_LEVEL_MED = 1;
@@ -86,6 +92,7 @@ export const MOBILE_SCREEN_LANDSCAPE_MAX_WIDTH = 950; // px
 export const MOBILE_SCREEN_LANDSCAPE_MAX_HEIGHT = 450; // px
 
 export const LOCAL_MESSAGE_ID_BASE = 1e9;
+export const TMP_CHAT_ID = '0';
 
 export const ANIMATION_END_DELAY = 100;
 
@@ -140,17 +147,17 @@ export const CONTENT_TYPES_WITH_PREVIEW = new Set([
 export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,63})\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)';
 export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
 export const RE_TG_LINK = /^tg:(\/\/)?([?=&\d\w_-]+)?/gm;
+export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)/gm;
+
 // eslint-disable-next-line max-len
-export const RE_TME_LINK = /^(?:https?:\/\/)?(?:t\.me\/)([\d\w_]+)(?:\/([\d]+))?(?:\/([\d]+)(?:\?([\w]+)=([\d]+))?)?$/gm;
-export const RE_TME_INVITE_LINK = /^(?:https?:\/\/)?(?:t\.me\/joinchat\/)([\d\w_-]+)?$/gm;
-export const RE_TME_ADDSTICKERS_LINK = /^(?:https?:\/\/)?(?:t\.me\/addstickers\/)([\d\w_-]+)$/gm;
+export const COUNTRIES_WITH_12H_TIME_FORMAT = new Set(['AU', 'BD', 'CA', 'CO', 'EG', 'HN', 'IE', 'IN', 'JO', 'MX', 'MY', 'NI', 'NZ', 'PH', 'PK', 'SA', 'SV', 'US']);
 
 // MTProto constants
-export const SERVICE_NOTIFICATIONS_USER_ID = 777000;
-export const REPLIES_USER_ID = 1271266957; // TODO For Test connection ID must be equal to 708513
+export const SERVICE_NOTIFICATIONS_USER_ID = '777000';
+export const REPLIES_USER_ID = '1271266957'; // TODO For Test connection ID must be equal to 708513
 export const ALL_FOLDER_ID = 0;
 export const ARCHIVED_FOLDER_ID = 1;
-export const DELETED_COMMENTS_CHANNEL_ID = 777;
+export const DELETED_COMMENTS_CHANNEL_ID = '-777';
 export const MAX_MEDIA_FILES_FOR_ALBUM = 10;
 export const MAX_ACTIVE_PINNED_CHATS = 5;
 export const SCHEDULED_WHEN_ONLINE = 0x7FFFFFFE;
@@ -165,3 +172,8 @@ export const DARK_THEME_BG_COLOR = '#0F0F0F';
 export const DARK_THEME_PATTERN_COLOR = '#0a0a0a8c';
 export const DEFAULT_PATTERN_COLOR = 'rgba(90, 110, 70, 0.6)';
 export const HEYMATE_URL = 'https://lar9nm8ay9.execute-api.us-east-1.amazonaws.com/dev';
+
+// Group calls
+export const GROUP_CALL_VOLUME_MULTIPLIER = 100;
+export const GROUP_CALL_DEFAULT_VOLUME = 100 * GROUP_CALL_VOLUME_MULTIPLIER;
+export const ENABLE_THUMBNAIL_VIDEO = false;

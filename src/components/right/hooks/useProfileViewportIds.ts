@@ -1,24 +1,29 @@
 import { useMemo, useRef } from '../../../lib/teact/teact';
 
-import { ApiChatMember, ApiMessage, ApiUser } from '../../../api/types';
+import {
+  ApiChat, ApiChatMember, ApiMessage, ApiUser,
+} from '../../../api/types';
 import { ProfileTabType, SharedMediaType } from '../../../types';
 
 import { MEMBERS_SLICE, MESSAGE_SEARCH_SLICE, SHARED_MEDIA_SLICE } from '../../../config';
-import { getMessageContentIds, sortUserIds } from '../../../modules/helpers';
+import { getMessageContentIds, sortChatIds, sortUserIds } from '../../../modules/helpers';
 import useOnChange from '../../../hooks/useOnChange';
 import useInfiniteScroll from '../../../hooks/useInfiniteScroll';
 
 export default function useProfileViewportIds(
   isRightColumnShown: boolean,
   loadMoreMembers: AnyToVoidFunction,
+  loadCommonChats: AnyToVoidFunction,
   searchMessages: AnyToVoidFunction,
   tabType: ProfileTabType,
   mediaSearchType?: SharedMediaType,
   groupChatMembers?: ApiChatMember[],
-  usersById?: Record<number, ApiUser>,
+  commonChatIds?: string[],
+  usersById?: Record<string, ApiUser>,
+  chatsById?: Record<string, ApiChat>,
   chatMessages?: Record<number, ApiMessage>,
   foundIds?: number[],
-  chatId?: number,
+  chatId?: string,
   lastSyncTime?: number,
   serverTimeOffset = 0,
 ) {
@@ -32,7 +37,15 @@ export default function useProfileViewportIds(
     return sortUserIds(groupChatMembers.map(({ userId }) => userId), usersById, undefined, serverTimeOffset);
   }, [groupChatMembers, serverTimeOffset, usersById]);
 
-  const [memberViewportIds, getMoreMembers, noProfileInfoForMembers] = useInfiniteScrollForMembers(
+  const chatIds = useMemo(() => {
+    if (!commonChatIds || !chatsById) {
+      return undefined;
+    }
+
+    return sortChatIds(commonChatIds, chatsById, true);
+  }, [chatsById, commonChatIds]);
+
+  const [memberViewportIds, getMoreMembers, noProfileInfoForMembers] = useInfiniteScrollForLoadableItems(
     resultType, loadMoreMembers, lastSyncTime, memberIds,
   );
 
@@ -56,7 +69,11 @@ export default function useProfileViewportIds(
     'voice', resultType, searchMessages, lastSyncTime, chatMessages, foundIds,
   );
 
-  let viewportIds: number[] | undefined;
+  const [commonChatViewportIds, getMoreCommonChats, noProfileInfoForCommonChats] = useInfiniteScrollForLoadableItems(
+    resultType, loadCommonChats, lastSyncTime, chatIds,
+  );
+
+  let viewportIds: number[] | string[] | undefined;
   let getMore: AnyToVoidFunction | undefined;
   let noProfileInfo = false;
 
@@ -65,6 +82,11 @@ export default function useProfileViewportIds(
       viewportIds = memberViewportIds;
       getMore = getMoreMembers;
       noProfileInfo = noProfileInfoForMembers;
+      break;
+    case 'commonChats':
+      viewportIds = commonChatViewportIds;
+      getMore = getMoreCommonChats;
+      noProfileInfo = noProfileInfoForCommonChats;
       break;
     case 'media':
       viewportIds = mediaViewportIds;
@@ -96,20 +118,20 @@ export default function useProfileViewportIds(
   return [resultType, viewportIds, getMore, noProfileInfo] as const;
 }
 
-function useInfiniteScrollForMembers(
+function useInfiniteScrollForLoadableItems(
   currentResultType?: ProfileTabType,
   handleLoadMore?: AnyToVoidFunction,
   lastSyncTime?: number,
-  memberIds?: number[],
+  itemIds?: string[],
 ) {
   const [viewportIds, getMore] = useInfiniteScroll(
     lastSyncTime ? handleLoadMore : undefined,
-    memberIds,
+    itemIds,
     undefined,
     MEMBERS_SLICE,
   );
 
-  const isOnTop = !viewportIds || !memberIds || viewportIds[0] === memberIds[0];
+  const isOnTop = !viewportIds || !itemIds || viewportIds[0] === itemIds[0];
 
   return [viewportIds, getMore, !isOnTop] as const;
 }

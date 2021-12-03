@@ -1,6 +1,7 @@
 import React, {
-  FC, useCallback, useEffect, useState, memo, useRef,
+  FC, useCallback, memo, useRef, useEffect, useState,
 } from '../../lib/teact/teact';
+import { getDispatch } from '../../lib/teact/teactn';
 
 import { ApiMediaFormat, ApiMessage } from '../../api/types';
 
@@ -12,9 +13,9 @@ import {
   isMessageDocumentVideo,
 } from '../../modules/helpers';
 import { ObserveFn, useIsIntersecting } from '../../hooks/useIntersectionObserver';
-import useMediaWithDownloadProgress from '../../hooks/useMediaWithDownloadProgress';
+import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
 import useMedia from '../../hooks/useMedia';
-import download from '../../util/download';
+import useFlag from '../../hooks/useFlag';
 
 import File from './File';
 
@@ -24,20 +25,27 @@ type OwnProps = {
   smaller?: boolean;
   isSelected?: boolean;
   isSelectable?: boolean;
+  canAutoLoad?: boolean;
   uploadProgress?: number;
   withDate?: boolean;
   datetime?: number;
   className?: string;
   sender?: string;
+  autoLoadFileMaxSizeMb?: number;
+  isDownloading: boolean;
   onCancelUpload?: () => void;
   onMediaClick?: () => void;
-  onDateClick?: (messageId: number, chatId: number) => void;
+  onDateClick?: (messageId: number, chatId: string) => void;
 };
+
+const BYTES_PER_MB = 1024 * 1024;
 
 const Document: FC<OwnProps> = ({
   message,
   observeIntersection,
   smaller,
+  canAutoLoad,
+  autoLoadFileMaxSizeMb,
   uploadProgress,
   withDate,
   datetime,
@@ -48,54 +56,79 @@ const Document: FC<OwnProps> = ({
   onCancelUpload,
   onMediaClick,
   onDateClick,
+  isDownloading,
 }) => {
+  const dispatch = getDispatch();
+
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
 
   const document = message.content.document!;
-  const extension = getDocumentExtension(document) || '';
   const { fileName, size, timestamp } = document;
-  const withMediaViewer = onMediaClick && Boolean(document.mediaType);
+  const extension = getDocumentExtension(document) || '';
 
   const isIntersecting = useIsIntersecting(ref, observeIntersection);
+  const [wasIntersected, markIntersected] = useFlag();
+  useEffect(() => {
+    if (isIntersecting) {
+      markIntersected();
+    }
+  }, [isIntersecting, markIntersected]);
 
-  const [isDownloadAllowed, setIsDownloadAllowed] = useState(false);
-  const {
-    mediaData, downloadProgress,
-  } = useMediaWithDownloadProgress<ApiMediaFormat.BlobUrl>(
-    getMessageMediaHash(message, 'download'), !isDownloadAllowed, undefined, undefined, undefined, true,
+  // Auto-loading does not use global download manager because requires additional click to save files locally
+  const [isLoadAllowed, setIsLoadAllowed] = useState(
+    canAutoLoad && (!autoLoadFileMaxSizeMb || size <= autoLoadFileMaxSizeMb * BYTES_PER_MB),
   );
+
+  const shouldDownload = Boolean(isDownloading || (isLoadAllowed && wasIntersected));
+
+  const documentHash = getMessageMediaHash(message, 'download');
+  const { loadProgress: downloadProgress, mediaData } = useMediaWithLoadProgress<ApiMediaFormat.BlobUrl>(
+    documentHash, !shouldDownload, undefined, undefined, undefined, true,
+  );
+  const isLoaded = Boolean(mediaData);
+
   const {
     isUploading, isTransferring, transferProgress,
-  } = getMediaTransferState(message, uploadProgress || downloadProgress, isDownloadAllowed);
+  } = getMediaTransferState(message, uploadProgress || downloadProgress, shouldDownload && !isLoaded);
 
   const hasPreview = getDocumentHasPreview(document);
   const thumbDataUri = hasPreview ? getMessageMediaThumbDataUri(message) : undefined;
   const localBlobUrl = hasPreview ? document.previewBlobUrl : undefined;
   const previewData = useMedia(getMessageMediaHash(message, 'pictogram'), !isIntersecting);
 
+  const withMediaViewer = onMediaClick && Boolean(document.mediaType);
+
   const handleClick = useCallback(() => {
-    if (withMediaViewer) {
-      onMediaClick!();
-    } else if (isUploading) {
+    if (isUploading) {
       if (onCancelUpload) {
         onCancelUpload();
       }
-    } else {
-      setIsDownloadAllowed((isAllowed) => !isAllowed);
+      return;
     }
-  }, [withMediaViewer, isUploading, onCancelUpload, onMediaClick]);
+
+    if (isDownloading) {
+      dispatch.cancelMessageMediaDownload({ message });
+      return;
+    }
+
+    if (isTransferring) {
+      setIsLoadAllowed(false);
+      return;
+    }
+
+    if (withMediaViewer) {
+      onMediaClick!();
+    } else {
+      dispatch.downloadMessageMedia({ message });
+    }
+  }, [
+    isUploading, isDownloading, isTransferring, withMediaViewer, onCancelUpload, dispatch, message, onMediaClick,
+  ]);
 
   const handleDateClick = useCallback(() => {
     onDateClick!(message.id, message.chatId);
   }, [onDateClick, message.id, message.chatId]);
-
-  useEffect(() => {
-    if (isDownloadAllowed && mediaData) {
-      download(mediaData, fileName);
-      setIsDownloadAllowed(false);
-    }
-  }, [fileName, mediaData, isDownloadAllowed]);
 
   return (
     <File

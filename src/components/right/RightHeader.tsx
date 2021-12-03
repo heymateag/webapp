@@ -16,8 +16,14 @@ import {
   selectCurrentStickerSearch,
   selectCurrentTextSearch,
   selectIsChatWithSelf,
+  selectUser,
 } from '../../modules/selectors';
-import { isChatAdmin, isChatChannel, isChatPrivate } from '../../modules/helpers';
+import {
+  getCanAddContact,
+  isChatAdmin,
+  isChatChannel,
+  isUserId,
+} from '../../modules/helpers';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
 
@@ -28,7 +34,7 @@ import './RightHeader.scss';
 import { getDayStartAt } from '../../util/dateFormat';
 
 type OwnProps = {
-  chatId?: number;
+  chatId?: string;
   isColumnOpen?: boolean;
   isProfile?: boolean;
   isSearch?: boolean;
@@ -44,8 +50,10 @@ type OwnProps = {
 };
 
 type StateProps = {
+  canAddContact?: boolean;
   canManage?: boolean;
   isChannel?: boolean;
+  userId?: string;
   messageSearchQuery?: string;
   stickerSearchQuery?: string;
   gifSearchQuery?: string;
@@ -53,7 +61,7 @@ type StateProps = {
 
 type DispatchProps = Pick<GlobalActions, (
   'setLocalTextSearchQuery' | 'setStickerSearchQuery' | 'setGifSearchQuery' |
-  'searchTextMessagesLocal' | 'toggleManagement' | 'openHistoryCalendar'
+  'searchTextMessagesLocal' | 'toggleManagement' | 'openHistoryCalendar' | 'addContact'
 )>;
 
 const COLUMN_CLOSE_DELAY_MS = 300;
@@ -94,6 +102,8 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   isAddingChatMembers,
   profileState,
   managementScreen,
+  canAddContact,
+  userId,
   canManage,
   isChannel,
   onClose,
@@ -107,6 +117,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   toggleManagement,
   openHistoryCalendar,
   shouldSkipAnimation,
+  addContact,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const backButtonRef = useRef<HTMLDivElement>(null);
@@ -126,6 +137,10 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const handleGifSearchQueryChange = useCallback((query: string) => {
     setGifSearchQuery({ query });
   }, [setGifSearchQuery]);
+
+  const handleAddContact = useCallback(() => {
+    addContact({ userId });
+  }, [addContact, userId]);
 
   const [shouldSkipTransition, setShouldSkipTransition] = useState(!isColumnOpen);
 
@@ -238,6 +253,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           <SearchInput
             value={stickerSearchQuery}
             placeholder={lang('SearchStickersHint')}
+            autoFocusSearch
             onChange={handleStickerSearchQueryChange}
           />
         );
@@ -246,6 +262,7 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           <SearchInput
             value={gifSearchQuery}
             placeholder={lang('SearchGifsTitle')}
+            autoFocusSearch
             onChange={handleGifSearchQueryChange}
           />
         );
@@ -261,6 +278,17 @@ const RightHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           <>
             <h3>Profile</h3>
             <section className="tools">
+              {canAddContact && (
+                <Button
+                  round
+                  color="translucent"
+                  size="smaller"
+                  ariaLabel={lang('AddContact')}
+                  onClick={handleAddContact}
+                >
+                  <i className="icon-add-user" />
+                </Button>
+              )}
               {canManage && (
                 <Button
                   round
@@ -321,19 +349,24 @@ export default memo(withGlobal<OwnProps>(
     const { query: gifSearchQuery } = selectCurrentGifSearch(global) || {};
     const chat = chatId ? selectChat(global, chatId) : undefined;
     const isChannel = chat && isChatChannel(chat);
+    const user = isProfile && chatId && isUserId(chatId) ? selectUser(global, chatId) : undefined;
 
+    const canAddContact = user && getCanAddContact(user);
     const canManage = Boolean(
       !isManagement
       && isProfile
+      && !canAddContact
       && chat
       && !selectIsChatWithSelf(global, chat.id)
       // chat.isCreator is for Basic Groups
-      && (isChatPrivate(chat.id) || ((isChatAdmin(chat) || chat.isCreator) && !chat.isNotJoined)),
+      && (isUserId(chat.id) || ((isChatAdmin(chat) || chat.isCreator) && !chat.isNotJoined)),
     );
 
     return {
       canManage,
+      canAddContact,
       isChannel,
+      userId: user?.id,
       messageSearchQuery,
       stickerSearchQuery,
       gifSearchQuery,
@@ -346,5 +379,6 @@ export default memo(withGlobal<OwnProps>(
     'searchTextMessagesLocal',
     'toggleManagement',
     'openHistoryCalendar',
+    'addContact',
   ]),
 )(RightHeader));

@@ -1,37 +1,36 @@
-import { getDispatch } from '../lib/teact/teactn';
+import { getDispatch, getGlobal } from '../lib/teact/teactn';
 
-import { AudioOrigin } from '../types';
+import { AudioOrigin, GlobalSearchContent } from '../types';
 import { ApiMessage } from '../api/types';
 
 import { IS_SAFARI } from './environment';
 import safePlay from './safePlay';
 import { patchSafariProgressiveAudio, isSafariPatchInProgress } from './patchSafariProgressiveAudio';
-import { getMessageKey, parseMessageKey } from '../modules/helpers';
+import { getMessageKey, MessageKey, parseMessageKey } from '../modules/helpers';
 import { fastRaf } from './schedulers';
+import { selectCurrentMessageList } from '../modules/selectors';
 
 type Handler = (eventName: string, e: Event) => void;
-type TrackId = string; // `${MessageKey}-${number}`;
+export type TrackId = `${MessageKey}-${number}`;
 
 export interface Track {
   audio: HTMLAudioElement;
   proxy: HTMLAudioElement;
   type: 'voice' | 'audio';
-  origin: AudioOrigin;
   handlers: Handler[];
   onForcePlay?: NoneToVoidFunction;
   onTrackChange?: NoneToVoidFunction;
 }
 
-const tracks = new Map<string, Track>();
+const tracks = new Map<TrackId, Track>();
 let voiceQueue: TrackId[] = [];
 let musicQueue: TrackId[] = [];
 
-let currentTrackId: string | undefined;
+let currentTrackId: TrackId | undefined;
 
 function createAudio(
   trackId: TrackId,
   type: Track['type'],
-  origin: AudioOrigin,
   onForcePlay?: NoneToVoidFunction,
   onTrackChange?: NoneToVoidFunction,
 ): Track {
@@ -77,7 +76,6 @@ function createAudio(
     proxy: new Proxy(audio, {
       get: (target, key: keyof HTMLAudioElement) => target[key],
     }),
-    origin,
     handlers: [],
     onForcePlay,
     onTrackChange,
@@ -92,11 +90,9 @@ function playNext(trackId: TrackId, isReverseOrder?: boolean) {
     if (currentTrack.onTrackChange) currentTrack.onTrackChange();
   }
 
-  const track = tracks.get(trackId)!;
-  const queue = getTrackQueue(track);
-  if (!queue) return;
+  const origin = getGlobal().audioPlayer.origin || AudioOrigin.Inline;
 
-  const nextTrackId = findNextInQueue(queue, trackId, track.origin, isReverseOrder);
+  const nextTrackId = findNextInQueue(trackId, origin, isReverseOrder);
   if (!nextTrackId) {
     return;
   }
@@ -109,8 +105,6 @@ function playNext(trackId: TrackId, isReverseOrder?: boolean) {
   }
 
   const nextTrack = tracks.get(nextTrackId)!;
-
-  if (currentTrack) nextTrack.origin = currentTrack.origin; // Preserve origin
 
   if (nextTrack.onForcePlay) {
     nextTrack.onForcePlay();
@@ -131,15 +125,14 @@ export function stopCurrentAudio() {
 }
 
 export function register(
-  trackId: string,
+  trackId: TrackId,
   trackType: Track['type'],
-  origin: AudioOrigin,
   handler: Handler,
   onForcePlay?: NoneToVoidFunction,
   onTrackChange?: NoneToVoidFunction,
 ) {
   if (!tracks.has(trackId)) {
-    const track = createAudio(trackId, trackType, origin, onForcePlay, onTrackChange);
+    const track = createAudio(trackId, trackType, onForcePlay, onTrackChange);
     tracks.set(trackId, track);
     addTrackToQueue(track, trackId);
   }
@@ -173,10 +166,7 @@ export function register(
       }
 
       safePlay(audio);
-    },
-
-    setCurrentOrigin(audioOrigin: AudioOrigin) {
-      tracks.get(trackId)!.origin = audioOrigin;
+      cleanUpQueue(trackType, trackId);
     },
 
     pause() {
@@ -211,6 +201,21 @@ export function register(
     setVolume(volume: number) {
       if (currentTrackId === trackId) {
         audio.volume = volume;
+        audio.muted = false;
+      }
+    },
+
+    setPlaybackRate(rate: number) {
+      if (currentTrackId === trackId) {
+        audio.playbackRate = rate;
+      }
+    },
+
+    toggleMuted(muted?: boolean) {
+      if (muted === undefined) {
+        audio.muted = !audio.muted;
+      } else {
+        audio.muted = muted;
       }
     },
 
@@ -221,17 +226,11 @@ export function register(
     },
 
     isLast() {
-      const track = tracks.get(trackId)!;
-      const queue = getTrackQueue(track);
-      if (!queue) return true;
-      return !findNextInQueue(queue, trackId, tracks.get(trackId)!.origin);
+      return !findNextInQueue(trackId, getGlobal().audioPlayer.origin);
     },
 
     isFirst() {
-      const track = tracks.get(trackId)!;
-      const queue = getTrackQueue(track);
-      if (!queue) return true;
-      return !findNextInQueue(queue, trackId, tracks.get(trackId)!.origin, true);
+      return !findNextInQueue(trackId, getGlobal().audioPlayer.origin, true);
     },
 
     requestPreviousTrack() {
@@ -263,14 +262,11 @@ export function register(
 }
 
 function getTrackQueue(track: Track) {
-  if (track.type === 'audio') {
-    return musicQueue;
+  switch (track.type) {
+    case 'audio': return musicQueue;
+    case 'voice': return voiceQueue;
+    default: return undefined;
   }
-
-  if (track.type === 'voice') {
-    return voiceQueue;
-  }
-  return undefined;
 }
 
 function addTrackToQueue(track: Track, trackId: TrackId) {
@@ -286,26 +282,48 @@ function addTrackToQueue(track: Track, trackId: TrackId) {
 }
 
 function removeFromQueue(track: Track, trackId: TrackId) {
+  const trackIdFilter = (el: TrackId) => el !== trackId;
   if (track.type === 'audio') {
-    musicQueue = musicQueue.filter((el) => el !== trackId);
+    musicQueue = musicQueue.filter(trackIdFilter);
   }
 
   if (track.type === 'voice') {
-    voiceQueue = voiceQueue.filter((el) => el !== trackId);
+    voiceQueue = voiceQueue.filter(trackIdFilter);
   }
 }
 
-function findNextInQueue(queue: TrackId[], current: TrackId, origin: AudioOrigin, isReverseOrder?: boolean) {
+function cleanUpQueue(type: Track['type'], trackId: TrackId) {
+  if (getGlobal().globalSearch.currentContent === GlobalSearchContent.Music) return;
+  const { chatId } = parseMessageKey(splitTrackId(trackId).messageKey);
+  const openedChatId = selectCurrentMessageList(getGlobal())?.chatId;
+  const queueFilter = (id: string) => (
+    id.startsWith(`msg${chatId}`) || (openedChatId && id.startsWith(`msg${openedChatId}`))
+  );
+
+  if (type === 'audio') {
+    musicQueue = musicQueue.filter(queueFilter);
+  }
+
+  if (type === 'voice') {
+    voiceQueue = voiceQueue.filter(queueFilter);
+  }
+}
+
+function findNextInQueue(currentId: TrackId, origin = AudioOrigin.Inline, isReverseOrder?: boolean) {
+  const track = tracks.get(currentId)!;
+  const queue = getTrackQueue(track);
+  if (!queue) return undefined;
+
   if (origin === AudioOrigin.Search) {
-    const index = queue.indexOf(current);
+    const index = queue.indexOf(currentId);
     if (index < 0) return undefined;
     const direction = isReverseOrder ? -1 : 1;
     return queue[index + direction];
   }
 
-  const { chatId } = parseMessageKey(splitTrackId(current).messageKey);
+  const { chatId } = parseMessageKey(splitTrackId(currentId).messageKey);
   const chatAudio = queue.filter((id) => id.startsWith(`msg${chatId}`));
-  const index = chatAudio.indexOf(current);
+  const index = chatAudio.indexOf(currentId);
   if (index < 0) return undefined;
   let direction = origin === AudioOrigin.Inline ? -1 : 1;
   if (isReverseOrder) direction *= -1;
@@ -317,7 +335,7 @@ export function makeTrackId(message: ApiMessage): TrackId {
 }
 
 function splitTrackId(trackId: TrackId) {
-  const messageKey = trackId.match(/^msg(-?\d+)-(\d+)/)![0];
+  const messageKey = trackId.match(/^msg(-?\d+)-(\d+)/)![0] as MessageKey;
   const date = Number(trackId.split('-').pop());
   return {
     messageKey,

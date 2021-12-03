@@ -2,13 +2,16 @@ const path = require('path');
 
 const dotenv = require('dotenv');
 
-const { EnvironmentPlugin, ProvidePlugin } = require('webpack');
+const {
+  EnvironmentPlugin,
+  ProvidePlugin,
+} = require('webpack');
 const CopyPlugin = require("copy-webpack-plugin");
 const HtmlPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const TerserJSPlugin = require('terser-webpack-plugin');
-const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
 dotenv.config();
 
@@ -24,6 +27,7 @@ module.exports = (env = {}, argv = {}) => {
         path.resolve(__dirname, 'node_modules/opus-recorder/dist'),
         path.resolve(__dirname, 'src/lib/webp'),
         path.resolve(__dirname, 'src/lib/rlottie'),
+        path.resolve(__dirname, 'src/lib/secret-sauce'),
       ],
       port: 4200,
       host: 'localhost',
@@ -86,7 +90,7 @@ module.exports = (env = {}, argv = {}) => {
           },
         },
         {
-          test: /\.tl$/i,
+          test: /\.(txt|tl)$/i,
           loader: 'raw-loader',
         },
       ],
@@ -100,9 +104,9 @@ module.exports = (env = {}, argv = {}) => {
       },
       extensions: ['.js', '.ts', '.tsx'],
       fallback: {
-        path: require.resolve("path-browserify"),
-        os: require.resolve("os-browserify/browser"),
-        buffer: require.resolve("buffer/"),
+        path: require.resolve('path-browserify'),
+        os: require.resolve('os-browserify/browser'),
+        buffer: require.resolve('buffer/'),
         stream: require.resolve("stream-browserify"),
         https: require.resolve("https-browserify"),
         crypto: require.resolve("crypto-browserify"),
@@ -111,7 +115,7 @@ module.exports = (env = {}, argv = {}) => {
         net: false,
         fs: false,
         electron: false,
-      }
+      },
     },
     plugins: [
       new HtmlPlugin({

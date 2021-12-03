@@ -2,7 +2,7 @@ import { ApiPhoto } from './messages';
 import { ApiBotCommand } from './bots';
 
 export interface ApiUser {
-  id: number;
+  id: string;
   isMin: boolean;
   isSelf?: true;
   isVerified?: true;
@@ -18,6 +18,11 @@ export interface ApiUser {
   photos?: ApiPhoto[];
   botPlaceholder?: string;
   canBeInvitedToGroup?: boolean;
+  commonChats?: {
+    ids: string[];
+    maxId: string;
+    isFullyLoaded: boolean;
+  };
 
   // Obtained from GetFullUser / UserFullInfo
   fullInfo?: ApiUserFullInfo;

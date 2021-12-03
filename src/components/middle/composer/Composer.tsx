@@ -41,12 +41,12 @@ import {
 import {
   getAllowedAttachmentOptions,
   getChatSlowModeOptions,
-  isChatPrivate,
+  isUserId,
   isChatAdmin,
 } from '../../../modules/helpers';
 import { formatMediaDuration, formatVoiceRecordDuration, getDayStartAt } from '../../../util/dateFormat';
 import focusEditableElement from '../../../util/focusEditableElement';
-import parseMessageInput from './helpers/parseMessageInput';
+import parseMessageInput from '../../../util/parseMessageInput';
 import buildAttachment from './helpers/buildAttachment';
 import renderText from '../../common/helpers/renderText';
 import insertHtmlInSelection from '../../../util/insertHtmlInSelection';
@@ -98,7 +98,7 @@ import CalendarModal from '../../common/CalendarModal.async';
 import './Composer.scss';
 
 type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   messageListType: MessageListType;
   dropAreaState: string;
@@ -123,8 +123,8 @@ type StateProps = {
   canScheduleUntilOnline?: boolean;
   stickersForEmoji?: ApiSticker[];
   groupChatMembers?: ApiChatMember[];
-  currentUserId?: number;
-  usersById?: Record<number, ApiUser>;
+  currentUserId?: string;
+  usersById?: Record<string, ApiUser>;
   recentEmojis: string[];
   lastSyncTime?: number;
   contentToBeScheduled?: GlobalState['messages']['contentToBeScheduled'];
@@ -132,7 +132,7 @@ type StateProps = {
   baseEmojiKeywords?: Record<string, string[]>;
   emojiKeywords?: Record<string, string[]>;
   serverTimeOffset: number;
-  topInlineBotIds?: number[];
+  topInlineBotIds?: string[];
   isInlineBotLoading: boolean;
   inlineBots?: Record<string, false | InlineBotSettings>;
   botCommands?: ApiBotCommand[] | false;
@@ -409,7 +409,7 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
     closeEmojiTooltip();
 
     if (IS_SINGLE_COLUMN_LAYOUT) {
-      // @perf
+      // @optimization
       setTimeout(() => closeSymbolMenu(), SENDING_ANIMATION_DURATION);
     } else {
       closeSymbolMenu();
@@ -526,8 +526,12 @@ const Composer: FC<OwnProps & StateProps & DispatchProps> = ({
         isSilent,
       });
     }
+
     if (isForwarding) {
-      forwardMessages();
+      forwardMessages({
+        scheduledAt,
+        isSilent,
+      });
     }
 
     lastMessageSendTimeSeconds.current = getServerTime(serverTimeOffset);
@@ -1054,7 +1058,7 @@ export default memo(withGlobal<OwnProps>(
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
     const messageWithActualBotKeyboard = isChatWithBot && selectNewestMessageWithBotKeyboardButtons(global, chatId);
     const scheduledIds = selectScheduledIds(global, chatId);
-    const { language } = global.settings.byKey;
+    const { language, shouldSuggestStickers } = global.settings.byKey;
     const baseEmojiKeywords = global.emojiKeywords[BASE_EMOJI_KEYWORD_LANG];
     const emojiKeywords = language !== BASE_EMOJI_KEYWORD_LANG ? global.emojiKeywords[language] : undefined;
     const botKeyboardMessageId = messageWithActualBotKeyboard ? messageWithActualBotKeyboard.id : undefined;
@@ -1069,7 +1073,7 @@ export default memo(withGlobal<OwnProps>(
       isChatWithSelf,
       canScheduleUntilOnline: (
         !isChatWithSelf && !isChatWithBot
-        && (chat && chatUser && isChatPrivate(chatId) && chatUser.status && Boolean(chatUser.status.wasOnline))
+        && (chat && chatUser && isUserId(chatId) && chatUser.status && Boolean(chatUser.status.wasOnline))
       ),
       isRightColumnShown: selectIsRightColumnShown(global),
       isSelectModeActive: selectIsInSelectMode(global),
@@ -1090,7 +1094,7 @@ export default memo(withGlobal<OwnProps>(
       usersById: global.users.byId,
       lastSyncTime: global.lastSyncTime,
       contentToBeScheduled: global.messages.contentToBeScheduled,
-      shouldSuggestStickers: global.settings.byKey.shouldSuggestStickers,
+      shouldSuggestStickers,
       recentEmojis: global.recentEmojis,
       baseEmojiKeywords: baseEmojiKeywords?.keywords,
       emojiKeywords: emojiKeywords?.keywords,

@@ -48,18 +48,29 @@ export type LangCode = (
   | 'tr' | 'uk' | 'uz'
 );
 
+export type TimeFormat = '24h' | '12h';
+
 export interface ISettings extends NotifySettings, Record<string, any> {
   theme: ThemeKey;
   shouldUseSystemTheme: boolean;
   messageTextSize: number;
   animationLevel: 0 | 1 | 2;
   messageSendKeyCombo: 'enter' | 'ctrl-enter';
-  shouldAutoDownloadMediaFromContacts: boolean;
-  shouldAutoDownloadMediaInPrivateChats: boolean;
-  shouldAutoDownloadMediaInGroups: boolean;
-  shouldAutoDownloadMediaInChannels: boolean;
-  shouldAutoPlayGifs: boolean;
-  shouldAutoPlayVideos: boolean;
+  canAutoLoadPhotoFromContacts: boolean;
+  canAutoLoadPhotoInPrivateChats: boolean;
+  canAutoLoadPhotoInGroups: boolean;
+  canAutoLoadPhotoInChannels: boolean;
+  canAutoLoadVideoFromContacts: boolean;
+  canAutoLoadVideoInPrivateChats: boolean;
+  canAutoLoadVideoInGroups: boolean;
+  canAutoLoadVideoInChannels: boolean;
+  canAutoLoadFileFromContacts: boolean;
+  canAutoLoadFileInPrivateChats: boolean;
+  canAutoLoadFileInGroups: boolean;
+  canAutoLoadFileInChannels: boolean;
+  autoLoadFileMaxSizeMb: number;
+  canAutoPlayGifs: boolean;
+  canAutoPlayVideos: boolean;
   shouldSuggestStickers: boolean;
   shouldLoopStickers: boolean;
   hasPassword?: boolean;
@@ -67,27 +78,29 @@ export interface ISettings extends NotifySettings, Record<string, any> {
   language: LangCode;
   isSensitiveEnabled?: boolean;
   canChangeSensitive?: boolean;
+  timeFormat: TimeFormat;
+  wasTimeFormatSetManually: boolean;
 }
 
 export interface ApiPrivacySettings {
   visibility: PrivacyVisibility;
-  allowUserIds: number[];
-  allowChatIds: number[];
-  blockUserIds: number[];
-  blockChatIds: number[];
+  allowUserIds: string[];
+  allowChatIds: string[];
+  blockUserIds: string[];
+  blockChatIds: string[];
 }
 
-export interface IInputPrivacyContact {
-  id: number;
+export interface InputPrivacyContact {
+  id: string;
   accessHash?: string;
 }
 
-export interface IInputPrivacyRules {
+export interface InputPrivacyRules {
   visibility: PrivacyVisibility;
-  allowedUsers?: IInputPrivacyContact[];
-  allowedChats?: IInputPrivacyContact[];
-  blockedUsers?: IInputPrivacyContact[];
-  blockedChats?: IInputPrivacyContact[];
+  allowedUsers?: InputPrivacyContact[];
+  allowedChats?: InputPrivacyContact[];
+  blockedUsers?: InputPrivacyContact[];
+  blockedChats?: InputPrivacyContact[];
 }
 
 export type IAnchorPosition = {
@@ -141,6 +154,7 @@ export enum SettingsScreens {
   Main,
   EditProfile,
   Notifications,
+  DataStorage,
   Language,
   General,
   GeneralChatBackground,
@@ -272,7 +286,7 @@ export enum NewChatMembersProgress {
   Loading,
 }
 
-export type ProfileTabType = 'members' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
+export type ProfileTabType = 'members' | 'commonChats' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
 export type SharedMediaType = 'media' | 'documents' | 'links' | 'audio' | 'voice';
 export type ApiPrivacyKey = 'phoneNumber' | 'lastSeen' | 'profilePhoto' | 'forwards' | 'chatInvite';
 export type PrivacyVisibility = 'everybody' | 'contacts' | 'nonContacts' | 'nobody';
@@ -323,7 +337,7 @@ export type EmojiKeywords = {
 };
 
 export type InlineBotSettings = {
-  id: number;
+  id: string;
   help?: string;
   query?: string;
   offset?: string;
