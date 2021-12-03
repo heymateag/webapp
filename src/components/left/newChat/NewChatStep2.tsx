@@ -21,7 +21,7 @@ import PrivateChatInfo from '../../common/PrivateChatInfo';
 export type OwnProps = {
   isChannel?: boolean;
   isActive: boolean;
-  memberIds: number[];
+  memberIds: string[];
   onReset: (forceReturnToChatList?: boolean) => void;
 };
 
@@ -113,7 +113,7 @@ const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [creationProgress, onReset]);
 
-  const renderedError = creationError || (
+  const renderedError = (creationError && lang(creationError)) || (
     error !== chatTitleEmptyError && error !== channelTitleEmptyError
       ? error
       : undefined

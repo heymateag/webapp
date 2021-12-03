@@ -20,10 +20,12 @@ const MAX_TEXT_LENGTH = 170; // symbols
 type OwnProps = {
   message: ApiMessage;
   senderTitle?: string;
-  onMessageClick: (messageId: number, chatId: number) => void;
+  onMessageClick: (messageId: number, chatId: string) => void;
 };
 
-const WebLink: FC<OwnProps> = ({ message, senderTitle, onMessageClick }) => {
+const WebLink: FC<OwnProps> = ({
+  message, senderTitle, onMessageClick,
+}) => {
   const lang = useLang();
 
   let linkData: ApiWebPage | undefined = getMessageWebPage(message);

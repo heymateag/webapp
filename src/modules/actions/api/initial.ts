@@ -37,6 +37,7 @@ addReducer('initApi', (global: GlobalState, actions) => {
       userAgent: navigator.userAgent,
       platform: PLATFORM_ENV,
       sessionData: loadStoredSession(),
+      isTest: window.location.search.includes('test'),
       isMovSupported: IS_MOV_SUPPORTED,
     });
   })();
@@ -177,21 +178,6 @@ addReducer('loadNearestCountry', (global) => {
     setGlobal({
       ...getGlobal(),
       authNearestCountry,
-    });
-  })();
-});
-
-addReducer('loadCountryList', (global, actions, payload = {}) => {
-  let { langCode } = payload;
-  if (!langCode) langCode = global.settings.byKey.language;
-
-  (async () => {
-    const countryList = await callApi('fetchCountryList', { langCode });
-    if (!countryList) return;
-
-    setGlobal({
-      ...getGlobal(),
-      countryList,
     });
   })();
 });

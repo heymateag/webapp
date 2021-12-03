@@ -1,11 +1,9 @@
 import {
   useCallback, useEffect, useRef, useState,
 } from '../lib/teact/teact';
-import { getDispatch } from '../lib/teact/teactn';
+import { getDispatch, getGlobal } from '../lib/teact/teactn';
 
-import { AudioOrigin } from '../types';
-
-import { register, Track } from '../util/audioPlayer';
+import { register, Track, TrackId } from '../util/audioPlayer';
 import useEffectWithPrevDeps from './useEffectWithPrevDeps';
 import { isSafariPatchInProgress } from '../util/patchSafariProgressiveAudio';
 import useOnChange from './useOnChange';
@@ -18,10 +16,9 @@ type Handler = (e: Event) => void;
 const DEFAULT_SKIP_TIME = 10;
 
 export default (
-  trackId: string,
+  trackId: TrackId,
   originalDuration: number, // Sometimes incorrect for voice messages
   trackType: Track['type'],
-  origin: AudioOrigin,
   src?: string,
   handlers?: Record<string, Handler>,
   metadata?: MediaMetadata,
@@ -46,14 +43,38 @@ export default (
   }, [onTrackChange]);
 
   useOnChange(() => {
-    controllerRef.current = register(trackId, trackType, origin, (eventName, e) => {
+    controllerRef.current = register(trackId, trackType, (eventName, e) => {
       switch (eventName) {
-        case 'onPlay':
+        case 'onPlay': {
+          const {
+            setVolume, setPlaybackRate, toggleMuted, proxy,
+          } = controllerRef.current!;
           setIsPlaying(true);
 
           registerMediaSession(metadata, makeMediaHandlers(controllerRef));
           setPlaybackState('playing');
+          setVolume(getGlobal().audioPlayer.volume);
+          toggleMuted(!!getGlobal().audioPlayer.isMuted);
+          if (trackType === 'voice') {
+            setPlaybackRate(getGlobal().audioPlayer.playbackRate);
+          }
+
+          setPositionState({
+            duration: proxy.duration || 0,
+            playbackRate: proxy.playbackRate,
+            position: proxy.currentTime,
+          });
           break;
+        }
+        case 'onRateChange': {
+          const { proxy } = controllerRef.current!;
+          setPositionState({
+            duration: proxy.duration || 0,
+            playbackRate: proxy.playbackRate,
+            position: proxy.currentTime,
+          });
+          break;
+        }
         case 'onPause':
           setIsPlaying(false);
           setPlaybackState('paused');
@@ -62,11 +83,6 @@ export default (
           const { proxy } = controllerRef.current!;
           const duration = proxy.duration && Number.isFinite(proxy.duration) ? proxy.duration : originalDuration;
           if (!noProgressUpdates) setPlayProgress(proxy.currentTime / duration);
-          setPositionState({
-            duration: proxy.duration,
-            playbackRate: proxy.playbackRate,
-            position: proxy.currentTime,
-          });
           break;
         }
         case 'onEnded': {
@@ -95,7 +111,19 @@ export default (
   }, [metadata, isPlaying]);
 
   const {
-    play, pause, setCurrentTime, proxy, destroy, setVolume, setCurrentOrigin, stop,
+    play,
+    pause,
+    setCurrentTime,
+    proxy,
+    destroy,
+    setVolume,
+    stop,
+    isFirst,
+    isLast,
+    requestNextTrack,
+    requestPreviousTrack,
+    setPlaybackRate,
+    toggleMuted,
   } = controllerRef.current!;
   const duration = proxy.duration && Number.isFinite(proxy.duration) ? proxy.duration : originalDuration;
 
@@ -129,10 +157,9 @@ export default (
 
   const playIfPresent = useCallback(() => {
     if (src) {
-      setCurrentOrigin(origin);
       play(src);
     }
-  }, [src, origin, play, setCurrentOrigin]);
+  }, [src, play]);
 
   const playPause = useCallback(() => {
     if (isPlaying) {
@@ -160,6 +187,12 @@ export default (
     setVolume,
     audioProxy: proxy,
     duration,
+    requestNextTrack,
+    requestPreviousTrack,
+    isFirst,
+    isLast,
+    setPlaybackRate,
+    toggleMuted,
   };
 };
 

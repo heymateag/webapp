@@ -30,7 +30,7 @@ import {
   buildApiMessage,
   buildLocalMessage,
   buildWebPage,
-  buildForwardedMessage,
+  buildLocalForwardedMessage,
 } from '../apiBuilders/messages';
 import { buildApiUser } from '../apiBuilders/users';
 import {
@@ -43,7 +43,6 @@ import {
   buildMtpMessageEntity,
   isMessageWithMedia,
   isServiceMessageWithMedia,
-  calculateResultHash,
   buildInputReportReason,
 } from '../gramjsBuilders';
 import localDb from '../localDb';
@@ -52,6 +51,7 @@ import { fetchFile } from '../../../util/files';
 import { addMessageToLocalDb, resolveMessageApiChatId } from '../helpers';
 import { interpolateArray } from '../../../util/waveform';
 import { requestChatUpdate } from './chats';
+import { buildApiPeerId } from '../apiBuilders/peers';
 
 const FAST_SEND_TIMEOUT = 1000;
 const INPUT_WAVEFORM_LENGTH = 63;
@@ -238,7 +238,7 @@ export function sendMessage(
   }, FAST_SEND_TIMEOUT);
 
   const randomId = generateRandomBigInt();
-  localDb.localMessages[randomId.toString()] = localMessage;
+  localDb.localMessages[String(randomId)] = localMessage;
 
   if (groupedId) {
     return sendGroupedMedia({
@@ -688,7 +688,7 @@ export async function markMessageListRead({
   }
 
   if (threadId === MAIN_THREAD_ID) {
-    void requestChatUpdate({ chat, serverTimeOffset });
+    void requestChatUpdate({ chat, serverTimeOffset, noLastMessage: true });
   } else {
     void requestThreadInfoUpdate({ chat, threadId });
   }
@@ -1024,21 +1024,25 @@ export async function forwardMessages({
   toChat,
   messages,
   serverTimeOffset,
+  isSilent,
+  scheduledAt,
 }: {
   fromChat: ApiChat;
   toChat: ApiChat;
   messages: ApiMessage[];
   serverTimeOffset: number;
+  isSilent?: boolean;
+  scheduledAt?: number;
 }) {
   const messageIds = messages.map(({ id }) => id);
   const randomIds = messages.map(generateRandomBigInt);
 
   messages.forEach((message, index) => {
-    const localMessage = buildForwardedMessage(toChat, message, serverTimeOffset);
+    const localMessage = buildLocalForwardedMessage(toChat, message, serverTimeOffset, scheduledAt);
     localDb.localMessages[String(randomIds[index])] = localMessage;
 
     onUpdate({
-      '@type': 'newMessage',
+      '@type': localMessage.isScheduled ? 'newScheduledMessage' : 'newMessage',
       id: localMessage.id,
       chatId: toChat.id,
       message: localMessage,
@@ -1050,6 +1054,8 @@ export async function forwardMessages({
     toPeer: buildInputPeer(toChat.id, toChat.accessHash),
     randomId: randomIds,
     id: messageIds,
+    ...(isSilent && { sil2ent: isSilent }),
+    ...(scheduledAt && { scheduleDate: scheduledAt }),
   }), true);
 }
 
@@ -1078,12 +1084,11 @@ export async function findFirstMessageIdAfterDate({
   return result.messages[0].id;
 }
 
-export async function fetchScheduledHistory({ chat, hash = 0 }: { chat: ApiChat; hash?: number }) {
+export async function fetchScheduledHistory({ chat }: { chat: ApiChat }) {
   const { id, accessHash } = chat;
 
   const result = await invokeRequest(new GramJs.messages.GetScheduledHistory({
     peer: buildInputPeer(id, accessHash),
-    hash,
   }));
 
   if (
@@ -1100,7 +1105,6 @@ export async function fetchScheduledHistory({ chat, hash = 0 }: { chat: ApiChat;
 
   return {
     messages,
-    hash: calculateResultHash(messages.map((message) => message.id)),
   };
 }
 
@@ -1119,13 +1123,13 @@ function updateLocalDb(result: (
 )) {
   result.users.forEach((user) => {
     if (user instanceof GramJs.User) {
-      localDb.users[user.id] = user;
+      localDb.users[buildApiPeerId(user.id, 'user')] = user;
     }
   });
 
   result.chats.forEach((chat) => {
     if (chat instanceof GramJs.Chat || chat instanceof GramJs.Channel) {
-      localDb.chats[chat.id] = chat;
+      localDb.chats[buildApiPeerId(chat.id, chat instanceof GramJs.Chat ? 'chat' : 'channel')] = chat;
     }
   });
 

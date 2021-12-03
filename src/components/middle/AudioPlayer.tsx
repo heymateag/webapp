@@ -1,4 +1,6 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
+import React, {
+  FC, useCallback, useEffect, useMemo,
+} from '../../lib/teact/teact';
 import { withGlobal } from '../../lib/teact/teactn';
 
 import { AudioOrigin } from '../../types';
@@ -7,23 +9,26 @@ import {
   ApiAudio, ApiChat, ApiMessage, ApiUser,
 } from '../../api/types';
 
-import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
+import { IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../util/environment';
+
 import * as mediaLoader from '../../util/mediaLoader';
 import {
-  getMediaDuration, getMessageContent, getMessageMediaHash, getSenderTitle,
+  getMediaDuration, getMessageContent, getMessageMediaHash, getSenderTitle, isMessageLocal,
 } from '../../modules/helpers';
 import { selectChat, selectSender } from '../../modules/selectors';
 import { pick } from '../../util/iteratees';
-import renderText from '../common/helpers/renderText';
-import useAudioPlayer from '../../hooks/useAudioPlayer';
 import buildClassName from '../../util/buildClassName';
-import useLang from '../../hooks/useLang';
-import useMessageMediaMetadata from '../../hooks/useMessageMediaMetadata';
 import { makeTrackId } from '../../util/audioPlayer';
 import { clearMediaSession } from '../../util/mediaSession';
+import windowSize from '../../util/windowSize';
+import useAudioPlayer from '../../hooks/useAudioPlayer';
+import useLang from '../../hooks/useLang';
+import useMessageMediaMetadata from '../../hooks/useMessageMediaMetadata';
+import renderText from '../common/helpers/renderText';
 
 import RippleEffect from '../ui/RippleEffect';
 import Button from '../ui/Button';
+import RangeSlider from '../ui/RangeSlider';
 
 import './AudioPlayer.scss';
 
@@ -37,24 +42,58 @@ type OwnProps = {
 type StateProps = {
   sender?: ApiChat | ApiUser;
   chat?: ApiChat;
+  volume: number;
+  playbackRate: number;
+  isMuted: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'focusMessage' | 'closeAudioPlayer'>;
+type DispatchProps = Pick<GlobalActions, (
+  'focusMessage' |
+  'closeAudioPlayer' |
+  'setAudioPlayerVolume' |
+  'setAudioPlayerPlaybackRate' |
+  'setAudioPlayerMuted'
+)>;
+
+const FAST_PLAYBACK_RATE = 1.8;
 
 const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
-  message, origin = AudioOrigin.Inline, className, noUi, sender, focusMessage, closeAudioPlayer, chat,
+  message,
+  className,
+  noUi,
+  sender,
+  chat,
+  volume,
+  playbackRate,
+  isMuted,
+  setAudioPlayerVolume,
+  setAudioPlayerPlaybackRate,
+  setAudioPlayerMuted,
+  focusMessage,
+  closeAudioPlayer,
 }) => {
   const lang = useLang();
-  const { audio, voice } = getMessageContent(message);
-  const isVoice = Boolean(voice);
+  const { audio, voice, video } = getMessageContent(message);
+  const isVoice = Boolean(voice || video);
   const senderName = sender ? getSenderTitle(lang, sender) : undefined;
   const mediaData = mediaLoader.getFromMemory(getMessageMediaHash(message, 'inline')!) as (string | undefined);
   const mediaMetadata = useMessageMediaMetadata(message, sender, chat);
-  const { playPause, stop, isPlaying } = useAudioPlayer(
+
+  const {
+    playPause,
+    stop,
+    isPlaying,
+    requestNextTrack,
+    requestPreviousTrack,
+    isFirst,
+    isLast,
+    setVolume,
+    toggleMuted,
+    setPlaybackRate,
+  } = useAudioPlayer(
     makeTrackId(message),
     getMediaDuration(message)!,
     isVoice ? 'voice' : 'audio',
-    origin,
     mediaData,
     undefined,
     mediaMetadata,
@@ -62,8 +101,23 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
     true,
     undefined,
     undefined,
+    isMessageLocal(message),
     true,
   );
+
+  // Prevent refresh by accidentally rotating device when listening to a voice message
+  const isVoicePlaying = isVoice && isPlaying;
+  useEffect(() => {
+    if (!isVoicePlaying) {
+      return undefined;
+    }
+
+    windowSize.disableRefresh();
+
+    return () => {
+      windowSize.enableRefresh();
+    };
+  }, [isVoicePlaying]);
 
   const handleClick = useCallback(() => {
     focusMessage({ chatId: message.chatId, messageId: message.id });
@@ -78,6 +132,36 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
     stop();
   }, [closeAudioPlayer, isPlaying, playPause, stop]);
 
+  const handleVolumeChange = useCallback((value: number) => {
+    setAudioPlayerVolume({ volume: value / 100 });
+    setAudioPlayerMuted({ isMuted: false });
+
+    setVolume(value / 100);
+  }, [setAudioPlayerMuted, setAudioPlayerVolume, setVolume]);
+
+  const handleVolumeClick = useCallback(() => {
+    if (IS_TOUCH_ENV && !IS_IOS) return;
+    toggleMuted();
+    setAudioPlayerMuted({ isMuted: !isMuted });
+  }, [isMuted, setAudioPlayerMuted, toggleMuted]);
+
+  const handlePlaybackClick = useCallback(() => {
+    if (playbackRate === 1) {
+      setPlaybackRate(FAST_PLAYBACK_RATE);
+      setAudioPlayerPlaybackRate({ playbackRate: FAST_PLAYBACK_RATE });
+    } else {
+      setPlaybackRate(1);
+      setAudioPlayerPlaybackRate({ playbackRate: 1 });
+    }
+  }, [playbackRate, setAudioPlayerPlaybackRate, setPlaybackRate]);
+
+  const volumeIcon = useMemo(() => {
+    if (volume === 0 || isMuted) return 'icon-muted';
+    if (volume < 0.3) return 'icon-volume-1';
+    if (volume < 0.6) return 'icon-volume-2';
+    return 'icon-volume-3';
+  }, [volume, isMuted]);
+
   if (noUi) {
     return undefined;
   }
@@ -89,18 +173,75 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
         ripple={!IS_SINGLE_COLUMN_LAYOUT}
         color="translucent"
         size="smaller"
-        className={buildClassName('toggle-play', isPlaying ? 'pause' : 'play')}
+        className="player-button"
+        disabled={isFirst()}
+        onClick={requestPreviousTrack}
+        ariaLabel="Previous track"
+      >
+        <i className="icon-skip-previous" />
+      </Button>
+      <Button
+        round
+        ripple={!IS_SINGLE_COLUMN_LAYOUT}
+        color="translucent"
+        size="smaller"
+        className={buildClassName('toggle-play', 'player-button', isPlaying ? 'pause' : 'play')}
         onClick={playPause}
         ariaLabel={isPlaying ? 'Pause audio' : 'Play audio'}
       >
         <i className="icon-play" />
         <i className="icon-pause" />
       </Button>
+      <Button
+        round
+        ripple={!IS_SINGLE_COLUMN_LAYOUT}
+        color="translucent"
+        size="smaller"
+        className="player-button"
+        disabled={isLast()}
+        onClick={requestNextTrack}
+        ariaLabel="Next track"
+      >
+        <i className="icon-skip-next" />
+      </Button>
 
       <div className="AudioPlayer-content" onClick={handleClick}>
         {audio ? renderAudio(audio) : renderVoice(lang('AttachAudio'), senderName)}
         <RippleEffect />
       </div>
+
+      <Button
+        round
+        className="player-button volume-button"
+        color="translucent"
+        size="smaller"
+        ariaLabel="Volume"
+        withClickPropagation
+      >
+        <i className={volumeIcon} onClick={handleVolumeClick} />
+        {!IS_IOS && (
+          <>
+            <div className="volume-slider-spacer" />
+            <div className="volume-slider">
+              <RangeSlider value={isMuted ? 0 : volume * 100} onChange={handleVolumeChange} />
+            </div>
+          </>
+        )}
+      </Button>
+
+      {isVoice && (
+        <Button
+          round
+          className={buildClassName('playback-button', playbackRate !== 1 && 'applied')}
+          color="translucent"
+          size="smaller"
+          ariaLabel="Playback Rate"
+          ripple={!IS_SINGLE_COLUMN_LAYOUT}
+          onClick={handlePlaybackClick}
+        >
+          <span className="playback-button-inner">2Х</span>
+        </Button>
+      )}
 
       <Button
         round
@@ -142,11 +283,18 @@ export default withGlobal<OwnProps>(
   (global, { message }): StateProps => {
     const sender = selectSender(global, message);
     const chat = selectChat(global, message.chatId);
+    const { volume, playbackRate, isMuted } = global.audioPlayer;
 
     return {
       sender,
       chat,
+      volume,
+      playbackRate,
+      isMuted,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['focusMessage', 'closeAudioPlayer']),
+  (setGlobal, actions): DispatchProps => pick(
+    actions,
+    ['focusMessage', 'closeAudioPlayer', 'setAudioPlayerVolume', 'setAudioPlayerPlaybackRate', 'setAudioPlayerMuted'],
+  ),
 )(AudioPlayer);

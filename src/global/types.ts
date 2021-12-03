@@ -21,6 +21,7 @@ import {
   ApiInviteInfo,
   ApiCountryCode,
   ApiCountry,
+  ApiGroupCall,
 } from '../api/types';
 import {
   FocusDirection,
@@ -47,10 +48,13 @@ import {
   AudioOrigin,
 } from '../types';
 
-export type MessageListType = 'thread' | 'pinned' | 'scheduled';
+export type MessageListType =
+  'thread'
+  | 'pinned'
+  | 'scheduled';
 
 export interface MessageList {
-  chatId: number;
+  chatId: string;
   threadId: number;
   type: MessageListType;
 }
@@ -72,6 +76,13 @@ export interface Thread {
   replyStack?: number[];
 }
 
+export interface ServiceNotification {
+  id: number;
+  message: ApiMessage;
+  version?: string;
+  isUnread?: boolean;
+}
+
 export type GlobalState = {
   isChatInfoShown: boolean;
   isLeftColumnShown: boolean;
@@ -80,9 +91,10 @@ export type GlobalState = {
   uiReadyState: 0 | 1 | 2;
   shouldSkipHistoryAnimations?: boolean;
   connectionState?: ApiUpdateConnectionStateType;
-  currentUserId?: number;
+  currentUserId?: string;
   lastSyncTime?: number;
   serverTimeOffset: number;
+  leftColumnWidth?: number;
 
   // TODO Move to `auth`.
   isLoggingOut?: boolean;
@@ -105,31 +117,30 @@ export type GlobalState = {
   };
 
   contactList?: {
-    hash: number;
-    userIds: number[];
+    userIds: string[];
   };
 
   blocked: {
-    ids: number[];
+    ids: string[];
     totalCount: number;
   };
 
   users: {
-    byId: Record<number, ApiUser>;
+    byId: Record<string, ApiUser>;
     // TODO Remove
-    selectedId?: number;
+    selectedId?: string;
   };
 
   chats: {
     // TODO Replace with `Partial<Record>` to properly handle missing keys
-    byId: Record<number, ApiChat>;
+    byId: Record<string, ApiChat>;
     listIds: {
-      active?: number[];
-      archived?: number[];
+      active?: string[];
+      archived?: string[];
     };
     orderedPinnedIds: {
-      active?: number[];
-      archived?: number[];
+      active?: string[];
+      archived?: string[];
     };
     totalCount: {
       all?: number;
@@ -139,11 +150,11 @@ export type GlobalState = {
       active?: boolean;
       archived?: boolean;
     };
-    forDiscussionIds?: number[];
+    forDiscussionIds?: string[];
   };
 
   messages: {
-    byChatId: Record<number, {
+    byChatId: Record<string, {
       byId: Record<number, ApiMessage>;
       threadsById: Record<number, Thread>;
     }>;
@@ -156,10 +167,18 @@ export type GlobalState = {
     };
   };
 
+  groupCalls: {
+    byId: Record<string, ApiGroupCall>;
+    activeGroupCallId?: string;
+    isGroupCallPanelHidden?: boolean;
+    isFallbackConfirmOpen?: boolean;
+    fallbackChatId?: string;
+    fallbackUserIdsToRemove?: string[];
+  };
+
   scheduledMessages: {
-    byChatId: Record<number, {
+    byChatId: Record<string, {
       byId: Record<number, ApiMessage>;
-      hash: number;
     }>;
   };
 
@@ -171,7 +190,7 @@ export type GlobalState = {
   };
 
   focusedMessage?: {
-    chatId?: number;
+    chatId?: string;
     threadId?: number;
     messageId?: number;
     direction?: FocusDirection;
@@ -180,7 +199,7 @@ export type GlobalState = {
   };
 
   selectedMessages?: {
-    chatId: number;
+    chatId: string;
     messageIds: number[];
   };
 
@@ -195,23 +214,23 @@ export type GlobalState = {
   stickers: {
     setsById: Record<string, ApiStickerSet>;
     added: {
-      hash?: number;
+      hash?: string;
       setIds?: string[];
     };
     recent: {
-      hash?: number;
+      hash?: string;
       stickers: ApiSticker[];
     };
     favorite: {
-      hash?: number;
+      hash?: string;
       stickers: ApiSticker[];
     };
     greeting: {
-      hash?: number;
+      hash?: string;
       stickers: ApiSticker[];
     };
     featured: {
-      hash?: number;
+      hash?: string;
       setIds?: string[];
     };
     search: {
@@ -221,7 +240,7 @@ export type GlobalState = {
     forEmoji: {
       emoji?: string;
       stickers?: ApiSticker[];
-      hash?: number;
+      hash?: string;
     };
   };
 
@@ -230,7 +249,7 @@ export type GlobalState = {
 
   gifs: {
     saved: {
-      hash?: number;
+      hash?: string;
       gifs?: ApiVideo[];
     };
     search: {
@@ -248,20 +267,20 @@ export type GlobalState = {
   globalSearch: {
     query?: string;
     date?: number;
-    recentlyFoundChatIds?: number[];
+    recentlyFoundChatIds?: string[];
     currentContent?: GlobalSearchContent;
-    chatId?: number;
+    chatId?: string;
     fetchingStatus?: {
       chats?: boolean;
       messages?: boolean;
     };
     localResults?: {
-      chatIds?: number[];
-      userIds?: number[];
+      chatIds?: string[];
+      userIds?: string[];
     };
     globalResults?: {
-      chatIds?: number[];
-      userIds?: number[];
+      chatIds?: string[];
+      userIds?: string[];
     };
     resultsByType?: Partial<Record<ApiGlobalMessageSearchType, {
       totalCount?: number;
@@ -273,8 +292,8 @@ export type GlobalState = {
   userSearch: {
     query?: string;
     fetchingStatus?: boolean;
-    localUserIds?: number[];
-    globalUserIds?: number[];
+    localUserIds?: string[];
+    globalUserIds?: string[];
   };
 
   localTextSearch: {
@@ -290,7 +309,7 @@ export type GlobalState = {
   };
 
   localMediaSearch: {
-    byChatId: Record<number, {
+    byChatId: Record<string, {
       currentType?: SharedMediaType;
       resultsByType?: Partial<Record<SharedMediaType, {
         totalCount?: number;
@@ -302,7 +321,7 @@ export type GlobalState = {
 
   management: {
     progress?: ManagementProgress;
-    byChatId: Record<number, {
+    byChatId: Record<string, {
       isActive: boolean;
       isUsernameAvailable?: boolean;
       error?: string;
@@ -310,30 +329,31 @@ export type GlobalState = {
   };
 
   mediaViewer: {
-    chatId?: number;
+    chatId?: string;
     threadId?: number;
     messageId?: number;
-    avatarOwnerId?: number;
+    avatarOwnerId?: string;
     profilePhotoIndex?: number;
     origin?: MediaViewerOrigin;
   };
 
   audioPlayer: {
-    chatId?: number;
+    chatId?: string;
     messageId?: number;
     threadId?: number;
     origin?: AudioOrigin;
+    volume: number;
+    playbackRate: number;
+    isMuted: boolean;
   };
 
   topPeers: {
-    hash?: number;
-    userIds?: number[];
+    userIds?: string[];
     lastRequestedAt?: number;
   };
 
   topInlineBots: {
-    hash?: number;
-    userIds?: number[];
+    userIds?: string[];
     lastRequestedAt?: number;
   };
 
@@ -341,20 +361,20 @@ export type GlobalState = {
 
   forwardMessages: {
     isModalShown?: boolean;
-    fromChatId?: number;
+    fromChatId?: string;
     messageIds?: number[];
-    toChatId?: number;
+    toChatId?: string;
   };
 
   pollResults: {
-    chatId?: number;
+    chatId?: string;
     messageId?: number;
-    voters?: Record<string, number[]>;
+    voters?: Record<string, string[]>; // TODO Rename to `voterIds`
     offsets?: Record<string, string>;
   };
 
   payment: {
-    chatId?: number;
+    chatId?: string;
     messageId?: number;
     step?: PaymentStep;
     shippingOptions?: ShippingOption[];
@@ -372,7 +392,7 @@ export type GlobalState = {
       isTest?: boolean;
     };
     nativeProvider?: string;
-    providerId?: number;
+    providerId?: string;
     nativeParams?: {
       needCardholderName: boolean;
       needCountry: boolean;
@@ -437,7 +457,13 @@ export type GlobalState = {
   historyCalendarSelectedAt?: number;
   openedStickerSetShortName?: string;
 
+  activeDownloads: {
+    byChatId: Record<string, number[]>;
+  };
+
   shouldShowContextMenuHint?: boolean;
+
+  serviceNotifications: ServiceNotification[];
 };
 
 export type ActionTypes = (
@@ -447,7 +473,7 @@ export type ActionTypes = (
   // ui
   'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
   'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |
-  'setNewChatMembersDialogState' | 'disableHistoryAnimations' |
+  'setNewChatMembersDialogState' | 'disableHistoryAnimations' | 'setLeftColumnWidth' | 'resetLeftColumnWidth' |
   // auth
   'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
   'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |
@@ -469,6 +495,8 @@ export type ActionTypes = (
   'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
   'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
   'reportMessages' | 'focusNextReply' | 'openChatByInvite' |
+  // downloads
+  'downloadSelectedMessages' | 'downloadMessageMedia' | 'cancelMessageMediaDownload' |
   // scheduled messages
   'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
   // poll result
@@ -488,10 +516,10 @@ export type ActionTypes = (
   'togglePreHistoryHidden' | 'updateChatDefaultBannedRights' | 'updateChatMemberBannedRights' | 'updateChatAdmin' |
   'acceptInviteConfirmation' |
   // users
-  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadCountryList' | 'loadTopUsers' | 'loadContactList' |
-  'loadCurrentUser' | 'updateProfile' | 'checkUsername' | 'updateContact' |
-  'deleteUser' | 'loadUser' | 'setUserSearchQuery' |
-  // Channel / groups creation
+  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadTopUsers' | 'loadContactList' |
+  'loadCurrentUser' | 'updateProfile' | 'checkUsername' | 'addContact' | 'updateContact' |
+  'deleteUser' | 'loadUser' | 'setUserSearchQuery' | 'loadCommonChats' |
+  // chat creation
   'createChannel' | 'createGroupChat' | 'resetChatCreation' |
   // settings
   'setSettingOption' | 'loadPasswordInfo' | 'clearTwoFaError' |
@@ -502,7 +530,8 @@ export type ActionTypes = (
   'updateWebNotificationSettings' | 'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' |
   'setPrivacySettings' | 'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' |
   'loadContentSettings' | 'updateContentSettings' |
-  // Stickers & GIFs
+  'loadCountryList' | 'ensureTimeFormat' |
+  // stickers & GIFs
   'loadStickerSets' | 'loadAddedStickers' | 'loadRecentStickers' | 'loadFavoriteStickers' | 'loadFeaturedStickers' |
   'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
   'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
@@ -511,14 +540,25 @@ export type ActionTypes = (
   // bots
   'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
   'resetInlineBot' | 'restartBot' | 'startBot' |
+  // media viewer & audio player
+  'openMediaViewer' | 'closeMediaViewer' |
+  'openAudioPlayer' | 'setAudioPlayerVolume' | 'setAudioPlayerPlaybackRate' |
+  'setAudioPlayerMuted' | 'setAudioPlayerOrigin' | 'closeAudioPlayer' |
   // misc
-  'openMediaViewer' | 'closeMediaViewer' | 'openAudioPlayer' | 'closeAudioPlayer' | 'openPollModal' | 'closePollModal' |
-  'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' | 'setDeviceToken' |
-  'deleteDeviceToken' |
+  'openPollModal' | 'closePollModal' |
+  'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' |
+  'setDeviceToken' | 'deleteDeviceToken' |
+  'checkVersionNotification' | 'createServiceNotification' |
   // payment
   'openPaymentModal' | 'closePaymentModal' | 'addPaymentError' |
   'validateRequestedInfo' | 'setPaymentStep' | 'sendPaymentForm' | 'getPaymentForm' | 'getReceipt' |
-  'sendCredentialsInfo' | 'setInvoiceMessageInfo' | 'clearPaymentError' | 'clearReceipt'
+  'sendCredentialsInfo' | 'setInvoiceMessageInfo' | 'clearPaymentError' | 'clearReceipt' |
+  // calls
+  'joinGroupCall' | 'toggleGroupCallMute' | 'toggleGroupCallPresentation' | 'leaveGroupCall' |
+  'toggleGroupCallVideo' | 'requestToSpeak' | 'setGroupCallParticipantVolume' | 'toggleGroupCallPanel' |
+  'createGroupCall' | 'joinVoiceChatByLink' | 'subscribeToGroupCallUpdates' | 'createGroupCallInviteLink' |
+  'loadMoreGroupCallParticipants' | 'connectToActiveGroupCall' | 'playGroupCallSound' |
+  'openCallFallbackConfirm' | 'closeCallFallbackConfirm' | 'inviteToCallFallback'
 );
 
 export type GlobalActions = Record<ActionTypes, (...args: any[]) => void>;

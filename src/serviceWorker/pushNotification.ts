@@ -1,4 +1,4 @@
-import { APP_NAME, DEBUG } from '../config';
+import { APP_NAME, DEBUG, DEBUG_MORE } from '../config';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -25,7 +25,7 @@ type PushData = {
 
 type NotificationData = {
   messageId?: number;
-  chatId?: number;
+  chatId?: string;
   title: string;
   body: string;
   icon?: string;
@@ -33,7 +33,7 @@ type NotificationData = {
 
 type CloseNotificationData = {
   lastReadInboxMessageId?: number;
-  chatId: number;
+  chatId: string;
 };
 
 let lastSyncAt = new Date().valueOf();
@@ -54,15 +54,14 @@ function getPushData(e: PushEvent | Notification): PushData | undefined {
 
 function getChatId(data: PushData) {
   if (data.custom.from_id) {
-    return parseInt(data.custom.from_id, 10);
+    return data.custom.from_id;
   }
-  // Chats and channels have negative IDs
-  if (data.custom.chat_id) {
-    return parseInt(data.custom.chat_id, 10) * -1;
+
+  // Chats and channels have “negative” IDs
+  if (data.custom.chat_id || data.custom.channel_id) {
+    return `-${data.custom.chat_id || data.custom.channel_id}`;
   }
-  if (data.custom.channel_id) {
-    return parseInt(data.custom.channel_id, 10) * -1;
-  }
+
   return undefined;
 }
 
@@ -80,12 +79,18 @@ function getNotificationData(data: PushData): NotificationData {
   };
 }
 
-async function playNotificationSound(id: number) {
+async function getClients() {
+  const appUrl = new URL(self.registration.scope).origin;
   const clients = await self.clients.matchAll({ type: 'window' }) as WindowClient[];
-  const clientsInScope = clients.filter((client) => client.url === self.registration.scope);
-  const client = clientsInScope[0];
+  return clients.filter((client) => {
+    return new URL(client.url).origin === appUrl;
+  });
+}
+
+async function playNotificationSound(id: string) {
+  const clients = await getClients();
+  const client = clients[0];
   if (!client) return;
-  if (clientsInScope.length === 0) return;
   client.postMessage({
     type: 'playNotificationSound',
     payload: { id },
@@ -115,7 +120,7 @@ function showNotification({
   };
 
   return Promise.all([
-    playNotificationSound(messageId || chatId || 0),
+    playNotificationSound(String(messageId) || chatId || ''),
     self.registration.showNotification(title, options),
   ]);
 }
@@ -162,7 +167,7 @@ export function handlePush(e: PushEvent) {
   e.waitUntil(showNotification(notification));
 }
 
-async function focusChatMessage(client: WindowClient, data: { chatId?: number; messageId?: number }) {
+async function focusChatMessage(client: WindowClient, data: { chatId?: string; messageId?: number }) {
   const {
     chatId,
     messageId,
@@ -175,31 +180,30 @@ async function focusChatMessage(client: WindowClient, data: { chatId?: number; m
       messageId,
     },
   });
-  // Catch "focus not allowed" DOM Exceptions
-  try {
-    await client.focus();
-  } catch (error) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.warn('[SW] ', error);
+  if (!client.focused) {
+    // Catch "focus not allowed" DOM Exceptions
+    try {
+      await client.focus();
+    } catch (error) {
+      if (DEBUG) {
+        // eslint-disable-next-line no-console
+        console.warn('[SW] ', error);
+      }
     }
   }
 }
 
 export function handleNotificationClick(e: NotificationEvent) {
-  const appUrl = new URL(self.registration.scope).origin;
+  const appUrl = self.registration.scope;
   e.notification.close(); // Android needs explicit close.
   const { data } = e.notification;
   const notifyClients = async () => {
-    const clients = await self.clients.matchAll({ type: 'window' }) as WindowClient[];
-    const clientsInScope = clients.filter((client) => {
-      return new URL(client.url).origin === appUrl;
-    });
-    await Promise.all(clientsInScope.map((client) => {
+    const clients = await getClients();
+    await Promise.all(clients.map((client) => {
       clickBuffer[client.id] = data;
       return focusChatMessage(client, data);
     }));
-    if (!self.clients.openWindow || clientsInScope.length > 0) return undefined;
+    if (!self.clients.openWindow || clients.length > 0) return undefined;
     // Store notification data for default client (fix for android)
     clickBuffer[0] = data;
     // If there is no opened client we need to open one and wait until it is fully loaded
@@ -221,7 +225,7 @@ export function handleNotificationClick(e: NotificationEvent) {
 }
 
 export function handleClientMessage(e: ExtendableMessageEvent) {
-  if (DEBUG) {
+  if (DEBUG_MORE) {
     // eslint-disable-next-line no-console
     console.log('[SW] New message from client', e);
   }

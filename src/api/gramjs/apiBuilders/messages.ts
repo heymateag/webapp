@@ -21,6 +21,7 @@ import {
   ApiChat,
   ApiThreadInfo,
   ApiInvoice,
+  ApiGroupCall,
 } from '../../types';
 
 import {
@@ -32,21 +33,20 @@ import {
   VIDEO_MOV_TYPE,
 } from '../../../config';
 import { pick } from '../../../util/iteratees';
-import { getApiChatIdFromMtpPeer } from './chats';
 import { buildStickerFromDocument } from './symbols';
 import { buildApiPhoto, buildApiPhotoSize, buildApiThumbnailFromStripped } from './common';
 import { interpolateArray } from '../../../util/waveform';
 import { buildPeer } from '../gramjsBuilders';
 import { addPhotoToLocalDb, resolveMessageApiChatId } from '../helpers';
+import { buildApiPeerId, getApiChatIdFromMtpPeer } from './peers';
 
-const LOCAL_IMAGE_UPLOADING_TEMP_ID = 'temp';
-const LOCAL_VIDEO_UPLOADING_TEMP_ID = 'temp';
+const LOCAL_MEDIA_UPLOADING_TEMP_ID = 'temp';
 const INPUT_WAVEFORM_LENGTH = 63;
 
 let localMessageCounter = LOCAL_MESSAGE_ID_BASE;
-let currentUserId!: number;
+let currentUserId!: string;
 
-export function setMessageBuilderCurrentUserId(_currentUserId: number) {
+export function setMessageBuilderCurrentUserId(_currentUserId: string) {
   currentUserId = _currentUserId;
 }
 
@@ -62,20 +62,20 @@ export function buildApiMessage(mtpMessage: GramJs.TypeMessage): ApiMessage | un
 }
 
 export function buildApiMessageFromShort(mtpMessage: GramJs.UpdateShortMessage): ApiMessage {
-  const chatId = getApiChatIdFromMtpPeer({ userId: mtpMessage.userId } as GramJs.TypePeer);
+  const chatId = buildApiPeerId(mtpMessage.userId, 'user');
 
   return buildApiMessageWithChatId(chatId, {
     ...mtpMessage,
-    fromId: buildPeer(mtpMessage.out ? currentUserId : mtpMessage.userId),
+    fromId: buildPeer(mtpMessage.out ? currentUserId : buildApiPeerId(mtpMessage.userId, 'user')),
   });
 }
 
 export function buildApiMessageFromShortChat(mtpMessage: GramJs.UpdateShortChatMessage): ApiMessage {
-  const chatId = getApiChatIdFromMtpPeer({ chatId: mtpMessage.chatId } as GramJs.TypePeer);
+  const chatId = buildApiPeerId(mtpMessage.chatId, 'chat');
 
   return buildApiMessageWithChatId(chatId, {
     ...mtpMessage,
-    fromId: buildPeer(mtpMessage.fromId),
+    fromId: buildPeer(buildApiPeerId(mtpMessage.fromId, 'user')),
   });
 }
 
@@ -117,7 +117,7 @@ type UniversalMessage = (
   )>
 );
 
-export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalMessage): ApiMessage {
+export function buildApiMessageWithChatId(chatId: string, mtpMessage: UniversalMessage): ApiMessage {
   const fromId = mtpMessage.fromId ? getApiChatIdFromMtpPeer(mtpMessage.fromId) : undefined;
   const peerId = mtpMessage.peerId ? getApiChatIdFromMtpPeer(mtpMessage.peerId) : undefined;
   const isChatWithSelf = !fromId && chatId === currentUserId;
@@ -151,7 +151,7 @@ export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalM
   } = buildReplyButtons(mtpMessage) || {};
   const forwardInfo = mtpMessage.fwdFrom && buildApiMessageForwardInfo(mtpMessage.fwdFrom, isChatWithSelf);
   const { replies, mediaUnread: isMediaUnread, postAuthor } = mtpMessage;
-  const groupedId = mtpMessage.groupedId && mtpMessage.groupedId.toString();
+  const groupedId = mtpMessage.groupedId && String(mtpMessage.groupedId);
   const isInAlbum = Boolean(groupedId) && !(content.document || content.audio);
   const shouldHideKeyboardButtons = mtpMessage.replyMarkup instanceof GramJs.ReplyKeyboardHide;
 
@@ -179,7 +179,7 @@ export function buildApiMessageWithChatId(chatId: number, mtpMessage: UniversalM
     inlineButtons,
     ...(keyboardButtons && { keyboardButtons, keyboardPlaceholder, isKeyboardSingleUse }),
     ...(shouldHideKeyboardButtons && { shouldHideKeyboardButtons }),
-    ...(mtpMessage.viaBotId && { viaBotId: mtpMessage.viaBotId }),
+    ...(mtpMessage.viaBotId && { viaBotId: buildApiPeerId(mtpMessage.viaBotId, 'user') }),
     ...(replies?.comments && { threadInfo: buildThreadInfo(replies, mtpMessage.id, chatId) }),
     ...(postAuthor && { adminTitle: postAuthor }),
   };
@@ -212,6 +212,10 @@ export function buildMessageDraft(draft: GramJs.TypeDraftMessage) {
 }
 
 export function buildMessageMediaContent(media: GramJs.TypeMessageMedia): ApiMessage['content'] | undefined {
+  if ('ttlSeconds' in media && media.ttlSeconds) {
+    return undefined;
+  }
+
   const sticker = buildSticker(media);
   if (sticker) return { sticker };
 
@@ -275,10 +279,6 @@ function buildSticker(media: GramJs.TypeMessageMedia): ApiSticker | undefined {
 
 function buildPhoto(media: GramJs.TypeMessageMedia): ApiPhoto | undefined {
   if (!(media instanceof GramJs.MessageMediaPhoto) || !media.photo || !(media.photo instanceof GramJs.Photo)) {
-    return undefined;
-  }
-
-  if (media.ttlSeconds) {
     return undefined;
   }
 
@@ -405,10 +405,6 @@ function buildDocumentFromMedia(media: GramJs.TypeMessageMedia) {
     return undefined;
   }
 
-  if (media.ttlSeconds) {
-    return undefined;
-  }
-
   return buildApiDocument(media.document);
 }
 
@@ -467,12 +463,13 @@ function buildContact(media: GramJs.TypeMessageMedia): ApiContact | undefined {
     return undefined;
   }
 
-  return pick(media, [
-    'firstName',
-    'lastName',
-    'phoneNumber',
-    'userId',
-  ]);
+  const {
+    firstName, lastName, phoneNumber, userId,
+  } = media;
+
+  return {
+    firstName, lastName, phoneNumber, userId: buildApiPeerId(userId, 'user'),
+  };
 }
 
 function buildPollFromMedia(media: GramJs.TypeMessageMedia): ApiPoll | undefined {
@@ -499,7 +496,7 @@ export function buildPoll(poll: GramJs.Poll, pollResults: GramJs.PollResults): A
   }));
 
   return {
-    id: id.toString(),
+    id: String(id),
     summary: {
       isPublic: poll.publicVoters,
       ...pick(poll, [
@@ -547,7 +544,7 @@ export function buildPollResults(pollResults: GramJs.PollResults): ApiPoll['resu
 
   return {
     totalVoters,
-    recentVoterIds: recentVoters,
+    recentVoterIds: recentVoters?.map((id) => buildApiPeerId(id, 'user')),
     results,
     solution,
     ...(entities && { solutionEntities: entities.map(buildApiMessageEntity) }),
@@ -588,8 +585,8 @@ export function buildWebPage(media: GramJs.TypeMessageMedia): ApiWebPage | undef
 
 function buildAction(
   action: GramJs.TypeMessageAction,
-  senderId: number | undefined,
-  targetPeerId: number | undefined,
+  senderId: string | undefined,
+  targetPeerId: string | undefined,
   isChannelPost: boolean,
   isOutgoing: boolean,
 ): ApiAction | undefined {
@@ -597,6 +594,7 @@ function buildAction(
     return undefined;
   }
 
+  let call: Partial<ApiGroupCall> | undefined;
   let amount: number | undefined;
   let currency: string | undefined;
   let text: string;
@@ -605,9 +603,9 @@ function buildAction(
   let photo: ApiPhoto | undefined;
 
   const targetUserIds = 'users' in action
-    ? action.users && action.users
-    : ('userId' in action && [action.userId]) || [];
-  let targetChatId: number | undefined;
+    ? action.users && action.users.map((id) => buildApiPeerId(id, 'user'))
+    : ('userId' in action && [buildApiPeerId(action.userId, 'user')]) || [];
+  let targetChatId: string | undefined;
 
   if (action instanceof GramJs.MessageActionChatCreate) {
     text = 'Notification.CreatedChatWithTitle';
@@ -681,6 +679,13 @@ function buildAction(
       const mins = Math.max(Math.round(action.duration! / 60), 1);
       translationValues.push(`${mins} min${mins > 1 ? 's' : ''}`);
     }
+  } else if (action instanceof GramJs.MessageActionInviteToGroupCall) {
+    text = 'Notification.VoiceChatInvitation';
+    call = {
+      id: action.call.id.toString(),
+      accessHash: action.call.accessHash.toString(),
+    };
+    translationValues.push('%action_origin%', '%target_user%');
   } else if (action instanceof GramJs.MessageActionContactSignUp) {
     text = 'Notification.Joined';
     translationValues.push('%action_origin%');
@@ -700,6 +705,10 @@ function buildAction(
       translationValues.push(`${mins} min${mins > 1 ? 's' : ''}`);
     } else {
       text = 'Notification.VoiceChatStartedChannel';
+      call = {
+        id: action.call.id.toString(),
+        accessHash: action.call.accessHash.toString(),
+      };
     }
   } else if (action instanceof GramJs.MessageActionBotAllowed) {
     text = 'Chat.Service.BotPermissionAllowed';
@@ -722,6 +731,7 @@ function buildAction(
     amount,
     currency,
     translationValues,
+    call,
   };
 }
 
@@ -853,10 +863,11 @@ export function buildLocalMessage(
   };
 }
 
-export function buildForwardedMessage(
+export function buildLocalForwardedMessage(
   toChat: ApiChat,
   message: ApiMessage,
   serverTimeOffset: number,
+  scheduledAt?: number,
 ): ApiMessage {
   const localId = localMessageCounter++;
   const {
@@ -877,10 +888,12 @@ export function buildForwardedMessage(
     id: localId,
     chatId: toChat.id,
     content,
-    date: Math.round(Date.now() / 1000) + serverTimeOffset,
+    date: scheduledAt || Math.round(Date.now() / 1000) + serverTimeOffset,
     isOutgoing: !asIncomingInChatWithSelf && toChat.type !== 'chatTypeChannel',
     senderId: currentUserId,
     sendingState: 'messageSendingStatePending',
+    groupedId,
+    isInAlbum,
     // Forward info doesn't get added when users forwards his own messages, also when forwarding audio
     ...(senderId !== currentUserId && !isAudio && {
       forwardInfo: {
@@ -890,8 +903,7 @@ export function buildForwardedMessage(
         senderUserId: senderId,
       },
     }),
-    groupedId,
-    isInAlbum,
+    ...(scheduledAt && { isScheduled: true }),
   };
 }
 
@@ -912,7 +924,7 @@ function buildUploadingMedia(
     if (mimeType.startsWith('image/')) {
       return {
         photo: {
-          id: LOCAL_IMAGE_UPLOADING_TEMP_ID,
+          id: LOCAL_MEDIA_UPLOADING_TEMP_ID,
           sizes: [],
           thumbnail: { width, height, dataUri: '' }, // Used only for dimensions
           blobUrl,
@@ -921,7 +933,7 @@ function buildUploadingMedia(
     } else {
       return {
         video: {
-          id: LOCAL_VIDEO_UPLOADING_TEMP_ID,
+          id: LOCAL_MEDIA_UPLOADING_TEMP_ID,
           mimeType,
           duration: duration || 0,
           fileName,
@@ -966,7 +978,7 @@ function buildUploadingMedia(
 function buildNewPoll(poll: ApiNewPoll, localId: number) {
   return {
     poll: {
-      id: localId.toString(),
+      id: String(localId),
       summary: pick(poll.summary, ['question', 'answers']),
       results: {},
     },
@@ -985,22 +997,26 @@ function buildApiMessageEntity(entity: GramJs.TypeMessageEntity): ApiMessageEnti
 }
 
 function buildThreadInfo(
-  messageReplies: GramJs.TypeMessageReplies, messageId: number, chatId: number,
+  messageReplies: GramJs.TypeMessageReplies, messageId: number, chatId: string,
 ): ApiThreadInfo | undefined {
   const {
     channelId, replies, maxId, readMaxId, recentRepliers,
   } = messageReplies;
-
-  if (channelId === DELETED_COMMENTS_CHANNEL_ID) {
+  if (!channelId) {
     return undefined;
   }
 
-  const isPostThread = chatId !== channelId;
+  const apiChannelId = buildApiPeerId(channelId, 'channel');
+  if (apiChannelId === DELETED_COMMENTS_CHANNEL_ID) {
+    return undefined;
+  }
+
+  const isPostThread = chatId !== apiChannelId;
 
   return {
     threadId: messageId,
     ...(isPostThread ? {
-      chatId: getApiChatIdFromMtpPeer({ channelId } as GramJs.TypePeer),
+      chatId: apiChannelId,
       originChannelId: chatId,
     } : {
       chatId,

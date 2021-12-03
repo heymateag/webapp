@@ -28,7 +28,7 @@ import {
 } from '../../modules/selectors';
 import {
   isChatChannel,
-  isChatPrivate,
+  isUserId,
   isChatWithRepliesBot,
   isChatGroup,
 } from '../../modules/helpers';
@@ -56,7 +56,7 @@ import NoMessages from './NoMessages';
 import './MessageList.scss';
 
 type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   type: MessageListType;
   canPost: boolean;
@@ -275,8 +275,8 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     // Loading history while sending a message can return the same message and cause ambiguity
-    const isFirstMessageLocal = messageIds && messageIds[0] >= LOCAL_MESSAGE_ID_BASE;
-    if (isFirstMessageLocal) {
+    const isLastMessageLocal = messageIds && messageIds[messageIds.length - 1] >= LOCAL_MESSAGE_ID_BASE;
+    if (isLastMessageLocal) {
       return;
     }
 
@@ -396,7 +396,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     const isResized = prevContainerHeight !== undefined && prevContainerHeight !== containerHeight;
-    const anchor = anchorIdRef.current && container.querySelector(`#${anchorIdRef.current}`);
+    const anchor = anchorIdRef.current && document.getElementById(anchorIdRef.current);
     const unreadDivider = (
       !anchor
       && memoUnreadDividerBeforeIdRef.current
@@ -447,10 +447,10 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const lang = useLang();
 
-  const isPrivate = Boolean(chatId && isChatPrivate(chatId));
+  const isPrivate = Boolean(chatId && isUserId(chatId));
   const withUsers = Boolean((!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat);
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = isChatPrivate(chatId) && !isChatWithSelf && !isBot
+  const shouldRenderGreeting = isUserId(chatId) && !isChatWithSelf && !isBot
     && (
       (
         !messageGroups && !lastMessage && messageIds

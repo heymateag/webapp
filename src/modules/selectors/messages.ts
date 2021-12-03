@@ -7,7 +7,7 @@ import {
   MAIN_THREAD_ID,
 } from '../../api/types';
 
-import { LOCAL_MESSAGE_ID_BASE } from '../../config';
+import { LOCAL_MESSAGE_ID_BASE, SERVICE_NOTIFICATIONS_USER_ID } from '../../config';
 import {
   selectChat, selectIsChatWithBot, selectIsChatWithSelf,
 } from './chats';
@@ -16,7 +16,7 @@ import {
   getSendingState,
   isChatChannel,
   isMessageLocal,
-  isChatPrivate,
+  isUserId,
   isForwardedMessage,
   getCanPostInChat,
   isUserRightBanned,
@@ -30,10 +30,16 @@ import {
   isChatSuperGroup,
   getMessageVideo,
   getMessageWebPageVideo,
+  getMessagePhoto,
+  getMessageAudio,
+  getMessageVoice,
+  getMessageDocument,
+  getMessageWebPagePhoto,
 } from '../helpers';
 import { findLast } from '../../util/iteratees';
 import { selectIsStickerFavorite } from './symbols';
 import { getServerTime } from '../../util/serverTime';
+import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 
 const MESSAGE_EDIT_ALLOWED_TIME = 172800; // 48 hours
 
@@ -53,17 +59,17 @@ export function selectCurrentChat(global: GlobalState) {
   return chatId ? selectChat(global, chatId) : undefined;
 }
 
-export function selectChatMessages(global: GlobalState, chatId: number) {
+export function selectChatMessages(global: GlobalState, chatId: string) {
   return global.messages.byChatId[chatId]?.byId;
 }
 
-export function selectScheduledMessages(global: GlobalState, chatId: number) {
+export function selectScheduledMessages(global: GlobalState, chatId: string) {
   return global.scheduledMessages.byChatId[chatId]?.byId;
 }
 
 export function selectThreadParam<K extends keyof Thread>(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   key: K,
 ) {
@@ -80,16 +86,16 @@ export function selectThreadParam<K extends keyof Thread>(
   return thread[key];
 }
 
-export function selectListedIds(global: GlobalState, chatId: number, threadId: number) {
+export function selectListedIds(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'listedIds');
 }
 
-export function selectOutlyingIds(global: GlobalState, chatId: number, threadId: number) {
+export function selectOutlyingIds(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'outlyingIds');
 }
 
 export function selectCurrentMessageIds(
-  global: GlobalState, chatId: number, threadId: number, messageListType: MessageListType,
+  global: GlobalState, chatId: string, threadId: number, messageListType: MessageListType,
 ) {
   switch (messageListType) {
     case 'thread':
@@ -103,55 +109,55 @@ export function selectCurrentMessageIds(
   return undefined;
 }
 
-export function selectViewportIds(global: GlobalState, chatId: number, threadId: number) {
+export function selectViewportIds(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'viewportIds');
 }
 
-export function selectPinnedIds(global: GlobalState, chatId: number) {
+export function selectPinnedIds(global: GlobalState, chatId: string) {
   return selectThreadParam(global, chatId, MAIN_THREAD_ID, 'pinnedIds');
 }
 
-export function selectScheduledIds(global: GlobalState, chatId: number) {
+export function selectScheduledIds(global: GlobalState, chatId: string) {
   return selectThreadParam(global, chatId, MAIN_THREAD_ID, 'scheduledIds');
 }
 
-export function selectScrollOffset(global: GlobalState, chatId: number, threadId: number) {
+export function selectScrollOffset(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'scrollOffset');
 }
 
-export function selectReplyingToId(global: GlobalState, chatId: number, threadId: number) {
+export function selectReplyingToId(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'replyingToId');
 }
 
-export function selectEditingId(global: GlobalState, chatId: number, threadId: number) {
+export function selectEditingId(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'editingId');
 }
 
-export function selectEditingScheduledId(global: GlobalState, chatId: number) {
+export function selectEditingScheduledId(global: GlobalState, chatId: string) {
   return selectThreadParam(global, chatId, MAIN_THREAD_ID, 'editingScheduledId');
 }
 
-export function selectDraft(global: GlobalState, chatId: number, threadId: number) {
+export function selectDraft(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'draft');
 }
 
-export function selectNoWebPage(global: GlobalState, chatId: number, threadId: number) {
+export function selectNoWebPage(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'noWebPage');
 }
 
-export function selectThreadInfo(global: GlobalState, chatId: number, threadId: number) {
+export function selectThreadInfo(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'threadInfo');
 }
 
-export function selectFirstMessageId(global: GlobalState, chatId: number, threadId: number) {
+export function selectFirstMessageId(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'firstMessageId');
 }
 
-export function selectReplyStack(global: GlobalState, chatId: number, threadId: number) {
+export function selectReplyStack(global: GlobalState, chatId: string, threadId: number) {
   return selectThreadParam(global, chatId, threadId, 'replyStack');
 }
 
-export function selectThreadOriginChat(global: GlobalState, chatId: number, threadId: number) {
+export function selectThreadOriginChat(global: GlobalState, chatId: string, threadId: number) {
   if (threadId === MAIN_THREAD_ID) {
     return selectChat(global, chatId);
   }
@@ -164,7 +170,7 @@ export function selectThreadOriginChat(global: GlobalState, chatId: number, thre
   return selectChat(global, threadInfo.originChannelId || chatId);
 }
 
-export function selectThreadTopMessageId(global: GlobalState, chatId: number, threadId: number) {
+export function selectThreadTopMessageId(global: GlobalState, chatId: string, threadId: number) {
   if (threadId === MAIN_THREAD_ID) {
     return undefined;
   }
@@ -177,7 +183,7 @@ export function selectThreadTopMessageId(global: GlobalState, chatId: number, th
   return threadInfo.topMessageId;
 }
 
-export function selectThreadByMessage(global: GlobalState, chatId: number, message: ApiMessage) {
+export function selectThreadByMessage(global: GlobalState, chatId: string, message: ApiMessage) {
   const messageInfo = global.messages.byChatId[chatId];
   if (!messageInfo) {
     return undefined;
@@ -196,7 +202,7 @@ export function selectThreadByMessage(global: GlobalState, chatId: number, messa
   });
 }
 
-export function isMessageInCurrentMessageList(global: GlobalState, chatId: number, message: ApiMessage) {
+export function isMessageInCurrentMessageList(global: GlobalState, chatId: string, message: ApiMessage) {
   const currentMessageList = selectCurrentMessageList(global);
   if (!currentMessageList) {
     return false;
@@ -212,7 +218,7 @@ export function isMessageInCurrentMessageList(global: GlobalState, chatId: numbe
   );
 }
 
-export function selectIsViewportNewest(global: GlobalState, chatId: number, threadId: number) {
+export function selectIsViewportNewest(global: GlobalState, chatId: string, threadId: number) {
   const viewportIds = selectViewportIds(global, chatId, threadId);
   if (!viewportIds || !viewportIds.length) {
     return true;
@@ -244,20 +250,20 @@ export function selectIsViewportNewest(global: GlobalState, chatId: number, thre
   return viewportIds[viewportIds.length - 1] >= lastMessageId;
 }
 
-export function selectChatMessage(global: GlobalState, chatId: number, messageId: number) {
+export function selectChatMessage(global: GlobalState, chatId: string, messageId: number) {
   const chatMessages = selectChatMessages(global, chatId);
 
   return chatMessages ? chatMessages[messageId] : undefined;
 }
 
-export function selectScheduledMessage(global: GlobalState, chatId: number, messageId: number) {
+export function selectScheduledMessage(global: GlobalState, chatId: string, messageId: number) {
   const chatMessages = selectScheduledMessages(global, chatId);
 
   return chatMessages ? chatMessages[messageId] : undefined;
 }
 
 export function selectEditingMessage(
-  global: GlobalState, chatId: number, threadId: number, messageListType: MessageListType,
+  global: GlobalState, chatId: string, threadId: number, messageListType: MessageListType,
 ) {
   if (messageListType === 'scheduled') {
     const messageId = selectEditingScheduledId(global, chatId);
@@ -285,7 +291,7 @@ export function selectChatMessageByPollId(global: GlobalState, pollId: string) {
   return messageWithPoll;
 }
 
-export function selectFocusedMessageId(global: GlobalState, chatId: number) {
+export function selectFocusedMessageId(global: GlobalState, chatId: string) {
   const { chatId: focusedChatId, messageId } = global.focusedMessage || {};
 
   return focusedChatId === chatId ? messageId : undefined;
@@ -318,7 +324,7 @@ export function selectSender(global: GlobalState, message: ApiMessage): ApiUser 
     return undefined;
   }
 
-  return senderId > 0 ? selectUser(global, senderId) : selectChat(global, senderId);
+  return isUserId(senderId) ? selectUser(global, senderId) : selectChat(global, senderId);
 }
 
 export function selectForwardedSender(global: GlobalState, message: ApiMessage): ApiUser | ApiChat | undefined {
@@ -342,23 +348,25 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     return {};
   }
 
-  const isPrivate = isChatPrivate(chat.id);
+  const isPrivate = isUserId(chat.id);
   const isChatWithSelf = selectIsChatWithSelf(global, message.chatId);
   const isBasicGroup = isChatBasicGroup(chat);
   const isSuperGroup = isChatSuperGroup(chat);
   const isChannel = isChatChannel(chat);
+  const isLocal = isMessageLocal(message);
   const isServiceNotification = isServiceNotificationMessage(message);
-
   const isOwn = isOwnMessage(message);
   const isAction = isActionMessage(message);
   const { content } = message;
+
   const canEditMessagesIndefinitely = isChatWithSelf
     || (isSuperGroup && getHasAdminRight(chat, 'pinMessages'))
     || (isChannel && getHasAdminRight(chat, 'editMessages'));
   const isMessageEditable = (
-    (canEditMessagesIndefinitely
-    || getServerTime(global.serverTimeOffset) - message.date < MESSAGE_EDIT_ALLOWED_TIME)
-    && !(
+    (
+      canEditMessagesIndefinitely
+      || getServerTime(global.serverTimeOffset) - message.date < MESSAGE_EDIT_ALLOWED_TIME
+    ) && !(
       content.sticker || content.contact || content.poll || content.action || content.audio
       || (content.video?.isRound)
     )
@@ -366,7 +374,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     && !message.viaBotId
   );
 
-  const canReply = getCanPostInChat(chat, threadId) && !isServiceNotification;
+  const canReply = !isLocal && !isServiceNotification && getCanPostInChat(chat, threadId);
 
   const hasPinPermission = isPrivate || (
     chat.isCreator
@@ -374,7 +382,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     || getHasAdminRight(chat, 'pinMessages')
   );
 
-  let canPin = !isAction && hasPinPermission;
+  let canPin = !isLocal && !isServiceNotification && !isAction && hasPinPermission;
   let canUnpin = false;
 
   const pinnedMessageIds = selectPinnedIds(global, chat.id);
@@ -384,27 +392,29 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     canPin = !canUnpin;
   }
 
-  const canDelete = isPrivate
+  const canDelete = !isLocal && !isServiceNotification && (
+    isPrivate
     || isOwn
     || isBasicGroup
     || chat.isCreator
-    || getHasAdminRight(chat, 'deleteMessages');
+    || getHasAdminRight(chat, 'deleteMessages')
+  );
 
   const canReport = !isPrivate && !isOwn;
 
-  const canDeleteForAll = canDelete && !isServiceNotification && (
+  const canDeleteForAll = canDelete && (
     (isPrivate && !isChatWithSelf)
     || (isBasicGroup && (
       isOwn || getHasAdminRight(chat, 'deleteMessages') || chat.isCreator
     ))
   );
 
-  const canEdit = !isAction && isMessageEditable && (
+  const canEdit = !isLocal && !isAction && isMessageEditable && (
     isOwn
     || (isChannel && (chat.isCreator || getHasAdminRight(chat, 'editMessages')))
   );
 
-  const canForward = !isAction && !isServiceNotification;
+  const canForward = !isLocal && !isAction;
 
   const hasSticker = Boolean(message.content.sticker);
   const hasFavoriteSticker = hasSticker && selectIsStickerFavorite(global, message.content.sticker!);
@@ -413,11 +423,16 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
   const canCopy = !isAction;
   const canCopyLink = !isAction && (isChannel || isSuperGroup);
   const canSelect = !isAction;
+
+  const canDownload = Boolean(content.webPage?.document || content.webPage?.video || content.webPage?.photo
+    || content.audio || content.voice || content.photo || content.video || content.document || content.sticker);
+
   const noOptions = [
     canReply,
     canEdit,
     canPin,
     canUnpin,
+    canReport,
     canDelete,
     canDeleteForAll,
     canForward,
@@ -426,6 +441,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     canCopy,
     canCopyLink,
     canSelect,
+    canDownload,
   ].every((ability) => !ability);
 
   return {
@@ -434,8 +450,8 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     canEdit,
     canPin,
     canUnpin,
-    canDelete,
     canReport,
+    canDelete,
     canDeleteForAll,
     canForward,
     canFaveSticker,
@@ -443,6 +459,7 @@ export function selectAllowedMessageActions(global: GlobalState, message: ApiMes
     canCopy,
     canCopyLink,
     canSelect,
+    canDownload,
   };
 }
 
@@ -480,11 +497,35 @@ export function selectCanReportSelectedMessages(global: GlobalState) {
   return messageActions.every((actions) => actions.canReport);
 }
 
+export function selectCanDownloadSelectedMessages(global: GlobalState) {
+  const { messageIds: selectedMessageIds } = global.selectedMessages || {};
+  const { chatId, threadId } = selectCurrentMessageList(global) || {};
+  const chatMessages = chatId && selectChatMessages(global, chatId);
+  if (!chatMessages || !selectedMessageIds || !threadId) {
+    return false;
+  }
+
+  const messageActions = selectedMessageIds
+    .map((id) => chatMessages[id] && selectAllowedMessageActions(global, chatMessages[id], threadId))
+    .filter(Boolean);
+
+  return messageActions.some((actions) => actions.canDownload);
+}
+
+export function selectIsDownloading(global: GlobalState, message: ApiMessage) {
+  const activeInChat = global.activeDownloads.byChatId[message.chatId];
+  return activeInChat ? activeInChat.includes(message.id) : false;
+}
+
+export function selectActiveDownloadIds(global: GlobalState, chatId: string) {
+  return global.activeDownloads.byChatId[chatId] || MEMO_EMPTY_ARRAY;
+}
+
 export function selectUploadProgress(global: GlobalState, message: ApiMessage) {
   return global.fileUploads.byMessageLocalId[message.previousLocalId || message.id]?.progress;
 }
 
-export function selectRealLastReadId(global: GlobalState, chatId: number, threadId: number) {
+export function selectRealLastReadId(global: GlobalState, chatId: string, threadId: number) {
   if (threadId === MAIN_THREAD_ID) {
     const chat = selectChat(global, chatId);
     if (!chat) {
@@ -521,7 +562,7 @@ export function selectRealLastReadId(global: GlobalState, chatId: number, thread
   }
 }
 
-export function selectFirstUnreadId(global: GlobalState, chatId: number, threadId: number) {
+export function selectFirstUnreadId(global: GlobalState, chatId: string, threadId: number) {
   const chat = selectChat(global, chatId);
 
   if (threadId === MAIN_THREAD_ID) {
@@ -530,7 +571,8 @@ export function selectFirstUnreadId(global: GlobalState, chatId: number, threadI
     }
   } else {
     const threadInfo = selectThreadInfo(global, chatId, threadId);
-    if (!threadInfo || threadInfo.lastMessageId === threadInfo.lastReadInboxMessageId) {
+    if (!threadInfo
+      || (threadInfo.lastMessageId !== undefined && threadInfo.lastMessageId === threadInfo.lastReadInboxMessageId)) {
       return undefined;
     }
   }
@@ -547,19 +589,32 @@ export function selectFirstUnreadId(global: GlobalState, chatId: number, threadI
     return undefined;
   }
 
-  if (outlyingIds) {
-    const found = !lastReadId ? outlyingIds[0] : outlyingIds.find((id) => {
-      return id > lastReadId && byId[id] && (!byId[id].isOutgoing || byId[id].isFromScheduled);
+  const lastReadServiceNotificationId = chatId === SERVICE_NOTIFICATIONS_USER_ID
+    ? global.serviceNotifications.reduce((max, notification) => {
+      return !notification.isUnread && notification.id > max ? notification.id : max;
+    }, -1)
+    : -1;
+
+  function findAfterLastReadId(listIds: number[]) {
+    return listIds.find((id) => {
+      return (
+        (!lastReadId || id > lastReadId)
+        && byId[id]
+        && (!byId[id].isOutgoing || byId[id].isFromScheduled)
+        && id > lastReadServiceNotificationId
+      );
     });
+  }
+
+  if (outlyingIds) {
+    const found = findAfterLastReadId(outlyingIds);
     if (found) {
       return found;
     }
   }
 
   if (listedIds) {
-    const found = !lastReadId ? listedIds[0] : listedIds.find((id) => {
-      return id > lastReadId && byId[id] && (!byId[id].isOutgoing || byId[id].isFromScheduled);
-    });
+    const found = findAfterLastReadId(listedIds);
     if (found) {
       return found;
     }
@@ -587,10 +642,10 @@ export function selectCommonBoxChatId(global: GlobalState, messageId: number) {
   }
 
   const { byChatId } = global.messages;
-  return Number(Object.keys(byChatId).find((chatId) => {
-    const chat = selectChat(global, Number(chatId));
+  return Object.keys(byChatId).find((chatId) => {
+    const chat = selectChat(global, chatId);
     return chat && isCommonBoxChat(chat) && byChatId[chat.id].byId[messageId];
-  }));
+  });
 }
 
 export function selectIsInSelectMode(global: GlobalState) {
@@ -608,7 +663,7 @@ export function selectIsMessageSelected(global: GlobalState, messageId: number) 
   return messageIds.includes(messageId);
 }
 
-export function selectForwardedMessageIdsByGroupId(global: GlobalState, chatId: number, groupedId: string) {
+export function selectForwardedMessageIdsByGroupId(global: GlobalState, chatId: string, groupedId: string) {
   const chatMessages = selectChatMessages(global, chatId);
   if (!chatMessages) {
     return undefined;
@@ -619,7 +674,7 @@ export function selectForwardedMessageIdsByGroupId(global: GlobalState, chatId: 
     .map(({ forwardInfo }) => forwardInfo!.fromMessageId);
 }
 
-export function selectMessageIdsByGroupId(global: GlobalState, chatId: number, groupedId: string) {
+export function selectMessageIdsByGroupId(global: GlobalState, chatId: string, groupedId: string) {
   const chatMessages = selectChatMessages(global, chatId);
   if (!chatMessages) {
     return undefined;
@@ -630,7 +685,7 @@ export function selectMessageIdsByGroupId(global: GlobalState, chatId: number, g
     .filter((id) => chatMessages[id].groupedId === groupedId);
 }
 
-export function selectIsDocumentGroupSelected(global: GlobalState, chatId: number, groupedId: string) {
+export function selectIsDocumentGroupSelected(global: GlobalState, chatId: string, groupedId: string) {
   const { messageIds: selectedIds } = global.selectedMessages || {};
   if (!selectedIds) {
     return false;
@@ -647,7 +702,7 @@ export function selectSelectedMessagesCount(global: GlobalState) {
 }
 
 export function selectNewestMessageWithBotKeyboardButtons(
-  global: GlobalState, chatId: number,
+  global: GlobalState, chatId: string,
 ): ApiMessage | undefined {
   const chat = selectChat(global, chatId);
   if (!chat) {
@@ -679,43 +734,124 @@ export function selectNewestMessageWithBotKeyboardButtons(
   return messageId ? chatMessages[messageId] : undefined;
 }
 
-export function selectShouldAutoLoadMedia(
-  global: GlobalState, message: ApiMessage, chat: ApiChat, sender?: ApiChat | ApiUser,
-) {
+export function selectCanAutoLoadMedia(global: GlobalState, message: ApiMessage) {
+  const chat = selectChat(global, message.chatId);
+  if (!chat) {
+    return undefined;
+  }
+
+  const sender = selectSender(global, message);
+
+  const isPhoto = Boolean(getMessagePhoto(message) || getMessageWebPagePhoto(message));
+  const isVideo = Boolean(getMessageVideo(message) || getMessageWebPageVideo(message));
+  const isFile = Boolean(getMessageAudio(message) || getMessageVoice(message) || getMessageDocument(message));
+
   const {
-    shouldAutoDownloadMediaFromContacts,
-    shouldAutoDownloadMediaInPrivateChats,
-    shouldAutoDownloadMediaInGroups,
-    shouldAutoDownloadMediaInChannels,
+    canAutoLoadPhotoFromContacts,
+    canAutoLoadPhotoInPrivateChats,
+    canAutoLoadPhotoInGroups,
+    canAutoLoadPhotoInChannels,
+    canAutoLoadVideoFromContacts,
+    canAutoLoadVideoInPrivateChats,
+    canAutoLoadVideoInGroups,
+    canAutoLoadVideoInChannels,
+    canAutoLoadFileFromContacts,
+    canAutoLoadFileInPrivateChats,
+    canAutoLoadFileInGroups,
+    canAutoLoadFileInChannels,
   } = global.settings.byKey;
 
+  if (isPhoto) {
+    return canAutoLoadMedia({
+      global,
+      chat,
+      sender,
+      canAutoLoadMediaFromContacts: canAutoLoadPhotoFromContacts,
+      canAutoLoadMediaInPrivateChats: canAutoLoadPhotoInPrivateChats,
+      canAutoLoadMediaInGroups: canAutoLoadPhotoInGroups,
+      canAutoLoadMediaInChannels: canAutoLoadPhotoInChannels,
+    });
+  }
+
+  if (isVideo) {
+    return canAutoLoadMedia({
+      global,
+      chat,
+      sender,
+      canAutoLoadMediaFromContacts: canAutoLoadVideoFromContacts,
+      canAutoLoadMediaInPrivateChats: canAutoLoadVideoInPrivateChats,
+      canAutoLoadMediaInGroups: canAutoLoadVideoInGroups,
+      canAutoLoadMediaInChannels: canAutoLoadVideoInChannels,
+    });
+  }
+
+  if (isFile) {
+    return canAutoLoadMedia({
+      global,
+      chat,
+      sender,
+      canAutoLoadMediaFromContacts: canAutoLoadFileFromContacts,
+      canAutoLoadMediaInPrivateChats: canAutoLoadFileInPrivateChats,
+      canAutoLoadMediaInGroups: canAutoLoadFileInGroups,
+      canAutoLoadMediaInChannels: canAutoLoadFileInChannels,
+    });
+  }
+
+  return true;
+}
+
+function canAutoLoadMedia({
+  global,
+  chat,
+  sender,
+  canAutoLoadMediaFromContacts,
+  canAutoLoadMediaInPrivateChats,
+  canAutoLoadMediaInGroups,
+  canAutoLoadMediaInChannels,
+}: {
+  global: GlobalState;
+  chat: ApiChat;
+  canAutoLoadMediaFromContacts: boolean;
+  canAutoLoadMediaInPrivateChats: boolean;
+  canAutoLoadMediaInGroups: boolean;
+  canAutoLoadMediaInChannels: boolean;
+  sender?: ApiChat | ApiUser;
+}) {
+  const isMediaFromContact = Boolean(sender && (
+    sender.id === global.currentUserId || selectIsUserOrChatContact(global, sender)
+  ));
+
   return Boolean(
-    (shouldAutoDownloadMediaInPrivateChats && isChatPrivate(chat.id))
-    || (shouldAutoDownloadMediaInGroups && isChatGroup(chat))
-    || (shouldAutoDownloadMediaInChannels && isChatChannel(chat))
-    || (shouldAutoDownloadMediaFromContacts && sender && (
-      sender.id === global.currentUserId
-      || selectIsUserOrChatContact(global, sender)
-    )),
+    (isMediaFromContact && canAutoLoadMediaFromContacts)
+    || (!isMediaFromContact && canAutoLoadMediaInPrivateChats && isUserId(chat.id))
+    || (canAutoLoadMediaInGroups && isChatGroup(chat))
+    || (canAutoLoadMediaInChannels && isChatChannel(chat)),
   );
 }
 
-export function selectShouldAutoPlayMedia(global: GlobalState, message: ApiMessage) {
+export function selectCanAutoPlayMedia(global: GlobalState, message: ApiMessage) {
   const video = getMessageVideo(message) || getMessageWebPageVideo(message);
   if (!video) {
     return undefined;
   }
 
   const {
-    shouldAutoPlayVideos,
-    shouldAutoPlayGifs,
+    canAutoPlayVideos,
+    canAutoPlayGifs,
   } = global.settings.byKey;
 
   const asGif = video.isGif || video.isRound;
 
-  return (shouldAutoPlayVideos && !asGif) || (shouldAutoPlayGifs && asGif);
+  return (canAutoPlayVideos && !asGif) || (canAutoPlayGifs && asGif);
 }
 
 export function selectShouldLoopStickers(global: GlobalState) {
   return global.settings.byKey.shouldLoopStickers;
+}
+
+export function selectLastServiceNotification(global: GlobalState) {
+  const { serviceNotifications } = global;
+  const maxId = Math.max(...serviceNotifications.map(({ id }) => id));
+
+  return serviceNotifications.find(({ id }) => id === maxId);
 }

@@ -163,6 +163,10 @@
     &.has-menu-open {
       &::before {
         opacity: 0.1;
+
+        .theme-dark & {
+          opacity: .6;
+        }
       }
     }
   }
@@ -194,6 +198,7 @@
   .ActionMessage,
   .empty {
     text-align: center;
+    user-select: none;
 
     > span {
       display: inline-block;
@@ -264,7 +269,7 @@
   }
 
   .has-header-tools & .sticky-date {
-    top: 3.75rem;
+    top: 3.75rem !important;
   }
 
   .local-action-message,

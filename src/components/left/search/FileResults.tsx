@@ -40,6 +40,7 @@ const FileResults: FC<OwnProps & StateProps & DispatchProps> = ({
   usersById,
   globalMessagesByChatId,
   foundIds,
+  activeDownloads,
   lastSyncTime,
   searchMessagesGlobal,
   focusMessage,
@@ -63,14 +64,14 @@ const FileResults: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     return foundIds.map((id) => {
-      const [chatId, messageId] = id.split('_').map(Number);
-      const message = globalMessagesByChatId[chatId]?.byId[messageId];
+      const [chatId, messageId] = id.split('_');
+      const message = globalMessagesByChatId[chatId]?.byId[Number(messageId)];
 
       return message && getMessageDocument(message) ? message : undefined;
     }).filter(Boolean) as ApiMessage[];
   }, [globalMessagesByChatId, foundIds]);
 
-  const handleMessageFocus = useCallback((messageId: number, chatId: number) => {
+  const handleMessageFocus = useCallback((messageId: number, chatId: string) => {
     focusMessage({ chatId, messageId });
   }, [focusMessage]);
 
@@ -94,6 +95,7 @@ const FileResults: FC<OwnProps & StateProps & DispatchProps> = ({
             sender={getSenderName(lang, message, chatsById, usersById)}
             className="scroll-item"
             onDateClick={handleMessageFocus}
+            isDownloading={activeDownloads[message.chatId]?.includes(message.id)}
           />
         </div>
       );

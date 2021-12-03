@@ -10,8 +10,9 @@
     },
     "lib": [
       "dom",
+      "dom.iterable",
       "webworker",
-      "es7"
+      "es2019"
     ],
     "allowJs": true,
     "skipLibCheck": true,

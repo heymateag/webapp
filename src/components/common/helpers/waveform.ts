@@ -4,12 +4,14 @@ type IWaveformProps = {
   progressFillStyle: string;
 };
 
+export const MAX_EMPTY_WAVEFORM_POINTS = 30;
 const SPIKE_WIDTH = 2;
 const SPIKE_STEP = 4;
 const SPIKE_RADIUS = 1;
 const HEIGHT = 23;
 
-export function renderWaveformToDataUri(
+export function renderWaveform(
+  canvas: HTMLCanvasElement,
   spikes: number[],
   progress: number,
   {
@@ -19,7 +21,6 @@ export function renderWaveformToDataUri(
   const width = spikes.length * SPIKE_STEP;
   const height = HEIGHT;
 
-  const canvas = document.createElement('canvas');
   canvas.width = width * 2;
   canvas.height = height * 2;
   canvas.style.width = `${width}px`;
@@ -35,12 +36,6 @@ export function renderWaveformToDataUri(
     roundedRectangle(ctx, i * SPIKE_STEP, height, SPIKE_WIDTH, spikeHeight, SPIKE_RADIUS);
     ctx.fill();
   });
-
-  return {
-    src: canvas.toDataURL(),
-    width,
-    height,
-  };
 }
 
 function roundedRectangle(

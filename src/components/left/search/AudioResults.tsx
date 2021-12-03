@@ -41,6 +41,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
   globalMessagesByChatId,
   foundIds,
   lastSyncTime,
+  activeDownloads,
   searchMessagesGlobal,
   focusMessage,
   openAudioPlayer,
@@ -65,18 +66,18 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     return foundIds.map((id) => {
-      const [chatId, messageId] = id.split('_').map(Number);
+      const [chatId, messageId] = id.split('_');
 
-      return globalMessagesByChatId[chatId]?.byId[messageId];
+      return globalMessagesByChatId[chatId]?.byId[Number(messageId)];
     }).filter(Boolean);
   }, [globalMessagesByChatId, foundIds]);
 
-  const handleMessageFocus = useCallback((messageId: number, chatId: number) => {
+  const handleMessageFocus = useCallback((messageId: number, chatId: string) => {
     focusMessage({ chatId, messageId });
   }, [focusMessage]);
 
-  const handlePlayAudio = useCallback((messageId: number, chatId: number) => {
-    openAudioPlayer({ chatId, messageId, origin: AudioOrigin.Search });
+  const handlePlayAudio = useCallback((messageId: number, chatId: string) => {
+    openAudioPlayer({ chatId, messageId });
   }, [openAudioPlayer]);
 
   function renderList() {
@@ -104,6 +105,7 @@ const AudioResults: FC<OwnProps & StateProps & DispatchProps> = ({
             className="scroll-item"
             onPlay={handlePlayAudio}
             onDateClick={handleMessageFocus}
+            isDownloading={activeDownloads[message.chatId]?.includes(message.id)}
           />
         </div>
       );

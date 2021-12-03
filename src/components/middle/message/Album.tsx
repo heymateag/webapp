@@ -2,14 +2,20 @@ import React, { FC, useCallback } from '../../../lib/teact/teact';
 
 import { GlobalActions, GlobalState } from '../../../global/types';
 import { ApiMessage } from '../../../api/types';
-import { IAlbum } from '../../../types';
+import { IAlbum, ISettings } from '../../../types';
 import { AlbumRectPart, IAlbumLayout } from './helpers/calculateAlbumLayout';
 
 import { getMessageContent } from '../../../modules/helpers';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getGlobal, withGlobal } from '../../../lib/teact/teactn';
 import { pick } from '../../../util/iteratees';
 import withSelectControl from './hocs/withSelectControl';
 import { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import {
+  selectActiveDownloadIds,
+  selectCanAutoLoadMedia,
+  selectCanAutoPlayMedia,
+  selectTheme,
+} from '../../../modules/selectors';
 
 import Photo from './Photo';
 import Video from './Video';
@@ -22,8 +28,6 @@ const VideoWithSelect = withSelectControl(Video);
 type OwnProps = {
   album: IAlbum;
   observeIntersection: ObserveFn;
-  shouldAutoLoad?: boolean;
-  shouldAutoPlay?: boolean;
   hasCustomAppendix?: boolean;
   lastSyncTime?: number;
   isOwn: boolean;
@@ -32,7 +36,9 @@ type OwnProps = {
 };
 
 type StateProps = {
+  theme: ISettings['theme'];
   uploadsById: GlobalState['fileUploads']['byMessageLocalId'];
+  activeDownloadIds: number[];
 };
 
 type DispatchProps = Pick<GlobalActions, 'cancelSendingMessage'>;
@@ -40,14 +46,14 @@ type DispatchProps = Pick<GlobalActions, 'cancelSendingMessage'>;
 const Album: FC<OwnProps & StateProps & DispatchProps> = ({
   album,
   observeIntersection,
-  shouldAutoLoad,
-  shouldAutoPlay,
   hasCustomAppendix,
   lastSyncTime,
   isOwn,
   albumLayout,
   onMediaClick,
   uploadsById,
+  activeDownloadIds,
+  theme,
   cancelSendingMessage,
 }) => {
   const mediaCount = album.messages.length;
@@ -62,6 +68,10 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
     const uploadProgress = fileUpload?.progress;
     const { dimensions, sides } = albumLayout.layout[index];
 
+    // Ignoring global updates is a known drawback here
+    const canAutoLoad = selectCanAutoLoadMedia(getGlobal(), message);
+    const canAutoPlay = selectCanAutoPlayMedia(getGlobal(), message);
+
     if (photo) {
       const shouldAffectAppendix = hasCustomAppendix && (
         // eslint-disable-next-line no-bitwise
@@ -73,12 +83,14 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
           id={`album-media-${message.id}`}
           message={message}
           observeIntersection={observeIntersection}
-          shouldAutoLoad={shouldAutoLoad}
+          canAutoLoad={canAutoLoad}
           shouldAffectAppendix={shouldAffectAppendix}
           uploadProgress={uploadProgress}
           dimensions={dimensions}
           onClick={onMediaClick}
           onCancelUpload={handleCancelUpload}
+          isDownloading={activeDownloadIds.includes(message.id)}
+          theme={theme}
         />
       );
     } else if (video) {
@@ -87,13 +99,15 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
           id={`album-media-${message.id}`}
           message={message}
           observeIntersection={observeIntersection}
-          shouldAutoLoad={shouldAutoLoad}
-          shouldAutoPlay={shouldAutoPlay}
+          canAutoLoad={canAutoLoad}
+          canAutoPlay={canAutoPlay}
           uploadProgress={uploadProgress}
           lastSyncTime={lastSyncTime}
           dimensions={dimensions}
           onClick={onMediaClick}
           onCancelUpload={handleCancelUpload}
+          isDownloading={activeDownloadIds.includes(message.id)}
+          theme={theme}
         />
       );
     }
@@ -115,9 +129,14 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
 };
 
 export default withGlobal<OwnProps>(
-  (global): StateProps => {
+  (global, { album }): StateProps => {
+    const { chatId } = album.mainMessage;
+    const theme = selectTheme(global);
+    const activeDownloadIds = selectActiveDownloadIds(global, chatId);
     return {
+      theme,
       uploadsById: global.fileUploads.byMessageLocalId,
+      activeDownloadIds,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

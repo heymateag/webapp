@@ -35,7 +35,6 @@ const { LogOut } = require('../tl').requests.auth;
 const { RPCMessageToError } = require('../errors');
 const { TypeNotFoundError } = require('../errors/Common');
 
-
 /**
  * MTProto Mobile Protocol sender
  * (https://core.telegram.org/mtproto/description)
@@ -81,7 +80,6 @@ class MTProtoSender {
         this._autoReconnectCallback = args.autoReconnectCallback;
         this._isMainSender = args.isMainSender;
         this._onConnectionBreak = args.onConnectionBreak;
-
 
         /**
          * whether we disconnected ourself or telegram did it.
@@ -340,6 +338,9 @@ class MTProtoSender {
                 const ack = new RequestState(new MsgsAck({ msgIds: Array(...this._pending_ack) }));
                 this._send_queue.append(ack);
                 this._last_acks.push(ack);
+                if (this._last_acks.length >= 10) {
+                    this._last_acks.shift();
+                }
                 this._pending_ack.clear();
             }
             this._log.debug(`Waiting for messages to send...${this._reconnecting}`);
@@ -557,9 +558,14 @@ class MTProtoSender {
             this._send_queue.append(new RequestState(new MsgsAck({ msgIds: [state.msgId] })));
             state.reject(error);
         } else {
-            const reader = new BinaryReader(result.body);
-            const read = state.request.readResult(reader);
-            state.resolve(read);
+            try {
+                const reader = new BinaryReader(result.body);
+                const read = state.request.readResult(reader);
+                state.resolve(read);
+            } catch (err) {
+                state.reject(err);
+                throw err;
+            }
         }
     }
 
@@ -844,6 +850,7 @@ class MTProtoSender {
             this._connection._port,
             this._connection._dcId,
             this._connection._log,
+            this._connection._testServers,
         );
         await this.connect(newConnection, true);
 

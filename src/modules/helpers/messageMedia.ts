@@ -168,6 +168,7 @@ export function getMessageMediaHash(
       case 'viewerPreview':
         return `${base}?size=x`;
       case 'viewerFull':
+      case 'download':
         return `${base}?size=z`;
     }
   }
@@ -183,7 +184,8 @@ export function getMessageMediaHash(
         }
 
         return `${base}?size=m`;
-      default:
+      case 'viewerFull':
+      case 'download':
         return base;
     }
   }
@@ -194,8 +196,10 @@ export function getMessageMediaHash(
         return undefined;
       case 'pictogram':
         return `${base}?size=m`;
-      default:
+      case 'inline':
         return base;
+      case 'download':
+        return `${base}?download`;
     }
   }
 
@@ -204,10 +208,10 @@ export function getMessageMediaHash(
       case 'micro':
       case 'pictogram':
         return getAudioHasCover(audio) ? `${base}?size=m` : undefined;
+      case 'inline':
+        return getVideoOrAudioBaseHash(audio, base);
       case 'download':
         return `${base}?download`;
-      default:
-        return getVideoOrAudioBaseHash(audio, base);
     }
   }
 
@@ -216,8 +220,10 @@ export function getMessageMediaHash(
       case 'micro':
       case 'pictogram':
         return undefined;
-      default:
+      case 'inline':
         return base;
+      case 'download':
+        return `${base}?download`;
     }
   }
 
@@ -330,9 +336,9 @@ export function getVideoDimensions(video: ApiVideo): ApiDimensions | undefined {
   return undefined;
 }
 
-export function getMediaTransferState(message: ApiMessage, progress?: number, isDownloadNeeded = false) {
+export function getMediaTransferState(message: ApiMessage, progress?: number, isLoadNeeded = false) {
   const isUploading = isMessageLocal(message);
-  const isTransferring = isUploading || isDownloadNeeded;
+  const isTransferring = isUploading || isLoadNeeded;
   const transferProgress = Number(progress);
 
   return {

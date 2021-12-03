@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
 import { withGlobal } from '../../lib/teact/teactn';
 
@@ -10,6 +10,7 @@ import { LAYERS_ANIMATION_NAME } from '../../util/environment';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
 import { pick } from '../../util/iteratees';
 import useFoldersReducer from '../../hooks/reducers/useFoldersReducer';
+import { useResize } from '../../hooks/useResize';
 
 import Transition from '../ui/Transition';
 import LeftMain from './main/LeftMain';
@@ -27,11 +28,12 @@ type StateProps = {
   searchDate?: number;
   activeChatFolder: number;
   shouldSkipHistoryAnimations?: boolean;
+  leftColumnWidth?: number;
 };
 
 type DispatchProps = Pick<GlobalActions, (
   'setGlobalSearchQuery' | 'setGlobalSearchChatId' | 'resetChatCreation' | 'setGlobalSearchDate' |
-  'loadPasswordInfo' | 'clearTwoFaError'
+  'loadPasswordInfo' | 'clearTwoFaError' | 'setLeftColumnWidth' | 'resetLeftColumnWidth'
 )>;
 
 enum ContentType {
@@ -55,13 +57,18 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
   searchDate,
   activeChatFolder,
   shouldSkipHistoryAnimations,
+  leftColumnWidth,
   setGlobalSearchQuery,
   setGlobalSearchChatId,
   resetChatCreation,
   setGlobalSearchDate,
   loadPasswordInfo,
   clearTwoFaError,
+  setLeftColumnWidth,
+  resetLeftColumnWidth,
 }) => {
+  // eslint-disable-next-line no-null/no-null
+  const resizeRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState<LeftColumnContent>(LeftColumnContent.ChatList);
   const [settingsScreen, setSettingsScreen] = useState(SettingsScreens.Main);
   const [contactsFilter, setContactsFilter] = useState<string>('');
@@ -122,6 +129,7 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
         case SettingsScreens.Folders:
         case SettingsScreens.General:
         case SettingsScreens.Notifications:
+        case SettingsScreens.DataStorage:
         case SettingsScreens.Privacy:
         case SettingsScreens.Language:
           setSettingsScreen(SettingsScreens.Main);
@@ -268,64 +276,71 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
     }
   }, [clearTwoFaError, loadPasswordInfo, settingsScreen]);
 
+  const {
+    initResize, resetResize, handleMouseUp,
+  } = useResize(resizeRef, setLeftColumnWidth, resetLeftColumnWidth, leftColumnWidth);
+
   const handleSettingsScreenSelect = (screen: SettingsScreens) => {
     setContent(LeftColumnContent.Settings);
     setSettingsScreen(screen);
   };
 
   return (
-    <Transition
+    <div
       id="LeftColumn"
-      name={shouldSkipHistoryAnimations ? 'none' : LAYERS_ANIMATION_NAME}
-      renderCount={RENDER_COUNT}
-      activeKey={contentType}
-      shouldCleanup
-      cleanupExceptionKey={ContentType.Main}
+      ref={resizeRef}
     >
-      {(isActive) => {
-        switch (contentType) {
-          case ContentType.Archived:
-            return (
-              <ArchivedChats
-                isActive={isActive}
-                onReset={handleReset}
-                onContentChange={setContent}
-              />
-            );
-          case ContentType.Settings:
-            return (
-              <Settings
-                isActive={isActive}
-                currentScreen={settingsScreen}
-                foldersState={foldersState}
-                foldersDispatch={foldersDispatch}
-                onScreenSelect={handleSettingsScreenSelect}
-                onReset={handleReset}
-                shouldSkipTransition={shouldSkipHistoryAnimations}
-              />
-            );
-          case ContentType.NewChannel:
-            return (
-              <NewChat
-                key={lastResetTime}
-                isActive={isActive}
-                isChannel
-                content={content}
-                onContentChange={setContent}
-                onReset={handleReset}
-              />
-            );
-          case ContentType.NewGroup:
-            return (
-              <NewChat
-                key={lastResetTime}
-                isActive={isActive}
-                content={content}
-                onContentChange={setContent}
-                onReset={handleReset}
-              />
-            );
-          case ContentType.wallet:
+      <Transition
+        name={shouldSkipHistoryAnimations ? 'none' : LAYERS_ANIMATION_NAME}
+        renderCount={RENDER_COUNT}
+        activeKey={contentType}
+        shouldCleanup
+        cleanupExceptionKey={ContentType.Main}
+      >
+        {(isActive) => {
+          switch (contentType) {
+            case ContentType.Archived:
+              return (
+                <ArchivedChats
+                  isActive={isActive}
+                  onReset={handleReset}
+                  onContentChange={setContent}
+                />
+              );
+            case ContentType.Settings:
+              return (
+                <Settings
+                  isActive={isActive}
+                  currentScreen={settingsScreen}
+                  foldersState={foldersState}
+                  foldersDispatch={foldersDispatch}
+                  onScreenSelect={handleSettingsScreenSelect}
+                  onReset={handleReset}
+                  shouldSkipTransition={shouldSkipHistoryAnimations}
+                />
+              );
+            case ContentType.NewChannel:
+              return (
+                <NewChat
+                  key={lastResetTime}
+                  isActive={isActive}
+                  isChannel
+                  content={content}
+                  onContentChange={setContent}
+                  onReset={handleReset}
+                />
+              );
+            case ContentType.NewGroup:
+              return (
+                <NewChat
+                  key={lastResetTime}
+                  isActive={isActive}
+                  content={content}
+                  onContentChange={setContent}
+                  onReset={handleReset}
+                />
+              );
+            case ContentType.wallet:
             return <Wallet onReset={handleReset} />;
           case ContentType.Offers:
             return (
@@ -350,7 +365,13 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
             );
         }
       }}
-    </Transition>
+    </Transition><div
+        className="resize-handle"
+        onMouseDown={initResize}
+        onMouseUp={handleMouseUp}
+        onDoubleClick={resetResize}
+      />
+    </div>
   );
 };
 
@@ -365,13 +386,14 @@ export default memo(withGlobal(
         activeChatFolder,
       },
       shouldSkipHistoryAnimations,
+      leftColumnWidth,
     } = global;
     return {
-      searchQuery: query, searchDate: date, activeChatFolder, shouldSkipHistoryAnimations,
+      searchQuery: query, searchDate: date, activeChatFolder, shouldSkipHistoryAnimations, leftColumnWidth,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'setGlobalSearchQuery', 'setGlobalSearchChatId', 'resetChatCreation', 'setGlobalSearchDate',
-    'loadPasswordInfo', 'clearTwoFaError',
+    'loadPasswordInfo', 'clearTwoFaError', 'setLeftColumnWidth', 'resetLeftColumnWidth',
   ]),
 )(LeftColumn));

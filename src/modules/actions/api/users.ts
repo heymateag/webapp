@@ -6,10 +6,10 @@ import { ApiUser } from '../../../api/types';
 import { ManagementProgress } from '../../../types';
 
 import { debounce, throttle } from '../../../util/schedulers';
-import { buildCollectionByKey } from '../../../util/iteratees';
-import { isChatPrivate } from '../../helpers';
+import { buildCollectionByKey, pick, unique } from '../../../util/iteratees';
+import { isUserBot, isUserId } from '../../helpers';
 import { callApi } from '../../../api/gramjs';
-import { selectChat, selectUser } from '../../selectors';
+import { selectChat, selectCurrentMessageList, selectUser } from '../../selectors';
 import {
   addChats, addUsers, updateChat, updateManagementProgress, updateUser, updateUsers,
   updateUserSearch, updateUserSearchFetchingStatus,
@@ -52,24 +52,50 @@ addReducer('loadUser', (global, actions, payload) => {
 });
 
 addReducer('loadTopUsers', (global) => {
-  const {
-    topPeers: {
-      hash, lastRequestedAt,
-    },
-  } = global;
+  const { topPeers: { lastRequestedAt } } = global;
 
   if (!lastRequestedAt || getServerTime(global.serverTimeOffset) - lastRequestedAt > TOP_PEERS_REQUEST_COOLDOWN) {
-    void loadTopUsers(hash);
+    void loadTopUsers();
   }
 });
 
-addReducer('loadContactList', (global) => {
-  const { hash } = global.contactList || {};
-  void loadContactList(hash);
+addReducer('loadContactList', () => {
+  void loadContactList();
 });
 
 addReducer('loadCurrentUser', () => {
   void callApi('fetchCurrentUser');
+});
+
+addReducer('loadCommonChats', (global) => {
+  const { chatId } = selectCurrentMessageList(global) || {};
+  const user = chatId ? selectUser(global, chatId) : undefined;
+  if (!user || isUserBot(user) || user.commonChats?.isFullyLoaded) {
+    return;
+  }
+
+  (async () => {
+    const maxId = user.commonChats?.maxId;
+    const result = await callApi('fetchCommonChats', user.id, user.accessHash!, maxId);
+    if (!result) {
+      return;
+    }
+
+    const { chats, chatIds, isFullyLoaded } = result;
+
+    global = getGlobal();
+    if (chats.length) {
+      global = addChats(global, buildCollectionByKey(chats, 'id'));
+    }
+    global = updateUser(global, user.id, {
+      commonChats: {
+        maxId: chatIds.length ? chatIds[chatIds.length - 1] : '0',
+        ids: unique((user.commonChats?.ids || []).concat(chatIds)),
+        isFullyLoaded,
+      },
+    });
+    setGlobal(global);
+  })();
 });
 
 addReducer('updateContact', (global, actions, payload) => {
@@ -86,13 +112,13 @@ addReducer('deleteUser', (global, actions, payload) => {
   void deleteUser(userId);
 });
 
-async function loadTopUsers(usersHash?: number) {
-  const result = await callApi('fetchTopUsers', { hash: usersHash });
+async function loadTopUsers() {
+  const result = await callApi('fetchTopUsers');
   if (!result) {
     return;
   }
 
-  const { hash, ids, users } = result;
+  const { ids, users } = result;
 
   let global = getGlobal();
   global = addUsers(global, buildCollectionByKey(users, 'id'));
@@ -100,7 +126,6 @@ async function loadTopUsers(usersHash?: number) {
     ...global,
     topPeers: {
       ...global.topPeers,
-      hash,
       userIds: ids,
       lastRequestedAt: getServerTime(global.serverTimeOffset),
     },
@@ -108,8 +133,8 @@ async function loadTopUsers(usersHash?: number) {
   setGlobal(global);
 }
 
-async function loadContactList(hash?: number) {
-  const contactList = await callApi('fetchContactList', { hash });
+async function loadContactList() {
+  const contactList = await callApi('fetchContactList');
   if (!contactList) {
     return;
   }
@@ -128,14 +153,13 @@ async function loadContactList(hash?: number) {
   setGlobal({
     ...global,
     contactList: {
-      hash: contactList.hash,
       userIds: sortedUsers.map((user) => user.id),
     },
   });
 }
 
 async function updateContact(
-  userId: number,
+  userId: string,
   isMuted: boolean,
   firstName: string,
   lastName?: string,
@@ -150,7 +174,19 @@ async function updateContact(
 
   setGlobal(updateManagementProgress(getGlobal(), ManagementProgress.InProgress));
 
-  const result = await callApi('updateContact', { phone: user.phoneNumber, firstName, lastName });
+  let result;
+  if (user.phoneNumber) {
+    result = await callApi('updateContact', { phone: user.phoneNumber, firstName, lastName });
+  } else {
+    const { id, accessHash } = user;
+    result = await callApi('addContact', {
+      id,
+      accessHash,
+      phoneNumber: '',
+      firstName,
+      lastName,
+    });
+  }
 
   if (result) {
     setGlobal(updateUser(
@@ -166,7 +202,7 @@ async function updateContact(
   setGlobal(updateManagementProgress(getGlobal(), ManagementProgress.Complete));
 }
 
-async function deleteUser(userId: number) {
+async function deleteUser(userId: string) {
   const global = getGlobal();
   const user = selectUser(global, userId);
 
@@ -181,7 +217,7 @@ async function deleteUser(userId: number) {
 
 addReducer('loadProfilePhotos', (global, actions, payload) => {
   const { profileId } = payload!;
-  const isPrivate = isChatPrivate(profileId);
+  const isPrivate = isUserId(profileId);
   const user = isPrivate ? selectUser(global, profileId) : undefined;
   const chat = !isPrivate ? selectChat(global, profileId) : undefined;
 
@@ -215,6 +251,16 @@ addReducer('setUserSearchQuery', (global, actions, payload) => {
   void runThrottledForSearch(() => {
     searchUsers(query);
   });
+});
+
+addReducer('addContact', (global, actions, payload) => {
+  const { userId } = payload!;
+  const user = selectUser(global, userId);
+  if (!user) {
+    return;
+  }
+
+  void callApi('addContact', pick(user, ['id', 'accessHash', 'firstName', 'lastName', 'phoneNumber']));
 });
 
 async function searchUsers(query: string) {

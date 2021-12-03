@@ -1,7 +1,7 @@
 import { getGlobal } from '../lib/teact/teactn';
 
 import { ApiLangPack, ApiLangString } from '../api/types';
-import { LangCode } from '../types';
+import { LangCode, TimeFormat } from '../types';
 
 import {
   DEFAULT_LANG_CODE, DEFAULT_LANG_PACK, LANG_CACHE_NAME, LANG_PACKS,
@@ -16,6 +16,7 @@ interface LangFn {
 
   isRtl?: boolean;
   code?: LangCode;
+  timeFormat?: TimeFormat;
 }
 
 const SUBSTITUTION_REGEX = /%\d?\$?[sdf@]/g;
@@ -57,6 +58,7 @@ const {
 export { addCallback, removeCallback };
 
 let currentLangCode: string | undefined;
+let currentTimeFormat: TimeFormat | undefined;
 
 export const getTranslation: LangFn = (key: string, value?: any, format?: 'i') => {
   if (value !== undefined) {
@@ -84,7 +86,7 @@ export const getTranslation: LangFn = (key: string, value?: any, format?: 'i') =
 };
 
 export async function getTranslationForLangString(langCode: string, key: string) {
-  let translateString = await cacheApi.fetch(
+  let translateString: ApiLangString | undefined = await cacheApi.fetch(
     LANG_CACHE_NAME,
     `${DEFAULT_LANG_PACK}_${langCode}_${key}`,
     cacheApi.Type.Json,
@@ -124,14 +126,26 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   langPack = newLangPack;
   document.documentElement.lang = langCode;
 
-  const { languages } = getGlobal().settings.byKey;
+  const { languages, timeFormat } = getGlobal().settings.byKey;
   const langInfo = languages?.find((l) => l.langCode === langCode);
   getTranslation.isRtl = Boolean(langInfo?.rtl);
   getTranslation.code = langCode;
+  getTranslation.timeFormat = timeFormat;
 
   if (callback) {
     callback();
   }
+
+  runCallbacks();
+}
+
+export function setTimeFormat(timeFormat: TimeFormat) {
+  if (timeFormat && timeFormat === currentTimeFormat) {
+    return;
+  }
+
+  currentTimeFormat = timeFormat;
+  getTranslation.timeFormat = timeFormat;
 
   runCallbacks();
 }
@@ -157,7 +171,7 @@ async function fetchRemote(langCode: string): Promise<ApiLangPack | undefined> {
 
 async function fetchRemoteString(
   remoteLangPack: typeof LANG_PACKS[number], langCode: string, key: string,
-): Promise<string | undefined> {
+): Promise<ApiLangString | undefined> {
   const remote = await callApi('fetchLangStrings', {
     langPack: remoteLangPack,
     langCode,

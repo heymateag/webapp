@@ -9,9 +9,13 @@ import { IAnchorPosition } from '../../types';
 
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { disableScrolling, enableScrolling } from '../../util/scrollLock';
-import { selectChat, selectNotifySettings, selectNotifyExceptions } from '../../modules/selectors';
+import {
+  selectChat, selectNotifySettings, selectNotifyExceptions, selectUser,
+} from '../../modules/selectors';
 import { pick } from '../../util/iteratees';
-import { isChatPrivate, getCanDeleteChat, selectIsChatMuted } from '../../modules/helpers';
+import {
+  isUserId, getCanDeleteChat, selectIsChatMuted, getCanAddContact,
+} from '../../modules/helpers';
 import useShowTransition from '../../hooks/useShowTransition';
 import useLang from '../../hooks/useLang';
 
@@ -23,21 +27,26 @@ import DeleteChatModal from '../common/DeleteChatModal';
 import './HeaderMenuContainer.scss';
 
 type DispatchProps = Pick<GlobalActions, (
-  'updateChatMutedState' | 'enterMessageSelectMode' | 'sendBotCommand' | 'restartBot' | 'openLinkedChat'
+  'updateChatMutedState' | 'enterMessageSelectMode' | 'sendBotCommand' | 'restartBot' | 'openLinkedChat' |
+  'joinGroupCall' | 'createGroupCall' | 'addContact' | 'openCallFallbackConfirm'
 )>;
 
 export type OwnProps = {
-  chatId: number;
+  chatId: string;
   threadId: number;
   isOpen: boolean;
+  withExtraActions: boolean;
   anchor: IAnchorPosition;
   isChannel?: boolean;
   canStartBot?: boolean;
   canRestartBot?: boolean;
   canSubscribe?: boolean;
   canSearch?: boolean;
+  canCall?: boolean;
   canMute?: boolean;
   canLeave?: boolean;
+  canEnterVoiceChat?: boolean;
+  canCreateVoiceChat?: boolean;
   onSubscribeChannel: () => void;
   onSearchClick: () => void;
   onClose: () => void;
@@ -48,6 +57,7 @@ type StateProps = {
   chat?: ApiChat;
   isPrivate?: boolean;
   isMuted?: boolean;
+  canAddContact?: boolean;
   canDeleteChat?: boolean;
   hasLinkedChat?: boolean;
 };
@@ -55,19 +65,24 @@ type StateProps = {
 const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   chatId,
   isOpen,
+  withExtraActions,
   anchor,
   isChannel,
   canStartBot,
   canRestartBot,
   canSubscribe,
   canSearch,
+  canCall,
   canMute,
   canLeave,
+  canEnterVoiceChat,
+  canCreateVoiceChat,
   chat,
   isPrivate,
   isMuted,
   canDeleteChat,
   hasLinkedChat,
+  canAddContact,
   onSubscribeChannel,
   onSearchClick,
   onClose,
@@ -76,7 +91,11 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   enterMessageSelectMode,
   sendBotCommand,
   restartBot,
+  joinGroupCall,
+  createGroupCall,
   openLinkedChat,
+  addContact,
+  openCallFallbackConfirm,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -112,15 +131,39 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
     closeMenu();
   }, [chatId, closeMenu, isMuted, updateChatMutedState]);
 
+  const handleEnterVoiceChatClick = useCallback(() => {
+    if (canCreateVoiceChat) {
+      // TODO show popup to schedule
+      createGroupCall({
+        chatId,
+      });
+    } else {
+      joinGroupCall({
+        chatId,
+      });
+    }
+    closeMenu();
+  }, [closeMenu, canCreateVoiceChat, chatId, joinGroupCall, createGroupCall]);
+
   const handleLinkedChatClick = useCallback(() => {
     openLinkedChat({ id: chatId });
     closeMenu();
   }, [chatId, closeMenu, openLinkedChat]);
 
+  const handleAddContactClick = useCallback(() => {
+    addContact({ userId: chatId });
+    closeMenu();
+  }, [addContact, chatId, closeMenu]);
+
   const handleSubscribe = useCallback(() => {
     onSubscribeChannel();
     closeMenu();
   }, [closeMenu, onSubscribeChannel]);
+
+  const handleCall = useCallback(() => {
+    openCallFallbackConfirm();
+    closeMenu();
+  }, [closeMenu, openCallFallbackConfirm]);
 
   const handleSearch = useCallback(() => {
     onSearchClick();
@@ -149,7 +192,7 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
           style={`left: ${x}px;top: ${y}px;`}
           onClose={closeMenu}
         >
-          {IS_SINGLE_COLUMN_LAYOUT && canStartBot && (
+          {withExtraActions && canStartBot && (
             <MenuItem
               icon="bots"
               onClick={handleStartBot}
@@ -157,7 +200,7 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
               {lang('BotStart')}
             </MenuItem>
           )}
-          {IS_SINGLE_COLUMN_LAYOUT && canRestartBot && (
+          {withExtraActions && canRestartBot && (
             <MenuItem
               icon="bots"
               onClick={handleRestartBot}
@@ -165,12 +208,28 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
               {lang('BotRestart')}
             </MenuItem>
           )}
-          {IS_SINGLE_COLUMN_LAYOUT && canSubscribe && (
+          {withExtraActions && canSubscribe && (
             <MenuItem
               icon={isChannel ? 'channel' : 'group'}
               onClick={handleSubscribe}
             >
-              {lang(isChannel ? 'Subscribe' : 'Join Group')}
+              {lang(isChannel ? 'ProfileJoinChannel' : 'ProfileJoinGroup')}
+            </MenuItem>
+          )}
+          {canAddContact && (
+            <MenuItem
+              icon="add-user"
+              onClick={handleAddContactClick}
+            >
+              {lang('AddContact')}
+            </MenuItem>
+          )}
+          {IS_SINGLE_COLUMN_LAYOUT && canCall && (
+            <MenuItem
+              icon="phone"
+              onClick={handleCall}
+            >
+              {lang('Call')}
             </MenuItem>
           )}
           {IS_SINGLE_COLUMN_LAYOUT && canSearch && (
@@ -187,6 +246,14 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
               onClick={handleToggleMuteClick}
             >
               {lang(isMuted ? 'ChatsUnmute' : 'ChatsMute')}
+            </MenuItem>
+          )}
+          {(canEnterVoiceChat || canCreateVoiceChat) && (
+            <MenuItem
+              icon="voice-chat"
+              onClick={handleEnterVoiceChatClick}
+            >
+              {lang(canCreateVoiceChat ? 'StartVoipChat' : 'VoipGroupJoinCall')}
             </MenuItem>
           )}
           {hasLinkedChat && (
@@ -233,11 +300,15 @@ export default memo(withGlobal<OwnProps>(
     if (!chat || chat.isRestricted) {
       return {};
     }
+    const isPrivate = isUserId(chat.id);
+    const user = isPrivate ? selectUser(global, chatId) : undefined;
+    const canAddContact = user && getCanAddContact(user);
 
     return {
       chat,
       isMuted: selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global)),
-      isPrivate: isChatPrivate(chat.id),
+      isPrivate,
+      canAddContact,
       canDeleteChat: getCanDeleteChat(chat),
       hasLinkedChat: Boolean(chat?.fullInfo?.linkedChatId),
     };
@@ -247,6 +318,10 @@ export default memo(withGlobal<OwnProps>(
     'enterMessageSelectMode',
     'sendBotCommand',
     'restartBot',
+    'joinGroupCall',
+    'createGroupCall',
     'openLinkedChat',
+    'addContact',
+    'openCallFallbackConfirm',
   ]),
 )(HeaderMenuContainer));

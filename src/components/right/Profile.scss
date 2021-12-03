@@ -58,6 +58,11 @@
 
     .Tab {
       padding: 1rem .75rem;
+
+      span {
+        white-space: nowrap;
+      }
+
       i {
         bottom: -1rem;
       }
@@ -100,7 +105,7 @@
       padding: 1.25rem;
 
       .ProgressSpinner,
-      .message-upload-progress {
+      .message-transfer-progress {
         display: none;
       }
     }
@@ -124,6 +129,7 @@
       }
     }
 
+    &.commonChats-list,
     &.members-list {
       padding: 0.5rem 1rem;
 

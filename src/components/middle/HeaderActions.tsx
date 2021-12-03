@@ -11,9 +11,11 @@ import { GlobalActions, MessageListType } from '../../global/types';
 import { MAIN_THREAD_ID } from '../../api/types';
 import { IAnchorPosition } from '../../types';
 
-import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
+import { ARE_CALLS_SUPPORTED, IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { pick } from '../../util/iteratees';
-import { isChatChannel, isChatSuperGroup } from '../../modules/helpers';
+import {
+  isChatBasicGroup, isChatChannel, isChatSuperGroup, isUserId,
+} from '../../modules/helpers';
 import {
   selectChat,
   selectChatBot,
@@ -29,9 +31,10 @@ import Button from '../ui/Button';
 import HeaderMenuContainer from './HeaderMenuContainer.async';
 
 interface OwnProps {
-  chatId: number;
+  chatId: string;
   threadId: number;
   messageListType: MessageListType;
+  canExpandActions: boolean;
 }
 
 interface StateProps {
@@ -42,11 +45,16 @@ interface StateProps {
   canRestartBot?: boolean;
   canSubscribe?: boolean;
   canSearch?: boolean;
+  canCall?: boolean;
   canMute?: boolean;
   canLeave?: boolean;
+  canEnterVoiceChat?: boolean;
+  canCreateVoiceChat?: boolean;
 }
 
-type DispatchProps = Pick<GlobalActions, 'joinChannel' | 'sendBotCommand' | 'openLocalTextSearch' | 'restartBot'>;
+type DispatchProps = Pick<GlobalActions, (
+  'joinChannel' | 'sendBotCommand' | 'openLocalTextSearch' | 'restartBot' | 'openCallFallbackConfirm'
+)>;
 
 // Chrome breaks layout when focusing input during transition
 const SEARCH_FOCUS_DELAY_MS = 400;
@@ -60,13 +68,18 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
   canRestartBot,
   canSubscribe,
   canSearch,
+  canCall,
   canMute,
   canLeave,
+  canEnterVoiceChat,
+  canCreateVoiceChat,
   isRightColumnShown,
+  canExpandActions,
   joinChannel,
   sendBotCommand,
   openLocalTextSearch,
   restartBot,
+  openCallFallbackConfirm,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -120,47 +133,62 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
 
   return (
     <div className="HeaderActions">
-      {!IS_SINGLE_COLUMN_LAYOUT && canSubscribe && (
-        <Button
-          size="tiny"
-          ripple
-          fluid
-          onClick={handleSubscribeClick}
-        >
-          {lang(isChannel ? 'Subscribe' : 'Join Group')}
-        </Button>
-      )}
-      {!IS_SINGLE_COLUMN_LAYOUT && canStartBot && (
-        <Button
-          size="tiny"
-          ripple
-          fluid
-          onClick={handleStartBot}
-        >
-          {lang('BotStart')}
-        </Button>
-      )}
-      {!IS_SINGLE_COLUMN_LAYOUT && canRestartBot && (
-        <Button
-          size="tiny"
-          ripple
-          fluid
-          onClick={handleRestartBot}
-        >
-          {lang('BotRestart')}
-        </Button>
-      )}
-      {!IS_SINGLE_COLUMN_LAYOUT && canSearch && (
-        <Button
-          round
-          ripple={isRightColumnShown}
-          color="translucent"
-          size="smaller"
-          onClick={handleSearchClick}
-          ariaLabel="Search in this chat"
-        >
-          <i className="icon-search" />
-        </Button>
+      {!IS_SINGLE_COLUMN_LAYOUT && (
+        <>
+          {canExpandActions && canSubscribe && (
+            <Button
+              size="tiny"
+              ripple
+              fluid
+              onClick={handleSubscribeClick}
+            >
+              {lang(isChannel ? 'ProfileJoinChannel' : 'ProfileJoinGroup')}
+            </Button>
+          )}
+          {canExpandActions && canStartBot && (
+            <Button
+              size="tiny"
+              ripple
+              fluid
+              onClick={handleStartBot}
+            >
+              {lang('BotStart')}
+            </Button>
+          )}
+          {canExpandActions && canRestartBot && (
+            <Button
+              size="tiny"
+              ripple
+              fluid
+              onClick={handleRestartBot}
+            >
+              {lang('BotRestart')}
+            </Button>
+          )}
+          {canSearch && (
+            <Button
+              round
+              ripple={isRightColumnShown}
+              color="translucent"
+              size="smaller"
+              onClick={handleSearchClick}
+              ariaLabel="Search in this chat"
+            >
+              <i className="icon-search" />
+            </Button>
+          )}
+          {canCall && (
+            <Button
+              round
+              color="translucent"
+              size="smaller"
+              onClick={openCallFallbackConfirm}
+              ariaLabel="Call"
+            >
+              <i className="icon-phone" />
+            </Button>
+          )}
+        </>
       )}
       <Button
         ref={menuButtonRef}
@@ -181,13 +209,17 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
           threadId={threadId}
           isOpen={isMenuOpen}
           anchor={menuPosition}
+          withExtraActions={IS_SINGLE_COLUMN_LAYOUT || !canExpandActions}
           isChannel={isChannel}
           canStartBot={canStartBot}
           canRestartBot={canRestartBot}
           canSubscribe={canSubscribe}
           canSearch={canSearch}
+          canCall={canCall}
           canMute={canMute}
           canLeave={canLeave}
+          canEnterVoiceChat={canEnterVoiceChat}
+          canCreateVoiceChat={canCreateVoiceChat}
           onSubscribeChannel={handleSubscribeClick}
           onSearchClick={handleSearchClick}
           onClose={handleHeaderMenuClose}
@@ -203,7 +235,7 @@ export default memo(withGlobal<OwnProps>(
     const chat = selectChat(global, chatId);
     const isChannel = Boolean(chat && isChatChannel(chat));
 
-    if (chat?.isRestricted || selectIsInSelectMode(global)) {
+    if (!chat || chat.isRestricted || selectIsInSelectMode(global)) {
       return {
         noMenu: true,
       };
@@ -218,11 +250,15 @@ export default memo(withGlobal<OwnProps>(
     const canRestartBot = Boolean(bot && selectIsUserBlocked(global, bot.id));
     const canStartBot = !canRestartBot && Boolean(selectIsChatBotNotStarted(global, chatId));
     const canSubscribe = Boolean(
-      isMainThread && chat && (isChannel || isChatSuperGroup(chat)) && chat.isNotJoined,
+      isMainThread && (isChannel || isChatSuperGroup(chat)) && chat.isNotJoined,
     );
     const canSearch = isMainThread || isDiscussionThread;
+    const canCall = ARE_CALLS_SUPPORTED && isUserId(chat.id) && !isChatWithSelf && !bot;
     const canMute = isMainThread && !isChatWithSelf && !canSubscribe;
     const canLeave = isMainThread && !canSubscribe;
+    const canEnterVoiceChat = ARE_CALLS_SUPPORTED && chat.isCallActive;
+    const canCreateVoiceChat = ARE_CALLS_SUPPORTED && !chat.isCallActive
+      && (chat.adminRights?.manageCall || (chat.isCreator && isChatBasicGroup(chat)));
 
     return {
       noMenu: false,
@@ -232,11 +268,14 @@ export default memo(withGlobal<OwnProps>(
       canRestartBot,
       canSubscribe,
       canSearch,
+      canCall,
       canMute,
       canLeave,
+      canEnterVoiceChat,
+      canCreateVoiceChat,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
-    'joinChannel', 'sendBotCommand', 'openLocalTextSearch', 'restartBot',
+    'joinChannel', 'sendBotCommand', 'openLocalTextSearch', 'restartBot', 'openCallFallbackConfirm',
   ]),
 )(HeaderActions));

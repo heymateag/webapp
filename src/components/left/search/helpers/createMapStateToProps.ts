@@ -9,12 +9,13 @@ import { selectTheme } from '../../../../modules/selectors';
 export type StateProps = {
   theme: ISettings['theme'];
   isLoading?: boolean;
-  chatsById: Record<number, ApiChat>;
-  usersById: Record<number, ApiUser>;
-  globalMessagesByChatId?: Record<number, { byId: Record<number, ApiMessage> }>;
+  chatsById: Record<string, ApiChat>;
+  usersById: Record<string, ApiUser>;
+  globalMessagesByChatId?: Record<string, { byId: Record<number, ApiMessage> }>;
   foundIds?: string[];
   lastSyncTime?: number;
-  searchChatId?: number;
+  searchChatId?: string;
+  activeDownloads: Record<string, number[]>;
 };
 
 export function createMapStateToProps(type: ApiGlobalMessageSearchType) {
@@ -33,6 +34,8 @@ export function createMapStateToProps(type: ApiGlobalMessageSearchType) {
     const { byChatId: globalMessagesByChatId } = global.messages;
     const foundIds = resultsByType?.[currentType]?.foundIds;
 
+    const activeDownloads = global.activeDownloads.byChatId;
+
     return {
       theme: selectTheme(global),
       isLoading: foundIds === undefined
@@ -42,6 +45,7 @@ export function createMapStateToProps(type: ApiGlobalMessageSearchType) {
       globalMessagesByChatId,
       foundIds,
       searchChatId: chatId,
+      activeDownloads,
       lastSyncTime: global.lastSyncTime,
     };
   };

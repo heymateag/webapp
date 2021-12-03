@@ -3,6 +3,8 @@ import { NewChatMembersProgress } from '../types';
 
 import {
   ANIMATION_LEVEL_DEFAULT, DARK_THEME_PATTERN_COLOR, DEFAULT_MESSAGE_TEXT_SIZE_PX, DEFAULT_PATTERN_COLOR,
+  DEFAULT_PLAYBACK_RATE,
+  DEFAULT_VOLUME,
   IOS_DEFAULT_MESSAGE_TEXT_SIZE_PX, MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX,
 } from '../config';
 import { IS_IOS, IS_MAC_OS } from '../util/environment';
@@ -40,6 +42,10 @@ export const INITIAL_STATE: GlobalState = {
   messages: {
     byChatId: {},
     messageLists: [],
+  },
+
+  groupCalls: {
+    byId: {},
   },
 
   scheduledMessages: {
@@ -110,7 +116,11 @@ export const INITIAL_STATE: GlobalState = {
 
   mediaViewer: {},
 
-  audioPlayer: {},
+  audioPlayer: {
+    volume: DEFAULT_VOLUME,
+    playbackRate: DEFAULT_PLAYBACK_RATE,
+    isMuted: false,
+  },
 
   forwardMessages: {},
 
@@ -133,18 +143,29 @@ export const INITIAL_STATE: GlobalState = {
         : (IS_MAC_OS ? MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX : DEFAULT_MESSAGE_TEXT_SIZE_PX),
       animationLevel: ANIMATION_LEVEL_DEFAULT,
       messageSendKeyCombo: 'enter',
-      shouldAutoDownloadMediaFromContacts: true,
-      shouldAutoDownloadMediaInPrivateChats: true,
-      shouldAutoDownloadMediaInGroups: true,
-      shouldAutoDownloadMediaInChannels: true,
+      canAutoLoadPhotoFromContacts: true,
+      canAutoLoadPhotoInPrivateChats: true,
+      canAutoLoadPhotoInGroups: true,
+      canAutoLoadPhotoInChannels: true,
+      canAutoLoadVideoFromContacts: true,
+      canAutoLoadVideoInPrivateChats: true,
+      canAutoLoadVideoInGroups: true,
+      canAutoLoadVideoInChannels: true,
+      canAutoLoadFileFromContacts: false,
+      canAutoLoadFileInPrivateChats: false,
+      canAutoLoadFileInGroups: false,
+      canAutoLoadFileInChannels: false,
+      autoLoadFileMaxSizeMb: 10,
       hasWebNotifications: true,
       hasPushNotifications: true,
       notificationSoundVolume: 5,
-      shouldAutoPlayGifs: true,
-      shouldAutoPlayVideos: true,
+      canAutoPlayGifs: true,
+      canAutoPlayVideos: true,
       shouldSuggestStickers: true,
       shouldLoopStickers: true,
       language: 'en',
+      timeFormat: '24h',
+      wasTimeFormatSetManually: false,
     },
     themes: {
       light: {
@@ -163,4 +184,10 @@ export const INITIAL_STATE: GlobalState = {
   twoFaSettings: {},
 
   shouldShowContextMenuHint: true,
+
+  activeDownloads: {
+    byChatId: {},
+  },
+
+  serviceNotifications: [],
 };

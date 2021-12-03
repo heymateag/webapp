@@ -2,19 +2,21 @@ import { addReducer, getGlobal, setGlobal } from '../../../lib/teact/teactn';
 
 import { GlobalState } from '../../../global/types';
 import {
-  ApiPrivacyKey, PrivacyVisibility, ProfileEditProgress, IInputPrivacyRules, IInputPrivacyContact,
+  ApiPrivacyKey, PrivacyVisibility, ProfileEditProgress, InputPrivacyRules, InputPrivacyContact,
   UPLOADING_WALLPAPER_SLUG,
 } from '../../../types';
 
+import { COUNTRIES_WITH_12H_TIME_FORMAT } from '../../../config';
 import { callApi } from '../../../api/gramjs';
 import { buildCollectionByKey } from '../../../util/iteratees';
 import { subscribe, unsubscribe } from '../../../util/notifications';
+import { setTimeFormat } from '../../../util/langProvider';
 import { selectUser } from '../../selectors';
 import {
   addUsers, addBlockedContact, updateChats, updateUser, removeBlockedContact, replaceSettings, updateNotifySettings,
   addNotifyExceptions,
 } from '../../reducers';
-import { isChatPrivate } from '../../helpers';
+import { isUserId } from '../../helpers';
 
 addReducer('updateProfile', (global, actions, payload) => {
   const {
@@ -109,7 +111,7 @@ addReducer('checkUsername', (global, actions, payload) => {
 
 addReducer('loadWallpapers', () => {
   (async () => {
-    const result = await callApi('fetchWallpapers', 0);
+    const result = await callApi('fetchWallpapers');
     if (!result) {
       return;
     }
@@ -235,7 +237,7 @@ addReducer('blockContact', (global, actions, payload) => {
 addReducer('unblockContact', (global, actions, payload) => {
   const { contactId } = payload!;
   let accessHash: string | undefined;
-  const isPrivate = isChatPrivate(contactId);
+  const isPrivate = isUserId(contactId);
 
   if (isPrivate) {
     const user = selectUser(global, contactId);
@@ -479,22 +481,22 @@ function buildInputPrivacyRules(global: GlobalState, {
   deniedIds,
 }: {
   visibility: PrivacyVisibility;
-  allowedIds: number[];
-  deniedIds: number[];
-}): IInputPrivacyRules {
+  allowedIds: string[];
+  deniedIds: string[];
+}): InputPrivacyRules {
   const {
     users: { byId: usersById },
     chats: { byId: chatsById },
   } = global;
 
-  const rules: IInputPrivacyRules = {
+  const rules: InputPrivacyRules = {
     visibility,
   };
-  let users: IInputPrivacyContact[];
-  let chats: IInputPrivacyContact[];
+  let users: InputPrivacyContact[];
+  let chats: InputPrivacyContact[];
 
-  const collectUsers = (userId: number) => {
-    if (!isChatPrivate(userId)) {
+  const collectUsers = (userId: string) => {
+    if (!isUserId(userId)) {
       return undefined;
     }
     const { id, accessHash } = usersById[userId] || {};
@@ -505,8 +507,8 @@ function buildInputPrivacyRules(global: GlobalState, {
     return { id, accessHash };
   };
 
-  const collectChats = (userId: number) => {
-    if (isChatPrivate(userId)) {
+  const collectChats = (userId: string) => {
+    if (isUserId(userId)) {
       return undefined;
     }
     const chat = chatsById[userId];
@@ -515,8 +517,8 @@ function buildInputPrivacyRules(global: GlobalState, {
   };
 
   if (visibility === 'contacts' || visibility === 'nobody') {
-    users = allowedIds.map(collectUsers).filter(Boolean) as IInputPrivacyContact[];
-    chats = allowedIds.map(collectChats).filter(Boolean) as IInputPrivacyContact[];
+    users = allowedIds.map(collectUsers).filter(Boolean) as InputPrivacyContact[];
+    chats = allowedIds.map(collectChats).filter(Boolean) as InputPrivacyContact[];
 
     if (users.length > 0) {
       rules.allowedUsers = users;
@@ -527,8 +529,8 @@ function buildInputPrivacyRules(global: GlobalState, {
   }
 
   if (visibility === 'everybody' || visibility === 'contacts') {
-    users = deniedIds.map(collectUsers).filter(Boolean) as IInputPrivacyContact[];
-    chats = deniedIds.map(collectChats).filter(Boolean) as IInputPrivacyContact[];
+    users = deniedIds.map(collectUsers).filter(Boolean) as InputPrivacyContact[];
+    chats = deniedIds.map(collectChats).filter(Boolean) as InputPrivacyContact[];
 
     if (users.length > 0) {
       rules.blockedUsers = users;
@@ -561,6 +563,42 @@ addReducer('updateContentSettings', (global, actions, payload) => {
     const result = await callApi('updateContentSettings', payload);
     if (!result) {
       setGlobal(replaceSettings(getGlobal(), { isSensitiveEnabled: !payload }));
+    }
+  })();
+});
+
+addReducer('loadCountryList', (global, actions, payload = {}) => {
+  let { langCode } = payload;
+  if (!langCode) langCode = global.settings.byKey.language;
+
+  (async () => {
+    const countryList = await callApi('fetchCountryList', { langCode });
+    if (!countryList) return;
+
+    setGlobal({
+      ...getGlobal(),
+      countryList,
+    });
+  })();
+});
+
+addReducer('ensureTimeFormat', (global, actions) => {
+  if (global.authNearestCountry) {
+    const timeFormat = COUNTRIES_WITH_12H_TIME_FORMAT.has(global.authNearestCountry.toUpperCase()) ? '12h' : '24h';
+    actions.setSettingOption({ timeFormat });
+    setTimeFormat(timeFormat);
+  }
+
+  (async () => {
+    if (getGlobal().settings.byKey.wasTimeFormatSetManually) {
+      return;
+    }
+
+    const nearestCountryCode = await callApi('fetchNearestCountry');
+    if (nearestCountryCode) {
+      const timeFormat = COUNTRIES_WITH_12H_TIME_FORMAT.has(nearestCountryCode.toUpperCase()) ? '12h' : '24h';
+      actions.setSettingOption({ timeFormat });
+      setTimeFormat(timeFormat);
     }
   })();
 });

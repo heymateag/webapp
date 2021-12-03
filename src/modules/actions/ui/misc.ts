@@ -17,6 +17,22 @@ addReducer('toggleChatInfo', (global) => {
   };
 });
 
+addReducer('setLeftColumnWidth', (global, actions, payload) => {
+  const leftColumnWidth = payload;
+
+  return {
+    ...global,
+    leftColumnWidth,
+  };
+});
+
+addReducer('resetLeftColumnWidth', (global) => {
+  return {
+    ...global,
+    leftColumnWidth: undefined,
+  };
+});
+
 addReducer('toggleManagement', (global): GlobalState | undefined => {
   const { chatId } = selectCurrentMessageList(global) || {};
 
@@ -108,7 +124,7 @@ addReducer('addRecentSticker', (global, action, payload) => {
       stickers: {
         ...global.stickers,
         recent: {
-          hash: 0,
+          hash: '0',
           stickers: [sticker],
         },
       },

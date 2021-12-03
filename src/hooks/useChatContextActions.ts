@@ -4,8 +4,9 @@ import { getDispatch } from '../lib/teact/teactn';
 import { ApiChat, ApiUser } from '../api/types';
 
 import {
-  isChatArchived, getCanDeleteChat, isChatPrivate, isChatChannel,
+  isChatArchived, getCanDeleteChat, isUserId, isChatChannel,
 } from '../modules/helpers';
+import { compact } from '../util/iteratees';
 import useLang from './useLang';
 
 export default ({
@@ -26,6 +27,8 @@ export default ({
   isMuted?: boolean;
 }, isInSearch = false) => {
   const lang = useLang();
+
+  const { isSelf } = privateChatUser || {};
 
   return useMemo(() => {
     if (!chat) {
@@ -78,7 +81,7 @@ export default ({
       : { title: lang('Archive'), icon: 'archive', handler: () => toggleChatArchived({ id: chat.id }) };
 
     const actionDelete = {
-      title: isChatPrivate(chat.id)
+      title: isUserId(chat.id)
         ? lang('Delete')
         : lang(getCanDeleteChat(chat)
           ? 'DeleteChat'
@@ -88,17 +91,15 @@ export default ({
       handler: handleDelete,
     };
 
-    return [
+    const isInFolder = folderId !== undefined;
+
+    return compact([
       actionAddToFolder,
       actionUnreadMark,
       actionPin,
-      ...(!privateChatUser?.isSelf ? [
-        actionMute,
-        actionArchive,
-      ] : []),
+      !isSelf && actionMute,
+      !isSelf && !isInFolder && actionArchive,
       actionDelete,
-    ];
-  }, [
-    chat, isPinned, lang, isInSearch, isMuted, handleDelete, handleChatFolderChange, privateChatUser?.isSelf, folderId,
-  ]);
+    ]);
+  }, [chat, lang, handleChatFolderChange, isPinned, isInSearch, isMuted, handleDelete, folderId, isSelf]);
 };

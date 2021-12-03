@@ -3,7 +3,7 @@ import React, {
 } from '../../lib/teact/teact';
 import { getGlobal, withGlobal } from '../../lib/teact/teactn';
 
-import { AudioOrigin, LangCode } from '../../types';
+import { LangCode } from '../../types';
 import { GlobalActions } from '../../global/types';
 import { ApiMessage } from '../../api/types';
 
@@ -18,6 +18,7 @@ import {
   selectIsForwardModalOpen,
   selectIsMediaViewerOpen,
   selectIsRightColumnShown,
+  selectIsServiceChatReady,
 } from '../../modules/selectors';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import buildClassName from '../../util/buildClassName';
@@ -36,17 +37,20 @@ import MiddleColumn from '../middle/MiddleColumn';
 import RightColumn from '../right/RightColumn';
 import MediaViewer from '../mediaViewer/MediaViewer.async';
 import AudioPlayer from '../middle/AudioPlayer';
+import DownloadManager from './DownloadManager';
 import Notifications from './Notifications.async';
 import Dialogs from './Dialogs.async';
 import ForwardPicker from './ForwardPicker.async';
 import SafeLinkModal from './SafeLinkModal.async';
 import HistoryCalendar from './HistoryCalendar.async';
 import StickerSetModal from '../common/StickerSetModal.async';
+import GroupCall from '../calls/group/GroupCall.async';
+import ActiveCallHeader from '../calls/ActiveCallHeader.async';
+import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
 
 import './Main.scss';
 
 type StateProps = {
-  animationLevel: number;
   lastSyncTime?: number;
   isLeftColumnShown: boolean;
   isRightColumnShown: boolean;
@@ -55,17 +59,22 @@ type StateProps = {
   hasNotifications: boolean;
   hasDialogs: boolean;
   audioMessage?: ApiMessage;
-  audioOrigin?: AudioOrigin;
   safeLinkModalUrl?: string;
   isHistoryCalendarOpen: boolean;
   shouldSkipHistoryAnimations?: boolean;
-  language?: LangCode;
   openedStickerSetShortName?: string;
+  activeGroupCallId?: string;
+  isServiceChatReady?: boolean;
+  animationLevel: number;
+  language?: LangCode;
+  wasTimeFormatSetManually?: boolean;
+  isCallFallbackConfirmOpen: boolean;
 };
 
 type DispatchProps = Pick<GlobalActions, (
   'loadAnimatedEmojis' | 'loadNotificationSettings' | 'loadNotificationExceptions' | 'updateIsOnline' |
-  'loadTopInlineBots' | 'loadEmojiKeywords' | 'openStickerSetShortName' | 'loadCountryList'
+  'loadTopInlineBots' | 'loadEmojiKeywords' | 'openStickerSetShortName' |
+  'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification'
 )>;
 
 const NOTIFICATION_INTERVAL = 1000;
@@ -81,16 +90,19 @@ const Main: FC<StateProps & DispatchProps> = ({
   isRightColumnShown,
   isMediaViewerOpen,
   isForwardModalOpen,
-  animationLevel,
   hasNotifications,
   hasDialogs,
   audioMessage,
-  audioOrigin,
+  activeGroupCallId,
   safeLinkModalUrl,
   isHistoryCalendarOpen,
   shouldSkipHistoryAnimations,
-  language,
   openedStickerSetShortName,
+  isServiceChatReady,
+  animationLevel,
+  language,
+  wasTimeFormatSetManually,
+  isCallFallbackConfirmOpen,
   loadAnimatedEmojis,
   loadNotificationSettings,
   loadNotificationExceptions,
@@ -98,7 +110,9 @@ const Main: FC<StateProps & DispatchProps> = ({
   loadTopInlineBots,
   loadEmojiKeywords,
   loadCountryList,
+  ensureTimeFormat,
   openStickerSetShortName,
+  checkVersionNotification,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
@@ -126,6 +140,18 @@ const Main: FC<StateProps & DispatchProps> = ({
     lastSyncTime, loadAnimatedEmojis, loadNotificationExceptions, loadNotificationSettings, updateIsOnline,
     loadTopInlineBots, loadEmojiKeywords, loadCountryList, language,
   ]);
+
+  useEffect(() => {
+    if (lastSyncTime && isServiceChatReady) {
+      checkVersionNotification();
+    }
+  }, [lastSyncTime, isServiceChatReady, checkVersionNotification]);
+
+  useEffect(() => {
+    if (lastSyncTime && !wasTimeFormatSetManually) {
+      ensureTimeFormat();
+    }
+  }, [lastSyncTime, wasTimeFormatSetManually, ensureTimeFormat]);
 
   useEffect(() => {
     if (lastSyncTime && LOCATION_HASH.startsWith('#?tgaddr=')) {
@@ -244,7 +270,7 @@ const Main: FC<StateProps & DispatchProps> = ({
       <ForwardPicker isOpen={isForwardModalOpen} />
       <Notifications isOpen={hasNotifications} />
       <Dialogs isOpen={hasDialogs} />
-      {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} origin={audioOrigin} noUi />}
+      {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} noUi />}
       <SafeLinkModal url={safeLinkModalUrl} />
       <HistoryCalendar isOpen={isHistoryCalendarOpen} />
       <StickerSetModal
@@ -252,6 +278,14 @@ const Main: FC<StateProps & DispatchProps> = ({
         onClose={handleStickerSetModalClose}
         stickerSetShortName={openedStickerSetShortName}
       />
+      {activeGroupCallId && (
+        <>
+          <GroupCall groupCallId={activeGroupCallId} />
+          <ActiveCallHeader groupCallId={activeGroupCallId} />
+        </>
+      )}
+      <DownloadManager />
+      <CallFallbackConfirm isOpen={isCallFallbackConfirmOpen} />
     </div>
   );
 };
@@ -279,13 +313,13 @@ function updatePageTitle(nextTitle: string) {
 
 export default memo(withGlobal(
   (global): StateProps => {
-    const { chatId: audioChatId, messageId: audioMessageId, origin } = global.audioPlayer;
+    const { settings: { byKey: { animationLevel, language, wasTimeFormatSetManually } } } = global;
+    const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
 
     return {
-      animationLevel: global.settings.byKey.animationLevel,
       lastSyncTime: global.lastSyncTime,
       isLeftColumnShown: global.isLeftColumnShown,
       isRightColumnShown: selectIsRightColumnShown(global),
@@ -294,16 +328,21 @@ export default memo(withGlobal(
       hasNotifications: Boolean(global.notifications.length),
       hasDialogs: Boolean(global.dialogs.length),
       audioMessage,
-      audioOrigin: origin,
       safeLinkModalUrl: global.safeLinkModalUrl,
       isHistoryCalendarOpen: Boolean(global.historyCalendarSelectedAt),
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
-      language: global.settings.byKey.language,
       openedStickerSetShortName: global.openedStickerSetShortName,
+      isServiceChatReady: selectIsServiceChatReady(global),
+      activeGroupCallId: global.groupCalls.activeGroupCallId,
+      animationLevel,
+      language,
+      wasTimeFormatSetManually,
+      isCallFallbackConfirmOpen: Boolean(global.groupCalls.isFallbackConfirmOpen),
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
-    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList',
+    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList', 'ensureTimeFormat',
+    'checkVersionNotification',
   ]),
 )(Main));

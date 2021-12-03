@@ -4,7 +4,9 @@ import {
 import { ApiMessage, ApiThreadInfo, MAIN_THREAD_ID } from '../../api/types';
 import { FocusDirection } from '../../types';
 
-import { IS_TEST, MESSAGE_LIST_SLICE, MESSAGE_LIST_VIEWPORT_LIMIT } from '../../config';
+import {
+  IS_TEST, MESSAGE_LIST_SLICE, MESSAGE_LIST_VIEWPORT_LIMIT, TMP_CHAT_ID,
+} from '../../config';
 import {
   selectListedIds,
   selectChatMessages,
@@ -23,8 +25,6 @@ import {
   areSortedArraysEqual, omit, pickTruthy, unique,
 } from '../../util/iteratees';
 
-const TMP_CHAT_ID = -1;
-
 type MessageStoreSections = {
   byId: Record<number, ApiMessage>;
   threadsById: Record<number, Thread>;
@@ -32,7 +32,7 @@ type MessageStoreSections = {
 
 export function updateCurrentMessageList(
   global: GlobalState,
-  chatId: number | undefined,
+  chatId: string | undefined,
   threadId: number = MAIN_THREAD_ID,
   type: MessageListType = 'thread',
   shouldReplaceHistory?: boolean,
@@ -63,14 +63,14 @@ export function updateCurrentMessageList(
   };
 }
 
-function replaceChatMessages(global: GlobalState, chatId: number, newById: Record<number, ApiMessage>): GlobalState {
+function replaceChatMessages(global: GlobalState, chatId: string, newById: Record<number, ApiMessage>): GlobalState {
   return updateMessageStore(global, chatId, {
     byId: newById,
   });
 }
 
 function updateThread(
-  global: GlobalState, chatId: number, threadId: number, threadUpdate: Partial<Thread>,
+  global: GlobalState, chatId: string, threadId: number, threadUpdate: Partial<Thread>,
 ): GlobalState {
   const current = global.messages.byChatId[chatId];
 
@@ -86,7 +86,7 @@ function updateThread(
 }
 
 function updateMessageStore(
-  global: GlobalState, chatId: number, update: Partial<MessageStoreSections>,
+  global: GlobalState, chatId: string, update: Partial<MessageStoreSections>,
 ): GlobalState {
   const current = global.messages.byChatId[chatId] || { byId: {}, threadsById: {} };
 
@@ -106,7 +106,7 @@ function updateMessageStore(
 }
 
 export function replaceThreadParam<T extends keyof Thread>(
-  global: GlobalState, chatId: number, threadId: number, paramName: T, newValue: Thread[T] | undefined,
+  global: GlobalState, chatId: string, threadId: number, paramName: T, newValue: Thread[T] | undefined,
 ) {
   return updateThread(global, chatId, threadId, { [paramName]: newValue });
 }
@@ -121,9 +121,9 @@ export function addMessages(
     messagesByChatId[message.chatId][message.id] = message;
 
     return messagesByChatId;
-  }, {} as Record<number, Record<number, ApiMessage>>);
+  }, {} as Record<string, Record<number, ApiMessage>>);
 
-  Object.keys(addedByChatId).map(Number).forEach((chatId) => {
+  Object.keys(addedByChatId).forEach((chatId) => {
     global = addChatMessagesById(global, chatId, addedByChatId[chatId]);
   });
 
@@ -131,7 +131,7 @@ export function addMessages(
 }
 
 export function addChatMessagesById(
-  global: GlobalState, chatId: number, newById: Record<number, ApiMessage>,
+  global: GlobalState, chatId: string, newById: Record<number, ApiMessage>,
 ): GlobalState {
   const byId = selectChatMessages(global, chatId);
 
@@ -146,7 +146,7 @@ export function addChatMessagesById(
 }
 
 export function updateChatMessage(
-  global: GlobalState, chatId: number, messageId: number, messageUpdate: Partial<ApiMessage>,
+  global: GlobalState, chatId: string, messageId: number, messageUpdate: Partial<ApiMessage>,
 ): GlobalState {
   const byId = selectChatMessages(global, chatId) || {};
   const message = byId[messageId];
@@ -166,7 +166,7 @@ export function updateChatMessage(
 }
 
 export function updateScheduledMessage(
-  global: GlobalState, chatId: number, messageId: number, messageUpdate: Partial<ApiMessage>,
+  global: GlobalState, chatId: string, messageId: number, messageUpdate: Partial<ApiMessage>,
 ): GlobalState {
   const byId = selectScheduledMessages(global, chatId) || {};
   const message = byId[messageId];
@@ -182,12 +182,12 @@ export function updateScheduledMessage(
   return replaceScheduledMessages(global, chatId, {
     ...byId,
     [messageId]: updatedMessage,
-  }, undefined);
+  });
 }
 
 export function deleteChatMessages(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   messageIds: number[],
 ): GlobalState {
   const byId = selectChatMessages(global, chatId);
@@ -267,7 +267,7 @@ export function deleteChatMessages(
 
 export function deleteChatScheduledMessages(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   messageIds: number[],
 ): GlobalState {
   const byId = selectScheduledMessages(global, chatId);
@@ -286,14 +286,14 @@ export function deleteChatScheduledMessages(
     global = replaceThreadParam(global, chatId, MAIN_THREAD_ID, 'scheduledIds', scheduledIds);
   }
 
-  global = replaceScheduledMessages(global, chatId, newById, undefined);
+  global = replaceScheduledMessages(global, chatId, newById);
 
   return global;
 }
 
 export function updateListedIds(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   idsUpdate: number[],
 ): GlobalState {
@@ -314,7 +314,7 @@ export function updateListedIds(
 
 export function updateOutlyingIds(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   idsUpdate: number[],
 ): GlobalState {
@@ -339,7 +339,7 @@ function orderHistoryIds(listedIds: number[]) {
 
 export function addViewportId(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   newId: number,
 ): GlobalState {
@@ -362,23 +362,24 @@ export function addViewportId(
 
 export function safeReplaceViewportIds(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   newViewportIds: number[],
 ): GlobalState {
-  const viewportIds = selectViewportIds(global, chatId, threadId) || [];
+  const currentIds = selectViewportIds(global, chatId, threadId) || [];
+  const newIds = orderHistoryIds(newViewportIds);
 
   return replaceThreadParam(
     global,
     chatId,
     threadId,
     'viewportIds',
-    areSortedArraysEqual(viewportIds, newViewportIds) ? viewportIds : newViewportIds,
+    areSortedArraysEqual(currentIds, newIds) ? currentIds : newIds,
   );
 }
 
 export function updateThreadInfo(
-  global: GlobalState, chatId: number, threadId: number, update: Partial<ApiThreadInfo> | undefined,
+  global: GlobalState, chatId: string, threadId: number, update: Partial<ApiThreadInfo> | undefined,
 ): GlobalState {
   const newThreadInfo = {
     ...(selectThreadInfo(global, chatId, threadId) as ApiThreadInfo),
@@ -393,7 +394,7 @@ export function updateThreadInfo(
 }
 
 export function updateThreadInfos(
-  global: GlobalState, chatId: number, updates: Partial<ApiThreadInfo>[],
+  global: GlobalState, chatId: string, updates: Partial<ApiThreadInfo>[],
 ): GlobalState {
   updates.forEach((update) => {
     global = updateThreadInfo(global, update.chatId!, update.threadId!, update);
@@ -403,16 +404,15 @@ export function updateThreadInfos(
 }
 
 export function replaceScheduledMessages(
-  global: GlobalState, chatId: number, newById: Record<number, ApiMessage>, hash: number | undefined,
+  global: GlobalState, chatId: string, newById: Record<number, ApiMessage>,
 ): GlobalState {
   return updateScheduledMessages(global, chatId, {
     byId: newById,
-    hash,
   });
 }
 
 function updateScheduledMessages(
-  global: GlobalState, chatId: number, update: Partial<{ byId: Record<number, ApiMessage>; hash: number }>,
+  global: GlobalState, chatId: string, update: Partial<{ byId: Record<number, ApiMessage> }>,
 ): GlobalState {
   const current = global.scheduledMessages.byChatId[chatId] || { byId: {}, hash: 0 };
 
@@ -431,7 +431,7 @@ function updateScheduledMessages(
 }
 
 export function updateFocusedMessage(
-  global: GlobalState, chatId?: number, messageId?: number, noHighlight = false, isResizingContainer = false,
+  global: GlobalState, chatId?: string, messageId?: number, noHighlight = false, isResizingContainer = false,
 ): GlobalState {
   return {
     ...global,
@@ -459,7 +459,7 @@ export function updateFocusDirection(
 
 export function enterMessageSelectMode(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   messageId?: number | number[],
 ): GlobalState {
   const messageIds = messageId ? Array.prototype.concat([], messageId) : [];
@@ -474,7 +474,7 @@ export function enterMessageSelectMode(
 
 export function toggleMessageSelection(
   global: GlobalState,
-  chatId: number,
+  chatId: string,
   threadId: number,
   messageListType: MessageListType,
   messageId: number,
@@ -532,7 +532,7 @@ export function exitMessageSelectMode(global: GlobalState): GlobalState {
 export function updateThreadUnreadFromForwardedMessage(
   global: GlobalState,
   originMessage: ApiMessage,
-  chatId: number,
+  chatId: string,
   lastMessageId: number,
   isDeleting?: boolean,
 ) {

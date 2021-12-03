@@ -7,19 +7,19 @@ import { DRAFT_DEBOUNCE, EDITABLE_INPUT_ID } from '../../../../config';
 import usePrevious from '../../../../hooks/usePrevious';
 import { debounce } from '../../../../util/schedulers';
 import focusEditableElement from '../../../../util/focusEditableElement';
-import parseMessageInput from '../helpers/parseMessageInput';
+import parseMessageInput from '../../../../util/parseMessageInput';
 import getMessageTextAsHtml from '../helpers/getMessageTextAsHtml';
 import useBackgroundMode from '../../../../hooks/useBackgroundMode';
 import useBeforeUnload from '../../../../hooks/useBeforeUnload';
 import { IS_TOUCH_ENV } from '../../../../util/environment';
 
 // Used to avoid running debounced callbacks when chat changes.
-let currentChatId: number | undefined;
+let currentChatId: string | undefined;
 let currentThreadId: number | undefined;
 
 export default (
   draft: ApiFormattedText | undefined,
-  chatId: number,
+  chatId: string,
   threadId: number,
   html: string,
   htmlRef: { current: string },
@@ -28,7 +28,7 @@ export default (
   saveDraft: GlobalActions['saveDraft'],
   clearDraft: GlobalActions['clearDraft'],
 ) => {
-  const updateDraft = useCallback((draftChatId: number, draftThreadId: number) => {
+  const updateDraft = useCallback((draftChatId: string, draftThreadId: number) => {
     if (htmlRef.current.length && !editedMessage) {
       saveDraft({ chatId: draftChatId, threadId: draftThreadId, draft: parseMessageInput(htmlRef.current!) });
     } else {

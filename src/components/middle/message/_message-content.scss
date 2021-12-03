@@ -260,6 +260,14 @@
     }
   }
 
+  body.is-ios &.has-solid-background {
+    padding-bottom: 0.4375rem;
+  }
+
+  body.is-ios .Message.own &.has-solid-background {
+    padding-left: 0.625rem;
+  }
+
   &:not(.has-appendix) .svg-appendix {
     display: none;
   }
@@ -335,6 +343,10 @@
   &.audio {
     min-width: 20rem;
     padding: .5rem .5rem .8125rem !important;
+
+    @media (max-width: 600px) {
+      min-width: 17rem;
+    }
 
     .Audio + .text-content {
       margin-top: .25rem;
@@ -425,6 +437,10 @@
   &.is-reply .Album {
     margin-left: -0.5rem;
     margin-right: -0.5rem;
+
+    body.is-ios .Message.own & {
+      margin-left: -0.625rem;
+    }
   }
 
   &.text .media-inner {
@@ -437,12 +453,20 @@
   .message-title ~ .media-inner {
     margin-top: 0.375rem;
     margin-bottom: -0.375rem;
+
+    body.is-ios .Message.own & {
+      margin-bottom: -0.4375rem;
+    }
   }
 
   // Moved below .is-reply to overwrite its styles
   &.text .media-inner,
   &.text .Album {
     margin-bottom: 0.375rem;
+
+    body.is-ios .Message.own & {
+      margin-bottom: 0.375rem;
+    }
   }
 
   .media-loading {
@@ -479,6 +503,14 @@
       border-radius: 50%;
       background: rgba(black, 0.25);
     }
+
+    &.opacity-transition {
+      transition: opacity .15s ease;
+
+      &:not(.open) {
+        opacity: 0;
+      }
+    }
   }
 
   .icon-download {
@@ -490,7 +522,7 @@
   }
 
   .message-media-duration,
-  .message-upload-progress {
+  .message-transfer-progress {
     background: rgba(0, 0, 0, .25);
     color: #fff;
     font-size: 0.75rem;
@@ -501,9 +533,10 @@
     padding: 0 .375rem;
     border-radius: .75rem;
     line-height: 1.125rem;
+    user-select: none;
   }
 
-  .message-media-duration .icon-muted-chat {
+  .message-media-duration .icon-muted {
     vertical-align: -.1875rem;
     margin-left: .375rem;
     font-size: 1.0625rem;
@@ -586,6 +619,14 @@
   &.emoji-only {
     .text-content {
       margin-bottom: 0;
+      text-shadow: 1px 1px 0 white, -1px -1px 0 white, -1px 1px 0 white, 1px -1px 0 white;
+      img.emoji {
+        filter: drop-shadow(1px 1px 0 white) drop-shadow(-1px 1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px -1px 0 white);
+      }
+
+      .MessageMeta {
+        text-shadow: none;
+      }
     }
   }
 
@@ -628,6 +669,7 @@
     .emoji {
       width: 4rem;
       height: 4rem;
+      margin-right: 0.375rem;
     }
   }
 
@@ -647,6 +689,7 @@
     .emoji {
       width: 3rem;
       height: 3rem;
+      margin-right: 0.375rem;
     }
   }
 
@@ -676,6 +719,8 @@
 }
 
 .forwarded-message {
+  .message-content.contact &,
+  .message-content.voice &,
   .message-content.poll & {
     // MessageOutgoingStatus's icon needs more space
     margin-bottom: 0.5rem;

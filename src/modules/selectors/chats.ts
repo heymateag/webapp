@@ -2,13 +2,15 @@ import { ApiChat, MAIN_THREAD_ID } from '../../api/types';
 import { GlobalState } from '../../global/types';
 
 import {
-  getPrivateChatUserId, isChatChannel, isChatPrivate, isHistoryClearMessage, isUserBot, isUserOnline, selectIsChatMuted,
+  getPrivateChatUserId, isChatChannel, isUserId, isHistoryClearMessage, isUserBot, isUserOnline, selectIsChatMuted,
 } from '../helpers';
 import { selectUser } from './users';
-import { ALL_FOLDER_ID, ARCHIVED_FOLDER_ID, MEMBERS_LOAD_SLICE } from '../../config';
+import {
+  ALL_FOLDER_ID, ARCHIVED_FOLDER_ID, MEMBERS_LOAD_SLICE, SERVICE_NOTIFICATIONS_USER_ID,
+} from '../../config';
 import { selectNotifyExceptions, selectNotifySettings } from './settings';
 
-export function selectChat(global: GlobalState, chatId: number): ApiChat | undefined {
+export function selectChat(global: GlobalState, chatId: string): ApiChat | undefined {
   return global.chats.byId[chatId];
 }
 
@@ -21,7 +23,7 @@ export function selectChatUser(global: GlobalState, chat: ApiChat) {
   return selectUser(global, userId);
 }
 
-export function selectIsChatWithSelf(global: GlobalState, chatId: number) {
+export function selectIsChatWithSelf(global: GlobalState, chatId: string) {
   return chatId === global.currentUserId;
 }
 
@@ -35,7 +37,7 @@ export function selectSupportChat(global: GlobalState) {
 }
 
 export function selectChatOnlineCount(global: GlobalState, chat: ApiChat) {
-  if (isChatPrivate(chat.id) || isChatChannel(chat) || !chat.fullInfo) {
+  if (isUserId(chat.id) || isChatChannel(chat) || !chat.fullInfo) {
     return undefined;
   }
 
@@ -52,7 +54,7 @@ export function selectChatOnlineCount(global: GlobalState, chat: ApiChat) {
   }, 0);
 }
 
-export function selectChatBot(global: GlobalState, chatId: number) {
+export function selectChatBot(global: GlobalState, chatId: string) {
   const chat = selectChat(global, chatId);
   const userId = chat && getPrivateChatUserId(chat);
   const user = userId && selectUser(global, userId);
@@ -63,7 +65,7 @@ export function selectChatBot(global: GlobalState, chatId: number) {
   return user;
 }
 
-export function selectIsChatBotNotStarted(global: GlobalState, chatId: number) {
+export function selectIsChatBotNotStarted(global: GlobalState, chatId: string) {
   const chat = selectChat(global, chatId);
   const bot = selectChatBot(global, chatId);
   if (!chat || !bot) {
@@ -87,7 +89,7 @@ export function selectAreActiveChatsLoaded(global: GlobalState): boolean {
   return Boolean(global.chats.listIds.active);
 }
 
-export function selectIsChatListed(global: GlobalState, chatId: number, type?: 'active' | 'archived'): boolean {
+export function selectIsChatListed(global: GlobalState, chatId: string, type?: 'active' | 'archived'): boolean {
   const { listIds } = global.chats;
   if (type) {
     const targetList = listIds[type];
@@ -97,7 +99,7 @@ export function selectIsChatListed(global: GlobalState, chatId: number, type?: '
   return Object.values(listIds).some((list) => list && list.includes(chatId));
 }
 
-export function selectChatListType(global: GlobalState, chatId: number): 'active' | 'archived' | undefined {
+export function selectChatListType(global: GlobalState, chatId: string): 'active' | 'archived' | undefined {
   const chat = selectChat(global, chatId);
   if (!chat || !selectIsChatListed(global, chatId)) {
     return undefined;
@@ -122,7 +124,7 @@ export function selectTotalChatCount(global: GlobalState, listType: 'active' | '
   return allChatsCount ? allChatsCount - archivedChatsCount : 0;
 }
 
-export function selectIsChatPinned(global: GlobalState, chatId: number, folderId = ALL_FOLDER_ID): boolean {
+export function selectIsChatPinned(global: GlobalState, chatId: string, folderId = ALL_FOLDER_ID): boolean {
   const { active, archived } = global.chats.orderedPinnedIds;
 
   if (folderId === ALL_FOLDER_ID) {
@@ -174,4 +176,8 @@ export function selectCountNotMutedUnread(global: GlobalState) {
 
     return acc;
   }, 0);
+}
+
+export function selectIsServiceChatReady(global: GlobalState) {
+  return Boolean(selectChat(global, SERVICE_NOTIFICATIONS_USER_ID));
 }

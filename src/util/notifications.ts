@@ -88,24 +88,26 @@ function checkIfNotificationsSupported() {
 const expirationTime = 12 * 60 * 60 * 1000; // 12 hours
 // Notification id is removed from soundPlayed cache after 3 seconds
 const soundPlayedDelay = 3 * 1000;
-const soundPlayed = new Set<number>();
+const soundPlayedIds = new Set<string>();
 
-async function playSound(id: number) {
-  if (soundPlayed.has(id)) return;
+export async function playNotifySound(id?: string, volume?: number) {
+  if (id !== undefined && soundPlayedIds.has(id)) return;
   const { notificationSoundVolume } = selectNotifySettings(getGlobal());
-  const volume = notificationSoundVolume / 10;
-  if (volume === 0) return;
+  const currentVolume = volume ? volume / 10 : notificationSoundVolume / 10;
+  if (currentVolume === 0) return;
 
-  const audio = new Audio('/notification.mp3');
-  audio.volume = volume;
+  const audio = new Audio('./notification.mp3');
+  audio.volume = currentVolume;
   audio.setAttribute('mozaudiochannel', 'notification');
-  audio.addEventListener('ended', () => {
-    soundPlayed.add(id);
-  }, { once: true });
+  if (id !== undefined) {
+    audio.addEventListener('ended', () => {
+      soundPlayedIds.add(id);
+    }, { once: true });
 
-  setTimeout(() => {
-    soundPlayed.delete(id);
-  }, soundPlayedDelay);
+    setTimeout(() => {
+      soundPlayedIds.delete(id);
+    }, soundPlayedDelay);
+  }
 
   try {
     await audio.play();
@@ -117,7 +119,7 @@ async function playSound(id: number) {
   }
 }
 
-export const playNotificationSound = debounce(playSound, 1000, true, false);
+export const playNotifySoundDebounced = debounce(playNotifySound, 1000, true, false);
 
 function checkIfShouldResubscribe(subscription: PushSubscription | null) {
   const global = getGlobal();
@@ -168,7 +170,7 @@ let areSettingsLoaded = false;
 
 // Load notification settings from the api
 async function loadNotificationSettings() {
-  if (areSettingsLoaded) return;
+  if (areSettingsLoaded) return selectNotifySettings(getGlobal());
   const [resultSettings, resultExceptions] = await Promise.all([
     callApi('fetchNotificationSettings', {
       serverTimeOffset: getGlobal().serverTimeOffset,
@@ -177,7 +179,7 @@ async function loadNotificationSettings() {
       serverTimeOffset: getGlobal().serverTimeOffset,
     }),
   ]);
-  if (!resultSettings) return;
+  if (!resultSettings) return selectNotifySettings(getGlobal());
 
   let global = replaceSettings(getGlobal(), resultSettings);
   if (resultExceptions) {
@@ -185,6 +187,7 @@ async function loadNotificationSettings() {
   }
   setGlobal(global);
   areSettingsLoaded = true;
+  return selectNotifySettings(global);
 }
 
 export async function subscribe() {
@@ -236,15 +239,15 @@ export async function subscribe() {
   }
 }
 
-function checkIfShouldNotify(chat: ApiChat, isActive: boolean) {
+function checkIfShouldNotify(chat: ApiChat) {
   if (!areSettingsLoaded) return false;
   const global = getGlobal();
   const isMuted = selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global));
   if (isMuted || chat.isNotJoined || !chat.isListed) {
     return false;
   }
-  // Dont show notification for active chat if client has focus
-  return !(isActive && document.hasFocus());
+
+  return !document.hasFocus();
 }
 
 function getNotificationContent(chat: ApiChat, message: ApiMessage) {
@@ -313,16 +316,20 @@ async function getAvatar(chat: ApiChat) {
   return mediaData;
 }
 
-export async function showNewMessageNotification({
+export async function notifyAboutNewMessage({
   chat,
   message,
-  isActiveChat,
-}: { chat: ApiChat; message: Partial<ApiMessage>; isActiveChat: boolean }) {
-  if (!checkIfNotificationsSupported()) return;
+}: { chat: ApiChat; message: Partial<ApiMessage> }) {
+  const { hasWebNotifications } = await loadNotificationSettings();
+  if (!checkIfShouldNotify(chat)) return;
+  const areNotificationsSupported = checkIfNotificationsSupported();
+  if (!hasWebNotifications || !areNotificationsSupported) {
+    // only play sound if web notifications are disabled
+    playNotifySoundDebounced(String(message.id) || chat.id);
+    return;
+  }
+  if (!areNotificationsSupported) return;
   if (!message.id) return;
-
-  await loadNotificationSettings();
-  if (!checkIfShouldNotify(chat, isActiveChat)) return;
 
   const {
     title,
@@ -351,7 +358,7 @@ export async function showNewMessageNotification({
       body,
       icon,
       badge: icon,
-      tag: message.id.toString(),
+      tag: String(message.id),
     };
 
     if ('vibrate' in navigator) {
@@ -373,12 +380,12 @@ export async function showNewMessageNotification({
 
     // Play sound when notification is displayed
     notification.onshow = () => {
-      playNotificationSound(message.id || chat.id);
+      playNotifySoundDebounced(String(message.id) || chat.id);
     };
   }
 }
 
-export function closeMessageNotifications(payload: { chatId: number; lastReadInboxMessageId?: number }) {
+export function closeMessageNotifications(payload: { chatId: string; lastReadInboxMessageId?: number }) {
   if (IS_TEST || !navigator.serviceWorker?.controller) return;
   navigator.serviceWorker.controller.postMessage({
     type: 'closeMessageNotifications',

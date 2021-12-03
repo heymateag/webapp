@@ -4,26 +4,31 @@ import {
 import { LangFn } from '../../hooks/useLang';
 
 import { LOCAL_MESSAGE_ID_BASE, SERVICE_NOTIFICATIONS_USER_ID, RE_LINK_TEMPLATE } from '../../config';
-import parseEmojiOnlyString from '../../components/common/helpers/parseEmojiOnlyString';
 import { getUserFullName } from './users';
-import { getChatTitle } from './chats';
+import { isWebpSupported, IS_OPUS_SUPPORTED } from '../../util/environment';
+import { getChatTitle, isUserId } from './chats';
+import parseEmojiOnlyString from '../../components/common/helpers/parseEmojiOnlyString';
 
 const CONTENT_NOT_SUPPORTED = 'The message is not supported on this version of Telegram';
 const RE_LINK = new RegExp(RE_LINK_TEMPLATE, 'i');
 const TRUNCATED_SUMMARY_LENGTH = 80;
 
-export type MessageKey = string; // `msg${number}-${number}`;
+export type MessageKey = `msg${string}-${number}`;
 
 export function getMessageKey(message: ApiMessage): MessageKey {
   const { chatId, id } = message;
 
-  return `msg${chatId}-${id}`;
+  return buildMessageKey(chatId, id);
+}
+
+export function buildMessageKey(chatId: string, msgId: number): MessageKey {
+  return `msg${chatId}-${msgId}`;
 }
 
 export function parseMessageKey(key: MessageKey) {
   const match = key.match(/^msg(-?\d+)-(\d+)/)!;
 
-  return { chatId: Number(match[1]), messageId: Number(match[2]) };
+  return { chatId: match[1], messageId: Number(match[2]) };
 }
 
 export function getMessageOriginalId(message: ApiMessage) {
@@ -204,15 +209,15 @@ export function isActionMessage(message: ApiMessage) {
 }
 
 export function isServiceNotificationMessage(message: ApiMessage) {
-  return message.chatId === SERVICE_NOTIFICATIONS_USER_ID && isMessageLocal(message);
+  return message.chatId === SERVICE_NOTIFICATIONS_USER_ID && Math.round(message.id) !== message.id;
 }
 
 export function isAnonymousOwnMessage(message: ApiMessage) {
-  return Boolean(message.senderId) && message.senderId! < 0 && isOwnMessage(message);
+  return Boolean(message.senderId) && !isUserId(message.senderId!) && isOwnMessage(message);
 }
 
 export function getSenderTitle(lang: LangFn, sender: ApiUser | ApiChat) {
-  return sender.id > 0 ? getUserFullName(sender as ApiUser) : getChatTitle(lang, sender as ApiChat);
+  return isUserId(sender.id) ? getUserFullName(sender as ApiUser) : getChatTitle(lang, sender as ApiChat);
 }
 
 export function getSendingState(message: ApiMessage) {
@@ -235,4 +240,40 @@ export function getMessageAudioCaption(message: ApiMessage) {
   const { audio, text } = message.content;
 
   return (audio && [audio.title, audio.performer].filter(Boolean).join(' — ')) || (text?.text);
+}
+
+export function getMessageContentFilename(message: ApiMessage) {
+  const { content } = message;
+
+  const video = content.webPage ? content.webPage.video : content.video;
+  const photo = content.webPage ? content.webPage.photo : content.photo;
+  const document = content.webPage ? content.webPage.document : content.document;
+  if (document) {
+    return document.fileName;
+  }
+
+  if (video) {
+    return video.fileName;
+  }
+
+  if (content.sticker) {
+    const extension = content.sticker.isAnimated ? 'tgs' : isWebpSupported() ? 'webp' : 'png';
+    return `${content.sticker.id}.${extension}`;
+  }
+
+  if (content.audio) {
+    return content.audio.fileName;
+  }
+
+  const baseFilename = getMessageKey(message);
+
+  if (photo) {
+    return `${baseFilename}.jpg`;
+  }
+
+  if (content.voice) {
+    return IS_OPUS_SUPPORTED ? `${baseFilename}.ogg` : `${baseFilename}.wav`;
+  }
+
+  return baseFilename;
 }

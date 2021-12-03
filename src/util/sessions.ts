@@ -24,7 +24,7 @@ export function hasStoredSession(withLegacy = false) {
   }
 }
 
-export function storeSession(sessionData: ApiSessionData, currentUserId?: number) {
+export function storeSession(sessionData: ApiSessionData, currentUserId?: string) {
   const { mainDcId, keys, hashes } = sessionData;
 
   localStorage.setItem(SESSION_USER_KEY, JSON.stringify({ dcID: mainDcId, id: currentUserId }));
@@ -32,9 +32,12 @@ export function storeSession(sessionData: ApiSessionData, currentUserId?: number
   Object.keys(keys).map(Number).forEach((dcId) => {
     localStorage.setItem(`dc${dcId}_auth_key`, JSON.stringify(keys[dcId]));
   });
-  Object.keys(hashes).map(Number).forEach((dcId) => {
-    localStorage.setItem(`dc${dcId}_hash`, JSON.stringify(hashes[dcId]));
-  });
+
+  if (hashes) {
+    Object.keys(hashes).map(Number).forEach((dcId) => {
+      localStorage.setItem(`dc${dcId}_hash`, JSON.stringify(hashes[dcId]));
+    });
+  }
 }
 
 export function clearStoredSession() {
@@ -121,7 +124,7 @@ export async function clearLegacySessions() {
 export function importTestSession() {
   const sessionJson = process.env.TEST_SESSION!;
   try {
-    const sessionData = JSON.parse(sessionJson) as ApiSessionData & { userId: number };
+    const sessionData = JSON.parse(sessionJson) as ApiSessionData & { userId: string };
     storeSession(sessionData, sessionData.userId);
   } catch (err) {
     if (DEBUG) {

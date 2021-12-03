@@ -4,14 +4,14 @@ import { ApiUpdate, MAIN_THREAD_ID } from '../../../api/types';
 
 import { ARCHIVED_FOLDER_ID, MAX_ACTIVE_PINNED_CHATS } from '../../../config';
 import { pick } from '../../../util/iteratees';
-import { closeMessageNotifications, showNewMessageNotification } from '../../../util/notifications';
+import { closeMessageNotifications, notifyAboutNewMessage } from '../../../util/notifications';
 import { updateAppBadge } from '../../../util/appBadge';
 import {
   updateChat,
-  replaceChatListIds,
   updateChatListIds,
   updateChatListType,
   replaceThreadParam,
+  leaveChat,
 } from '../../reducers';
 import {
   selectChat,
@@ -20,7 +20,6 @@ import {
   selectChatListType,
   selectCurrentMessageList,
   selectCountNotMutedUnread,
-  selectNotifySettings,
 } from '../../selectors';
 import { throttle } from '../../../util/schedulers';
 
@@ -70,19 +69,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
     }
 
     case 'updateChatLeave': {
-      const listType = selectChatListType(global, update.id);
-      if (!listType) {
-        break;
-      }
-
-      const { [listType]: listIds } = global.chats.listIds;
-
-      if (listIds) {
-        global = replaceChatListIds(global, listType, listIds.filter((listId) => listId !== update.id));
-      }
-
-      global = updateChat(global, update.id, { isNotJoined: true });
-      setGlobal(global);
+      setGlobal(leaveChat(global, update.id));
 
       break;
     }
@@ -143,15 +130,10 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       }
 
       updateAppBadge(selectCountNotMutedUnread(getGlobal()));
-
-      const { hasWebNotifications } = selectNotifySettings(global);
-      if (hasWebNotifications) {
-        showNewMessageNotification({
-          chat,
-          message,
-          isActiveChat,
-        });
-      }
+      notifyAboutNewMessage({
+        chat,
+        message,
+      });
 
       break;
     }
@@ -164,7 +146,7 @@ addReducer('apiUpdate', (global, actions, update: ApiUpdate) => {
       }
 
       ids.forEach((id) => {
-        const chatId = 'channelId' in update ? update.channelId : selectCommonBoxChatId(global, id);
+        const chatId = ('channelId' in update ? update.channelId : selectCommonBoxChatId(global, id))!;
         const chat = selectChat(global, chatId);
         if (chat?.unreadMentionsCount) {
           global = updateChat(global, chatId, {

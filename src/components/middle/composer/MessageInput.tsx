@@ -14,7 +14,7 @@ import focusEditableElement from '../../../util/focusEditableElement';
 import buildClassName from '../../../util/buildClassName';
 import { pick } from '../../../util/iteratees';
 import {
-  IS_ANDROID, IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV,
+  IS_ANDROID, IS_EMOJI_SUPPORTED, IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV,
 } from '../../../util/environment';
 import captureKeyboardListeners from '../../../util/captureKeyboardListeners';
 import useLayoutEffectWithPrevDeps from '../../../hooks/useLayoutEffectWithPrevDeps';
@@ -47,7 +47,7 @@ type OwnProps = {
 };
 
 type StateProps = {
-  currentChatId?: number;
+  currentChatId?: string;
   replyingToId?: number;
   noTabCapture?: boolean;
   messageSendKeyCombo?: ISettings['messageSendKeyCombo'];
@@ -242,7 +242,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
       e.target.removeEventListener('keyup', handleKeyUp);
     }
 
-    if (e.metaKey && !html.length) {
+    if (!html.length && (e.metaKey || e.ctrlKey)) {
       const targetIndexDelta = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : undefined;
       if (targetIndexDelta) {
         e.preventDefault();
@@ -265,7 +265,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         closeTextFormatter();
         onSend();
       }
-    } else if (e.key === 'ArrowUp' && !html.length && !e.metaKey && !e.altKey) {
+    } else if (e.key === 'ArrowUp' && !html.length && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault();
       editLastMessage();
     } else {
@@ -279,7 +279,12 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
     onUpdate(innerHTML === SAFARI_BR ? '' : innerHTML);
 
     // Reset focus on the input to remove any active styling when input is cleared
-    if (!IS_TOUCH_ENV && (!textContent || !textContent.length)) {
+    if (
+      !IS_TOUCH_ENV
+      && (!textContent || !textContent.length)
+      // When emojis are not supported, innerHTML contains an emoji img tag that doesn't exist in the textContext
+      && !(!IS_EMOJI_SUPPORTED && innerHTML.includes('emoji-small'))
+    ) {
       const selection = window.getSelection()!;
       if (selection) {
         inputRef.current!.blur();
@@ -393,6 +398,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         isOpen={isTextFormatterOpen}
         anchorPosition={textFormatterAnchorPosition}
         selectedRange={selectedRange}
+        setSelectedRange={setSelectedRange}
         onClose={handleCloseTextFormatter}
       />
       {forcedPlaceholder && <span className="forced-placeholder">{renderText(forcedPlaceholder!)}</span>}

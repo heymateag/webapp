@@ -14,7 +14,7 @@ import { ANIMATION_END_DELAY } from '../../../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import {
   getChatTitle,
-  isChatPrivate,
+  isUserId,
   isActionMessage,
   getPrivateChatUserId,
   getMessageAction,
@@ -51,12 +51,13 @@ import DeleteChatModal from '../../common/DeleteChatModal';
 import ListItem from '../../ui/ListItem';
 import Badge from './Badge';
 import ChatFolderModal from '../ChatFolderModal.async';
+import ChatCallStatus from './ChatCallStatus';
 
 import './Chat.scss';
 
 type OwnProps = {
   style?: string;
-  chatId: number;
+  chatId: string;
   folderId?: number;
   orderDiff: number;
   animationType: ChatAnimationTypes;
@@ -67,10 +68,10 @@ type StateProps = {
   chat?: ApiChat;
   isMuted?: boolean;
   privateChatUser?: ApiUser;
-  actionTargetUserIds?: number[];
-  usersById?: Record<number, ApiUser>;
+  actionTargetUserIds?: string[];
+  usersById?: Record<string, ApiUser>;
   actionTargetMessage?: ApiMessage;
-  actionTargetChatId?: number;
+  actionTargetChatId?: string;
   lastMessageSender?: ApiUser;
   lastMessageOutgoingStatus?: ApiMessageOutgoingStatus;
   draft?: ApiFormattedText;
@@ -264,7 +265,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const className = buildClassName(
     'Chat chat-item-clickable',
-    isChatPrivate(chatId) ? 'private' : 'group',
+    isUserId(chatId) ? 'private' : 'group',
     isSelected && 'selected',
   );
 
@@ -285,14 +286,20 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
           isSavedMessages={privateChatUser?.isSelf}
           lastSyncTime={lastSyncTime}
         />
+        {chat.isCallActive && chat.isCallNotEmpty && (
+          <ChatCallStatus isSelected={isSelected} isActive={animationLevel !== 0} />
+        )}
       </div>
       <div className="info">
         <div className="title">
           <h3>{renderText(getChatTitle(lang, chat, privateChatUser))}</h3>
           {chat.isVerified && <VerifiedIcon />}
-          {isMuted && <i className="icon-muted-chat" />}
+          {isMuted && <i className="icon-muted" />}
           {chat.lastMessage && (
-            <LastMessageMeta message={chat.lastMessage} outgoingStatus={lastMessageOutgoingStatus} />
+            <LastMessageMeta
+              message={chat.lastMessage}
+              outgoingStatus={lastMessageOutgoingStatus}
+            />
           )}
         </div>
         <div className="subtitle">

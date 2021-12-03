@@ -26,9 +26,8 @@ export {
 } from './messages';
 
 export {
-  fetchFullUser, fetchNearestCountry, fetchCountryList,
-  fetchTopUsers, fetchContactList, fetchUsers,
-  updateContact, deleteUser, fetchProfilePhotos,
+  fetchFullUser, fetchNearestCountry, fetchTopUsers, fetchContactList, fetchUsers,
+  addContact, updateContact, deleteUser, fetchProfilePhotos, fetchCommonChats,
 } from './users';
 
 export {
@@ -47,7 +46,7 @@ export {
   fetchAuthorizations, terminateAuthorization, terminateAllAuthorizations,
   fetchNotificationExceptions, fetchNotificationSettings, updateContactSignUpNotification, updateNotificationSettings,
   fetchLanguages, fetchLangPack, fetchPrivacySettings, setPrivacySettings, registerDevice, unregisterDevice,
-  updateIsOnline, fetchContentSettings, updateContentSettings, fetchLangStrings,
+  updateIsOnline, fetchContentSettings, updateContentSettings, fetchLangStrings, fetchCountryList,
 } from './settings';
 
 export {
@@ -61,3 +60,9 @@ export {
 export {
   validateRequestedInfo, sendPaymentForm, getPaymentForm, getReceipt,
 } from './payments';
+
+export {
+  getGroupCall, joinGroupCall, discardGroupCall, createGroupCall,
+  editGroupCallTitle, editGroupCallParticipant, exportGroupCallInvite, fetchGroupCallParticipants,
+  joinGroupCallPresentation, leaveGroupCall, leaveGroupCallPresentation, toggleGroupCallStartSubscription,
+} from './calls';

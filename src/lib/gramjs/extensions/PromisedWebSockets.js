@@ -65,21 +65,21 @@ class PromisedWebSockets {
         return toReturn;
     }
 
-    getWebSocketLink(ip, port) {
+    getWebSocketLink(ip, port, testServers) {
         if (port === 443) {
-            return `wss://${ip}:${port}/apiws`;
+            return `wss://${ip}:${port}/apiws${testServers ? '_test' : ''}`;
         } else {
-            return `ws://${ip}:${port}/apiws`;
+            return `ws://${ip}:${port}/apiws${testServers ? '_test' : ''}`;
         }
     }
 
-    connect(port, ip) {
+    connect(port, ip, testServers = false) {
         this.stream = Buffer.alloc(0);
         this.canRead = new Promise((resolve) => {
             this.resolveRead = resolve;
         });
         this.closed = false;
-        this.website = this.getWebSocketLink(ip, port);
+        this.website = this.getWebSocketLink(ip, port, testServers);
         this.client = new WebSocketClient(this.website, 'binary');
         return new Promise((resolve, reject) => {
             this.client.onopen = () => {
@@ -128,16 +128,13 @@ class PromisedWebSockets {
 
     receive() {
         this.client.onmessage = async (message) => {
-            const release = await mutex.acquire();
-            try {
+            await mutex.runExclusive(async () => {
                 const data = message.data instanceof ArrayBuffer
                     ? Buffer.from(message.data)
                     : Buffer.from(await new Response(message.data).arrayBuffer());
                 this.stream = Buffer.concat([this.stream, data]);
                 this.resolveRead(true);
-            } finally {
-                release();
-            }
+            });
         };
     }
 }

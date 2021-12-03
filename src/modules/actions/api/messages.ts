@@ -15,9 +15,12 @@ import {
 } from '../../../api/types';
 import { LoadMoreDirection } from '../../../types';
 
-import { MAX_MEDIA_FILES_FOR_ALBUM, MESSAGE_LIST_SLICE } from '../../../config';
+import { MAX_MEDIA_FILES_FOR_ALBUM, MESSAGE_LIST_SLICE, SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
+import { IS_IOS } from '../../../util/environment';
 import { callApi, cancelApiProgress } from '../../../api/gramjs';
-import { areSortedArraysIntersecting, buildCollectionByKey, split } from '../../../util/iteratees';
+import {
+  areSortedArraysIntersecting, buildCollectionByKey, split, unique,
+} from '../../../util/iteratees';
 import {
   addUsers,
   addChatMessagesById,
@@ -54,7 +57,7 @@ import {
   selectFirstUnreadId,
 } from '../../selectors';
 import { debounce, rafPromise } from '../../../util/schedulers';
-import { IS_IOS } from '../../../util/environment';
+import { isServiceNotificationMessage } from '../../helpers';
 
 const uploadProgressCallbacks = new Map<number, ApiOnProgress>();
 
@@ -482,15 +485,24 @@ addReducer('markMessageListRead', (global, actions, payload) => {
     return undefined;
   }
 
+  if (chatId === SERVICE_NOTIFICATIONS_USER_ID) {
+    global = {
+      ...global,
+      serviceNotifications: global.serviceNotifications.map((notification) => {
+        return notification.isUnread && notification.id <= maxId ? { ...notification, isUnread: false } : notification;
+      }),
+    };
+  }
+
   const viewportIds = selectViewportIds(global, chatId, threadId);
   const minId = selectFirstUnreadId(global, chatId, threadId);
   if (!viewportIds || !minId || !chat.unreadCount) {
-    return undefined;
+    return global;
   }
 
   const readCount = countSortedIds(viewportIds!, minId, maxId);
   if (!readCount) {
-    return undefined;
+    return global;
   }
 
   return updateChat(global, chatId, {
@@ -543,7 +555,7 @@ addReducer('loadPollOptionResults', (global, actions, payload) => {
   void loadPollOptionResults(chat, messageId, option, offset, limit, shouldResetVoters);
 });
 
-addReducer('forwardMessages', (global) => {
+addReducer('forwardMessages', (global, action, payload) => {
   const { fromChatId, messageIds, toChatId } = global.forwardMessages;
   const fromChat = fromChatId ? selectChat(global, fromChatId) : undefined;
   const toChat = toChatId ? selectChat(global, toChatId) : undefined;
@@ -553,9 +565,45 @@ addReducer('forwardMessages', (global) => {
       .map((id) => selectChatMessage(global, fromChatId, id)).filter<ApiMessage>(Boolean as any)
     : undefined;
 
-  if (fromChat && toChat && messages && messages.length) {
-    void forwardMessages(fromChat, toChat, messages);
+  if (!fromChat || !toChat || !messages) {
+    return;
   }
+
+  const { isSilent, scheduledAt } = payload;
+
+  const realMessages = messages.filter((m) => !isServiceNotificationMessage(m));
+  if (realMessages.length) {
+    void callApi('forwardMessages', {
+      fromChat,
+      toChat,
+      messages: realMessages,
+      serverTimeOffset: getGlobal().serverTimeOffset,
+      isSilent,
+      scheduledAt,
+    });
+  }
+
+  messages
+    .filter((m) => isServiceNotificationMessage(m))
+    .forEach((message) => {
+      const { text, entities } = message.content.text || {};
+      const { sticker, poll } = message.content;
+
+      void sendMessage({
+        chat: toChat,
+        text,
+        entities,
+        sticker,
+        poll,
+        isSilent,
+        scheduledAt,
+      });
+    });
+
+  setGlobal({
+    ...getGlobal(),
+    forwardMessages: {},
+  });
 });
 
 addReducer('loadScheduledHistory', (global, actions, payload) => {
@@ -565,9 +613,7 @@ addReducer('loadScheduledHistory', (global, actions, payload) => {
     return;
   }
 
-  const { hash } = global.scheduledMessages.byChatId[chat.id] || {};
-
-  void loadScheduledHistory(chat, hash);
+  void loadScheduledHistory(chat);
 });
 
 addReducer('sendScheduledMessages', (global, actions, payload) => {
@@ -663,10 +709,14 @@ async function loadViewportMessages(
     messages, users, chats, threadInfos,
   } = result;
 
-  const byId = buildCollectionByKey(messages, 'id');
-  const ids = Object.keys(byId).map(Number);
-
   let global = getGlobal();
+
+  const localMessages = chatId === SERVICE_NOTIFICATIONS_USER_ID
+    ? global.serviceNotifications.map(({ message }) => message)
+    : [];
+  const allMessages = ([] as ApiMessage[]).concat(messages, localMessages);
+  const byId = buildCollectionByKey(allMessages, 'id');
+  const ids = Object.keys(byId).map(Number);
 
   global = addChatMessagesById(global, chatId, byId);
   global = isOutlying
@@ -777,14 +827,16 @@ function getViewportSlice(
 
 async function sendMessage(params: {
   chat: ApiChat;
-  text: string;
-  entities: ApiMessageEntity[];
-  replyingTo: number;
-  attachment: ApiAttachment;
-  sticker: ApiSticker;
-  gif: ApiVideo;
-  poll: ApiNewPoll;
+  text?: string;
+  entities?: ApiMessageEntity[];
+  replyingTo?: number;
+  attachment?: ApiAttachment;
+  sticker?: ApiSticker;
+  gif?: ApiVideo;
+  poll?: ApiNewPoll;
   serverTimeOffset?: number;
+  isSilent?: boolean;
+  scheduledAt?: number;
 }) {
   let localId: number | undefined;
   const progressCallback = params.attachment ? (progress: number, messageLocalId: number) => {
@@ -830,24 +882,6 @@ async function sendMessage(params: {
   }
 }
 
-function forwardMessages(
-  fromChat: ApiChat,
-  toChat: ApiChat,
-  messages: ApiMessage[],
-) {
-  callApi('forwardMessages', {
-    fromChat,
-    toChat,
-    messages,
-    serverTimeOffset: getGlobal().serverTimeOffset,
-  });
-
-  setGlobal({
-    ...getGlobal(),
-    forwardMessages: {},
-  });
-}
-
 async function loadPollOptionResults(
   chat: ApiChat,
   messageId: number,
@@ -864,7 +898,6 @@ async function loadPollOptionResults(
     return;
   }
 
-  const isUnique = (v: number, i: number, a: number[]) => a.indexOf(v) === i;
   let global = getGlobal();
 
   global = addUsers(global, buildCollectionByKey(result.users, 'id'));
@@ -876,10 +909,10 @@ async function loadPollOptionResults(
       ...global.pollResults,
       voters: {
         ...voters,
-        [option]: [
+        [option]: unique([
           ...(!shouldResetVoters && voters && voters[option] ? voters[option] : []),
           ...(result && result.users.map((user) => user.id)),
-        ].filter(isUnique),
+        ]),
       },
       offsets: {
         ...(global.pollResults.offsets ? global.pollResults.offsets : {}),
@@ -918,19 +951,19 @@ async function loadPinnedMessages(chat: ApiChat) {
   setGlobal(global);
 }
 
-async function loadScheduledHistory(chat: ApiChat, historyHash?: number) {
-  const result = await callApi('fetchScheduledHistory', { chat, hash: historyHash });
+async function loadScheduledHistory(chat: ApiChat) {
+  const result = await callApi('fetchScheduledHistory', { chat });
   if (!result) {
     return;
   }
 
-  const { hash, messages } = result;
+  const { messages } = result;
 
   const byId = buildCollectionByKey(messages, 'id');
   const ids = Object.keys(byId).map(Number).sort((a, b) => b - a);
 
   let global = getGlobal();
-  global = replaceScheduledMessages(global, chat.id, byId, hash);
+  global = replaceScheduledMessages(global, chat.id, byId);
   global = replaceThreadParam(global, chat.id, MAIN_THREAD_ID, 'scheduledIds', ids);
   setGlobal(global);
 }

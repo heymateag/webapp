@@ -1,6 +1,6 @@
 {
   "name": "telegram-t",
-  "version": "1.15.0",
+  "version": "1.23.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "deploy:production": "npm run build:production && git add -A && git commit -a -m '[Build]' --no-verify && git push",
     "inc_version": "echo $((`cat .patch-version` + 1)) > .patch-version && echo \"$(node -p -e \"require('./package.json').version.match(/^\\d+\\.\\d+/)[0]\").$(cat .patch-version)\"",
     "perf:serve": "cross-env APP_ENV=perf parcel src/index-perf.html",
-    "lint": "eslint . --ext .ts,.tsx --ignore-pattern src/lib/gramjs",
+    "lint": "tsc && eslint . --ext .ts,.tsx --ignore-pattern src/lib/gramjs",
     "lint:fix": "npm run lint -- --fix",
     "gramjs:tl": "node ./src/lib/gramjs/tl/generateModules.js",
     "gramjs:lint:fix": "eslint ./src/lib/gramjs --ignore-path=src/lib/gramjs/.eslintignore --fix",
@@ -53,7 +53,7 @@
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "@typescript-eslint/parser": "^4.29.1",
     "@webpack-cli/serve": "^1.5.1",
-    "autoprefixer": "^10.3.1",
+    "autoprefixer": "^10.3.7",
     "babel-eslint": "^10.1.0",
     "babel-loader": "^8.2.2",
     "browserlist": "^1.0.1",
@@ -79,6 +79,7 @@
     "html-webpack-plugin": "^5.3.2",
     "husky": "^7.0.1",
     "jest": "^27.0.6",
+    "jest-raw-loader": "^1.0.1",
     "lint-staged": "^11.1.2",
     "mini-css-extract-plugin": "^2.2.0",
     "node-sass": "^6.0.1",
