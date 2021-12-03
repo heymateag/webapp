@@ -1,23 +1,21 @@
-import React, { FC, memo, useCallback, useState } from "teact/teact";
-import { GlobalActions, GlobalState } from "src/global/types";
+import React, {
+  FC, memo, useCallback, useState,
+} from 'teact/teact';
+import { withGlobal } from 'teact/teactn';
+import { GlobalActions, GlobalState } from 'src/global/types';
 
-import useLang from "../../../hooks/useLang";
-import "./ManageOffers.scss";
-import Button from "../../ui/Button";
-import TabList from "../../ui/TabList";
-import Transition from "../../ui/Transition";
+import useLang from '../../../hooks/useLang';
+import './ManageOffers.scss';
+import Button from '../../ui/Button';
+import TabList from '../../ui/TabList';
+import Transition from '../../ui/Transition';
 
 import MyOrders from './MyOrders/MyOrders';
-import Offer from "./Offer/Offer";
-import OnlineMetting from "./OnlineMeeting/OnlineMetting";
-import MyOrders from "./MyOrders/MyOrders";
-import { axiosService } from "../../../api/services/axiosService";
-import { HEYMATE_URL } from "../../../config";
-import { withGlobal } from "../../../lib/teact/teactn";
-import { pick } from "../../../util/iteratees";
+// import OnlineMetting from './OnlineMeeting/OnlineMetting';
+import { pick } from '../../../util/iteratees';
 
-type StateProps = Pick<GlobalState, "showHeymate">;
-type DispatchProps = Pick<GlobalActions, "setShowHeymate">;
+type StateProps = Pick<GlobalState, 'showHeymate'>;
+type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
 
 export type OwnProps = {
   onReset: () => void;
@@ -37,11 +35,11 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
-    { type: ManageOffer.MY_ORDERS, title: "My Orders" },
-    { type: ManageOffer.MY_OFFERS, title: "My Offers" },
+    { type: ManageOffer.MY_ORDERS, title: 'My Orders' },
+    { type: ManageOffer.MY_OFFERS, title: 'My Offers' },
   ];
   const [activeTab, setActiveTab] = useState<ManageOffer>(
-    ManageOffer.MY_ORDERS
+    ManageOffer.MY_ORDERS,
   );
   const handleSwitchTab = useCallback((index: number) => {
     setActiveTab(index);
@@ -59,7 +57,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
         >
           <i className="icon-arrow-left" />
         </Button>
-        <h3>{lang("ManageOffers")}</h3>
+        <h3>{lang('ManageOffers')}</h3>
       </div>
       <TabList
         activeTab={activeTab}
@@ -68,7 +66,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
       />
       <Transition
         className="full-content"
-        name={lang.isRtl ? "slide-reversed" : "slide"}
+        name={lang.isRtl ? 'slide-reversed' : 'slide'}
         renderCount={tabs.length}
         activeKey={activeTab}
       >
@@ -81,17 +79,14 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
                 <>
                   <span
                     className="page-caption"
-                    onClick={() =>
-                      setShowHeymate({ showHeymate: !showHeymate })
-                    }
+                    onClick={() => setShowHeymate({ showHeymate: !showHeymate })}
                   >
                     On Going
                   </span>
                   <div className="offer-scroll custom-scroll">
-                    <OnlineMetting />
+                    {/*<OnlineMetting />*/}
                   </div>
                 </>
-                <MyOrders scheduleType="MyOffers" />
               );
             default:
               return <div>ehsan</div>;
@@ -104,7 +99,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(
   withGlobal(
-    (global): StateProps => pick(global, ["showHeymate"]),
-    (setGlobal, actions): DispatchProps => pick(actions, ["setShowHeymate"])
-  )(ManageOffers)
+    (global): StateProps => pick(global, ['showHeymate']),
+    (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
+  )(ManageOffers),
 );
