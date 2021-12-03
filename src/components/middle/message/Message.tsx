@@ -763,10 +763,9 @@ const Message: FC<OwnProps & StateProps & DispatchProps> = ({
             </Button>
           ) : undefined}
           {withCommentButton && <CommentButton message={message} disabled={noComments} />}
-          {withAppendix && (
+          {withAppendix && !isHeymateMsg && (
             <div className="svg-appendix" dangerouslySetInnerHTML={isOwn ? APPENDIX_OWN : APPENDIX_NOT_OWN} />
           )}
-          {withAppendix && !isHeymateMsg && <div className="svg-appendix" ref={appendixRef} />}
         </div>
         {message.inlineButtons && (
           <InlineButtons message={message} onClick={clickInlineButton} />
