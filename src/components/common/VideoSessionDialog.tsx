@@ -1,9 +1,17 @@
 import React, {
-  FC, memo, useCallback, useEffect, useRef,
+  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'teact/teact';
-import Modal from '../ui/Modal';
+import VideoSDK from '@zoom/videosdk';
+// eslint-disable-next-line import/no-duplicates
 // @ts-ignore
-import state from '../left/manageOffers/ZoomSdkService/js/meeting/session/simple-state';
+import micIcon from '../../assets/microphone.svg';
+// @ts-ignore
+import videoIcon from '../../assets/video.svg';
+// @ts-ignore
+import screenshare from '../../assets/screenshare.svg';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
+import './VideoSessionDialog.scss';
 
 type OwnProps = {
   openModal: boolean;
@@ -32,6 +40,21 @@ const VideoSessionDialog : FC<OwnProps> = ({
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoCanvas = useRef<HTMLCanvasElement>(null);
+
+  const [isMuted, setIsMuted] = useState(false);
+
+  const [isButtonAlreadyClicked, setIsButtonAlreadyClicked] = useState(false);
+
+  const [isPreviewAudioConnected, setIsPreviewAudioConnected] = useState(false);
+
+  const audioTrack = useMemo(() => {
+    console.log('refresh');
+    return VideoSDK.createLocalAudioTrack();
+  }, []);
+
+  const videoTrack = useMemo(() => {
+    return VideoSDK.createLocalVideoTrack();
+  }, []);
 
   const handleCLoseDetailsModal = () => {
     onCloseModal();
@@ -72,21 +95,78 @@ const VideoSessionDialog : FC<OwnProps> = ({
     }
   }, [stream, zoomClient]);
 
-  useEffect(() => {
-    if (openModal) {
-      startVideo();
+  const toggleMuteUnmute = () => {
+    if (isMuted) {
+      audioTrack.mute();
+    } else {
+      audioTrack.unmute();
     }
-  }, [openModal, startVideo, stopVideo]);
+  };
+
+  const onSoundClick = async (event) => {
+    event.preventDefault();
+
+    if (!isButtonAlreadyClicked) {
+      // Blocks logic from executing again if already in progress
+      setIsButtonAlreadyClicked(true);
+
+      try {
+        if (!isPreviewAudioConnected) {
+          await audioTrack.start();
+          setIsPreviewAudioConnected(true);
+        }
+        setIsMuted(!isMuted);
+        await toggleMuteUnmute();
+      } catch (e) {
+        console.error('Error toggling mute', e);
+      }
+
+      setIsButtonAlreadyClicked(false);
+    } else {
+      console.log('=== WARNING: already toggling mic ===');
+    }
+  };
+
+  const initLeaveSessionClick = async () => {
+    try {
+      await zoomClient.leave();
+      onCloseModal();
+    } catch (e) {
+      console.error('Error leaving session', e);
+    }
+  };
+
   return (
     <Modal
       hasCloseButton
       isOpen={openModal}
       onClose={handleCLoseDetailsModal}
       onEnter={openModal ? handleCLoseDetailsModal : undefined}
-      className="VideoSessionDialog"
+      className="VideoSessionDialog video-session"
       title="Zoom Video"
     >
       <canvas ref={videoCanvas} width="640" height="360" />
+      <div className="meeting-control-layer">
+        <div className="meeting-option-buttons">
+          <div className="btn-box" onClick={onSoundClick}>
+            <img src={micIcon} alt="" />
+            <span>Mute</span>
+          </div>
+          <div className="btn-box">
+            <img src={screenshare} alt="" />
+            <span>Video</span>
+          </div>
+          <div className="btn-box">
+            <img src={videoIcon} alt="" />
+            <span>Share Screen</span>
+          </div>
+        </div>
+        <div className="leave-btn-holder">
+          <Button onClick={initLeaveSessionClick} size="tiny" color="hm-primary-red">
+            End
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 };

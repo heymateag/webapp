@@ -47,7 +47,7 @@ const Offer: FC<OwnProps> = ({
   });
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
 
-  const [zoomClient, setZoomClient] = useState<ClientType>();
+  const [zmClient, setZmClient] = useState<ClientType>();
 
   const [zoomStream, setZoomStream] = useState();
 
@@ -133,24 +133,25 @@ const Offer: FC<OwnProps> = ({
   };
 
   const joinMeeting = async () => {
-    const client = new ZoomClient('bouAzar', '5AR8pk', 'akbaram ?!');
-
+    const client = new ZoomClient('bouAzar', '5AR8pk', 'John Doe!');
+    setJoinMeetingLoader(true);
     await client.join();
 
-    setZoomClient(client.zmClient);
-    if (client.mediaStream) {
-      setZoomStream(client.mediaStream);
-      setOpenVideoDialog(true);
-      setJoinMeetingLoader(false);
-    } else {
-      alert('unable to join !');
-      setJoinMeetingLoader(false);
-    }
+    setZmClient(client.zmClient);
+    setOpenVideoDialog(true);
+    setJoinMeetingLoader(false);
+    // if (client.mediaStream) {
+    //   setZoomStream(client.mediaStream);
+    //   setOpenVideoDialog(true);
+    //
+    // } else {
+    //   alert('unable to join !');
+    //   setJoinMeetingLoader(false);
+    // }
   };
 
   const onConnectionChange = useCallback(
     (payload) => {
-      debugger
       if (payload.state === ConnectionState.Reconnecting) {
         // setIsLoading(true);
         setIsFailover(true);
@@ -175,11 +176,11 @@ const Offer: FC<OwnProps> = ({
   );
 
   useEffect(() => {
-    zoomClient.on('connection-change', onConnectionChange);
+    zmClient.on('connection-change', onConnectionChange);
     return () => {
-      zoomClient.off('connection-change', onConnectionChange);
+      zmClient.off('connection-change', onConnectionChange);
     };
-  }, [zoomClient, onConnectionChange]);
+  }, [zmClient, onConnectionChange]);
 
   return (
     <div className="Offer">
@@ -293,7 +294,7 @@ const Offer: FC<OwnProps> = ({
         openModal={openVideoDialog}
         onCloseModal={handleCloseVideoDialog}
         stream={zoomStream}
-        zoomClient={zoomClient}
+        zoomClient={zmClient}
       />
     </div>
   );

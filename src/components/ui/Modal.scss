@@ -20,6 +20,14 @@
     }
   }
 
+  &.video-session {
+    .modal-dialog {
+      max-width: none;
+      height: 90vh;
+      width: 70vw;
+    }
+  }
+
   &.report {
     .modal-dialog {
       max-width: 15rem;

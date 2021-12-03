@@ -12,6 +12,9 @@ import { generateSessionToken } from './js/tool';
 export class ZoomClient {
   constructor(sessionTopic: string, sessionPasscode: string, userName: string) {
     this.zmClient = ZoomVideo.createClient();
+    // const audioTrack = ZoomVideo.createLocalAudioTrack();
+    // const videoTrack = ZoomVideo.createLocalVideoTrack();
+
     this.zmClient.init('en-US', 'Global');
     this.userName = userName;
     this.sessionName = sessionTopic;

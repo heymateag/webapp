@@ -10,7 +10,7 @@ class SimpleState {
     this.hasParticipant = false;
   }
 
-  private selfId: number;
+  public selfId: number;
 
   private participantId: number;
 
