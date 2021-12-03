@@ -37,8 +37,8 @@ const MyOrders: FC = () => {
         <div className="filters-holder">
           <div className="filters-select">
             <Select
-              label="Country"
-              placeholder="Country"
+              label="Status"
+              placeholder="Status"
               // onChange={alert("sd")}
               // value={state.billingCountry}
               hasArrow={Boolean(true)}
@@ -46,13 +46,14 @@ const MyOrders: FC = () => {
             // error={formErrors.billingCountry}
             // ref={selectCountryRef}
             >
-              <option value="x">y</option>
+              <option value="x">All</option>
+
             </Select>
           </div>
           <div className="filters-select">
             <Select
-              label="Country"
-              placeholder="Country"
+              label="Type"
+              placeholder="Type"
               // onChange={alert("sd")}
               // value={state.billingCountry}
               hasArrow={Boolean(true)}
@@ -60,13 +61,16 @@ const MyOrders: FC = () => {
             // error={formErrors.billingCountry}
             // ref={selectCountryRef}
             >
-              <option value="x">y</option>
+              <option value="x">All</option>
+              <option value="x">Single</option>
+              <option value="x">Double</option>
+              <option value="x">Subscription</option>
             </Select>
           </div>
           <div className="filters-select">
             <Select
-              label="Country"
-              placeholder="Country"
+              label="Date"
+              placeholder="Date"
               // onChange={alert("sd")}
               // value={state.billingCountry}
               hasArrow={Boolean(true)}

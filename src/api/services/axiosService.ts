@@ -1,5 +1,5 @@
 import axios from 'axios';
-import {IHttpResponse} from "../../types/HeymateTypes/HttpResponse.model";
+import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 
 axios.interceptors.request.use(
   (config) => {
@@ -22,7 +22,8 @@ axios.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalConfig = error.config;
     if (
       error.response.status === 500
       && error.response.data.message === 'invalid token'
@@ -37,13 +38,37 @@ axios.interceptors.response.use(
       // ========= Don't redirect to login if we are in landing
       throw error;
     }
-    if (error.response.status === 403 || error.response.status === 401) {
-      // ========= Don't redirect to login if we are in landing
-      throw error;
+    // if (error.response.status === 403 || error.response.status === 401) {
+    //   // ========= Don't redirect to login if we are in landing
+    //   throw error;
+    // }
+    if (originalConfig.url !== '/auth/login' && error.response) {
+      // Access Token was expired
+      // eslint-disable-next-line no-underscore-dangle
+      if (error.response.status === 401 && !originalConfig._retry) {
+        // eslint-disable-next-line no-underscore-dangle
+        originalConfig._retry = true;
+
+        try {
+          const rs = await axios.post('http://localhost:3000/dev/auth/refresh', {
+            refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
+            user: localStorage.getItem('HM_PHONE'),
+          });
+
+          const { token } = rs.data;
+          localStorage.setItem('HM_TOKEN', token);
+
+          return await axios(originalConfig);
+        } catch (_error) {
+          return Promise.reject(_error);
+        }
+      }
     }
+
+    return Promise.reject(error);
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     // Do something with response error
-    throw error;
+    // throw error;
   },
 );
 type Method =
