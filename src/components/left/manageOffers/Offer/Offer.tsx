@@ -1,9 +1,12 @@
+import { ConnectionState } from '@zoom/videosdk';
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../../../lib/teact/teact';
+import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
+import VideoSessionDialog from '../../../common/VideoSessionDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-
+import { ClientType } from '../ZoomSdkService/types';
 import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
 import './Offer.scss';
 
@@ -34,12 +37,29 @@ const Offer: FC<OwnProps> = ({
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
   });
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+
+  const [zmClient, setZmClient] = useState<ClientType>();
+
+  const [zoomStream, setZoomStream] = useState();
+
+  const [isFailover, setIsFailover] = useState<boolean>(false);
+
+  const [status, setStatus] = useState<string>('closed');
+
+  const [loadingText, setLoadingText] = useState('');
+
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
+  };
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -111,6 +131,57 @@ const Offer: FC<OwnProps> = ({
   const handleClose = () => {
     setIsMenuOpen(false);
   };
+
+  const joinMeeting = async () => {
+    const client = new ZoomClient('bouAzar', '5AR8pk', 'John Doe!');
+    setJoinMeetingLoader(true);
+    await client.join();
+
+    setZmClient(client.zmClient);
+    setOpenVideoDialog(true);
+    setJoinMeetingLoader(false);
+    // if (client.mediaStream) {
+    //   setZoomStream(client.mediaStream);
+    //   setOpenVideoDialog(true);
+    //
+    // } else {
+    //   alert('unable to join !');
+    //   setJoinMeetingLoader(false);
+    // }
+  };
+
+  const onConnectionChange = useCallback(
+    (payload) => {
+      if (payload.state === ConnectionState.Reconnecting) {
+        // setIsLoading(true);
+        setIsFailover(true);
+        setStatus('connecting');
+        const { reason } = payload;
+        if (reason === 'failover') {
+          setLoadingText('Session Disconnected,Try to reconnect');
+        }
+      } else if (payload.state === ConnectionState.Connected) {
+        setStatus('connected');
+        if (isFailover) {
+          // setIsLoading(false);
+        }
+      } else if (payload.state === ConnectionState.Closed) {
+        setStatus('closed');
+        if (payload.reason === 'ended by host') {
+          // TODO use general notification here !
+        }
+      }
+    },
+    [isFailover],
+  );
+
+  useEffect(() => {
+    zmClient.on('connection-change', onConnectionChange);
+    return () => {
+      zmClient.off('connection-change', onConnectionChange);
+    };
+  }, [zmClient, onConnectionChange]);
+
   return (
     <div className="Offer">
       <div className="offer-content">
@@ -125,42 +196,7 @@ const Offer: FC<OwnProps> = ({
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>{tagStatus.text}</TaggedText>
               </div>
-              <div className="date-time">
-                <div className="date-time">
-                  {props.status === ReservationStatus.BOOKED && (
-                    <>
-                      <img src={datetime} alt="" />
-                      <span>{timeToStart.days} days</span>
-                      <span>02:00:00</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.MARKED_AS_STARTED && (
-                    <>
-                      <img src={time} alt="" />
-                      <span>Waiting for your confirmation</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.FINISHED && (
-                    <>
-                      <img src={time} alt="" />
-                      <span>Waiting for your confirmation</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.STARTED && (
-                    <>
-                      <img src={play} alt="" />
-                      <span>In progress</span>
-                      <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-                    <>
-                      <img src={play} alt="" />
-                      <span>Waiting for your Cancel confirmation</span>
-                    </>
-                  )}
-                </div>
-              </div>
+
             </div>
           </div>
           <div className="meeting-right-side">
@@ -191,12 +227,46 @@ const Offer: FC<OwnProps> = ({
           </div>
         </div>
         <div className="offer-footer">
+          <div className="date-time">
+            {props.status === ReservationStatus.BOOKED && (
+              <div className={ReservationStatus.BOOKED}>
+                <i className="hm-date-time" />
+                <span>{timeToStart.days} days</span>
+                <span>02:00:00</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.MARKED_AS_STARTED && (
+              <div className={ReservationStatus.MARKED_AS_STARTED}>
+                <img src={time} alt="" />
+                <span>Waiting for your confirmation</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.FINISHED && (
+              <div className={ReservationStatus.FINISHED}>
+                <img src={time} alt="" />
+                <span>Waiting for your confirmation</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.STARTED && (
+              <div className={ReservationStatus.STARTED}>
+                <img src={play} alt="" />
+                <span>In progress</span>
+                <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
+              <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
+                <img src={play} alt="" />
+                <span>Waiting for your Cancel confirmation</span>
+              </div>
+            )}
+          </div>
           <div className="btn-holder">
             { (props.status === ReservationStatus.BOOKED
               || props.status === ReservationStatus.MARKED_AS_STARTED) && (
               <div className="btn-cancel">
-                <Button size="tiny" color="translucent">
-                  cancel
+                <Button isLoading={joinMeetingLoader} onClick={joinMeeting} size="tiny" color="primary">
+                  join meeting
                 </Button>
               </div>
             )}
@@ -219,6 +289,13 @@ const Offer: FC<OwnProps> = ({
           </div>
         </div>
       </div>
+      <VideoSessionDialog
+        status={status}
+        openModal={openVideoDialog}
+        onCloseModal={handleCloseVideoDialog}
+        stream={zoomStream}
+        zoomClient={zmClient}
+      />
     </div>
   );
 };

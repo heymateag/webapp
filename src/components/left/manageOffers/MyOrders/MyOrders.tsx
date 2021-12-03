@@ -11,7 +11,12 @@ import Loading from '../../../ui/Loading';
 
 import './MyOrders.scss';
 
-const MyOrders: FC = () => {
+type OwnProps = {
+  scheduleType?: 'MyOrders' | 'MyOffers';
+};
+const MyOrders: FC<OwnProps> = ({
+  scheduleType = 'MyOrders',
+}) => {
   const [myOrders, setMyOrders] = useState<IMyOrders[]>([]);
   /**
    * Get All Offers
@@ -26,9 +31,25 @@ const MyOrders: FC = () => {
       setMyOrders(response.data.data);
     }
   };
+
+  const getMyOffers = async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/offer/me`,
+      method: 'GET',
+      body: {},
+    });
+    if (response?.status === 200) {
+      setMyOrders(response.data);
+    }
+  };
+
   useEffect(() => {
-    getMyOrders();
-  }, []);
+    if (scheduleType === 'MyOrders') {
+      getMyOrders();
+    } else {
+      getMyOffers();
+    }
+  }, [scheduleType]);
   return (
     <div className="MyOrders">
       {myOrders.length > 0 ? myOrders.map((item) => (

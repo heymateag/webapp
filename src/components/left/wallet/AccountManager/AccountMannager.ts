@@ -1,53 +1,16 @@
-import Web3 from 'web3';
-import { newKitFromWeb3 } from '@celo/contractkit';
-
-interface IAccount {
-  address: string;
-  privateKey: string;
-}
+import web3 from 'web3';
 /**
- * Crete New Account For User
+ * Get New Kit Balances
  */
-const createAccount = () => {
-  // @ts-ignore
-  const web3 = new Web3(process.env.CELO_NET_URL);
-  // const client = newKitFromWeb3(web3);
-
-  const account = web3.eth.accounts.create();
-  const userAccount = JSON.stringify(account);
-  localStorage.setItem('account', userAccount);
-  return account;
-};
-/**
- * Get User Account
- */
-export const getAccount = async () => {
-  if (localStorage.getItem('account')) {
-    const account = localStorage.getItem('account') as string;
-    return JSON.parse(account);
-  } else {
-    const account = await createAccount();
-    return account;
-  }
-};
-
-/**
- * Get User Account Balance
- */
-export const getAccountBalance = async (account: IAccount) => {
-  // Initialize account from our private key
-  // @ts-ignore
-  const web3 = new Web3(process.env.CELO_NET_URL);
-  // @ts-ignore
-  const client = newKitFromWeb3(web3);
-  const userAccount = web3.eth.accounts.privateKeyToAccount(account.privateKey);
-  // 1. Query account balances
-  const accountBalances = await client.getTotalBalance(userAccount.address)
+export const newKitBalances = async (kit:any, address: string) => {
+  const accountBalances = await kit.getTotalBalance(address)
     .catch((err) => { throw new Error(`Could not fetch account: ${err}`); });
+
   const temp = {
     CELO: '0',
     cUSD: '0',
   };
+
   if (accountBalances) {
     // @ts-ignore
     temp.CELO = web3.utils.fromWei(accountBalances.CELO.toString());
@@ -57,4 +20,18 @@ export const getAccountBalance = async (account: IAccount) => {
   return temp;
   // console.log('Locked CELO balance: ', accountBalances.lockedCELO.toString(10));
   // console.log('Pending balance: ', accountBalances.pending.toString(10));
+};
+
+export const sendcUSD = async (kit) => {
+  const amount = kit.web3.utils.toWei('0.001', 'ether');
+
+  const stabletoken = await kit.contracts.getStableToken();
+  let tx;
+  try {
+    tx = await stabletoken.transfer('0xcedc9b7d6c225257ef87f06d17af1f9ac7d50aa6', amount).send();
+  } catch (err) {
+    await Promise.reject(err);
+  }
+  const receipt = await tx.waitReceipt();
+  return  receipt;
 };

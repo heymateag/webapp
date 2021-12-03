@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-unresolved
-import React, { FC, memo, useCallback, useEffect, useState } from "teact/teact";
+import React, { FC, memo, useCallback, useState } from "teact/teact";
 import { GlobalActions, GlobalState } from "src/global/types";
 
 import useLang from "../../../hooks/useLang";
@@ -8,6 +7,7 @@ import Button from "../../ui/Button";
 import TabList from "../../ui/TabList";
 import Transition from "../../ui/Transition";
 
+import MyOrders from './MyOrders/MyOrders';
 import Offer from "./Offer/Offer";
 import OnlineMetting from "./OnlineMeeting/OnlineMetting";
 import MyOrders from "./MyOrders/MyOrders";
@@ -91,6 +91,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
                     <OnlineMetting />
                   </div>
                 </>
+                <MyOrders scheduleType="MyOffers" />
               );
             default:
               return <div>ehsan</div>;
