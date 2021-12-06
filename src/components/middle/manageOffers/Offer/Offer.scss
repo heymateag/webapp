@@ -60,3 +60,25 @@
     }
   }
 }
+.icon-img {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+}
+.date-time {
+  display: flex;
+  align-items: center;
+}
+
+.green {
+  color: var(--color-hm-green2) !important;
+}
+.yellow {
+  color: var(--color-hm-yellow-primary) !important;
+}
+.blue {
+  color: var(--color-heymate-primary3) !important;
+}
+.gray {
+  color: var(--color-hm-gray2) !important;
+}

@@ -367,7 +367,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                     activeTab={activeTab}
                   />
                   <div className={footerClassName}>
-                    {renderingCanPost && (
+                    {renderingCanPost && !showHeymate && (
                       <Composer
                         chatId={renderingChatId}
                         threadId={renderingThreadId}
@@ -419,7 +419,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
             </Transition>
 
             <ScrollDownButton
-              isShown={renderingIsFabShown}
+              isShown={renderingIsFabShown && !showHeymate}
               canPost={renderingCanPost}
               withExtraShift={isMessagingDisabled || isSelectModeActive || isPinnedMessageList}
             />

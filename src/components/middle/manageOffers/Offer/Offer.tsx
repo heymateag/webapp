@@ -106,11 +106,11 @@ const Offer: FC<OwnProps> = ({ props }) => {
         });
         break;
     }
-    if (props.time_slot.form_time) {
+    if (props?.time_slot?.form_time) {
       const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
       setTimeToStart(res);
     }
-  }, [props.status, props.time_slot.form_time]);
+  }, [props.status, props?.time_slot?.form_time]);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -169,8 +169,8 @@ const Offer: FC<OwnProps> = ({ props }) => {
             <div className="date-time">
               {props.status === ReservationStatus.BOOKED && (
                 <>
-                  <img src={datetime} alt="" />
-                  <span>{timeToStart.days} days to start</span>
+                  <img src={datetime} alt="" className="icon-img" />
+                  <span className="green">{timeToStart?.days} days to start</span>
                   {/* <span>02:00:00</span> */}
                 </>
               )}
@@ -195,47 +195,47 @@ const Offer: FC<OwnProps> = ({ props }) => {
               )}
               {props.status
                 === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-                  <>
-                    <img src={play} alt="" />
-                    <span>Waiting for your Cancel confirmation</span>
-                  </>
-                )}
+                <>
+                  <img src={play} alt="" />
+                  <span>Waiting for your Cancel confirmation</span>
+                </>
+              )}
             </div>
           </div>
           <div className="btn-holder">
             {(props.status === ReservationStatus.BOOKED
               || props.status === ReservationStatus.MARKED_AS_STARTED) && (
-                <div className="btn-cancel">
-                  <Button size="tiny" color="primary">
-                    Join
-                  </Button>
-                </div>
-              )}
+              <div className="btn-cancel">
+                <Button size="tiny" color="primary">
+                  Join
+                </Button>
+              </div>
+            )}
             {(props.status === ReservationStatus.FINISHED
               || props.status === ReservationStatus.STARTED) && (
-                <div className="btn-finish">
-                  <Button
-                    size="tiny"
-                    color="hm-primary-red"
-                    disabled={props.status === ReservationStatus.STARTED}
-                  >
-                    Confirm End
-                  </Button>
-                </div>
-              )}
+              <div className="btn-finish">
+                <Button
+                  size="tiny"
+                  color="hm-primary-red"
+                  disabled={props.status === ReservationStatus.STARTED}
+                >
+                  Confirm End
+                </Button>
+              </div>
+            )}
             {(props.status === ReservationStatus.MARKED_AS_STARTED
               || props.status === ReservationStatus.STARTED) && (
-                <div className="btn-confirm">
-                  <Button
-                    ripple
-                    size="tiny"
-                    color="primary"
-                    disabled={props.status === ReservationStatus.STARTED}
-                  >
-                    Confirm Start
-                  </Button>
-                </div>
-              )}
+              <div className="btn-confirm">
+                <Button
+                  ripple
+                  size="tiny"
+                  color="primary"
+                  disabled={props.status === ReservationStatus.STARTED}
+                >
+                  Confirm Start
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

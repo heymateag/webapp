@@ -512,7 +512,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     (!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat,
   );
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = isUserId(chatId)
+  const shouldRenderGreeting = !showHeymate && (showHeymate ? false : isUserId(chatId))
     && !isChatWithSelf
     && !isBot
     && ((!messageGroups
@@ -540,7 +540,6 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     isScrolled && 'scrolled',
     !isReady && 'is-animating',
   );
-
   return (
     <div
       ref={containerRef}
