@@ -1,6 +1,9 @@
 import React, {
-  FC, memo, useEffect, useState,
+  FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
+import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+import { ITimeSlotModel } from 'src/types/HeymateTypes/TimeSlot.model';
+import { CalendarModal } from '../../../common/CalendarModal';
 import Button from '../../../ui/Button';
 import Select from '../../../ui/Select';
 import { axiosService } from '../../../../api/services/axiosService';
@@ -12,9 +15,12 @@ import Offer from '../Offer/Offer';
 import Loading from '../../../ui/Loading';
 
 import './MyOffers.scss';
+import { getDayStartAt } from '../../../../util/dateFormat';
 
 const MyOffers: FC = () => {
   const [offersList, setOffersList] = useState<any[]>([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDate, setSelectDate] = useState('Date');
   /**
    * Get All Offers
    */
@@ -31,6 +37,20 @@ const MyOffers: FC = () => {
   useEffect(() => {
     getMyOffers();
   }, []);
+
+  const handleRescheduleMessage = useCallback((date: Date) => {
+    // const startDate: any = date;
+    // const endDate: any = date;
+    const stringDateArr = date.toString().split(' ');
+    const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
+    setSelectDate(stringDate);
+    // startDate = startDate.setHours(0, 0, 0, 0);
+    // endDate = endDate.setHours(23, 59, 59, 999);
+    // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setIsCalendarOpen(false);
+    // setFilteredDate(filterDates);
+  }, []);
+
   return (
     <div className="MyOrders-middle">
       <div className="myOrder-middle-filter">
@@ -67,8 +87,8 @@ const MyOffers: FC = () => {
               <option value="x">Subscription</option>
             </Select>
           </div>
-          <div className="filters-select">
-            <Select
+          <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
+            {/* <Select
               label="Date"
               placeholder="Date"
               // onChange={alert("sd")}
@@ -79,7 +99,8 @@ const MyOffers: FC = () => {
             // ref={selectCountryRef}
             >
               <option value="x">y</option>
-            </Select>
+            </Select> */}
+            <span>{selectedDate}</span>
           </div>
         </div>
         <div>
@@ -89,12 +110,17 @@ const MyOffers: FC = () => {
         </div>
       </div>
       {offersList.length > 0 ? (
-        offersList.map((item) => (
+        offersList.map((item: IOffer) => (
           <div>
             {item.meeting_type === MeetingType.ONLINE ? (
               <OnlineMetting props={{ id: item.id, offer: item }} />
             ) : (
-              <Offer props={{ id: item.id, offer: item }} />
+              <>
+                {
+                  item.schedules.map((time: ITimeSlotModel) =>
+                    <Offer props={{ ...item, ...{ selectedSchedule: time } }} />)
+                }
+              </>
             )}
           </div>
         ))
@@ -103,6 +129,14 @@ const MyOffers: FC = () => {
           <Loading key="loading" />
         </div>
       )}
+      <CalendarModal
+        isOpen={isCalendarOpen}
+        submitButtonLabel="Select"
+        selectedAt={getDayStartAt(Date.now())}
+        isFutureMode
+        onClose={() => setIsCalendarOpen(false)}
+        onSubmit={handleRescheduleMessage}
+      />
     </div>
   );
 };

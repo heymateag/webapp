@@ -25,6 +25,7 @@ export interface IOffer {
   remainingReservations?: number;
   completedReservations?: number;
   schedules: ITimeSlotModel[];
+  selectedSchedule?: ITimeSlotModel;
   pricing: {
     rate_type: string;
     price: number;

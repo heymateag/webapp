@@ -16,7 +16,7 @@ type OwnProps = {
   openModal: boolean;
   onCloseModal: () => void;
   onBookClicked: (planType: PlanType) => void;
-  message: ApiMessage;
+  message?: ApiMessage;
 };
 interface IPurchasePlan {
   value: string;
