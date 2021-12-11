@@ -44,7 +44,7 @@ type StateProps = Pick<GlobalState, (
 };
 type DispatchProps = Pick<GlobalActions, (
   'setAuthPhoneNumber' | 'setAuthRememberMe' | 'loadNearestCountry' | 'loadCountryList' | 'clearAuthError' |
-  'goToAuthQrCode' | 'setSettingOption' | 'returnToAuthPhoneNumber'
+  'goToAuthQrCode' | 'setSettingOption' | 'returnToAuthPhoneNumber' | 'setCurrentUserPhoneNumber'
 )>;
 
 const MIN_NUMBER_LENGTH = 7;
@@ -70,6 +70,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   goToAuthQrCode,
   setSettingOption,
   returnToAuthPhoneNumber,
+  setCurrentUserPhoneNumber,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -227,6 +228,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
 
     if (canSubmit) {
       handleHeymateLogin(fullNumber);
+      setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
       setAuthPhoneNumber({ phoneNumber: fullNumber });
     }
   }
@@ -317,5 +319,6 @@ export default memo(withGlobal(
     'goToAuthQrCode',
     'setSettingOption',
     'returnToAuthPhoneNumber',
+    'setCurrentUserPhoneNumber',
   ]),
 )(AuthPhoneNumber));
