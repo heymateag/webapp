@@ -209,3 +209,12 @@ addReducer('setShowHeymate', (global, actions, payload) => {
     showHeymate,
   };
 });
+
+addReducer('setCurrentUserPhoneNumber', (global, actions, payload) => {
+  const { currentUserPhoneNumber } = payload!;
+
+  return {
+    ...global,
+    currentUserPhoneNumber,
+  };
+});

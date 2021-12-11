@@ -92,6 +92,7 @@ export type GlobalState = {
   shouldSkipHistoryAnimations?: boolean;
   connectionState?: ApiUpdateConnectionStateType;
   currentUserId?: string;
+  currentUserPhoneNumber?: string;
   lastSyncTime?: number;
   serverTimeOffset: number;
   leftColumnWidth?: number;
@@ -469,7 +470,7 @@ export type GlobalState = {
 export type ActionTypes = (
 // system
   'init' | 'reset' | 'disconnect' | 'initApi' | 'apiUpdate' | 'sync' | 'saveSession' | 'afterSync' |
-  'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' |
+  'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' | 'setCurrentUserPhoneNumber' |
   // ui
   'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
   'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |

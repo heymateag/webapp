@@ -1,7 +1,7 @@
+import { getGlobal, withGlobal } from 'teact/teactn';
 import React, {
   FC, useEffect, memo, useCallback,
 } from '../../lib/teact/teact';
-import { getGlobal, withGlobal } from 'teact/teactn';
 
 import { LangCode } from '../../types';
 import { GlobalActions } from '../../global/types';
@@ -10,7 +10,7 @@ import { ApiMessage } from '../../api/types';
 import '../../modules/actions/all';
 import {
   BASE_EMOJI_KEYWORD_LANG,
-  DEBUG,
+  DEBUG, HEYMATE_URL,
   INACTIVE_MARKER,
   PAGE_TITLE,
 } from '../../config';
@@ -52,6 +52,8 @@ import ActiveCallHeader from '../calls/ActiveCallHeader.async';
 import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
 
 import './Main.scss';
+import { IAuth } from '../../types/HeymateTypes/Auth.model';
+import { axiosService } from '../../api/services/axiosService';
 
 type StateProps = {
   lastSyncTime?: number;
@@ -73,6 +75,8 @@ type StateProps = {
   wasTimeFormatSetManually?: boolean;
   isCallFallbackConfirmOpen: boolean;
   showHeymate?: boolean;
+  currentUserId?: string;
+  currentUserPhoneNumber?: string;
 };
 
 type DispatchProps = Pick<
@@ -85,7 +89,7 @@ GlobalActions,
 | 'loadEmojiKeywords'
 | 'openStickerSetShortName'
 |
-  'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification'
+'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification'
 >;
 
 const NOTIFICATION_INTERVAL = 1000;
@@ -124,6 +128,8 @@ const Main: FC<StateProps & DispatchProps> = ({
   ensureTimeFormat,
   openStickerSetShortName,
   checkVersionNotification,
+  currentUserId,
+  currentUserPhoneNumber,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
@@ -178,6 +184,31 @@ const Main: FC<StateProps & DispatchProps> = ({
       );
     }
   }, [lastSyncTime]);
+
+  const handleHeymateLogin = async (phone_number: any, userId?:string) => {
+    const userPhone = phone_number.replace(/ /g, '');
+    const response: IAuth = await axiosService({
+      url: `${HEYMATE_URL}/auth/login`,
+      method: 'POST',
+      body: {
+        phone_number: userPhone,
+        password: '123456',
+      },
+    });
+    if (response.status === 201) {
+      const token = response.data.accessToken.jwtToken;
+      const refreshToken = response.data.refreshToken.token;
+      localStorage.setItem('HM_TOKEN', token);
+      localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
+      localStorage.setItem('HM_PHONE', userPhone);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof currentUserId !== 'undefined') {
+      handleHeymateLogin(currentUserPhoneNumber, currentUserId);
+    }
+  }, [currentUserId, currentUserPhoneNumber]);
 
   const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
     !isLeftColumnShown,
@@ -360,6 +391,8 @@ export default memo(withGlobal(
   (global): StateProps => {
     const { settings: { byKey: { animationLevel, language, wasTimeFormatSetManually } } } = global;
     const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
+    const { currentUserId } = global;
+    const { currentUserPhoneNumber } = global;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
@@ -383,6 +416,8 @@ export default memo(withGlobal(
       language,
       wasTimeFormatSetManually,
       isCallFallbackConfirmOpen: Boolean(global.groupCalls.isFallbackConfirmOpen),
+      currentUserId,
+      currentUserPhoneNumber,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
