@@ -11,11 +11,16 @@ import OnlineMetting from '../OnlineMeeting/OnlineMetting';
 import Loading from '../../../ui/Loading';
 import './MyOrders.scss';
 import Order from '../Order/Order';
+import { CalendarModal } from '../../../common/CalendarModal';
+import { getDayStartAt } from '../../../../util/dateFormat';
 
 const MyOrders: FC = () => {
   const [myOrders, setMyOrders] = useState<IMyOrders[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<IMyOrders[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDate, setSelectDate] = useState('Date');
+
   /**
    * Get All Offers
    */
@@ -44,6 +49,20 @@ const MyOrders: FC = () => {
       setFilteredOrders(filtered);
     }
   }, [myOrders]);
+
+  const handleRescheduleMessage = useCallback((date: Date) => {
+    // const startDate: any = date;
+    // const endDate: any = date;
+    const stringDateArr = date.toString().split(' ');
+    const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
+    setSelectDate(stringDate);
+    // startDate = startDate.setHours(0, 0, 0, 0);
+    // endDate = endDate.setHours(23, 59, 59, 999);
+    // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setIsCalendarOpen(false);
+    // setFilteredDate(filterDates);
+  }, []);
+
   return (
     <div className="MyOrders-middle">
       <div className="myOrder-middle-filter">
@@ -88,19 +107,8 @@ const MyOrders: FC = () => {
               <option value="x">Subscription</option>
             </Select>
           </div>
-          <div className="filters-select">
-            <Select
-              label="Date"
-              placeholder="Date"
-              // onChange={alert("sd")}
-              // value={state.billingCountry}
-              hasArrow={Boolean(true)}
-              id="billing-country"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
-            >
-              <option value="x">y</option>
-            </Select>
+          <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
+            <span>{selectedDate}</span>
           </div>
         </div>
         <div>
@@ -115,7 +123,7 @@ const MyOrders: FC = () => {
             {item.offer.meeting_type === MeetingType.ONLINE ? (
               <OnlineMetting props={item} />
             ) : (
-              <Order props={item} />
+              <Order props={item} handleGetList={getMyOrders} />
             )}
           </div>
         ))
@@ -124,6 +132,14 @@ const MyOrders: FC = () => {
           <Loading key="loading" />
         </div>
       )}
+      <CalendarModal
+        isOpen={isCalendarOpen}
+        submitButtonLabel="Select"
+        selectedAt={getDayStartAt(Date.now())}
+        isFutureMode
+        onClose={() => setIsCalendarOpen(false)}
+        onSubmit={handleRescheduleMessage}
+      />
     </div>
   );
 };

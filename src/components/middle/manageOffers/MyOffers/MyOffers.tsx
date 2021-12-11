@@ -88,18 +88,6 @@ const MyOffers: FC = () => {
             </Select>
           </div>
           <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
-            {/* <Select
-              label="Date"
-              placeholder="Date"
-              // onChange={alert("sd")}
-              // value={state.billingCountry}
-              hasArrow={Boolean(true)}
-              id="billing-country"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
-            >
-              <option value="x">y</option>
-            </Select> */}
             <span>{selectedDate}</span>
           </div>
         </div>

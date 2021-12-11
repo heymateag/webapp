@@ -28,6 +28,8 @@ import TaggedText from '../../../ui/TaggedText';
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
+import { HEYMATE_URL } from '../../../../config';
+import { axiosService } from '../../../../api/services/axiosService';
 
 type TimeToStart = {
   days: number;
@@ -36,8 +38,9 @@ type TimeToStart = {
 };
 type OwnProps = {
   props: IMyOrders;
+  handleGetList: () => void;
 };
-const Order: FC<OwnProps> = ({ props }) => {
+const Order: FC<OwnProps> = ({ props, handleGetList }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -118,6 +121,19 @@ const Order: FC<OwnProps> = ({ props }) => {
     setIsMenuOpen(true);
   }, []);
 
+  const handleCancelOrder = useCallback(async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/${props.id}`,
+      method: 'PATCH',
+      body: {
+        status: 'CANCELED',
+      },
+    });
+    if (response?.status === 200) {
+      handleGetList();
+    }
+  }, [props.id, handleGetList]);
+
   const handleClose = () => {
     setIsMenuOpen(false);
   };
@@ -162,7 +178,12 @@ const Order: FC<OwnProps> = ({ props }) => {
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
               {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
+              {props.status === ReservationStatus.BOOKED
+               && (
+                 <MenuItem icon="user" onClick={handleCancelOrder}>
+                   {lang('Cancel')}
+                 </MenuItem>
+               )}
             </Menu>
           </div>
         </div>

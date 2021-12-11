@@ -14,6 +14,7 @@ import {
   ReservationStatus,
 } from '../../../../types/HeymateTypes/MyOrders.model';
 import './Offer.scss';
+import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
@@ -44,6 +45,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
   const [offerHour, setOfferHour] = useState('');
   const [offerStatus, setOfferStatus] = useState<ReservationStatus>(ReservationStatus.BOOKED);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -187,8 +189,8 @@ const Offer: FC<OwnProps> = ({ props }) => {
               autoClose
               onClose={handleClose}
             >
-              <MenuItem icon="channel">View Details</MenuItem>
-              <MenuItem icon="group">Re-Schedule</MenuItem>
+              <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
+              {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
@@ -268,6 +270,12 @@ const Offer: FC<OwnProps> = ({ props }) => {
           </div>
         </div>
       </div>
+      <OfferDetailsDialog
+        onBookClicked={() => alert('s')}
+        openModal={openDetailsModal}
+        offer={props}
+        onCloseModal={() => setOpenDetailsModal(false)}
+      />
     </div>
   );
 };

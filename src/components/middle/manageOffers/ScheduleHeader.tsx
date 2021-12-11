@@ -56,11 +56,13 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         </Button>
         <h3>{lang('My Schedule')}</h3>
       </div>
-      <TabList
-        activeTab={activeTab}
-        tabs={tabs}
-        onSwitchTab={handleSwitchTab2}
-      />
+      <div className="tab-wrapper">
+        <TabList
+          activeTab={activeTab}
+          tabs={tabs}
+          onSwitchTab={handleSwitchTab2}
+        />
+      </div>
 
     </div>
   );
