@@ -31,7 +31,7 @@ import Loading from '../ui/Loading';
 import CountryCodeInput from './CountryCodeInput';
 import AuthOnBoarding from './AuthOnBoarding';
 
-import {IAuth} from "../../types/HeymateTypes/Auth.model";
+import { IAuth } from '../../types/HeymateTypes/Auth.model';
 
 type StateProps = Pick<GlobalState, (
   'connectionState' | 'authState' |
@@ -44,7 +44,7 @@ type StateProps = Pick<GlobalState, (
 };
 type DispatchProps = Pick<GlobalActions, (
   'setAuthPhoneNumber' | 'setAuthRememberMe' | 'loadNearestCountry' | 'loadCountryList' | 'clearAuthError' |
-  'goToAuthQrCode' | 'setSettingOption'
+  'goToAuthQrCode' | 'setSettingOption' | 'returnToAuthPhoneNumber'
 )>;
 
 const MIN_NUMBER_LENGTH = 7;
@@ -69,6 +69,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   clearAuthError,
   goToAuthQrCode,
   setSettingOption,
+  returnToAuthPhoneNumber,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -230,8 +231,10 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
   }
 
-  const isAuthReady = authState === 'authorizationStateWaitPhoneNumber';
-
+  const isAuthReady = authState === 'authorizationStateWaitPhoneNumber' || 'authorizationStateWaitQrCode';
+  if (authState === 'authorizationStateWaitQrCode') {
+    returnToAuthPhoneNumber();
+  }
   return (
     <div id="auth-phone-number-form" className="custom-scroll">
       <AuthOnBoarding />
@@ -269,11 +272,11 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
               <Loading />
             )
           )}
-          {isAuthReady && (
+          {/* {isAuthReady && (
             <Button isText ripple isLoading={authIsLoadingQrCode} onClick={goToAuthQrCode}>
               {lang('Login.QR.Login')}
             </Button>
-          )}
+          )} */}
           {suggestedLanguage && suggestedLanguage !== language && continueText && (
             <Button isText isLoading={isLoading} onClick={handleLangChange}>{continueText}</Button>
           )}
@@ -313,5 +316,6 @@ export default memo(withGlobal(
     'loadCountryList',
     'goToAuthQrCode',
     'setSettingOption',
+    'returnToAuthPhoneNumber',
   ]),
 )(AuthPhoneNumber));

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { HEYMATE_URL } from '../../config';
 import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 
 axios.interceptors.request.use(
@@ -50,7 +51,7 @@ axios.interceptors.response.use(
         originalConfig._retry = true;
 
         try {
-          const rs = await axios.post('http://localhost:3000/dev/auth/refresh', {
+          const rs = await axios.post(`${HEYMATE_URL}/auth/refresh`, {
             refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
             user: localStorage.getItem('HM_PHONE'),
           });

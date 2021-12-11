@@ -32,7 +32,8 @@ const Auth: FC<StateProps & DispatchProps> = ({
 
   const handleChangeAuthorizationMethod = () => {
     if (!isMobile) {
-      goToAuthQrCode();
+      returnToAuthPhoneNumber();
+      // goToAuthQrCode();
     } else {
       returnToAuthPhoneNumber();
     }
@@ -51,7 +52,6 @@ const Auth: FC<StateProps & DispatchProps> = ({
       windowSize.enableRefresh();
     };
   }, []);
-
   switch (authState) {
     case 'authorizationStateWaitCode':
       return <UiLoader page="authCode" key="authCode"><AuthCode /></UiLoader>;
@@ -62,11 +62,13 @@ const Auth: FC<StateProps & DispatchProps> = ({
     case 'authorizationStateWaitPhoneNumber':
       return <UiLoader page="authPhoneNumber" key="authPhoneNumber"><AuthPhoneNumber /></UiLoader>;
     case 'authorizationStateWaitQrCode':
-      return <UiLoader page="authQrCode" key="authQrCode"><AuthQrCode /></UiLoader>;
+      return <UiLoader page="authPhoneNumber" key="authPhoneNumber"><AuthPhoneNumber /></UiLoader>;
+      // return <UiLoader page="authQrCode" key="authQrCode"><AuthQrCode /></UiLoader>;
     default:
       return isMobile
         ? <UiLoader page="authPhoneNumber" key="authPhoneNumber"><AuthPhoneNumber /></UiLoader>
-        : <UiLoader page="authQrCode" key="authQrCode"><AuthQrCode /></UiLoader>;
+        // : <UiLoader page="authQrCode" key="authQrCode"><AuthQrCode /></UiLoader>;
+        : <UiLoader page="authPhoneNumber" key="authPhoneNumber"><AuthPhoneNumber /></UiLoader>;
   }
 };
 

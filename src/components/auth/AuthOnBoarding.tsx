@@ -1,16 +1,20 @@
-import React, {FC, useCallback, useState } from '../../lib/teact/teact';
+import React, { FC, useCallback, useState, memo } from '../../lib/teact/teact';
 import Transition from '../ui/Transition';
-
+import { GlobalState, GlobalActions } from '../../global/types';
 import Button from '../ui/Button';
-
+import { withGlobal } from '../../lib/teact/teactn';
 import defiService from '../../assets/heymate/defil-service.png';
 import hmlogo from '../../assets/heymate/heymate-logo1x.png';
 import social from '../../assets/heymate/social-commerce.png';
+import { pick } from '../../util/iteratees';
 
 type OwnProps = {
 };
+type DispatchProps = Pick<GlobalActions, (
+  'returnToAuthPhoneNumber'
+)>;
 
-const AuthObBoarding: FC<OwnProps> = () => {
+const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber}) => {
   const [index, setIndex] = useState(0);
   const list = [
     {
@@ -77,7 +81,7 @@ const AuthObBoarding: FC<OwnProps> = () => {
         </div>
         <h2>{title}</h2>
         <p className="note">
-        Stay in touch with your customers on your existing
+          Stay in touch with your customers on your existing
           <br />social network on Telegram.
         </p>
       </div>
@@ -88,6 +92,10 @@ const AuthObBoarding: FC<OwnProps> = () => {
   //   const clssName = show ? 'active' : '';
   //   setShowOn(clssName);
   // }, [show]);
+  const handlealaki = () => {
+    setShowOn('');
+    returnToAuthPhoneNumber();
+  };
   return (
     <div id="auth-on-boarding-form" className={`on-boarding ${showOn}`}>
       <div id="container">
@@ -100,7 +108,7 @@ const AuthObBoarding: FC<OwnProps> = () => {
         </Transition>
         {renderPhotoTabs()}
         <div id="button-holder">
-          <Button color="hm-primary" ripple onClick={() => setShowOn('')}>Keep Messaging</Button>
+          <Button color="hm-primary" ripple onClick={handlealaki}>Keep Messaging</Button>
           <div id="hm-typo" />
         </div>
       </div>
@@ -108,4 +116,13 @@ const AuthObBoarding: FC<OwnProps> = () => {
   );
 };
 
-export default AuthObBoarding;
+export default memo(withGlobal(
+  (global): OwnProps => {
+    return {
+
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'returnToAuthPhoneNumber',
+  ]),
+)(AuthObBoarding));

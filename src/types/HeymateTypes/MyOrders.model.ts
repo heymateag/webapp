@@ -14,9 +14,9 @@ export enum ReservationStatus {
 export interface IMyOrders {
   id: string;
   offer: IOffer;
-  time_slot: ITimeSlotModel;
-  status: ReservationStatus;
-  meetingId: string;
-  createdAt: string;
-  serviceProviderId: string;
+  time_slot?: ITimeSlotModel;
+  status?: ReservationStatus;
+  meetingId?: string;
+  createdAt?: string;
+  serviceProviderId?: string;
 }
