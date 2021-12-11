@@ -1,4 +1,3 @@
-import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import React, {
   FC,
   memo,
@@ -11,10 +10,10 @@ import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 
 import {
+  IMyOrders,
   ReservationStatus,
 } from '../../../../types/HeymateTypes/MyOrders.model';
-import './Offer.scss';
-import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
+import './Order.scss';
 
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
@@ -28,6 +27,9 @@ import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
+import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
+import { HEYMATE_URL } from '../../../../config';
+import { axiosService } from '../../../../api/services/axiosService';
 
 type TimeToStart = {
   days: number;
@@ -35,15 +37,14 @@ type TimeToStart = {
   minutes: number;
 };
 type OwnProps = {
-  props: IOffer;
+  props: IMyOrders;
+  handleGetList: () => void;
 };
-const Offer: FC<OwnProps> = ({ props }) => {
+const Order: FC<OwnProps> = ({ props, handleGetList }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [offerHour, setOfferHour] = useState('');
-  const [offerStatus, setOfferStatus] = useState<ReservationStatus>(ReservationStatus.BOOKED);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
@@ -83,73 +84,59 @@ const Offer: FC<OwnProps> = ({ props }) => {
   };
 
   useEffect(() => {
-    if (props.selectedSchedule) {
-      const hour = new Date((parseInt(props.selectedSchedule?.form_time, 10) * 1000));
-      setOfferHour(hour.toLocaleTimeString());
+    switch (props.status) {
+      case ReservationStatus.BOOKED:
+        setTagStatus({
+          color: 'green',
+          text: 'Upcoming',
+        });
+        break;
+      case ReservationStatus.FINISHED:
+        setTagStatus({
+          color: 'gray',
+          text: 'Finished',
+        });
+        break;
+      case ReservationStatus.STARTED:
+        setTagStatus({
+          color: 'blue',
+          text: 'In progress',
+        });
+        break;
+      case ReservationStatus.MARKED_AS_STARTED:
+      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+        setTagStatus({
+          color: 'yellow',
+          text: 'Pending',
+        });
+        break;
     }
-    const now = new Date();
-    const startTime = new Date(parseInt(props.selectedSchedule?.form_time || '', 10));
-    const endTime = new Date(parseInt(props.selectedSchedule?.to_time || '', 10));
-    if (startTime > now) {
-      setTagStatus({
-        color: 'green',
-        text: 'Upcoming',
-      });
-      setOfferStatus(ReservationStatus.INPROGRESS);
-    } else if (startTime < now && endTime > now) {
-      setTagStatus({
-        color: 'blue',
-        text: 'In progress',
-      });
-      setOfferStatus(ReservationStatus.INPROGRESS);
-    } else if (endTime < now) {
-      setTagStatus({
-        color: 'gray',
-        text: 'Finished',
-      });
-      setOfferStatus(ReservationStatus.FINISHED);
-    }
-    // switch (props.status) {
-    //   case ReservationStatus.BOOKED:
-    //     setTagStatus({
-    //       color: 'green',
-    //       text: 'Upcoming',
-    //     });
-    //     break;
-    //   case ReservationStatus.FINISHED:
-    //     setTagStatus({
-    //       color: 'gray',
-    //       text: 'Finished',
-    //     });
-    //     break;
-    //   case ReservationStatus.STARTED:
-    //     setTagStatus({
-    //       color: 'blue',
-    //       text: 'In progress',
-    //     });
-    //     break;
-    //   case ReservationStatus.MARKED_AS_STARTED:
-    //   case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
-    //     setTagStatus({
-    //       color: 'yellow',
-    //       text: 'Pending',
-    //     });
-    //     break;
-    // }
-    if (props?.selectedSchedule?.form_time) {
-      const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule?.form_time);
+    if (props?.time_slot?.form_time) {
+      const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
       setTimeToStart(res);
     }
-  }, [props.selectedSchedule, props.status]);
+  }, [props.status, props?.time_slot?.form_time]);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
   }, []);
 
+  const handleCancelOrder = useCallback(async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/${props.id}`,
+      method: 'PATCH',
+      body: {
+        status: 'CANCELED',
+      },
+    });
+    if (response?.status === 200) {
+      handleGetList();
+    }
+  }, [props.id, handleGetList]);
+
   const handleClose = () => {
     setIsMenuOpen(false);
   };
-
   return (
     <div className="Offer-middle">
       <div className="offer-content">
@@ -159,8 +146,8 @@ const Offer: FC<OwnProps> = ({ props }) => {
               <img src={offer1} alt="" />
             </div>
             <div className="offer-details">
-              <h4>{`${props.title} - ${offerHour}`}</h4>
-              <span className="offer-location">{props.description}</span>
+              <h4>{props.offer.title}</h4>
+              <span className="offer-location">{props.offer.description}</span>
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>
                   {tagStatus.text}
@@ -191,40 +178,45 @@ const Offer: FC<OwnProps> = ({ props }) => {
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
               {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
+              {props.status === ReservationStatus.BOOKED
+               && (
+                 <MenuItem icon="user" onClick={handleCancelOrder}>
+                   {lang('Cancel')}
+                 </MenuItem>
+               )}
             </Menu>
           </div>
         </div>
         <div className="offer-footer">
           <div className="date-time">
             <div className="date-time">
-              {offerStatus === ReservationStatus.BOOKED && (
+              {props.status === ReservationStatus.BOOKED && (
                 <>
                   <img src={datetime} alt="" className="icon-img" />
                   <span className="green">{timeToStart?.days} days to start</span>
                   {/* <span>02:00:00</span> */}
                 </>
               )}
-              {offerStatus === ReservationStatus.MARKED_AS_STARTED && (
+              {props.status === ReservationStatus.MARKED_AS_STARTED && (
                 <>
                   <img src={time} alt="" />
                   <span>Waiting for your confirmation</span>
                 </>
               )}
-              {offerStatus === ReservationStatus.FINISHED && (
+              {props.status === ReservationStatus.FINISHED && (
                 <>
                   <img src={time} alt="" />
                   <span>Waiting for your confirmation</span>
                 </>
               )}
-              {offerStatus === ReservationStatus.STARTED && (
+              {props.status === ReservationStatus.STARTED && (
                 <>
                   <img src={play} alt="" />
                   <span>In progress</span>
                   <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
                 </>
               )}
-              {offerStatus
+              {props.status
                 === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
                 <>
                   <img src={play} alt="" />
@@ -234,34 +226,34 @@ const Offer: FC<OwnProps> = ({ props }) => {
             </div>
           </div>
           <div className="btn-holder">
-            {(offerStatus === ReservationStatus.BOOKED
-              || offerStatus === ReservationStatus.MARKED_AS_STARTED) && (
+            {(props.status === ReservationStatus.BOOKED
+              || props.status === ReservationStatus.MARKED_AS_STARTED) && (
               <div className="btn-cancel">
                 <Button size="tiny" color="primary">
                   Join
                 </Button>
               </div>
             )}
-            {(offerStatus === ReservationStatus.FINISHED
-              || offerStatus === ReservationStatus.STARTED) && (
+            {(props.status === ReservationStatus.FINISHED
+              || props.status === ReservationStatus.STARTED) && (
               <div className="btn-finish">
                 <Button
                   size="tiny"
                   color="hm-primary-red"
-                  disabled={offerStatus === ReservationStatus.STARTED}
+                  disabled={props.status === ReservationStatus.STARTED}
                 >
                   Confirm End
                 </Button>
               </div>
             )}
-            {(offerStatus === ReservationStatus.MARKED_AS_STARTED
-              || offerStatus === ReservationStatus.STARTED) && (
+            {(props.status === ReservationStatus.MARKED_AS_STARTED
+              || props.status === ReservationStatus.STARTED) && (
               <div className="btn-confirm">
                 <Button
                   ripple
                   size="tiny"
                   color="primary"
-                  disabled={offerStatus === ReservationStatus.STARTED}
+                  disabled={props.status === ReservationStatus.STARTED}
                 >
                   Confirm Start
                 </Button>
@@ -273,11 +265,11 @@ const Offer: FC<OwnProps> = ({ props }) => {
       <OfferDetailsDialog
         onBookClicked={() => alert('s')}
         openModal={openDetailsModal}
-        offer={props}
+        offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
     </div>
   );
 };
 
-export default memo(Offer);
+export default memo(Order);
