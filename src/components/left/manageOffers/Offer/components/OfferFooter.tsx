@@ -15,8 +15,8 @@ type TimeToStart = {
 
 type OwnProps = {
   timeToStart: TimeToStart;
-  fromTime: string;
-  toTime: string;
+  fromTime?: string;
+  toTime?: string;
   status: ReservationStatus;
   onJoinMeeting: () => void;
   onStatusChanged: (status: ReservationStatus) => void;
@@ -49,17 +49,19 @@ const OfferFooter: FC<OwnProps> = ({
   const [canFinish, setCanFinish] = useState(false);
 
   useEffect(() => {
-    const dateFutureFrom = new Date(fromTime);
-    const dateFutureToTime = new Date(toTime);
-    const dateNow = new Date();
-    if ((dateFutureFrom.getTime() < dateNow.getTime())
-      && (dateNow.getTime() < dateFutureToTime.getTime())) {
-      setCanStart(true);
-    } else {
-      setCanStart(false);
-    }
-    if (dateNow.getTime() > dateFutureToTime.getTime()) {
-      setCanFinish(true);
+    if (fromTime && toTime) {
+      const dateFutureFrom = new Date(fromTime);
+      const dateFutureToTime = new Date(toTime);
+      const dateNow = new Date();
+      if ((dateFutureFrom.getTime() < dateNow.getTime())
+        && (dateNow.getTime() < dateFutureToTime.getTime())) {
+        setCanStart(true);
+      } else {
+        setCanStart(false);
+      }
+      if (dateNow.getTime() > dateFutureToTime.getTime()) {
+        setCanFinish(true);
+      }
     }
   }, [fromTime, toTime]);
 

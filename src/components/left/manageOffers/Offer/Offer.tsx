@@ -133,7 +133,7 @@ const Offer: FC<OwnProps & DispatchProps> = ({
         });
         break;
     }
-    if (props.time_slot.form_time) {
+    if (props.time_slot?.form_time) {
       const dateFuture = new Date(props.time_slot.form_time);
       const dateNow = new Date();
       if (dateFuture.getTime() > dateNow.getTime()) {
@@ -144,7 +144,7 @@ const Offer: FC<OwnProps & DispatchProps> = ({
         setTimeToStart({ days: 0, minutes: 0, hours: 0 });
       }
     }
-  }, [props.time_slot.form_time, reservationStatus]);
+  }, [props.time_slot?.form_time, reservationStatus]);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -305,8 +305,8 @@ const Offer: FC<OwnProps & DispatchProps> = ({
         <OfferFooter
           offerType={offerType}
           reservationId={props.id}
-          fromTime={props.time_slot.form_time}
-          toTime={props.time_slot.to_time}
+          fromTime={props.time_slot?.form_time}
+          toTime={props.time_slot?.to_time}
           timeToStart={timeToStart}
           joinMeetingLoader={joinMeetingLoader}
           status={reservationStatus}
