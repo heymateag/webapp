@@ -540,5 +540,23 @@
 .hm-edit:before {
   content: "\e90e";
 }
+.hm-zoom-screenshare:before {
+  content: "\e90c";
+}
+.hm-zoom-video:before {
+  content: "\e90f";
+}
+.hm-zoom-mic:before {
+  content: "\e910";
+}
+.hm-zoom-minimize:before {
+  content: "\e911";
+}
+.hm-zoom-maximize:before {
+  content: "\e912";
+}
+.hm-zoom-close:before {
+  content: "\e913";
+}
 
 

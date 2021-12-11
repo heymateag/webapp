@@ -1,0 +1,133 @@
+.VideoSessionDialog {
+  .modal-dialog {
+
+    .custom-header {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      min-height: 42px;
+      padding: 0 1rem;
+
+      .header-actions {
+        min-width: 80px;
+        height: 100%;
+        display: flex;
+        flex-direction: row-reverse;
+        align-items: center;
+        justify-content: space-between;
+
+        i {
+          font-size: 20px;
+          cursor: pointer;
+          &#zoom-max {
+              width: 18.5px;
+              height: 14.5px;
+              border: 2px solid;
+              border-radius: 3px;
+          }
+          &#zoom-min {
+            width: 15.5px;
+            height: 2.5px;
+            border-top: 2px solid;
+          }
+        }
+      }
+
+    }
+
+    .modal-content {
+      display: flex;
+      background-color: #1B1F23;
+      flex-flow: row wrap;
+      align-content: space-between;
+
+      .wait-to-session-init {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .meeting-control-layer {
+        width: 110%;
+        margin: -15px;
+        padding: 0 1rem;
+        height: 60px;
+        display: flex;
+        justify-content: flex-start;
+        background-color: var(--color-background);
+
+        .meeting-option-buttons {
+          display: flex;
+          flex: 70%;
+          justify-content: flex-start;
+
+          .btn-box {
+            flex-direction: column;
+            cursor: pointer;
+            height: 100%;
+            width: 112px;
+            justify-content: space-around;
+            display: flex;
+            align-items: center;
+            i {
+              font-size: 20px;
+            }
+            span {
+              font-size: 12px;
+              font-weight: normal;
+            }
+          }
+
+        }
+
+        .leave-btn-holder {
+          display: flex;
+          flex: 30%;
+          align-items: center;
+          max-width: 56px;
+        }
+
+      }
+
+      .share-container{
+        display: none;
+        &.in-sharing {
+          display: flex;
+          flex-grow: 1;
+          justify-content: center;
+          align-items: center;
+          overflow: hidden;
+        }
+        .share-container-viewport{
+          display: inline-block;
+          max-width: 100%;
+        }
+        .share-canvas {
+          width: 100%;
+          height: 100%;
+          &.hidden{
+            display: none;
+          }
+        }
+      }
+      .video-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        &.in-sharing{
+          width: 264px;
+          flex-shrink: 0;
+          border-left: 1px solid #333;
+        }
+        .video-canvas{
+          width: 100%;
+          height: 100%;
+        }
+      }
+
+    }
+
+  }
+}

@@ -21,11 +21,21 @@
   }
 
   &.video-session {
+
     .modal-dialog {
       max-width: none;
       height: 90vh;
       width: 70vw;
     }
+
+    &.maximize {
+      .modal-dialog {
+        max-width: none;
+        height: 100vh;
+        width: 100vw;
+      }
+    }
+
   }
 
   &.report {

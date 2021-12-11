@@ -5,7 +5,7 @@ import './TaggedText.scss';
 
 type OwnProps = {
   children: any;
-  color: 'green' | 'yellow' | 'blue' | 'gray';
+  color: 'green' | 'yellow' | 'blue' | 'gray' | 'red';
 };
 const TaggedText: FC<OwnProps> = ({
   children,

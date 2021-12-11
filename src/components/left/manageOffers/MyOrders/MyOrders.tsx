@@ -18,15 +18,19 @@ const MyOrders: FC<OwnProps> = ({
   scheduleType = 'MyOrders',
 }) => {
   const [myOrders, setMyOrders] = useState<IMyOrders[]>([]);
+
+  const [isLoading, setIsLoading] = useState(false);
   /**
    * Get All Offers
    */
   const getMyOrders = async () => {
+    setIsLoading(true);
     const response = await axiosService({
       url: `${HEYMATE_URL}/reservation/myOrders`,
       method: 'GET',
       body: {},
     });
+    setIsLoading(false);
     if (response?.status === 200) {
       setMyOrders(response.data.data);
     }
@@ -43,6 +47,11 @@ const MyOrders: FC<OwnProps> = ({
     }
   };
 
+  const renderMyOrders = () => {
+    return myOrders.map((item) => (
+      <Offer props={item} offerType={item.offer.meeting_type} />
+    ));
+  };
   useEffect(() => {
     if (scheduleType === 'MyOrders') {
       getMyOrders();
@@ -52,20 +61,13 @@ const MyOrders: FC<OwnProps> = ({
   }, [scheduleType]);
   return (
     <div className="MyOrders">
-      {myOrders.length > 0 ? myOrders.map((item) => (
-        <div>
-          {
-            item.offer.meeting_type === MeetingType.ONLINE ? (
-              <OnlineMetting props={item} />
-            )
-              : (
-                <Offer props={item} />
-              )
-          }
-        </div>
-      )) : (
+      {isLoading ? (
         <div className="loading-my-orders">
           <Loading key="loading" />
+        </div>
+      ) : myOrders.length > 0 ? renderMyOrders() : (
+        <div className="no-order">
+          There’s no available order for you !
         </div>
       )}
     </div>

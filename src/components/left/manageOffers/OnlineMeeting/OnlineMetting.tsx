@@ -6,10 +6,6 @@ import TaggedText from '../../../ui/TaggedText';
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
 // @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
-// @ts-ignore
 import play from '../../../../assets/heymate/play.svg';
 import './OnlineMeeting.scss';
 import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
@@ -124,13 +120,13 @@ const OnlineMeeting: FC<OwnProps> = ({
             )}
             {props.status === ReservationStatus.MARKED_AS_STARTED && (
               <div className={ReservationStatus.MARKED_AS_STARTED}>
-                <img src={time} alt="" />
+                <i className="hm-time" />
                 <span>Waiting for your confirmation</span>
               </div>
             )}
             {props.status === ReservationStatus.FINISHED && (
               <div className={ReservationStatus.FINISHED}>
-                <img src={time} alt="" />
+                <i className="hm-time" />
                 <span>Waiting for your confirmation</span>
               </div>
             )}

@@ -20,7 +20,6 @@ import ArchivedChats from './ArchivedChats.async';
 import ManageOffers from './manageOffers/ManageOffers.async';
 import Wallet from './wallet/Wallet.async';
 
-
 import './LeftColumn.scss';
 
 type StateProps = {
@@ -341,31 +340,31 @@ const LeftColumn: FC<StateProps & DispatchProps> = ({
                 />
               );
             case ContentType.wallet:
-            return <Wallet onReset={handleReset} />;
-          case ContentType.Offers:
-            return (
-              <ManageOffers
-                onReset={handleReset}
-              />
-            );
-          default:
-            return (
-              <LeftMain
-                content={content}
-                searchQuery={searchQuery}
-                searchDate={searchDate}
-                contactsFilter={contactsFilter}
-                foldersDispatch={foldersDispatch}
-                onContentChange={setContent}
-                onSearchQuery={handleSearchQuery}
-                onScreenSelect={handleSettingsScreenSelect}
-                onReset={handleReset}
-                shouldSkipTransition={shouldSkipHistoryAnimations}
-              />
-            );
-        }
-      }}
-    </Transition><div
+              return <Wallet onReset={handleReset} />;
+            case ContentType.Offers:
+              return (
+                <ManageOffers
+                  onReset={handleReset}
+                />
+              );
+            default:
+              return (
+                <LeftMain
+                  content={content}
+                  searchQuery={searchQuery}
+                  searchDate={searchDate}
+                  contactsFilter={contactsFilter}
+                  foldersDispatch={foldersDispatch}
+                  onContentChange={setContent}
+                  onSearchQuery={handleSearchQuery}
+                  onScreenSelect={handleSettingsScreenSelect}
+                  onReset={handleReset}
+                  shouldSkipTransition={shouldSkipHistoryAnimations}
+                />
+              );
+          }
+        }}
+      </Transition><div
         className="resize-handle"
         onMouseDown={initResize}
         onMouseUp={handleMouseUp}

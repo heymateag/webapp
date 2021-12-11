@@ -1,27 +1,26 @@
-import { ConnectionState } from '@zoom/videosdk';
-import React, {
-  FC, memo, useCallback, useEffect, useRef, useState,
-} from '../../../../lib/teact/teact';
-import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
-import VideoSessionDialog from '../../../common/VideoSessionDialog';
+import {ConnectionState} from '@zoom/videosdk';
+import React, {FC, memo, useCallback, useEffect, useRef, useState,} from '../../../../lib/teact/teact';
+import {ZoomClient} from '../ZoomSdkService/ZoomSdkService';
+import VideoSessionDialog from '../ZoomDialog/VideoSessionDialog';
+import OfferFooter from './components/OfferFooter';
+import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-import { ClientType } from '../ZoomSdkService/types';
-import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
+import {ClientType} from '../ZoomSdkService/types';
+import {IMyOrders, ReservationStatus} from '../../../../types/HeymateTypes/MyOrders.model';
 import './Offer.scss';
 
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
-// @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import play from '../../../../assets/heymate/play.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
+import {axiosService} from '../../../../api/services/axiosService';
+import {HEYMATE_URL} from '../../../../config';
+import {GlobalActions} from "../../../../global/types";
+import {withGlobal} from "teact/teactn";
+import {pick} from "../../../../util/iteratees";
 
 type TimeToStart = {
   days: number;
@@ -30,17 +29,25 @@ type TimeToStart = {
 };
 type OwnProps = {
   props: IMyOrders;
+  offerType?: 'DEFAULT' | 'ONLINE';
 };
-const Offer: FC<OwnProps> = ({
+
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+
+const Offer: FC<OwnProps & DispatchProps> = ({
   props,
+  offerType = 'DEFAULT',
+  showNotification,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
+  const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
+  const [offerStarted, setOfferStarted] = useState(false);
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -57,6 +64,8 @@ const Offer: FC<OwnProps> = ({
 
   const [loadingText, setLoadingText] = useState('');
 
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
+
   const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
@@ -70,7 +79,6 @@ const Offer: FC<OwnProps> = ({
     }
     const dateFuture = new Date(ts);
     const dateNow = new Date();
-    // return Math.round(Math.abs((firstDate.getTime() - secondDate.getTime()) / (oneDay)));
 
     let delta = Math.abs(dateFuture.getTime() - dateNow.getTime()) / 1000;
 
@@ -91,7 +99,7 @@ const Offer: FC<OwnProps> = ({
   };
 
   useEffect(() => {
-    switch (props.status) {
+    switch (reservationStatus) {
       case ReservationStatus.BOOKED:
         setTagStatus({
           color: 'green',
@@ -111,18 +119,32 @@ const Offer: FC<OwnProps> = ({
         });
         break;
       case ReservationStatus.MARKED_AS_STARTED:
-      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+      case ReservationStatus.MARKED_AS_FINISHED:
         setTagStatus({
           color: 'yellow',
           text: 'Pending',
         });
         break;
+      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+      case ReservationStatus.CANCELED_BY_CONSUMER:
+        setTagStatus({
+          color: 'red',
+          text: 'Cancelled',
+        });
+        break;
     }
     if (props.time_slot.form_time) {
-      const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
-      setTimeToStart(res);
+      const dateFuture = new Date(props.time_slot.form_time);
+      const dateNow = new Date();
+      if (dateFuture.getTime() > dateNow.getTime()) {
+        const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
+        setTimeToStart(res);
+      } else {
+        setOfferStarted(true);
+        setTimeToStart({ days: 0, minutes: 0, hours: 0 });
+      }
     }
-  }, [props.status, props.time_slot.form_time]);
+  }, [props.time_slot.form_time, reservationStatus]);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -132,22 +154,20 @@ const Offer: FC<OwnProps> = ({
     setIsMenuOpen(false);
   };
 
+  const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
+    setReservationStatus(newStatus);
+  };
+
   const joinMeeting = async () => {
-    const client = new ZoomClient('bouAzar', '5AR8pk', 'John Doe!');
+    setOpenVideoDialog(true);
+    const client = new ZoomClient('test2', '5AR8pk', 'John Doe!');
     setJoinMeetingLoader(true);
     await client.join();
 
     setZmClient(client.zmClient);
-    setOpenVideoDialog(true);
+    setZoomStream(client.mediaStream);
+
     setJoinMeetingLoader(false);
-    // if (client.mediaStream) {
-    //   setZoomStream(client.mediaStream);
-    //   setOpenVideoDialog(true);
-    //
-    // } else {
-    //   alert('unable to join !');
-    //   setJoinMeetingLoader(false);
-    // }
   };
 
   const onConnectionChange = useCallback(
@@ -175,12 +195,67 @@ const Offer: FC<OwnProps> = ({
     [isFailover],
   );
 
+  const getOrderById = useCallback(async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/${props.id}`,
+      method: 'GET',
+      body: {},
+    });
+    if (response.status && response?.data) {
+      if (response.data.data.status !== reservationStatus) {
+        setReservationStatus(response.data.data.status);
+      }
+    }
+  }, [props.id, reservationStatus]);
+
   useEffect(() => {
-    zmClient.on('connection-change', onConnectionChange);
+    let intervalId;
+    if (reservationStatus !== ReservationStatus.FINISHED
+      && reservationStatus !== ReservationStatus.MARKED_AS_STARTED
+      && reservationStatus !== ReservationStatus.MARKED_AS_FINISHED) {
+      intervalId = setInterval(() => {
+        getOrderById();
+      }, 5000);
+    }
     return () => {
-      zmClient.off('connection-change', onConnectionChange);
+      clearInterval(intervalId);
+    };
+  }, [getOrderById, reservationStatus]);
+
+  useEffect(() => {
+    if (typeof zmClient !== 'undefined') {
+      zmClient?.on('connection-change', onConnectionChange);
+    }
+    return () => {
+      if (typeof zmClient !== 'undefined') {
+        zmClient?.off('connection-change', onConnectionChange);
+      }
     };
   }, [zmClient, onConnectionChange]);
+
+  const handleCLoseDetailsModal = () => {
+    setOpenDetailsModal(false);
+  };
+
+  const handleCancelReservation = async () => {
+    if (reservationStatus === ReservationStatus.BOOKED) {
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/reservation/${props.id}`,
+        method: 'PUT',
+        body: {
+          status: 'CANCELED',
+        },
+      });
+      if (response?.status === 200) {
+        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
+        const msg = 'Your order has been cancelled !';
+        showNotification({ message: msg });
+      }
+    } else {
+      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
+      showNotification({ message: msg });
+    }
+  };
 
   return (
     <div className="Offer">
@@ -220,84 +295,47 @@ const Offer: FC<OwnProps> = ({
               autoClose
               onClose={handleClose}
             >
-              <MenuItem icon="channel">View Details</MenuItem>
-              <MenuItem icon="group">Re-Schedule</MenuItem>
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
+              <MenuItem onClick={() => setOpenDetailsModal(true)} icon="channel">View Details</MenuItem>
+              {reservationStatus === ReservationStatus.BOOKED && (
+                <MenuItem onClick={handleCancelReservation} icon="user">{lang('Cancel')}</MenuItem>
+              )}
             </Menu>
           </div>
         </div>
-        <div className="offer-footer">
-          <div className="date-time">
-            {props.status === ReservationStatus.BOOKED && (
-              <div className={ReservationStatus.BOOKED}>
-                <i className="hm-date-time" />
-                <span>{timeToStart.days} days</span>
-                <span>02:00:00</span>
-              </div>
-            )}
-            {props.status === ReservationStatus.MARKED_AS_STARTED && (
-              <div className={ReservationStatus.MARKED_AS_STARTED}>
-                <img src={time} alt="" />
-                <span>Waiting for your confirmation</span>
-              </div>
-            )}
-            {props.status === ReservationStatus.FINISHED && (
-              <div className={ReservationStatus.FINISHED}>
-                <img src={time} alt="" />
-                <span>Waiting for your confirmation</span>
-              </div>
-            )}
-            {props.status === ReservationStatus.STARTED && (
-              <div className={ReservationStatus.STARTED}>
-                <img src={play} alt="" />
-                <span>In progress</span>
-                <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
-              </div>
-            )}
-            {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-              <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
-                <img src={play} alt="" />
-                <span>Waiting for your Cancel confirmation</span>
-              </div>
-            )}
-          </div>
-          <div className="btn-holder">
-            { (props.status === ReservationStatus.BOOKED
-              || props.status === ReservationStatus.MARKED_AS_STARTED) && (
-              <div className="btn-cancel">
-                <Button isLoading={joinMeetingLoader} onClick={joinMeeting} size="tiny" color="primary">
-                  join meeting
-                </Button>
-              </div>
-            )}
-            { (props.status === ReservationStatus.FINISHED
-              || props.status === ReservationStatus.STARTED) && (
-              <div className="btn-finish">
-                <Button size="tiny" color="hm-primary-red" disabled={props.status === ReservationStatus.STARTED}>
-                  Confirm End
-                </Button>
-              </div>
-            )}
-            { (props.status === ReservationStatus.MARKED_AS_STARTED
-              || props.status === ReservationStatus.STARTED) && (
-              <div className="btn-confirm">
-                <Button ripple size="tiny" color="primary" disabled={props.status === ReservationStatus.STARTED}>
-                  Confirm Start
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <OfferFooter
+          offerType={offerType}
+          reservationId={props.id}
+          fromTime={props.time_slot.form_time}
+          toTime={props.time_slot.to_time}
+          timeToStart={timeToStart}
+          joinMeetingLoader={joinMeetingLoader}
+          status={reservationStatus}
+          onJoinMeeting={joinMeeting}
+          onStatusChanged={handleReservationStatusChanges}
+        />
       </div>
       <VideoSessionDialog
-        status={status}
+        isLoading={joinMeetingLoader}
         openModal={openVideoDialog}
         onCloseModal={handleCloseVideoDialog}
         stream={zoomStream}
         zoomClient={zmClient}
       />
+      <OfferDetailsDialog
+        openModal={openDetailsModal}
+        offer={props.offer}
+        onCloseModal={handleCLoseDetailsModal}
+      />
     </div>
   );
 };
 
-export default memo(Offer);
+export default memo(withGlobal<OwnProps>(
+  (): any => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(Offer));

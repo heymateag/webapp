@@ -15,8 +15,8 @@ type OwnProps = {
   offer: IOffer;
   openModal: boolean;
   onCloseModal: () => void;
-  onBookClicked: (planType: PlanType) => void;
-  message: ApiMessage;
+  onBookClicked?: (planType: PlanType) => void;
+  message?: ApiMessage;
 };
 interface IPurchasePlan {
   value: string;
@@ -63,7 +63,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   }, []);
 
   const handleForward = useCallback(() => {
-    openForwardMenu({ fromChatId: message.chatId, messageIds: [message.id] });
+    openForwardMenu({ fromChatId: message?.chatId, messageIds: [message?.id] });
   }, [openForwardMenu, message]);
 
   useEffect(() => {
@@ -114,9 +114,11 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
       <div className="offer-details-modal-container">
         <div className="offer-images">
           <img src="https://picsum.photos/200/224" alt="" />
-          <div id="share-offer" onClick={handleForward}>
-            <i className="hm-arrow-share" />
-          </div>
+          {message && (
+            <div id="share-offer" onClick={handleForward}>
+              <i className="hm-arrow-share" />
+            </div>
+          )}
         </div>
         <div className="title-and-sub">
           <span id="offer-title">{offer?.title}</span>
@@ -150,12 +152,16 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
           </div>
         </div>
         <div className="btn-group">
-          <Button className="see-details" size="smaller" color="secondary">
-            Promote
-          </Button>
-          <Button onClick={() => onBookClicked(selectedPlan)} className="book-offer" size="smaller" color="primary">
-            <span>Book Now</span>
-          </Button>
+          {message && (
+            <Button className="see-details" size="smaller" color="secondary">
+              Promote
+            </Button>
+          )}
+          {onBookClicked && (
+            <Button onClick={() => onBookClicked(selectedPlan)} className="book-offer" size="smaller" color="primary">
+              <span>Book Now</span>
+            </Button>
+          )}
         </div>
       </div>
     </Modal>
