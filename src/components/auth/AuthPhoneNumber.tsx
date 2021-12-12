@@ -227,7 +227,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
 
     if (canSubmit) {
-      // handleHeymateLogin(fullNumber);
+      handleHeymateLogin(fullNumber);
       setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
       setAuthPhoneNumber({ phoneNumber: fullNumber });
     }
