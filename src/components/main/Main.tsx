@@ -185,30 +185,35 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   }, [lastSyncTime]);
 
-  const handleHeymateLogin = async (phone_number: any, userId?:string) => {
-    const userPhone = phone_number.replace(/ /g, '');
-    const response: IAuth = await axiosService({
-      url: `${HEYMATE_URL}/auth/login`,
-      method: 'POST',
-      body: {
-        phone_number: userPhone,
-        password: '123456',
-      },
-    });
-    if (response.status === 201) {
-      const token = response.data.accessToken.jwtToken;
-      const refreshToken = response.data.refreshToken.token;
-      localStorage.setItem('HM_TOKEN', token);
-      localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
-      localStorage.setItem('HM_PHONE', userPhone);
-    }
-  };
+  // const handleHeymateLogin = async (phone_number: any, userId?:string) => {
+  //   if(typeof phone_number === 'undefined') {
+  //     phone_number = localStorage.getItem('HM_PHONE');
+  //   }
+  //   const userPhone = phone_number.replace(/ /g, '');
+    
+  //   const response: IAuth = await axiosService({
+  //     url: `${HEYMATE_URL}/auth/login`,
+  //     method: 'POST',
+  //     body: {
+  //       phone_number: userPhone,
+  //       password: '123456',
+  //       telegram_id: userId,
+  //     },
+  //   });
+  //   if (response.status === 201) {
+  //     const token = response.data.accessToken.jwtToken;
+  //     const refreshToken = response.data.refreshToken.token;
+  //     localStorage.setItem('HM_TOKEN', token);
+  //     localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
+  //     localStorage.setItem('HM_PHONE', userPhone);
+  //   }
+  // };
 
-  useEffect(() => {
-    if (typeof currentUserId !== 'undefined') {
-      handleHeymateLogin(currentUserPhoneNumber, currentUserId);
-    }
-  }, [currentUserId, currentUserPhoneNumber]);
+  // useEffect(() => {
+  //   if (typeof currentUserId !== 'undefined') {
+  //     handleHeymateLogin(currentUserPhoneNumber, currentUserId);
+  //   }
+  // }, [currentUserId, currentUserPhoneNumber]);
 
   const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
     !isLeftColumnShown,
