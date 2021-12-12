@@ -8,7 +8,7 @@ import React, {
 } from '../../../../lib/teact/teact';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-
+import { GlobalActions } from '../../../../global/types';
 import {
   IMyOrders,
   ReservationStatus,
@@ -30,6 +30,12 @@ import Menu from '../../../ui/Menu';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 import { HEYMATE_URL } from '../../../../config';
 import { axiosService } from '../../../../api/services/axiosService';
+import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessionDialog';
+import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
+import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
+import OrderFooter from './components/OrderFooter';
+import { withGlobal } from 'teact/teactn';
+import { pick } from '../../../../util/iteratees';
 
 type TimeToStart = {
   days: number;
@@ -38,15 +44,22 @@ type TimeToStart = {
 };
 type OwnProps = {
   props: IMyOrders;
-  handleGetList: () => void;
+  orderType?: 'DEFAULT' | 'ONLINE';
 };
-const Order: FC<OwnProps> = ({ props, handleGetList }) => {
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+
+const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderType = 'DEFAULT' }) => {
   const lang = useLang();
+  const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+  const [zoomStream, setZoomStream] = useState();
+  const [zmClient, setZmClient] = useState<ClientType>();
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -84,7 +97,7 @@ const Order: FC<OwnProps> = ({ props, handleGetList }) => {
   };
 
   useEffect(() => {
-    switch (props.status) {
+    switch (reservationStatus) {
       case ReservationStatus.BOOKED:
         setTagStatus({
           color: 'green',
@@ -104,10 +117,17 @@ const Order: FC<OwnProps> = ({ props, handleGetList }) => {
         });
         break;
       case ReservationStatus.MARKED_AS_STARTED:
-      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+      case ReservationStatus.MARKED_AS_FINISHED:
         setTagStatus({
           color: 'yellow',
           text: 'Pending',
+        });
+        break;
+      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+      case ReservationStatus.CANCELED_BY_CONSUMER:
+        setTagStatus({
+          color: 'red',
+          text: 'Cancelled',
         });
         break;
     }
@@ -115,27 +135,51 @@ const Order: FC<OwnProps> = ({ props, handleGetList }) => {
       const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
       setTimeToStart(res);
     }
-  }, [props.status, props?.time_slot?.form_time]);
+  }, [reservationStatus, props?.time_slot?.form_time]);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
   }, []);
 
-  const handleCancelOrder = useCallback(async () => {
-    const response = await axiosService({
-      url: `${HEYMATE_URL}/reservation/${props.id}`,
-      method: 'PATCH',
-      body: {
-        status: 'CANCELED',
-      },
-    });
-    if (response?.status === 200) {
-      handleGetList();
+  const handleCancelReservation = async () => {
+    if (reservationStatus === ReservationStatus.BOOKED) {
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/reservation/${props.id}`,
+        method: 'PUT',
+        body: {
+          status: 'CANCELED',
+        },
+      });
+      if (response?.status === 200) {
+        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
+        const msg = 'Your order has been cancelled !';
+        showNotification({ message: msg });
+      }
+    } else {
+      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
+      showNotification({ message: msg });
     }
-  }, [props.id, handleGetList]);
+  };
 
   const handleClose = () => {
     setIsMenuOpen(false);
+  };
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
+  };
+  const joinMeeting = async () => {
+    setOpenVideoDialog(true);
+    const client = new ZoomClient('test2', '5AR8pk', 'John Doe!');
+    setJoinMeetingLoader(true);
+    await client.join();
+
+    setZmClient(client.zmClient);
+    setZoomStream(client.mediaStream);
+
+    setJoinMeetingLoader(false);
+  };
+  const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
+    setReservationStatus(newStatus);
   };
   return (
     <div className="Offer-middle">
@@ -180,88 +224,32 @@ const Order: FC<OwnProps> = ({ props, handleGetList }) => {
               {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
               {props.status === ReservationStatus.BOOKED
                && (
-                 <MenuItem icon="user" onClick={handleCancelOrder}>
+                 <MenuItem icon="user" onClick={handleCancelReservation}>
                    {lang('Cancel')}
                  </MenuItem>
                )}
             </Menu>
           </div>
         </div>
-        <div className="offer-footer">
-          <div className="date-time">
-            <div className="date-time">
-              {props.status === ReservationStatus.BOOKED && (
-                <>
-                  <img src={datetime} alt="" className="icon-img" />
-                  <span className="green">{timeToStart?.days} days to start</span>
-                  {/* <span>02:00:00</span> */}
-                </>
-              )}
-              {props.status === ReservationStatus.MARKED_AS_STARTED && (
-                <>
-                  <img src={time} alt="" />
-                  <span>Waiting for your confirmation</span>
-                </>
-              )}
-              {props.status === ReservationStatus.FINISHED && (
-                <>
-                  <img src={time} alt="" />
-                  <span>Waiting for your confirmation</span>
-                </>
-              )}
-              {props.status === ReservationStatus.STARTED && (
-                <>
-                  <img src={play} alt="" />
-                  <span>In progress</span>
-                  <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
-                </>
-              )}
-              {props.status
-                === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-                <>
-                  <img src={play} alt="" />
-                  <span>Waiting for your Cancel confirmation</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="btn-holder">
-            {(props.status === ReservationStatus.BOOKED
-              || props.status === ReservationStatus.MARKED_AS_STARTED) && (
-              <div className="btn-cancel">
-                <Button size="tiny" color="primary">
-                  Join
-                </Button>
-              </div>
-            )}
-            {(props.status === ReservationStatus.FINISHED
-              || props.status === ReservationStatus.STARTED) && (
-              <div className="btn-finish">
-                <Button
-                  size="tiny"
-                  color="hm-primary-red"
-                  disabled={props.status === ReservationStatus.STARTED}
-                >
-                  Confirm End
-                </Button>
-              </div>
-            )}
-            {(props.status === ReservationStatus.MARKED_AS_STARTED
-              || props.status === ReservationStatus.STARTED) && (
-              <div className="btn-confirm">
-                <Button
-                  ripple
-                  size="tiny"
-                  color="primary"
-                  disabled={props.status === ReservationStatus.STARTED}
-                >
-                  Confirm Start
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <OrderFooter
+          offerType={orderType}
+          reservationId={props.id}
+          fromTime={props.time_slot?.form_time}
+          toTime={props.time_slot?.to_time}
+          timeToStart={timeToStart}
+          joinMeetingLoader={joinMeetingLoader}
+          status={reservationStatus}
+          onJoinMeeting={joinMeeting}
+          onStatusChanged={handleReservationStatusChanges}
+        />
       </div>
+      <VideoSessionDialog
+        isLoading={joinMeetingLoader}
+        openModal={openVideoDialog}
+        onCloseModal={handleCloseVideoDialog}
+        stream={zoomStream}
+        zoomClient={zmClient}
+      />
       <OfferDetailsDialog
         onBookClicked={() => alert('s')}
         openModal={openDetailsModal}
@@ -272,4 +260,12 @@ const Order: FC<OwnProps> = ({ props, handleGetList }) => {
   );
 };
 
-export default memo(Order);
+export default memo(withGlobal<OwnProps>(
+  (): any => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(Order));
