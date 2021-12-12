@@ -103,8 +103,16 @@ const OfferFooter: FC<OwnProps> = ({
         {reservationStatus === ReservationStatus.BOOKED && (
           <div className={ReservationStatus.BOOKED}>
             <i className="hm-date-time" />
-            <span>{`${timeToStart?.days} days `}</span>
-            <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
+            {
+              (timeToStart?.days === 0 && timeToStart.hours === 0 && timeToStart.minutes === 0) ? (
+                <span>Waiting for start</span>
+              ) : (
+                <div> 
+                  <span>{`${timeToStart?.days} days `}</span>
+                  <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
+                </div>
+              )
+            }
           </div>
         )}
         {reservationStatus === ReservationStatus.MARKED_AS_STARTED && (
