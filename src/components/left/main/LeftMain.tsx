@@ -74,6 +74,7 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   const isConnecting = !isBrowserOnline || connectionState === 'connectionStateConnecting';
 
   const isMouseInside = useRef(false);
+  const [width, setWidth] = useState(0);
 
   const handleSelectSettings = useCallback(() => {
     onContentChange(LeftColumnContent.Settings);
@@ -98,19 +99,22 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   /**
    * Ali's To Handle Show Offers In Middle Screen
    */
-  // const handleSelectManageOffers = useCallback(() => {
-  //   setShowHeymate({ showHeymate: true });
-  //   // onContentChange(LeftColumnContent.Offers);
-  // }, [setShowHeymate]);
+  const handleSelectManageOffers = useCallback(() => {
+    if (width > 500) {
+      setShowHeymate({ showHeymate: true });
+    } else {
+      onContentChange(LeftColumnContent.Offers);
+    }
+    // onContentChange(LeftColumnContent.Offers);
+  }, [setShowHeymate, onContentChange, width]);
   /**
    * Ehsan's To Handle Show Offers In Left Screen
    */
-  const handleSelectManageOffers = useCallback(() => {
-    onContentChange(LeftColumnContent.Offers);
-  }, [onContentChange]);
+  // const handleSelectManageOffers = useCallback(() => {
+  //   onContentChange(LeftColumnContent.Offers);
+  // }, [onContentChange]);
 
   const handleSelectWallet = useCallback(() => {
-    onContentChange(LeftColumnContent.wallet);
   }, [onContentChange]);
 
   const handleMouseEnter = useCallback(() => {
@@ -153,6 +157,10 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
       }
     };
   }, [content]);
+
+  useEffect(() => {
+    setWidth(window.innerWidth);
+  }, []);
 
   const [shouldRenderUpdateButton, updateButtonClassNames, handleUpdateClick] = useAppOutdatedCheck();
 

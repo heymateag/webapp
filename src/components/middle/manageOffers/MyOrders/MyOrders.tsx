@@ -123,7 +123,7 @@ const MyOrders: FC = () => {
             {item.offer.meeting_type === MeetingType.ONLINE ? (
               <OnlineMetting props={item} />
             ) : (
-              <Order props={item} handleGetList={getMyOrders} />
+              <Order props={item} orderType={item.offer.meeting_type} />
             )}
           </div>
         ))

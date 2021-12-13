@@ -26,7 +26,7 @@ type OwnProps = {
   reservationId: string;
 };
 
-const OfferFooter: FC<OwnProps> = ({
+const OrderFooter: FC<OwnProps> = ({
   timeToStart,
   fromTime,
   toTime,
@@ -105,16 +105,8 @@ const OfferFooter: FC<OwnProps> = ({
         {reservationStatus === ReservationStatus.BOOKED && (
           <div className={ReservationStatus.BOOKED}>
             <i className="hm-date-time" />
-            {
-              (timeToStart?.days === 0 && timeToStart.hours === 0 && timeToStart.minutes === 0) ? (
-                <span>Waiting for start</span>
-              ) : (
-                <div> 
-                  <span>{`${timeToStart?.days} days `}</span>
-                  <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
-                </div>
-              )
-            }
+            <span>{`${timeToStart?.days} days `}</span>
+            <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
           </div>
         )}
         {reservationStatus === ReservationStatus.MARKED_AS_STARTED && (
@@ -220,4 +212,4 @@ const OfferFooter: FC<OwnProps> = ({
   );
 };
 
-export default memo(OfferFooter);
+export default memo(OrderFooter);
