@@ -4,7 +4,7 @@ import React, {
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
 import Web3 from 'web3';
-import { newKitFromWeb3 } from '@celo/contractkit';
+import { newKitFromWeb3, CeloContract } from '@celo/contractkit';
 import { withGlobal } from 'teact/teactn';
 import { newKitBalances, sendcUSD } from './AccountManager/AccountMannager';
 import useLang from '../../../hooks/useLang';
@@ -46,9 +46,12 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
-      // clientMeta: [
-      //
-      // ],
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
     });
   }, []);
 
@@ -102,6 +105,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.connector.on('display_uri', (err, payload) => {
     setIsConnected(false);
     const wcUri = payload.params[0];
+    console.log(wcUri);
     setUri(wcUri);
 
     renderUriAsQr(wcUri);
@@ -116,6 +120,11 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     const myKit = newKitFromWeb3(web3);
 
     const walletAddress = address || provider.accounts[0];
+
+    const accounts = await myKit.web3.eth.getAccounts();
+    // eslint-disable-next-line prefer-destructuring
+    myKit.defaultAccount = accounts[0];
+    await myKit.setFeeCurrency(CeloContract.StableToken);
 
     const accountBalance = await newKitBalances(myKit, walletAddress);
     setBalance(accountBalance);
