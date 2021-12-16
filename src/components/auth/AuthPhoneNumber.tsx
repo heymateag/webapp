@@ -197,27 +197,42 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   const handleKeepSessionChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setAuthRememberMe(e.target.checked);
   }, [setAuthRememberMe]);
+
   /**
    * Sign In To Heymate Back With Phone Number
    * @param phone_number
    */
   const handleHeymateLogin = async (phone_number: any) => {
-    const userPhone = phone_number.replace(/ /g, '');
     const response: IAuth = await axiosService({
       url: `${HEYMATE_URL}/auth/login`,
+      method: 'POST',
+      body: {
+        phone_number,
+        password: '123456',
+      },
+    });
+    if (response.status === 201) {
+      const token = response.data.idToken.jwtToken;
+      const refreshToken = response.data.refreshToken.token;
+      localStorage.setItem('HM_TOKEN', token);
+      localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
+      localStorage.setItem('HM_PHONE', phone_number);
+    }
+  };
+  /**
+   *Handle To Sign Up the User
+   */
+  const handleHeymateRegister = async (phone_number: any) => {
+    const userPhone = phone_number.replace(/ /g, '');
+    const response: IAuth = await axiosService({
+      url: `${HEYMATE_URL}/auth/register`,
       method: 'POST',
       body: {
         phone_number: userPhone,
         password: '123456',
       },
     });
-    if (response.status === 201) {
-      const token = response.data.accessToken.jwtToken;
-      const refreshToken = response.data.refreshToken.token;
-      localStorage.setItem('HM_TOKEN', token);
-      localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
-      localStorage.setItem('HM_PHONE', userPhone);
-    }
+    handleHeymateLogin(userPhone);
   };
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -227,7 +242,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
 
     if (canSubmit) {
-      handleHeymateLogin(fullNumber);
+      handleHeymateRegister(fullNumber);
       setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
       setAuthPhoneNumber({ phoneNumber: fullNumber });
     }

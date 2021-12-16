@@ -93,7 +93,6 @@ const OfferFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
-    debugger
     if (offerType === 'ONLINE') {
       onJoinMeeting();
     }
@@ -109,7 +108,7 @@ const OfferFooter: FC<OwnProps> = ({
               (timeToStart?.days === 0 && timeToStart.hours === 0 && timeToStart.minutes === 0) ? (
                 <span>Waiting for start</span>
               ) : (
-                <div> 
+                <div>
                   <span>{`${timeToStart?.days} days `}</span>
                   <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
                 </div>
