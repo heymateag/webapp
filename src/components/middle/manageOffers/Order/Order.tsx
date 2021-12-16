@@ -132,8 +132,15 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
         break;
     }
     if (props?.time_slot?.form_time) {
-      const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
-      setTimeToStart(res);
+      const dateFuture = new Date(props.time_slot.form_time);
+      const dateNow = new Date();
+      if (dateFuture.getTime() > dateNow.getTime()) {
+        const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);
+        setTimeToStart(res);
+      } else {
+        // setOfferStarted(true);
+        setTimeToStart({ days: 0, minutes: 0, hours: 0 });
+      }
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
@@ -251,7 +258,6 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
         zoomClient={zmClient}
       />
       <OfferDetailsDialog
-        onBookClicked={() => alert('s')}
         openModal={openDetailsModal}
         offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}

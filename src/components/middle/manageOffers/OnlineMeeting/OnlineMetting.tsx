@@ -6,10 +6,6 @@ import TaggedText from '../../../ui/TaggedText';
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
 // @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
-// @ts-ignore
 import play from '../../../../assets/heymate/play.svg';
 import './OnlineMeeting.scss';
 import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
@@ -24,6 +20,7 @@ type OwnProps = {
 const OnlineMeeting: FC<OwnProps> = ({
   props,
 }) => {
+  debugger
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -63,7 +60,6 @@ const OnlineMeeting: FC<OwnProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleHeaderMenuOpen = useCallback(() => {
-    debugger
     setIsMenuOpen(true);
   }, []);
 
@@ -84,42 +80,7 @@ const OnlineMeeting: FC<OwnProps> = ({
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>{tagStatus.text}</TaggedText>
               </div>
-              <div className="date-time">
-                <div className="date-time">
-                  {props.status === ReservationStatus.BOOKED && (
-                    <>
-                      <img src={datetime} alt="" />
-                      <span>2days</span>
-                      <span>02:00:00</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.MARKED_AS_STARTED && (
-                    <>
-                      <img src={time} alt="" />
-                      <span>Waiting for your confirmation</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.FINISHED && (
-                    <>
-                      <img src={time} alt="" />
-                      <span>Waiting for your confirmation</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.STARTED && (
-                    <>
-                      <img src={play} alt="" />
-                      <span>In progress</span>
-                      <span>01:20:35</span>
-                    </>
-                  )}
-                  {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-                    <>
-                      <img src={play} alt="" />
-                      <span>Waiting for your Cancel confirmation</span>
-                    </>
-                  )}
-                </div>
-              </div>
+
             </div>
           </div>
           <div className="meeting-right-side">
@@ -150,6 +111,40 @@ const OnlineMeeting: FC<OwnProps> = ({
           </div>
         </div>
         <div className="offer-footer">
+          <div className="date-time">
+            {props.status === ReservationStatus.BOOKED && (
+              <div className={ReservationStatus.BOOKED}>
+                <i className="hm-date-time" />
+                <span>2days</span>
+                <span>02:00:00</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.MARKED_AS_STARTED && (
+              <div className={ReservationStatus.MARKED_AS_STARTED}>
+                <i className="hm-time" />
+                <span>Waiting for your confirmation</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.FINISHED && (
+              <div className={ReservationStatus.FINISHED}>
+                <i className="hm-time" />
+                <span>Waiting for your confirmation</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.STARTED && (
+              <div className={ReservationStatus.STARTED}>
+                <img src={play} alt="" />
+                <span>In progress</span>
+                <span>01:20:35</span>
+              </div>
+            )}
+            {props.status === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
+              <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
+                <img src={play} alt="" />
+                <span>Waiting for your Cancel confirmation</span>
+              </div>
+            )}
+          </div>
           <div className="btn-holder">
             { (props.status === ReservationStatus.BOOKED
               || props.status === ReservationStatus.MARKED_AS_STARTED) && (

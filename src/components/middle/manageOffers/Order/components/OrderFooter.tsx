@@ -93,7 +93,6 @@ const OrderFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
-    debugger
     if (offerType === 'ONLINE') {
       onJoinMeeting();
     }
@@ -119,7 +118,7 @@ const OrderFooter: FC<OwnProps> = ({
           <div className={ReservationStatus.STARTED}>
             <i className="hm-play" />
             <span>In progress</span>
-            <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
+            <span>{`${timeToStart?.days}:${timeToStart?.hours}:${timeToStart?.minutes}`}</span>
           </div>
         )}
         {reservationStatus === ReservationStatus.MARKED_AS_FINISHED && (

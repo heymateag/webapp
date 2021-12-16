@@ -63,6 +63,17 @@ const MyOrders: FC = () => {
     // setFilteredDate(filterDates);
   }, []);
 
+  const clearFilters = () => {
+    setSelectDate('Date');
+    setStatusFilter('All');
+    const e = {
+      target: {
+        value: 'All',
+      },
+    };
+    handleStatusChange(e);
+  };
+
   return (
     <div className="MyOrders-middle">
       <div className="myOrder-middle-filter">
@@ -112,7 +123,7 @@ const MyOrders: FC = () => {
           </div>
         </div>
         <div>
-          <Button size="tiny" color="translucent">
+          <Button size="tiny" color="translucent" onClick={clearFilters}>
             Clear All
           </Button>
         </div>
@@ -120,11 +131,7 @@ const MyOrders: FC = () => {
       {filteredOrders.length > 0 ? (
         filteredOrders.map((item) => (
           <div>
-            {item.offer.meeting_type === MeetingType.ONLINE ? (
-              <OnlineMetting props={item} />
-            ) : (
-              <Order props={item} orderType={item.offer.meeting_type} />
-            )}
+            <Order props={item} orderType={item.offer.meeting_type} />
           </div>
         ))
       ) : (

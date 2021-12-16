@@ -6,6 +6,7 @@ import { ReservationStatus } from '../../../../../types/HeymateTypes/MyOrders.mo
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
+import '../Offer.scss';
 
 type TimeToStart = {
   days: number;
@@ -18,12 +19,12 @@ type OwnProps = {
   fromTime?: string;
   toTime?: string;
   status: ReservationStatus;
-  onJoinMeeting: () => void;
+  onJoinMeeting: (meetingId: string, sessionPassword: string) => void;
   onStatusChanged: (status: ReservationStatus) => void;
   joinMeetingLoader: boolean;
   role?: 'CONSUMER' | 'SERVICE_PROVIDER';
   offerType: 'DEFAULT' | 'ONLINE';
-  reservationId: string;
+  timeSlotId: string;
 };
 
 const OfferFooter: FC<OwnProps> = ({
@@ -33,10 +34,10 @@ const OfferFooter: FC<OwnProps> = ({
   status,
   onJoinMeeting,
   joinMeetingLoader,
-  role = 'CONSUMER',
-  reservationId,
+  role = 'SERVICE_PROVIDER',
   onStatusChanged,
   offerType,
+  timeSlotId,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -79,13 +80,16 @@ const OfferFooter: FC<OwnProps> = ({
     }
   }, [reservationStatus, status]);
 
-  const handleChangeReservationStatus = async (newStatus: ReservationStatus) => {
+  // eslint-disable-next-line max-len
+  const handleChangeReservationStatus = async (newStatus: ReservationStatus, meetingId?: string, sessionPassword?: string) => {
     setIsLoading(true);
     const response = await axiosService({
-      url: `${HEYMATE_URL}/reservation/${reservationId}`,
+      url: `${HEYMATE_URL}/time-table/${timeSlotId}`,
       method: 'PUT',
       body: {
         status: newStatus,
+        sessionPassword,
+        meetingId,
       },
     });
     setIsLoading(false);
@@ -93,10 +97,16 @@ const OfferFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
-    debugger
-    if (offerType === 'ONLINE') {
-      onJoinMeeting();
-    }
+    // if (offerType === 'ONLINE') {
+    //   onJoinMeeting();
+    // }
+  };
+
+  const handleStart = () => {
+    const meetingId = 'sdfdsnsdf';
+    const sessionPassword = '23423423';
+    handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
+    onJoinMeeting(meetingId, sessionPassword);
   };
 
   return (
@@ -120,14 +130,14 @@ const OfferFooter: FC<OwnProps> = ({
         {reservationStatus === ReservationStatus.MARKED_AS_STARTED && (
           <div className={ReservationStatus.MARKED_AS_STARTED}>
             <i className="hm-time" />
-            <span>Waiting for your confirmation</span>
+            <span>In Progress</span>
           </div>
         )}
         {reservationStatus === ReservationStatus.STARTED && (
           <div className={ReservationStatus.STARTED}>
             <i className="hm-play" />
             <span>In progress</span>
-            <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
+            <span>{`${timeToStart?.days}:${timeToStart?.hours}:${timeToStart?.minutes}`}</span>
           </div>
         )}
         {reservationStatus === ReservationStatus.MARKED_AS_FINISHED && (
@@ -144,60 +154,31 @@ const OfferFooter: FC<OwnProps> = ({
         )}
       </div>
       <div className="btn-holder">
-        { (reservationStatus === ReservationStatus.MARKED_AS_FINISHED
-          || reservationStatus === ReservationStatus.STARTED) && (
-          <div className="btn-finish">
-            <Button
-              isLoading={isLoading}
-              onClick={() => handleChangeReservationStatus(ReservationStatus.FINISHED)}
-              size="tiny"
-              color="hm-primary-red"
-              disabled={reservationStatus === ReservationStatus.STARTED}
-            >
-              Confirm End
-            </Button>
-          </div>
-        )}
-        { (reservationStatus === ReservationStatus.BOOKED
-          || reservationStatus === ReservationStatus.MARKED_AS_STARTED) && (
-          <div className="btn-confirm">
-            <Button
-              isLoading={isLoading}
-              onClick={() => handleChangeReservationStatus(ReservationStatus.STARTED)}
-              ripple
-              size="tiny"
-              color="primary"
-              disabled={reservationStatus === ReservationStatus.BOOKED}
-            >
-              {offerType === 'DEFAULT' ? 'Confirm Start' : 'Join'}
-            </Button>
-          </div>
-        )}
         { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.BOOKED)
         && (
           <div className="btn-cancel">
             <Button
-              disabled={!canStart}
+              // disabled={!canStart}
               isLoading={joinMeetingLoader}
-              onClick={onJoinMeeting}
+              onClick={handleStart}
               size="tiny"
               color="primary"
             >
-              Start
+              {offerType === 'DEFAULT' ? 'Start' : 'Start Meeting'}
             </Button>
           </div>
         )}
-        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.BOOKED)
+        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED)
         && (
           <div className="btn-cancel">
             <Button
-              disabled={!canStart}
+              // disabled={!canFinish}
               isLoading={joinMeetingLoader}
-              onClick={onJoinMeeting}
+              onClick={() => handleChangeReservationStatus(ReservationStatus.MARKED_AS_FINISHED)}
               size="tiny"
               color="primary"
             >
-              Start
+              Finish
             </Button>
           </div>
         )}
@@ -211,7 +192,7 @@ const OfferFooter: FC<OwnProps> = ({
               size="tiny"
               color="hm-primary-red"
             >
-              End
+              Finish
             </Button>
           </div>
         )}

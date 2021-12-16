@@ -21,6 +21,8 @@ const MyOffers: FC = () => {
   const [offersList, setOffersList] = useState<any[]>([]);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [selectedDate, setSelectDate] = useState('Date');
+  const [filteredOffers, setFilteredOffers] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
   /**
    * Get All Offers
    */
@@ -31,7 +33,14 @@ const MyOffers: FC = () => {
       body: {},
     });
     if (response?.status === 200) {
-      setOffersList(response.data.data);
+      const flatList: any = [];
+      response.data.data.forEach((item: any) => {
+        item.schedules.forEach((time: any) => {
+          flatList.push({ ...item, ...{ selectedSchedule: time } });
+        });
+      });
+      setOffersList(flatList);
+      setFilteredOffers(flatList);
     }
   };
   useEffect(() => {
@@ -51,6 +60,17 @@ const MyOffers: FC = () => {
     // setFilteredDate(filterDates);
   }, []);
 
+  const handleStatusChange = useCallback((e) => {
+    const filter = e.target.value;
+    setStatusFilter(filter);
+    if (filter === 'All') {
+      setFilteredOffers(offersList);
+    } else {
+      const filtered = offersList.filter((item) => item.selectedSchedule.status === filter);
+      setFilteredOffers(filtered);
+    }
+  }, [offersList]);
+
   return (
     <div className="MyOrders-middle">
       <div className="myOrder-middle-filter">
@@ -59,14 +79,20 @@ const MyOffers: FC = () => {
             <Select
               label="Status"
               placeholder="Status"
-              // onChange={alert("sd")}
-              // value={state.billingCountry}
+              onChange={handleStatusChange}
+              value={statusFilter}
               hasArrow={Boolean(true)}
-              id="billing-country"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
+              id="status-filter"
             >
-              <option value="x">All</option>
+              <option value="All">All</option>
+              <option value="BOOKED">BOOKED</option>
+              <option value="MARKED_AS_STARTED">MARKED AS STARTED</option>
+              <option value="STARTED">STARTED</option>
+              <option value="MARKED_AS_FINISHED">MARKED AS FINISHED</option>
+              <option value="FINISHED">FINISHED</option>
+              <option value="INPROGRESS">INPROGRESS</option>
+              <option value="CANCELED_BY_SERVICE_PROVIDER">CANCELED BY SERVICE PROVIDER</option>
+              <option value="CANCELED_BY_CONSUMER">CANCELED BY CONSUMER</option>
 
             </Select>
           </div>
@@ -97,19 +123,10 @@ const MyOffers: FC = () => {
           </Button>
         </div>
       </div>
-      {offersList.length > 0 ? (
-        offersList.map((item: IOffer) => (
+      {filteredOffers.length > 0 ? (
+        filteredOffers.map((item) => (
           <div>
-            {item.meeting_type === MeetingType.ONLINE ? (
-              <OnlineMetting props={{ id: item.id, offer: item }} />
-            ) : (
-              <>
-                {
-                  item.schedules.map((time: ITimeSlotModel) =>
-                    <Offer props={{ ...item, ...{ selectedSchedule: time } }} />)
-                }
-              </>
-            )}
+            <Offer props={item} />
           </div>
         ))
       ) : (
