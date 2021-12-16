@@ -102,9 +102,19 @@ const OfferFooter: FC<OwnProps> = ({
     // }
   };
 
+  const makeRandomString = (length: number) => {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+  };
+
   const handleStart = () => {
-    const meetingId = 'sdfdsnsdf';
-    const sessionPassword = '23423423';
+    const meetingId = makeRandomString(10);
+    const sessionPassword = makeRandomString(10);
     handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
     onJoinMeeting(meetingId, sessionPassword);
   };
