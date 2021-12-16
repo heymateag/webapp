@@ -20,16 +20,19 @@ const MyOrders: FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [selectedDate, setSelectDate] = useState('Date');
+  const [loading, setLoading] = useState(false);
 
   /**
    * Get All Offers
    */
   const getMyOrders = async () => {
+    setLoading(true);
     const response = await axiosService({
       url: `${HEYMATE_URL}/reservation/myOrders`,
       method: 'GET',
       body: {},
     });
+    setLoading(false);
     if (response?.status === 200) {
       setMyOrders(response.data.data);
       setFilteredOrders(response.data.data);
@@ -128,12 +131,18 @@ const MyOrders: FC = () => {
           </Button>
         </div>
       </div>
-      {filteredOrders.length > 0 ? (
-        filteredOrders.map((item) => (
-          <div>
-            <Order props={item} orderType={item.offer.meeting_type} />
-          </div>
-        ))
+      {!loading ? (
+        <>
+          {filteredOrders.length > 0 ? filteredOrders.map((item) => (
+            <div>
+              <Order props={item} orderType={item.offer.meeting_type} />
+            </div>
+          )) : (
+            <div className="no-order">
+              There’s no available order for you !
+            </div>
+          )}
+        </>
       ) : (
         <div className="loading-my-orders">
           <Loading key="loading" />

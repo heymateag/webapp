@@ -23,15 +23,18 @@ const MyOffers: FC = () => {
   const [selectedDate, setSelectDate] = useState('Date');
   const [filteredOffers, setFilteredOffers] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [loading, setLoading] = useState<boolean>(false);
   /**
    * Get All Offers
    */
   const getMyOffers = async () => {
+    setLoading(true);
     const response = await axiosService({
       url: `${HEYMATE_URL}/offer/me`,
       method: 'GET',
       body: {},
     });
+    setLoading(false);
     if (response?.status === 200) {
       const flatList: any = [];
       response.data.data.forEach((item: any) => {
@@ -123,12 +126,18 @@ const MyOffers: FC = () => {
           </Button>
         </div>
       </div>
-      {filteredOffers.length > 0 ? (
-        filteredOffers.map((item) => (
-          <div>
-            <Offer props={item} />
-          </div>
-        ))
+      {!loading ? (
+        <>
+          {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
+            <div>
+              <Offer props={item} />
+            </div>
+          ))) : (
+            <div className="no-order">
+              There’s no available order for you !
+            </div>
+          )}
+        </>
       ) : (
         <div className="loading-my-orders">
           <Loading key="loading" />
