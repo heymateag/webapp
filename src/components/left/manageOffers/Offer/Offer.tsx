@@ -77,7 +77,7 @@ const Offer: FC<OwnProps & DispatchProps> = ({
     if (ts.length <= 10) {
       ts *= 1000;
     }
-    const dateFuture = new Date(ts);
+    const dateFuture = new Date(ts || '', 10);
     const dateNow = new Date();
 
     let delta = Math.abs(dateFuture.getTime() - dateNow.getTime()) / 1000;
@@ -134,7 +134,7 @@ const Offer: FC<OwnProps & DispatchProps> = ({
         break;
     }
     if (props.time_slot?.form_time) {
-      const dateFuture = new Date(props.time_slot.form_time);
+      const dateFuture = new Date(parseInt(props.time_slot.form_time || '', 10));
       const dateNow = new Date();
       if (dateFuture.getTime() > dateNow.getTime()) {
         const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);

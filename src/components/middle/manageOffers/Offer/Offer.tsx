@@ -28,6 +28,10 @@ import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
+import OfferFooter from './components/OfferFooter';
+import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessionDialog';
+import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
+import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 
 type TimeToStart = {
   days: number;
@@ -43,9 +47,14 @@ const Offer: FC<OwnProps> = ({ props }) => {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [offerHour, setOfferHour] = useState('');
-  const [offerStatus, setOfferStatus] = useState<ReservationStatus>(ReservationStatus.BOOKED);
+  const [offerStatus, setOfferStatus] = useState<ReservationStatus>(props.selectedSchedule?.status);
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+  const [zoomStream, setZoomStream] = useState();
+  const [zmClient, setZmClient] = useState<ClientType>();
+  const [offerStarted, setOfferStarted] = useState(false);
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -58,7 +67,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
     if (ts.length <= 10) {
       ts *= 1000;
     }
-    const dateFuture = new Date(ts);
+    const dateFuture = new Date(parseInt(ts || '', 10));
     const dateNow = new Date();
     // return Math.round(Math.abs((firstDate.getTime() - secondDate.getTime()) / (oneDay)));
 
@@ -90,55 +99,67 @@ const Offer: FC<OwnProps> = ({ props }) => {
     const now = new Date();
     const startTime = new Date(parseInt(props.selectedSchedule?.form_time || '', 10));
     const endTime = new Date(parseInt(props.selectedSchedule?.to_time || '', 10));
-    if (startTime > now) {
-      setTagStatus({
-        color: 'green',
-        text: 'Upcoming',
-      });
-      setOfferStatus(ReservationStatus.INPROGRESS);
-    } else if (startTime < now && endTime > now) {
-      setTagStatus({
-        color: 'blue',
-        text: 'In progress',
-      });
-      setOfferStatus(ReservationStatus.INPROGRESS);
-    } else if (endTime < now) {
-      setTagStatus({
-        color: 'gray',
-        text: 'Finished',
-      });
-      setOfferStatus(ReservationStatus.FINISHED);
-    }
-    // switch (props.status) {
-    //   case ReservationStatus.BOOKED:
-    //     setTagStatus({
-    //       color: 'green',
-    //       text: 'Upcoming',
-    //     });
-    //     break;
-    //   case ReservationStatus.FINISHED:
-    //     setTagStatus({
-    //       color: 'gray',
-    //       text: 'Finished',
-    //     });
-    //     break;
-    //   case ReservationStatus.STARTED:
-    //     setTagStatus({
-    //       color: 'blue',
-    //       text: 'In progress',
-    //     });
-    //     break;
-    //   case ReservationStatus.MARKED_AS_STARTED:
-    //   case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
-    //     setTagStatus({
-    //       color: 'yellow',
-    //       text: 'Pending',
-    //     });
-    //     break;
+    // if (startTime > now) {
+    //   setTagStatus({
+    //     color: 'green',
+    //     text: 'Upcoming',
+    //   });
+    //   setOfferStatus(ReservationStatus.BOOKED);
+    // } else if (startTime < now && endTime > now) {
+    //   setTagStatus({
+    //     color: 'blue',
+    //     text: 'In progress',
+    //   });
+    //   setOfferStatus(ReservationStatus.INPROGRESS);
+    // } else if (endTime < now) {
+    //   setTagStatus({
+    //     color: 'gray',
+    //     text: 'Finished',
+    //   });
+    //   setOfferStatus(ReservationStatus.FINISHED);
     // }
+    switch (props.selectedSchedule?.status) {
+      case ReservationStatus.BOOKED:
+        setTagStatus({
+          color: 'green',
+          text: 'Upcoming',
+        });
+        break;
+      case ReservationStatus.FINISHED:
+        setTagStatus({
+          color: 'gray',
+          text: 'Finished',
+        });
+        break;
+      case ReservationStatus.STARTED:
+        setTagStatus({
+          color: 'blue',
+          text: 'In progress',
+        });
+        break;
+      case ReservationStatus.MARKED_AS_STARTED:
+        setTagStatus({
+          color: 'blue',
+          text: 'In progress',
+        });
+        break;
+      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
+        setTagStatus({
+          color: 'yellow',
+          text: 'Pending',
+        });
+        break;
+    }
     if (props?.selectedSchedule?.form_time) {
-      const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule?.form_time);
-      setTimeToStart(res);
+      const dateFuture = new Date(parseInt(props.selectedSchedule?.form_time || '', 10));
+      const dateNow = new Date();
+      if (dateFuture.getTime() > dateNow.getTime()) {
+        const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule.form_time);
+        setTimeToStart(res);
+      } else {
+        setOfferStarted(true);
+        setTimeToStart({ days: 0, minutes: 0, hours: 0 });
+      }
     }
   }, [props.selectedSchedule, props.status]);
 
@@ -148,6 +169,24 @@ const Offer: FC<OwnProps> = ({ props }) => {
 
   const handleClose = () => {
     setIsMenuOpen(false);
+  };
+
+  const joinMeeting = async (meetingId: string, sessionPassword: string) => {
+    setOpenVideoDialog(true);
+    const client = new ZoomClient(meetingId, sessionPassword, 'John Doe!');
+    setJoinMeetingLoader(true);
+    await client.join();
+
+    setZmClient(client.zmClient);
+    setZoomStream(client.mediaStream);
+
+    setJoinMeetingLoader(false);
+  };
+  const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
+    setOfferStatus(newStatus);
+  };
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
   };
 
   return (
@@ -195,83 +234,26 @@ const Offer: FC<OwnProps> = ({ props }) => {
             </Menu>
           </div>
         </div>
-        <div className="offer-footer">
-          <div className="date-time">
-            <div className="date-time">
-              {offerStatus === ReservationStatus.BOOKED && (
-                <>
-                  <img src={datetime} alt="" className="icon-img" />
-                  <span className="green">{timeToStart?.days} days to start</span>
-                  {/* <span>02:00:00</span> */}
-                </>
-              )}
-              {offerStatus === ReservationStatus.MARKED_AS_STARTED && (
-                <>
-                  <img src={time} alt="" />
-                  <span>Waiting for your confirmation</span>
-                </>
-              )}
-              {offerStatus === ReservationStatus.FINISHED && (
-                <>
-                  <img src={time} alt="" />
-                  <span>Waiting for your confirmation</span>
-                </>
-              )}
-              {offerStatus === ReservationStatus.STARTED && (
-                <>
-                  <img src={play} alt="" />
-                  <span>In progress</span>
-                  <span>{`${timeToStart.days}:${timeToStart.hours}:${timeToStart.minutes}`}</span>
-                </>
-              )}
-              {offerStatus
-                === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
-                <>
-                  <img src={play} alt="" />
-                  <span>Waiting for your Cancel confirmation</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="btn-holder">
-            {(offerStatus === ReservationStatus.BOOKED
-              || offerStatus === ReservationStatus.MARKED_AS_STARTED) && (
-              <div className="btn-cancel">
-                <Button size="tiny" color="primary">
-                  Join
-                </Button>
-              </div>
-            )}
-            {(offerStatus === ReservationStatus.FINISHED
-              || offerStatus === ReservationStatus.STARTED) && (
-              <div className="btn-finish">
-                <Button
-                  size="tiny"
-                  color="hm-primary-red"
-                  disabled={offerStatus === ReservationStatus.STARTED}
-                >
-                  Confirm End
-                </Button>
-              </div>
-            )}
-            {(offerStatus === ReservationStatus.MARKED_AS_STARTED
-              || offerStatus === ReservationStatus.STARTED) && (
-              <div className="btn-confirm">
-                <Button
-                  ripple
-                  size="tiny"
-                  color="primary"
-                  disabled={offerStatus === ReservationStatus.STARTED}
-                >
-                  Confirm Start
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <OfferFooter
+          offerType={props.meeting_type || 'DEFAULT'}
+          fromTime={props.selectedSchedule?.form_time}
+          toTime={props.selectedSchedule?.to_time}
+          timeToStart={timeToStart}
+          joinMeetingLoader={joinMeetingLoader}
+          status={offerStatus}
+          onJoinMeeting={joinMeeting}
+          onStatusChanged={handleReservationStatusChanges}
+          timeSlotId={props?.selectedSchedule?.id || ''}
+        />
       </div>
+      <VideoSessionDialog
+        isLoading={joinMeetingLoader}
+        openModal={openVideoDialog}
+        onCloseModal={handleCloseVideoDialog}
+        stream={zoomStream}
+        zoomClient={zmClient}
+      />
       <OfferDetailsDialog
-        onBookClicked={() => alert('s')}
         openModal={openDetailsModal}
         offer={props}
         onCloseModal={() => setOpenDetailsModal(false)}

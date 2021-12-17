@@ -99,19 +99,19 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   /**
    * Ali's To Handle Show Offers In Middle Screen
    */
-  // const handleSelectManageOffers = useCallback(() => {
-  //   if (width > 500) {
-  //     setShowHeymate({ showHeymate: true });
-  //   } else {
-  //     onContentChange(LeftColumnContent.Offers);
-  //   }
-  // }, [setShowHeymate, onContentChange, width]);
+  const handleSelectManageOffers = useCallback(() => {
+    if (width > 500) {
+      setShowHeymate({ showHeymate: true });
+    } else {
+      onContentChange(LeftColumnContent.Offers);
+    }
+  }, [setShowHeymate, onContentChange, width]);
   /**
    * Ehsan's To Handle Show Offers In Left Screen
    */
-  const handleSelectManageOffers = useCallback(() => {
-    onContentChange(LeftColumnContent.Offers);
-  }, [onContentChange]);
+  // const handleSelectManageOffers = useCallback(() => {
+  //   onContentChange(LeftColumnContent.Offers);
+  // }, [onContentChange]);
 
   const handleSelectWallet = useCallback(() => {
     onContentChange(LeftColumnContent.wallet);

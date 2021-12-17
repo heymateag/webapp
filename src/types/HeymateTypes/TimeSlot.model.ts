@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/no-cycle
+import { ReservationStatus } from './MyOrders.model';
+
 export interface ITimeSlotModel {
   id: string;
   offerId: string;
@@ -5,4 +8,5 @@ export interface ITimeSlotModel {
   to_time: string;
   updated_at: string;
   created_at: string;
+  status?: ReservationStatus;
 }
