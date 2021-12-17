@@ -17,6 +17,7 @@ export interface IMyOrders {
   time_slot?: ITimeSlotModel;
   status?: ReservationStatus;
   meetingId?: string;
+  meetingPassword?: string;
   createdAt?: string;
   serviceProviderId?: string;
 }

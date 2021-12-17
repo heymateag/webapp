@@ -32,6 +32,7 @@ const MyOrders: FC = () => {
       method: 'GET',
       body: {},
     });
+    debugger
     setLoading(false);
     if (response?.status === 200) {
       setMyOrders(response.data.data);

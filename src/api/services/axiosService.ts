@@ -44,7 +44,6 @@ axios.interceptors.response.use(
     //   throw error;
     // }
     if (originalConfig.url !== '/auth/login' && error.response) {
-      debugger
       // Access Token was expired
       // eslint-disable-next-line no-underscore-dangle
       if (error.response.status === 401 && !originalConfig._retry) {

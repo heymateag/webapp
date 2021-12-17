@@ -58,6 +58,8 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
+  const [meetingId, setMeetingId] = useState<string>(props.meetingId);
+  const [meetingPassword, setMeetingPassword] = useState<string>(props.meetingPassword);
   const [zoomStream, setZoomStream] = useState();
   const [zmClient, setZmClient] = useState<ClientType>();
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
@@ -148,6 +150,38 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
     setIsMenuOpen(true);
   }, []);
 
+  const getOrderById = useCallback(async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/${props.id}`,
+      method: 'GET',
+      body: {},
+    });
+    if (response.status && response?.data) {
+      if (response.data.data.status !== reservationStatus) {
+        setReservationStatus(response.data.data.status);
+      }
+      if (response.data.data.status === ReservationStatus.MARKED_AS_STARTED) {
+        debugger
+        setMeetingPassword(response.data.data.meetingPassword);
+        setMeetingId(response.data.data.meetingId);
+      }
+    }
+  }, [props.id, reservationStatus]);
+
+  useEffect(() => {
+    let intervalId;
+    if (reservationStatus !== ReservationStatus.FINISHED
+      && reservationStatus !== ReservationStatus.MARKED_AS_STARTED
+      && reservationStatus !== ReservationStatus.MARKED_AS_FINISHED) {
+      intervalId = setInterval(() => {
+        getOrderById();
+      }, 5000);
+    }
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [getOrderById, reservationStatus]);
+
   const handleCancelReservation = async () => {
     if (reservationStatus === ReservationStatus.BOOKED) {
       const response = await axiosService({
@@ -176,7 +210,10 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   };
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-    const client = new ZoomClient('test2', '5AR8pk', 'John Doe!');
+    let c = meetingId;
+    let d = meetingPassword;
+    debugger
+    const client = new ZoomClient(meetingId, meetingPassword, 'John Doe!');
     setJoinMeetingLoader(true);
     await client.join();
 
