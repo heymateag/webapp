@@ -21,6 +21,7 @@ const MyOrders: FC = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [selectedDate, setSelectDate] = useState('Date');
   const [loading, setLoading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>('All');
 
   /**
    * Get All Offers
@@ -32,7 +33,6 @@ const MyOrders: FC = () => {
       method: 'GET',
       body: {},
     });
-    debugger
     setLoading(false);
     if (response?.status === 200) {
       setMyOrders(response.data.data);
@@ -54,6 +54,23 @@ const MyOrders: FC = () => {
     }
   }, [myOrders]);
 
+  const handleTypeChange = useCallback((e) => {
+    const filter = e.target.value;
+    setTypeFilter(filter);
+    if (filter === 'All') {
+      setFilteredOrders(myOrders);
+    } else {
+      const filtered = myOrders.filter((item) => item.offer.meeting_type === filter);
+      setFilteredOrders(filtered);
+    }
+  }, [myOrders]);
+
+  const handleDateChange = useCallback((date: any) => {
+    // eslint-disable-next-line max-len
+    const filtered = myOrders.filter((item) => new Date(parseInt(item.time_slot?.form_time || '0', 10)).setHours(0,0,0,0) === (date.getTime()));
+    setFilteredOrders(filtered);
+  }, [myOrders]);
+
   const handleRescheduleMessage = useCallback((date: Date) => {
     // const startDate: any = date;
     // const endDate: any = date;
@@ -65,17 +82,14 @@ const MyOrders: FC = () => {
     // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
     setIsCalendarOpen(false);
     // setFilteredDate(filterDates);
-  }, []);
+    handleDateChange(date);
+  }, [handleDateChange]);
 
   const clearFilters = () => {
     setSelectDate('Date');
     setStatusFilter('All');
-    const e = {
-      target: {
-        value: 'All',
-      },
-    };
-    handleStatusChange(e);
+    setTypeFilter('All');
+    setFilteredOrders(myOrders);
   };
 
   return (
@@ -109,17 +123,14 @@ const MyOrders: FC = () => {
             <Select
               label="Type"
               placeholder="Type"
-              // onChange={alert("sd")}
-              // value={statusFilter}
+              onChange={handleTypeChange}
+              value={typeFilter}
               hasArrow={Boolean(true)}
-              id="billing-country"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
+              id="type-filter"
             >
-              <option value="x">All</option>
-              <option value="x">Single</option>
-              <option value="x">Double</option>
-              <option value="x">Subscription</option>
+              <option value="All">All</option>
+              <option value="OFFLINE">Offline</option>
+              <option value="ONLINE">Online</option>
             </Select>
           </div>
           <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>

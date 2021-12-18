@@ -23,6 +23,7 @@ const MyOffers: FC = () => {
   const [selectedDate, setSelectDate] = useState('Date');
   const [filteredOffers, setFilteredOffers] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [typeFilter, setTypeFilter] = useState<string>('All');
   const [loading, setLoading] = useState<boolean>(false);
   /**
    * Get All Offers
@@ -50,6 +51,12 @@ const MyOffers: FC = () => {
     getMyOffers();
   }, []);
 
+  const handleDateChange = useCallback((date: any) => {
+    // eslint-disable-next-line max-len
+    const filtered = offersList.filter((item) => new Date(parseInt(item.selectedSchedule?.form_time || '0', 10)).setHours(0,0,0,0) === (date.getTime()));
+    setFilteredOffers(filtered);
+  }, [offersList]);
+
   const handleRescheduleMessage = useCallback((date: Date) => {
     // const startDate: any = date;
     // const endDate: any = date;
@@ -61,7 +68,8 @@ const MyOffers: FC = () => {
     // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
     setIsCalendarOpen(false);
     // setFilteredDate(filterDates);
-  }, []);
+    handleDateChange(date);
+  }, [handleDateChange]);
 
   const handleStatusChange = useCallback((e) => {
     const filter = e.target.value;
@@ -73,6 +81,24 @@ const MyOffers: FC = () => {
       setFilteredOffers(filtered);
     }
   }, [offersList]);
+
+  const handleTypeChange = useCallback((e) => {
+    const filter = e.target.value;
+    setTypeFilter(filter);
+    if (filter === 'All') {
+      setFilteredOffers(offersList);
+    } else {
+      const filtered = offersList.filter((item) => item.meeting_type === filter);
+      setFilteredOffers(filtered);
+    }
+  }, [offersList]);
+
+  const clearFilters = () => {
+    setStatusFilter('All');
+    setTypeFilter('All');
+    setSelectDate('Date');
+    setFilteredOffers(offersList);
+  };
 
   return (
     <div className="MyOrders-middle">
@@ -103,17 +129,14 @@ const MyOffers: FC = () => {
             <Select
               label="Type"
               placeholder="Type"
-              // onChange={alert("sd")}
-              // value={state.billingCountry}
+              onChange={handleTypeChange}
+              value={typeFilter}
               hasArrow={Boolean(true)}
-              id="billing-country"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
+              id="type-filter"
             >
-              <option value="x">All</option>
-              <option value="x">Single</option>
-              <option value="x">Double</option>
-              <option value="x">Subscription</option>
+              <option value="All">All</option>
+              <option value="OFFLINE">Offline</option>
+              <option value="ONLINE">Online</option>
             </Select>
           </div>
           <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
@@ -121,7 +144,7 @@ const MyOffers: FC = () => {
           </div>
         </div>
         <div>
-          <Button size="tiny" color="translucent">
+          <Button size="tiny" color="translucent" onClick={clearFilters}>
             Clear All
           </Button>
         </div>
