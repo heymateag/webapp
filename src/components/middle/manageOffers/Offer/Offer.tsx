@@ -125,6 +125,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
           text: 'Upcoming',
         });
         break;
+      case ReservationStatus.MARKED_AS_FINISHED:
       case ReservationStatus.FINISHED:
         setTagStatus({
           color: 'gray',
@@ -193,7 +194,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
     <div className="Offer-middle">
       <div className="offer-content">
         <div className="offer-body">
-          <div className="meeting-left-side">
+          <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div className="avatar-holder">
               <img src={offer1} alt="" />
             </div>

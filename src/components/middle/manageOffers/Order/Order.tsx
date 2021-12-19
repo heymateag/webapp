@@ -229,7 +229,7 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
     <div className="Offer-middle">
       <div className="offer-content">
         <div className="offer-body">
-          <div className="meeting-left-side">
+          <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div className="avatar-holder">
               <img src={offer1} alt="" />
             </div>
