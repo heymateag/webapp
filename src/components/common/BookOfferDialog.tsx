@@ -209,13 +209,19 @@ const BookOfferDialog: FC<OwnProps> = ({
                             className={buildClassName('time-slot-row',
                               (selectedTimeSlotId === item.id) && 'active')}
                           >
-                            <Radio
-                              name={item.id}
-                              label={`${item.fromDateLocal} - ${item.toDateLocal}`}
-                              value={item.id}
-                              checked={false}
-                              onChange={handleChange}
-                            />
+                            <div>
+                              <Radio
+                                name={item.id}
+                                label={`${item.fromDateLocal} - ${item.toDateLocal}`}
+                                value={item.id}
+                                checked={false}
+                                onChange={handleChange}
+                              />
+                            </div>
+                            <div className="remaining-of-total">
+                              <span id="remaining">18</span>
+                              <span id="total">of 25</span>
+                            </div>
                           </div>
                         )) : (
                           <div className="no-time-slot-founds">

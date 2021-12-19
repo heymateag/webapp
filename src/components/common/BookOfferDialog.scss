@@ -37,17 +37,33 @@
             overflow-y: scroll;
             .time-slot-row {
               display: flex;
+              justify-content: space-between;
               align-items: center;
               height: 64px;
               border: 1px solid var(--color-borders-input);
               border-radius: var(--border-radius-messages);
               margin-top: 0.5rem;
+              padding-right: 1rem;
               &.active {
                 border-color: var(--color-primary);
                 label {
                   color: var(--color-primary);
                 }
               }
+
+              .remaining-of-total {
+                font-size: 14px;
+                min-width: 54px;
+                display: flex;
+                justify-content: space-around;
+                #remaining {
+                  font-weight: bold;
+                }
+                #total{
+                  color: var(--color-gray);
+                }
+              }
+
               .Radio {
                 margin-bottom: 0;
                 line-height: 0;
