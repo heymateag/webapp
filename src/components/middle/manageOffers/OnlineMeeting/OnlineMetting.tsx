@@ -8,7 +8,8 @@ import offer1 from '../../../../assets/heymate/offer1.svg';
 // @ts-ignore
 import play from '../../../../assets/heymate/play.svg';
 import './OnlineMeeting.scss';
-import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
+import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import Menu from '../../../ui/Menu';
 import MenuItem from '../../../ui/MenuItem';
 import useLang from '../../../../hooks/useLang';

@@ -15,6 +15,7 @@ import MyOrders from './MyOrders/MyOrders';
 import { pick } from '../../../util/iteratees';
 
 type StateProps = Pick<GlobalState, 'showHeymate'>;
+// @ts-ignore
 type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
 
 export type OwnProps = {
@@ -83,9 +84,6 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
                   >
                     On Going
                   </span>
-                  <div className="offer-scroll custom-scroll">
-                    {/*<OnlineMetting />*/}
-                  </div>
                 </>
               );
             default:
