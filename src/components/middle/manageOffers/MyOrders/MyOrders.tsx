@@ -11,6 +11,7 @@ import './MyOrders.scss';
 import Order from '../Order/Order';
 import { CalendarModal } from '../../../common/CalendarModal';
 import { getDayStartAt } from '../../../../util/dateFormat';
+import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
 const MyOrders: FC = () => {
   const [myOrders, setMyOrders] = useState<IMyOrders[]>([]);
@@ -65,7 +66,7 @@ const MyOrders: FC = () => {
 
   const handleDateChange = useCallback((date: any) => {
     // eslint-disable-next-line max-len
-    const filtered = myOrders.filter((item) => new Date(parseInt(item.time_slot?.form_time || '0', 10)).setHours(0, 0, 0, 0) === (date.getTime()));
+    const filtered = myOrders.filter((item) => GenerateNewDate(item.time_slot?.form_time).setHours(0, 0, 0, 0) === (date.getTime()));
     setFilteredOrders(filtered);
   }, [myOrders]);
 

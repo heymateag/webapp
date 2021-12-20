@@ -79,7 +79,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
       if (offer?.expiration.length <= 10) {
         expiration = (parseInt(offer?.expiration, 10) * 1000) || 0;
       }
-      const rawDate = new Date(expiration).toString().split(' ')
+      const rawDate = new Date(expiration).toString().split(' ');
       debugger;
       serStringRawData({
         dayOfWeek: rawDate[0],

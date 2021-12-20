@@ -27,6 +27,7 @@ interface IManageOfferTab {
 const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   handleSwitchTab,
+  setShowHeymate,
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
@@ -49,7 +50,7 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           round
           size="smaller"
           color="translucent"
-          onClick={onReset}
+          onClick={() => setShowHeymate({ showHeymate: false })}
           ariaLabel="Return to chat list"
         >
           <i className="icon-arrow-left" />
@@ -68,7 +69,11 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-export default memo(
-  withGlobal(
-  )(ScheduleHeader),
-);
+// export default memo(
+//   withGlobal(
+//   )(ScheduleHeader),
+// );
+export default withGlobal<OwnProps>(
+  (global): StateProps => pick(global, ['connectionState', 'showHeymate']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
+)(ScheduleHeader);

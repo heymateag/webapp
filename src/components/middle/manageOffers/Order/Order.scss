@@ -16,6 +16,7 @@
     .meeting-left-side {
       display: flex;
       flex-flow: row wrap;
+      cursor: pointer;
       .offer-details {
         h4 {
           margin-bottom: 0;

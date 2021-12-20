@@ -16,6 +16,7 @@ import Loading from '../../../ui/Loading';
 
 import './MyOffers.scss';
 import { getDayStartAt } from '../../../../util/dateFormat';
+import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
 const MyOffers: FC = () => {
   const [offersList, setOffersList] = useState<any[]>([]);
@@ -53,7 +54,7 @@ const MyOffers: FC = () => {
 
   const handleDateChange = useCallback((date: any) => {
     // eslint-disable-next-line max-len
-    const filtered = offersList.filter((item) => new Date(parseInt(item.selectedSchedule?.form_time || '0', 10)).setHours(0,0,0,0) === (date.getTime()));
+    const filtered = offersList.filter((item) => GenerateNewDate(item.selectedSchedule?.form_time).setHours(0,0,0,0) === (date.getTime()));
     setFilteredOffers(filtered);
   }, [offersList]);
 
