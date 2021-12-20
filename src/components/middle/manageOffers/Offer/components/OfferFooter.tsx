@@ -7,6 +7,7 @@ import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
 import '../Offer.scss';
+import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 
 type TimeToStart = {
   days: number;
@@ -51,8 +52,8 @@ const OfferFooter: FC<OwnProps> = ({
 
   useEffect(() => {
     if (fromTime && toTime) {
-      const dateFutureFrom = new Date(fromTime);
-      const dateFutureToTime = new Date(toTime);
+      const dateFutureFrom = GenerateNewDate(fromTime);
+      const dateFutureToTime = GenerateNewDate(toTime);
       const dateNow = new Date();
       if ((dateFutureFrom.getTime() < dateNow.getTime())
         && (dateNow.getTime() < dateFutureToTime.getTime())) {
@@ -131,7 +132,7 @@ const OfferFooter: FC<OwnProps> = ({
               ) : (
                 <div>
                   <span>{`${timeToStart?.days} days `}</span>
-                  <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
+                  <span>{` ${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
                 </div>
               )
             }
@@ -169,7 +170,7 @@ const OfferFooter: FC<OwnProps> = ({
         && (
           <div className="btn-cancel">
             <Button
-              // disabled={!canStart}
+              disabled={!canStart}
               isLoading={joinMeetingLoader}
               onClick={handleStart}
               size="tiny"

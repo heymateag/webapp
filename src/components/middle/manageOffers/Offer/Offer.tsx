@@ -32,6 +32,7 @@ import OfferFooter from './components/OfferFooter';
 import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessionDialog';
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
+import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
 type TimeToStart = {
   days: number;
@@ -93,12 +94,12 @@ const Offer: FC<OwnProps> = ({ props }) => {
 
   useEffect(() => {
     if (props.selectedSchedule) {
-      const hour = new Date((parseInt(props.selectedSchedule?.form_time, 10) * 1000));
+      const hour = GenerateNewDate(props.selectedSchedule?.form_time);
       setOfferHour(hour.toLocaleTimeString());
     }
     const now = new Date();
-    const startTime = new Date(parseInt(props.selectedSchedule?.form_time || '', 10));
-    const endTime = new Date(parseInt(props.selectedSchedule?.to_time || '', 10));
+    const startTime = GenerateNewDate(props.selectedSchedule?.form_time);
+    const endTime = GenerateNewDate(props.selectedSchedule?.to_time);
     // if (startTime > now) {
     //   setTagStatus({
     //     color: 'green',
@@ -152,7 +153,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
         break;
     }
     if (props?.selectedSchedule?.form_time) {
-      const dateFuture = new Date(parseInt(props.selectedSchedule?.form_time || '', 10));
+      const dateFuture = GenerateNewDate(props?.selectedSchedule?.form_time);
       const dateNow = new Date();
       if (dateFuture.getTime() > dateNow.getTime()) {
         const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule.form_time);

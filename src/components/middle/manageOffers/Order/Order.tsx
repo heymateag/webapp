@@ -36,6 +36,7 @@ import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkSer
 import OrderFooter from './components/OrderFooter';
 import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../../util/iteratees';
+import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
 type TimeToStart = {
   days: number;
@@ -134,7 +135,7 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
         break;
     }
     if (props?.time_slot?.form_time) {
-      const dateFuture = new Date(parseInt(props.time_slot.form_time || '', 10));
+      const dateFuture = GenerateNewDate(props.time_slot.form_time);
       const dateNow = new Date();
       if (dateFuture.getTime() > dateNow.getTime()) {
         const res: any = getHowMuchDaysUnitllStar(props.time_slot.form_time);

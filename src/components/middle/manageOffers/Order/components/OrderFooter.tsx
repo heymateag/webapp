@@ -6,6 +6,7 @@ import { ReservationStatus } from '../../../../../types/HeymateTypes/MyOrders.mo
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
+import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 
 type TimeToStart = {
   days: number;
@@ -50,8 +51,8 @@ const OrderFooter: FC<OwnProps> = ({
 
   useEffect(() => {
     if (fromTime && toTime) {
-      const dateFutureFrom = new Date(fromTime);
-      const dateFutureToTime = new Date(toTime);
+      const dateFutureFrom = GenerateNewDate(fromTime);
+      const dateFutureToTime = GenerateNewDate(toTime);
       const dateNow = new Date();
       if ((dateFutureFrom.getTime() < dateNow.getTime())
         && (dateNow.getTime() < dateFutureToTime.getTime())) {
@@ -104,8 +105,16 @@ const OrderFooter: FC<OwnProps> = ({
         {reservationStatus === ReservationStatus.BOOKED && (
           <div className={ReservationStatus.BOOKED}>
             <i className="hm-date-time" />
-            <span>{`${timeToStart?.days} days `}</span>
-            <span>{`${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
+            {
+              (timeToStart?.days === 0 && timeToStart.hours === 0 && timeToStart.minutes === 0) ? (
+                <span>Waiting for start</span>
+              ) : (
+                <div>
+                  <span>{`${timeToStart?.days} days `}</span>
+                  <span>{` ${timeToStart?.hours}:${timeToStart?.minutes} to start`}</span>
+                </div>
+              )
+            }
           </div>
         )}
         {reservationStatus === ReservationStatus.MARKED_AS_STARTED && (
