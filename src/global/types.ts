@@ -559,7 +559,9 @@ export type ActionTypes = (
   'toggleGroupCallVideo' | 'requestToSpeak' | 'setGroupCallParticipantVolume' | 'toggleGroupCallPanel' |
   'createGroupCall' | 'joinVoiceChatByLink' | 'subscribeToGroupCallUpdates' | 'createGroupCallInviteLink' |
   'loadMoreGroupCallParticipants' | 'connectToActiveGroupCall' | 'playGroupCallSound' |
-  'openCallFallbackConfirm' | 'closeCallFallbackConfirm' | 'inviteToCallFallback'
+  'openCallFallbackConfirm' | 'closeCallFallbackConfirm' | 'inviteToCallFallback' |
+  // heymate
+  'setShowHeymate'
 );
 
 export type GlobalActions = Record<ActionTypes, (...args: any[]) => void>;
