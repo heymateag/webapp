@@ -29,6 +29,7 @@ const HeyMateMessage: FC<OwnProps> = ({
    * @param uuid
    */
   const [offerMsg, setOfferMsg] = useState<IOffer>();
+  const [offerLoaded, setOfferLoaded] = useState<boolean>(false);
 
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
 
@@ -40,7 +41,12 @@ const HeyMateMessage: FC<OwnProps> = ({
       method: 'GET',
       body: {},
     });
-    setOfferMsg(response.data.data);
+    if (response && response.status === 200) {
+      setOfferLoaded(true);
+      setOfferMsg(response.data.data);
+    } else {
+      setOfferLoaded(false);
+    }
   }
   useEffect(() => {
     let offerId;
@@ -126,66 +132,76 @@ const HeyMateMessage: FC<OwnProps> = ({
   };
   // @ts-ignore
   return (
-    <div>
-      <div className="HeyMateMessage">
-        <div className="my-offer-body">
-          <div className="my-offer-img-holder">
-            <img src="https://picsum.photos/200/300" alt="" />
-          </div>
-          <div className="my-offer-descs">
-            <h4 className="title">{offerMsg?.title}</h4>
-            <span className="sub-title">{offerMsg?.category.main_cat}</span>
-            <p className="description">
-              {offerMsg?.description}
-            </p>
-          </div>
-          <div className="my-offer-types">
-            <div className="radios-grp">
-              <RadioGroup
-                name="report-message"
-                options={purchasePlan}
-                onChange={handleSelectType}
-                selected={selectedReason}
-              />
+    <div className="message-content-wrapper can-select-text">
+      {
+        offerLoaded ? (
+          <>
+            <div className="HeyMateMessage">
+              <div className="my-offer-body">
+                <div className="my-offer-img-holder">
+                  <img src="https://picsum.photos/200/300" alt="" />
+                </div>
+                <div className="my-offer-descs">
+                  <h4 className="title">{offerMsg?.title}</h4>
+                  <span className="sub-title">{offerMsg?.category.main_cat}</span>
+                  <p className="description">
+                    {offerMsg?.description}
+                  </p>
+                </div>
+                <div className="my-offer-types">
+                  <div className="radios-grp">
+                    <RadioGroup
+                      name="report-message"
+                      options={purchasePlan}
+                      onChange={handleSelectType}
+                      selected={selectedReason}
+                    />
+                  </div>
+                  <div className="price-grp">
+                    <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
+                    <span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>
+                    <span className="prices">
+                      {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="refer-offer">
+                  <div className="refer-offer-container">
+                    <i className="hm-gift" />
+                    <span>Refer this offer to and eran <i className="gift-price">$10</i></span>
+                    <i className="hm-arrow-right" />
+                  </div>
+                </div>
+              </div>
+              <div className="my-offer-btn-group">
+                <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
+                  See Details
+                </Button>
+                <Button onClick={handleOpenBookOfferModal} className="book-offer" size="smaller" color="primary">
+                  <span>Book Now</span>
+                </Button>
+              </div>
             </div>
-            <div className="price-grp">
-              <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
-              <span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>
-              <span className="prices">
-                {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`}
-              </span>
-            </div>
+            <BookOfferDialog
+              purchasePlanType={planType}
+              offer={offerMsg}
+              openModal={openBookOfferModal}
+              onCloseModal={handleCLoseBookOfferModal}
+            />
+            <OfferDetailsDialog
+              onBookClicked={handleBookOfferClicked}
+              message={message}
+              openModal={openDetailsModal}
+              offer={offerMsg}
+              onCloseModal={handleCLoseDetailsModal}
+            />
+          </>
+        ) : (
+          <div className="message-content text has-action-button is-forwarded has-shadow has-solid-background has-appendix">
+            <span className="normal-message">{message.content.text?.text}</span>
           </div>
-          <div className="refer-offer">
-            <div className="refer-offer-container">
-              <i className="hm-gift" />
-              <span>Refer this offer to and eran <i className="gift-price">$10</i></span>
-              <i className="hm-arrow-right" />
-            </div>
-          </div>
-        </div>
-        <div className="my-offer-btn-group">
-          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
-            See Details
-          </Button>
-          <Button onClick={handleOpenBookOfferModal} className="book-offer" size="smaller" color="primary">
-            <span>Book Now</span>
-          </Button>
-        </div>
-      </div>
-      <BookOfferDialog
-        purchasePlanType={planType}
-        offer={offerMsg}
-        openModal={openBookOfferModal}
-        onCloseModal={handleCLoseBookOfferModal}
-      />
-      <OfferDetailsDialog
-        onBookClicked={handleBookOfferClicked}
-        message={message}
-        openModal={openDetailsModal}
-        offer={offerMsg}
-        onCloseModal={handleCLoseDetailsModal}
-      />
+        )
+      }
     </div>
   );
 };
