@@ -11,13 +11,15 @@ import TabList from '../ui/TabList';
 import { ITimeSlotModel } from '../../types/HeymateTypes/TimeSlot.model';
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
-
+import { withGlobal } from 'teact/teactn';
 import useLang from '../../hooks/useLang';
 import './BookOfferDialog.scss';
+import { pick } from '../../util/iteratees';
 
 import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
+import { GlobalActions } from 'src/global/types';
 
 type OwnProps = {
   offer: IOffer;
@@ -25,6 +27,7 @@ type OwnProps = {
   onCloseModal: () => void;
   purchasePlanType?: 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 };
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 enum BookOfferModalTabs {
   TIME_SLOTS,
@@ -46,11 +49,12 @@ interface IBookOfferModel {
   timeSlotId: string;
   meetingId?: string;
 }
-const BookOfferDialog: FC<OwnProps> = ({
+const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   offer,
   openModal = false,
   onCloseModal,
   purchasePlanType = 'SINGLE',
+  showNotification,
 }) => {
   const lang = useLang();
 
@@ -142,10 +146,10 @@ const BookOfferDialog: FC<OwnProps> = ({
     });
     setBookOfferLoading(false);
     if (response.status === 201) {
-      alert('Offer Booked Successfuly !');
+      showNotification({message: 'Offer Booked Successfuly !' });
       handleCLoseDetailsModal();
     } else {
-      alert('some thing went wrong !');
+      showNotification({message: 'some thing went wrong !'});
     }
   };
 
@@ -278,4 +282,12 @@ const BookOfferDialog: FC<OwnProps> = ({
   );
 };
 
-export default memo(BookOfferDialog);
+export default memo(withGlobal<OwnProps>(
+  (): any => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(BookOfferDialog));
