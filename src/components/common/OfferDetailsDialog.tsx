@@ -17,6 +17,7 @@ type OwnProps = {
   onCloseModal: () => void;
   onBookClicked?: (planType: PlanType) => void;
   message?: ApiMessage;
+  expired?: boolean;
 };
 interface IPurchasePlan {
   value: string;
@@ -39,6 +40,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   onCloseModal,
   onBookClicked,
   message,
+  expired = false,
 }) => {
   const handleCLoseDetailsModal = () => {
     onCloseModal();
@@ -180,7 +182,12 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
           {/*  </Button> */}
           {/* )} */}
           {onBookClicked && (
-            <Button onClick={() => onBookClicked(selectedPlan)} className="book-offer" size="smaller" color="primary">
+            <Button
+              onClick={() => onBookClicked(selectedPlan)}
+              className="book-offer"
+              size="smaller"
+              disabled={expired}
+              color="primary">
               <span>Book Now</span>
             </Button>
           )}

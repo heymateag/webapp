@@ -10,6 +10,8 @@ import { IOffer } from '../../../types/HeymateTypes/Offer.model';
 import OfferDetailsDialog from '../../common/OfferDetailsDialog';
 import BookOfferDialog from '../../common/BookOfferDialog';
 import './HeyMateMessage.scss';
+// eslint-disable-next-line import/extensions
+import GenerateNewDate from '../../middle/helpers/generateDateBasedOnTimeStamp';
 
 type OwnProps = {
   message: ApiMessage;
@@ -34,6 +36,17 @@ const HeyMateMessage: FC<OwnProps> = ({
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
 
   const [bundlePrice, setBundlePrice] = useState(0);
+  const [isExpired, setIsExpired] = useState(false);
+
+  const handleExpired = (expireTime: any) => {
+    const now = new Date();
+    const startTime = GenerateNewDate(expireTime);
+    if (now.getTime() < startTime.getTime()) {
+      setIsExpired(false);
+    } else {
+      setIsExpired(true);
+    }
+  };
 
   async function getOfferById(uuid) {
     const response = await axiosService({
@@ -42,6 +55,7 @@ const HeyMateMessage: FC<OwnProps> = ({
       body: {},
     });
     if (response && response.status === 200) {
+      handleExpired(response.data.data.expiration);
       setOfferLoaded(true);
       setOfferMsg(response.data.data);
     } else {
@@ -126,6 +140,7 @@ const HeyMateMessage: FC<OwnProps> = ({
     setOpenDetailsModal(false);
     setOpenBookOfferModal(true);
   };
+
   // @ts-ignore
   return (
     <div>
@@ -173,7 +188,12 @@ const HeyMateMessage: FC<OwnProps> = ({
                 <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
                   See Details
                 </Button>
-                <Button onClick={handleOpenBookOfferModal} className="book-offer" size="smaller" color="primary">
+                <Button
+                  disabled={isExpired}
+                  onClick={handleOpenBookOfferModal}
+                  className="book-offer"
+                  size="smaller"
+                  color="primary">
                   <span>Book Now</span>
                 </Button>
               </div>
@@ -189,11 +209,14 @@ const HeyMateMessage: FC<OwnProps> = ({
               message={message}
               openModal={openDetailsModal}
               offer={offerMsg}
+              expired={isExpired}
               onCloseModal={handleCLoseDetailsModal}
             />
           </>
         ) : (
-          <div className="message-content text has-action-button is-forwarded has-shadow has-solid-background has-appendix">
+          <div
+            className="message-content text has-action-button
+            is-forwarded has-shadow has-solid-background has-appendix">
             <span className="normal-message">{message.content.text?.text}</span>
           </div>
         )
