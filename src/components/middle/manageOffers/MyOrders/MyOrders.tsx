@@ -5,9 +5,7 @@ import Button from '../../../ui/Button';
 import Select from '../../../ui/Select';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
-import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
-import { MeetingType } from '../../../../types/HeymateTypes/Offer.model';
-import OnlineMetting from '../OnlineMeeting/OnlineMetting';
+import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
 import Loading from '../../../ui/Loading';
 import './MyOrders.scss';
 import Order from '../Order/Order';
@@ -68,7 +66,7 @@ const MyOrders: FC = () => {
 
   const handleDateChange = useCallback((date: any) => {
     // eslint-disable-next-line max-len
-    const filtered = myOrders.filter((item) => GenerateNewDate(item.time_slot?.form_time).setHours(0,0,0,0) === (date.getTime()));
+    const filtered = myOrders.filter((item) => GenerateNewDate(item.time_slot?.form_time).setHours(0, 0, 0, 0) === (date.getTime()));
     setFilteredOrders(filtered);
   }, [myOrders]);
 

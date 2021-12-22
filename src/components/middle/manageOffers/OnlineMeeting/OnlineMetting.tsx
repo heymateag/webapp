@@ -8,7 +8,8 @@ import offer1 from '../../../../assets/heymate/offer1.svg';
 // @ts-ignore
 import play from '../../../../assets/heymate/play.svg';
 import './OnlineMeeting.scss';
-import { IMyOrders, ReservationStatus } from '../../../../types/HeymateTypes/MyOrders.model';
+import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import Menu from '../../../ui/Menu';
 import MenuItem from '../../../ui/MenuItem';
 import useLang from '../../../../hooks/useLang';
@@ -20,7 +21,6 @@ type OwnProps = {
 const OnlineMeeting: FC<OwnProps> = ({
   props,
 }) => {
-  debugger
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -54,7 +54,7 @@ const OnlineMeeting: FC<OwnProps> = ({
         });
         break;
     }
-  }, [props.status, props.time_slot.form_time]);
+  }, [props.status, props.time_slot?.form_time]);
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);

@@ -1,13 +1,16 @@
-import {ConnectionState} from '@zoom/videosdk';
-import React, {FC, memo, useCallback, useEffect, useRef, useState,} from '../../../../lib/teact/teact';
-import {ZoomClient} from '../ZoomSdkService/ZoomSdkService';
+import { ConnectionState } from '@zoom/videosdk';
+import React, {
+  FC, memo, useCallback, useEffect, useRef, useState,
+} from '../../../../lib/teact/teact';
+import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
 import VideoSessionDialog from '../ZoomDialog/VideoSessionDialog';
 import OfferFooter from './components/OfferFooter';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-import {ClientType} from '../ZoomSdkService/types';
-import {IMyOrders, ReservationStatus} from '../../../../types/HeymateTypes/MyOrders.model';
+import { ClientType } from '../ZoomSdkService/types';
+import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
 
 // @ts-ignore
@@ -16,11 +19,11 @@ import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
-import {axiosService} from '../../../../api/services/axiosService';
-import {HEYMATE_URL} from '../../../../config';
-import {GlobalActions} from "../../../../global/types";
-import {withGlobal} from "teact/teactn";
-import {pick} from "../../../../util/iteratees";
+import { axiosService } from '../../../../api/services/axiosService';
+import { HEYMATE_URL } from '../../../../config';
+import { GlobalActions } from '../../../../global/types';
+import { withGlobal } from 'teact/teactn';
+import { pick } from '../../../../util/iteratees';
 
 type TimeToStart = {
   days: number;

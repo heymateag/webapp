@@ -1,5 +1,6 @@
 /*  ================= BEGIN Hm Message types */
 .HeyMateMessage {
+  min-width: 360px;
   .my-offer-body {
     border-radius: var(--border-radius-messages);
     background-color: var(--color-background);

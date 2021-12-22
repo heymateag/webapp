@@ -57,11 +57,7 @@ const HeyMateMessage: FC<OwnProps> = ({
       getOfferById(offerId);
     }
   }, [message]);
-  const REPORT_OPTIONS: { value: string; label: string; subLabel: string }[] = [
-    { value: 'single', label: 'Single', subLabel: '1 Session - 2 Hour' },
-    { value: 'bundle', label: 'Bundle', subLabel: '10 Sessions' },
-    { value: 'subscription', label: 'Subscription', subLabel: '1 Month - Unlimited access' },
-  ];
+
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
     setSelectedReason(value);
@@ -78,27 +74,27 @@ const HeyMateMessage: FC<OwnProps> = ({
             subLabel: '1 Session',
           });
         }
-        if (offerMsg.pricing.bundle) {
-          let total = offerMsg.pricing.bundle.count * offerMsg.pricing.price;
-          let discount = 0;
-          if (offerMsg.pricing.bundle.discount_percent) {
-            discount = (total * offerMsg.pricing.bundle.discount_percent) / 100;
-          }
-          total -= discount;
-          setBundlePrice(total);
-          temp.push({
-            label: 'Bundle',
-            value: 'bundle',
-            subLabel: `${offerMsg.pricing.bundle.count} Sessions`,
-          });
-        }
-        if (offerMsg.pricing.subscription) {
-          temp.push({
-            label: 'Subscription',
-            value: 'subscription',
-            subLabel: `${offerMsg.pricing.subscription.period}`,
-          });
-        }
+        // if (offerMsg.pricing.bundle) {
+        //   let total = offerMsg.pricing.bundle.count * offerMsg.pricing.price;
+        //   let discount = 0;
+        //   if (offerMsg.pricing.bundle.discount_percent) {
+        //     discount = (total * offerMsg.pricing.bundle.discount_percent) / 100;
+        //   }
+        //   total -= discount;
+        //   setBundlePrice(total);
+        //   temp.push({
+        //     label: 'Bundle',
+        //     value: 'bundle',
+        //     subLabel: `${offerMsg.pricing.bundle.count} Sessions`,
+        //   });
+        // }
+        // if (offerMsg.pricing.subscription) {
+        //   temp.push({
+        //     label: 'Subscription',
+        //     value: 'subscription',
+        //     subLabel: `${offerMsg.pricing.subscription.period}`,
+        //   });
+        // }
         setPurchasePlan(temp);
       }
     }
@@ -132,7 +128,7 @@ const HeyMateMessage: FC<OwnProps> = ({
   };
   // @ts-ignore
   return (
-    <div className="message-content-wrapper can-select-text">
+    <div>
       {
         offerLoaded ? (
           <>
@@ -159,19 +155,19 @@ const HeyMateMessage: FC<OwnProps> = ({
                   </div>
                   <div className="price-grp">
                     <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
-                    <span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>
-                    <span className="prices">
-                      {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`}
-                    </span>
+                    {/*<span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>*/}
+                    {/* <span className="prices"> */}
+                    {/*  {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`} */}
+                    {/* </span> */}
                   </div>
                 </div>
-                <div className="refer-offer">
-                  <div className="refer-offer-container">
-                    <i className="hm-gift" />
-                    <span>Refer this offer to and eran <i className="gift-price">$10</i></span>
-                    <i className="hm-arrow-right" />
-                  </div>
-                </div>
+                {/* <div className="refer-offer"> */}
+                {/*  <div className="refer-offer-container"> */}
+                {/*    <i className="hm-gift" /> */}
+                {/*    <span>Refer this offer to and eran <i className="gift-price">$10</i></span> */}
+                {/*    <i className="hm-arrow-right" /> */}
+                {/*  </div> */}
+                {/* </div> */}
               </div>
               <div className="my-offer-btn-group">
                 <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">

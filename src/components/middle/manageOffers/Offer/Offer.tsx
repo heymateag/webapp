@@ -10,9 +10,7 @@ import React, {
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 
-import {
-  ReservationStatus,
-} from '../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 

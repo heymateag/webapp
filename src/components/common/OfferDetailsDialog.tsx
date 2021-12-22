@@ -23,7 +23,12 @@ interface IPurchasePlan {
   label: string;
   subLabel: string;
 }
-
+type StringRawData = {
+  dayOfWeek?: string;
+  month?: string;
+  dayOfMonth?: string;
+  year?: string;
+};
 type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 
 type DispatchProps = Pick<GlobalActions, ('openForwardMenu')>;
@@ -44,6 +49,8 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('SINGLE');
 
   const [bundlePrice, setBundlePrice] = useState(0);
+
+  const [stringRawDate, serStringRawData] = useState<StringRawData>({});
 
   const handleSelectType = useCallback((value: string) => {
     const val = value.toUpperCase();
@@ -67,6 +74,19 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   }, [openForwardMenu, message]);
 
   useEffect(() => {
+    if (offer?.expiration) {
+      let expiration: any = offer?.expiration;
+      if (offer?.expiration.length <= 10) {
+        expiration = (parseInt(offer?.expiration, 10) * 1000) || 0;
+      }
+      const rawDate = new Date(expiration).toString().split(' ');
+      serStringRawData({
+        dayOfWeek: rawDate[0],
+        month: rawDate[1],
+        dayOfMonth: rawDate[2],
+        year: rawDate[3],
+      });
+    }
     if (offer && purchasePlan.length === 0) {
       const temp: IPurchasePlan[] = [];
       if (offer?.pricing?.bundle || offer?.pricing?.subscription) {
@@ -77,27 +97,27 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
             subLabel: '1 Session',
           });
         }
-        if (offer.pricing.bundle) {
-          let total = offer.pricing.bundle.count * offer.pricing.price;
-          let discount = 0;
-          if (offer.pricing.bundle.discount_percent) {
-            discount = (total * offer.pricing.bundle.discount_percent) / 100;
-          }
-          total -= discount;
-          setBundlePrice(total);
-          temp.push({
-            label: 'Bundle',
-            value: 'bundle',
-            subLabel: `${offer.pricing.bundle.count} Sessions`,
-          });
-        }
-        if (offer.pricing.subscription) {
-          temp.push({
-            label: 'Subscription',
-            value: 'subscription',
-            subLabel: `${offer.pricing.subscription.period}`,
-          });
-        }
+        // if (offer.pricing.bundle) {
+        //   let total = offer.pricing.bundle.count * offer.pricing.price;
+        //   let discount = 0;
+        //   if (offer.pricing.bundle.discount_percent) {
+        //     discount = (total * offer.pricing.bundle.discount_percent) / 100;
+        //   }
+        //   total -= discount;
+        //   setBundlePrice(total);
+        //   temp.push({
+        //     label: 'Bundle',
+        //     value: 'bundle',
+        //     subLabel: `${offer.pricing.bundle.count} Sessions`,
+        //   });
+        // }
+        // if (offer.pricing.subscription) {
+        //   temp.push({
+        //     label: 'Subscription',
+        //     value: 'subscription',
+        //     subLabel: `${offer.pricing.subscription.period}`,
+        //   });
+        // }
         setPurchasePlan(temp);
       }
     }
@@ -132,7 +152,9 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
             <i id="expire-icon" className="hm-timer" />
             <span id="expire-text">Expiration</span>
           </div>
-          <span id="expire-date">Thu, Jun 23 2021</span>
+          <span id="expire-date">
+            {`${stringRawDate?.dayOfWeek}, ${stringRawDate?.month} ${stringRawDate?.dayOfMonth} ${stringRawDate?.year}`}
+          </span>
         </div>
         <div className="my-offer-types">
           <div className="radios-grp">
@@ -145,18 +167,18 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
           </div>
           <div className="price-grp">
             <span className="prices active">{`${offer?.pricing?.price} ${offer?.pricing?.currency}`}</span>
-            <span className="prices">{`${bundlePrice}  ${offer?.pricing?.currency}`}</span>
-            <span className="prices">
-              {`${offer?.pricing?.subscription?.subscription_price}  ${offer?.pricing?.currency}`}
-            </span>
+            {/*<span className="prices">{`${bundlePrice}  ${offer?.pricing?.currency}`}</span>*/}
+            {/* <span className="prices"> */}
+            {/*  {`${offer?.pricing?.subscription?.subscription_price}  ${offer?.pricing?.currency}`} */}
+            {/* </span> */}
           </div>
         </div>
         <div className="btn-group">
-          {message && (
-            <Button className="see-details" size="smaller" color="secondary">
-              Promote
-            </Button>
-          )}
+          {/* {message && ( */}
+          {/*  <Button className="see-details" size="smaller" color="secondary"> */}
+          {/*    Promote */}
+          {/*  </Button> */}
+          {/* )} */}
           {onBookClicked && (
             <Button onClick={() => onBookClicked(selectedPlan)} className="book-offer" size="smaller" color="primary">
               <span>Book Now</span>

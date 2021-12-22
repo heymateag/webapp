@@ -9,10 +9,8 @@ import React, {
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 import { GlobalActions } from '../../../../global/types';
-import {
-  IMyOrders,
-  ReservationStatus,
-} from '../../../../types/HeymateTypes/MyOrders.model';
+import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Order.scss';
 
 // @ts-ignore
@@ -211,9 +209,6 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   };
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-    let c = meetingId;
-    let d = meetingPassword;
-    debugger
     const client = new ZoomClient(meetingId, meetingPassword, 'John Doe!');
     setJoinMeetingLoader(true);
     await client.join();

@@ -2,7 +2,7 @@ import React, {
   FC, memo, useEffect, useState,
 } from 'teact/teact';
 
-import { ReservationStatus } from '../../../../../types/HeymateTypes/MyOrders.model';
+import { ReservationStatus } from '../../../../../types/HeymateTypes/ReservationStatus';
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
@@ -94,7 +94,7 @@ const OrderFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
-    if (offerType === 'ONLINE') {
+    if (offerType === 'ONLINE' && (newStatus === ReservationStatus.STARTED)) {
       onJoinMeeting();
     }
   };

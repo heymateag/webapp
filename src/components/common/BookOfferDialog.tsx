@@ -35,13 +35,16 @@ interface ITimeSlotsRender extends ITimeSlotModel{
   toTs: number;
   fromDateLocal?: string;
   toDateLocal?: string;
+  remainingReservations?: number;
+  completedReservations?: number;
+  maximumReservations?: number; // 0 means unlimited
 }
 interface IBookOfferModel {
   offerId: string;
   serviceProviderId: string;
   purchasedPlanId?: string;
   timeSlotId: string;
-  meetingId: string;
+  meetingId?: string;
 }
 const BookOfferDialog: FC<OwnProps> = ({
   offer,
@@ -131,7 +134,6 @@ const BookOfferDialog: FC<OwnProps> = ({
       serviceProviderId: offer.userId,
       purchasedPlanId: planId,
       timeSlotId: selectedTimeSlotId,
-      meetingId: '',
     };
     const response = await axiosService({
       url: `${HEYMATE_URL}/reservation`,
@@ -150,7 +152,8 @@ const BookOfferDialog: FC<OwnProps> = ({
   const [activeTab, setActiveTab] = useState<BookOfferModalTabs>(BookOfferModalTabs.TIME_SLOTS);
 
   const handleSwitchTab = useCallback((index: number) => {
-    setActiveTab(index);
+    // setActiveTab(index); // Uncomment to calendar tab works
+    setActiveTab(BookOfferModalTabs.TIME_SLOTS);
   }, []);
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -209,13 +212,19 @@ const BookOfferDialog: FC<OwnProps> = ({
                             className={buildClassName('time-slot-row',
                               (selectedTimeSlotId === item.id) && 'active')}
                           >
-                            <Radio
-                              name={item.id}
-                              label={`${item.fromDateLocal} - ${item.toDateLocal}`}
-                              value={item.id}
-                              checked={false}
-                              onChange={handleChange}
-                            />
+                            <div>
+                              <Radio
+                                name={item.id}
+                                label={`${item.fromDateLocal} - ${item.toDateLocal}`}
+                                value={item.id}
+                                checked={false}
+                                onChange={handleChange}
+                              />
+                            </div>
+                            <div className="remaining-of-total">
+                              <span id="remaining">{item.completedReservations}</span>
+                              <span id="total">of {item.maximumReservations}</span>
+                            </div>
                           </div>
                         )) : (
                           <div className="no-time-slot-founds">

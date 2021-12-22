@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-cycle
-import { ReservationStatus } from './MyOrders.model';
+import { ReservationStatus } from './ReservationStatus';
 
 export interface ITimeSlotModel {
   id: string;
