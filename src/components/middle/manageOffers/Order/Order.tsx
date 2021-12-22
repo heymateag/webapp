@@ -160,6 +160,7 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
         setReservationStatus(response.data.data.status);
       }
       if (response.data.data.status === ReservationStatus.MARKED_AS_STARTED) {
+        debugger
         setMeetingPassword(response.data.data.meetingPassword);
         setMeetingId(response.data.data.meetingId);
       }
@@ -208,7 +209,6 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   };
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-
     const client = new ZoomClient(meetingId, meetingPassword, 'John Doe!');
     setJoinMeetingLoader(true);
     await client.join();
