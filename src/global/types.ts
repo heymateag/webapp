@@ -97,6 +97,7 @@ export type GlobalState = {
   serverTimeOffset: number;
   leftColumnWidth?: number;
   showHeymate?: boolean;
+  showHeymateWalletMiddle?: boolean;
   // TODO Move to `auth`.
   isLoggingOut?: boolean;
   authState?: ApiUpdateAuthorizationStateType;
@@ -561,7 +562,7 @@ export type ActionTypes = (
   'loadMoreGroupCallParticipants' | 'connectToActiveGroupCall' | 'playGroupCallSound' |
   'openCallFallbackConfirm' | 'closeCallFallbackConfirm' | 'inviteToCallFallback' |
   // heymate
-  'setShowHeymate'
+  'setShowHeymate' | 'setShowHeymateWalletMiddle'
 );
 
 export type GlobalActions = Record<ActionTypes, (...args: any[]) => void>;

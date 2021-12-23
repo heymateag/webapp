@@ -75,6 +75,7 @@ type StateProps = {
   wasTimeFormatSetManually?: boolean;
   isCallFallbackConfirmOpen: boolean;
   showHeymate?: boolean;
+  showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
   currentUserPhoneNumber?: string;
 };

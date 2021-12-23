@@ -97,6 +97,7 @@ addReducer('openChat', (global, actions, payload) => {
     actions.toggleChatUnread({ id });
   }
   actions.setShowHeymate(false);
+  actions.setShowHeymateWalletMiddle(false);
   // Please telegram send us some updates about linked chat 🙏
   if (chat && chat.lastMessage && chat.lastMessage.threadInfo) {
     actions.requestThreadInfoUpdate({

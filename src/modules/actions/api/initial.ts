@@ -209,6 +209,14 @@ addReducer('setShowHeymate', (global, actions, payload) => {
     showHeymate,
   };
 });
+addReducer('setShowHeymateWalletMiddle', (global, actions, payload) => {
+  const { showHeymateWalletMiddle } = payload!;
+
+  return {
+    ...global,
+    showHeymateWalletMiddle,
+  };
+});
 
 addReducer('setCurrentUserPhoneNumber', (global, actions, payload) => {
   const { currentUserPhoneNumber } = payload!;

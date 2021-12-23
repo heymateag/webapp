@@ -65,6 +65,7 @@ import NoMessages from './NoMessages';
 
 import './MessageList.scss';
 import ManageOffers from './manageOffers/ManageOffers';
+import Wallet from '../left/wallet/Wallet';
 
 type OwnProps = {
   chatId: string;
@@ -101,7 +102,7 @@ type StateProps = {
   threadTopMessageId?: number;
   threadFirstMessageId?: number;
   hasLinkedChat?: boolean;
-} & Pick<GlobalState, 'showHeymate'>;
+} & Pick<GlobalState, 'showHeymate' | 'showHeymateWalletMiddle'>;
 
 type DispatchProps = Pick<
 GlobalActions,
@@ -153,6 +154,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   hasLinkedChat,
   openHistoryCalendar,
   showHeymate,
+  showHeymateWalletMiddle,
   activeTab,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -512,7 +514,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     (!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat,
   );
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = !showHeymate && (showHeymate ? false : isUserId(chatId))
+  const shouldRenderGreeting = !showHeymate && !showHeymateWalletMiddle && ((showHeymate || showHeymateWalletMiddle) ? false : isUserId(chatId))
     && !isChatWithSelf
     && !isBot
     && ((!messageGroups
@@ -549,7 +551,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     >
       {showHeymate ? (
         <ManageOffers activeTab={activeTab} />
-      ) : isRestricted ? (
+      ) : showHeymateWalletMiddle ? (<Wallet />) : isRestricted ? (
         <div className="empty">
           <span>
             {restrictionReason
@@ -608,9 +610,10 @@ export default memo(
   withGlobal<OwnProps>(
     (global, { chatId, threadId, type }): StateProps => {
       const { showHeymate } = global;
+      const { showHeymateWalletMiddle } = global;
       const chat = selectChat(global, chatId);
       if (!chat) {
-        return { showHeymate };
+        return { showHeymate, showHeymateWalletMiddle };
       }
 
       const messageIds = selectCurrentMessageIds(
@@ -661,6 +664,7 @@ export default memo(
 
       return {
         showHeymate,
+        showHeymateWalletMiddle,
         isChatLoaded: true,
         isRestricted,
         restrictionReason,

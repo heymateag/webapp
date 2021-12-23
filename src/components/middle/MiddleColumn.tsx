@@ -90,7 +90,7 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
   messageLists?: GlobalMessageList[];
-} & Pick<GlobalState, 'showHeymate'>;
+} & Pick<GlobalState, 'showHeymate' | 'showHeymateWalletMiddle'>;
 
 type DispatchProps = Pick<GlobalActions, (
   'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode' |
@@ -130,6 +130,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   shouldSkipHistoryAnimations,
   currentTransitionKey,
   showHeymate,
+  showHeymateWalletMiddle,
   openChat,
   unpinAllMessages,
   loadUser,
@@ -336,7 +337,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
         style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
       />
       <div id="middle-column-portals" />
-      {((renderingChatId && renderingThreadId) || showHeymate) && (
+      {((renderingChatId && renderingThreadId) || showHeymate || showHeymateWalletMiddle) && (
         <>
           <div className="messages-layout" onDragEnter={renderingCanPost ? handleDragEnter : undefined}>
             <MiddleHeader
@@ -367,7 +368,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                     activeTab={activeTab}
                   />
                   <div className={footerClassName}>
-                    {renderingCanPost && !showHeymate && (
+                    {renderingCanPost && !showHeymate && !showHeymateWalletMiddle && (
                       <Composer
                         chatId={renderingChatId}
                         threadId={renderingThreadId}
@@ -419,7 +420,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
             </Transition>
 
             <ScrollDownButton
-              isShown={renderingIsFabShown && !showHeymate}
+              isShown={renderingIsFabShown && !showHeymate && !showHeymateWalletMiddle}
               canPost={renderingCanPost}
               withExtraShift={isMessagingDisabled || isSelectModeActive || isPinnedMessageList}
             />
@@ -443,7 +444,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 export default memo(withGlobal(
   (global): StateProps => {
     const theme = selectTheme(global);
-    const { showHeymate } = global;
+    const { showHeymate, showHeymateWalletMiddle } = global;
     const {
       isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
     } = global.settings.themes[theme] || {};
@@ -466,6 +467,7 @@ export default memo(withGlobal(
       animationLevel: global.settings.byKey.animationLevel,
       currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
       showHeymate,
+      showHeymateWalletMiddle,
     };
 
     if (!currentMessageList || !listIds.active) {
@@ -502,6 +504,7 @@ export default memo(withGlobal(
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
       messageLists,
       showHeymate,
+      showHeymateWalletMiddle,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

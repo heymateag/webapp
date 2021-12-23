@@ -35,9 +35,14 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const [kit, setKit] = useState<any>();
+  const [width, setWidth] = useState<number>(0);
   const [isConnected, setIsConnected] = useState(false);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
+
+  useEffect(() => {
+    setWidth(window.innerWidth);
+  }, []);
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -178,18 +183,21 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
 
   return (
     <div className="UserWallet">
-      <div className="left-header">
-        <Button
-          round
-          size="smaller"
-          color="translucent"
-          onClick={onReset}
-          ariaLabel="Return to chat list"
-        >
-          <i className="icon-arrow-left" />
-        </Button>
-        <h3>{lang('Wallet')}</h3>
-      </div>
+      {width <= 500
+      && (
+        <div className="left-header">
+          <Button
+            round
+            size="smaller"
+            color="translucent"
+            onClick={onReset}
+            ariaLabel="Return to chat list"
+          >
+            <i className="icon-arrow-left" />
+          </Button>
+          <h3>{lang('Wallet')}</h3>
+        </div>
+      )}
       <div className="wallet-body">
         <div className="logo-container">
           <img src={walletIcon} alt="" />

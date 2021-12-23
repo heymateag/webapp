@@ -20,6 +20,7 @@ export const INITIAL_STATE: GlobalState = {
   uiReadyState: 0,
   serverTimeOffset: 0,
   showHeymate: false,
+  showHeymateWalletMiddle: false,
   authRememberMe: true,
   countryList: {
     phoneCodes: [],

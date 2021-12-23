@@ -44,7 +44,7 @@ type OwnProps = {
   onReset: () => void;
 };
 
-type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
+type DispatchProps = Pick<GlobalActions, 'setShowHeymate' | 'setShowHeymateWalletMiddle'>;
 
 type StateProps = Pick<GlobalState, 'connectionState'>;
 
@@ -67,6 +67,7 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   connectionState,
   setShowHeymate,
+  setShowHeymateWalletMiddle,
 }) => {
   const [isNewChatButtonShown, setIsNewChatButtonShown] = useState(IS_TOUCH_ENV);
 
@@ -102,10 +103,11 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   const handleSelectManageOffers = useCallback(() => {
     if (width > 500) {
       setShowHeymate({ showHeymate: true });
+      setShowHeymateWalletMiddle({showHeymateWalletMiddle: false });
     } else {
       onContentChange(LeftColumnContent.Offers);
     }
-  }, [setShowHeymate, onContentChange, width]);
+  }, [setShowHeymate, onContentChange, width, setShowHeymateWalletMiddle]);
   /**
    * Ehsan's To Handle Show Offers In Left Screen
    */
@@ -114,8 +116,13 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   // }, [onContentChange]);
 
   const handleSelectWallet = useCallback(() => {
-    onContentChange(LeftColumnContent.wallet);
-  }, [onContentChange]);
+    if (width < 500) {
+      onContentChange(LeftColumnContent.wallet);
+    } else {
+      setShowHeymateWalletMiddle({showHeymateWalletMiddle: true });
+      setShowHeymate({ showHeymate: false });
+    }
+  }, [onContentChange, setShowHeymateWalletMiddle, width, setShowHeymate]);
 
   const handleMouseEnter = useCallback(() => {
     if (content !== LeftColumnContent.ChatList) {
@@ -272,5 +279,5 @@ function useAppOutdatedCheck() {
 
 export default withGlobal<OwnProps>(
   (global): StateProps => pick(global, ['connectionState', 'showHeymate']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate', 'setShowHeymateWalletMiddle']),
 )(LeftMain);
