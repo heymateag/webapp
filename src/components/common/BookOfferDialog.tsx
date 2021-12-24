@@ -2,6 +2,8 @@ import React, {
   FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
 import { ChangeEvent } from 'react';
+import { withGlobal } from 'teact/teactn';
+import { GlobalActions } from 'src/global/types';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -11,7 +13,6 @@ import TabList from '../ui/TabList';
 import { ITimeSlotModel } from '../../types/HeymateTypes/TimeSlot.model';
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
-import { withGlobal } from 'teact/teactn';
 import useLang from '../../hooks/useLang';
 import './BookOfferDialog.scss';
 import { pick } from '../../util/iteratees';
@@ -19,7 +20,6 @@ import { pick } from '../../util/iteratees';
 import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
-import { GlobalActions } from 'src/global/types';
 
 type OwnProps = {
   offer: IOffer;
@@ -70,6 +70,19 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
   ];
 
+  const getTodayRawDateString = useCallback((selectedTs) => {
+    const currentDate = new Date();
+    const unixTime = currentDate.getTime();
+    const rawDate = new Date(unixTime).toString().split(' ');
+    const toShowRawDate = `${rawDate[0]}, ${rawDate[1]} ${rawDate[2]} ${rawDate[3]}`;
+    setSelectedDate(toShowRawDate);
+
+    const startDate = currentDate.setHours(0, 0, 0, 0);
+    const endDate = currentDate.setHours(23, 59, 59, 999);
+    const filterDates = selectedTs.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setFilteredDate(filterDates);
+  }, []);
+
   const getOfferTimeSlots = async (offerId) => {
     const response = await axiosService({
       url: `${HEYMATE_URL}/time-table/${offerId}/schedule`,
@@ -100,10 +113,10 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           return item;
         });
         setTimeSlots(temp);
-        setFilteredDate(temp);
+        getTodayRawDateString(temp);
       });
     }
-  }, [offer]);
+  }, [getTodayRawDateString, offer]);
 
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState('');
 
@@ -146,10 +159,12 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     });
     setBookOfferLoading(false);
     if (response.status === 201) {
-      showNotification({message: 'Offer Booked Successfuly !' });
+      showNotification({ message: 'Offer Booked Successfuly !' });
       handleCLoseDetailsModal();
+    } else if (response.status === 406) {
+      showNotification({ message: response.data.message });
     } else {
-      showNotification({message: 'some thing went wrong !'});
+      showNotification({ message: 'Some thing went wrong !' });
     }
   };
 
@@ -221,7 +236,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                                 name={item.id}
                                 label={`${item.fromDateLocal} - ${item.toDateLocal}`}
                                 value={item.id}
-                                checked={false}
+                                checked={selectedTimeSlotId === item.id}
                                 onChange={handleChange}
                               />
                             </div>

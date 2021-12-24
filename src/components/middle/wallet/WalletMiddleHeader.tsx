@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-unresolved
-import React, { FC, memo, useCallback, useState } from 'teact/teact';
+import React, { FC } from 'teact/teact';
 import { GlobalActions, GlobalState } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
 import useLang from '../../../hooks/useLang';

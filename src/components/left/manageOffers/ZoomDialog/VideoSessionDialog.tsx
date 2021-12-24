@@ -138,28 +138,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
     }
   };
 
-  const handleSoundClick = async (event) => {
-    event.preventDefault();
+  const handleSoundClick = async () => {
 
-    if (!isButtonAlreadyClicked) {
-      // Blocks logic from executing again if already in progress
-      setIsButtonAlreadyClicked(true);
-
-      try {
-        if (!isPreviewAudioConnected) {
-          await audioTrack.start();
-          setIsPreviewAudioConnected(true);
-        }
-        setIsMuted(!isMuted);
-        await toggleMuteUnmute();
-      } catch (e) {
-        console.error('Error toggling mute', e);
-      }
-
-      setIsButtonAlreadyClicked(false);
-    } else {
-      console.log('=== WARNING: already toggling mic ===');
-    }
   };
 
   const handleLeaveSessionClick = async () => {
@@ -256,7 +236,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
         sharing
         shareRef={selfShareRef}
         mediaStream={stream}
-        onSoundClick={handleSoundClick}
         initLeaveSessionClick={handleLeaveSessionClick}
       />
     </Modal>

@@ -144,7 +144,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
         </div>
         <div className="title-and-sub">
           <span id="offer-title">{offer?.title}</span>
-          <span id="offer-category">{offer?.category.main_cat}</span>
+          <span id="offer-category">{offer?.category?.main_cat}</span>
         </div>
         <div className="offer-description">
           <p>{offer?.description}</p>

@@ -209,7 +209,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           </div>
         )}
         {(!loadingBalance && isConnected) && (
-          <h3 id="balance">$ {balance.cUSD}</h3>
+          <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>
         )}
         {(!loadingBalance && !isConnected) && (
           <span id="balance">Connect Your Account</span>

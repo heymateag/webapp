@@ -94,6 +94,7 @@ const OrderFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
+    debugger
     if (offerType === 'ONLINE' && (newStatus === ReservationStatus.STARTED)) {
       onJoinMeeting();
     }

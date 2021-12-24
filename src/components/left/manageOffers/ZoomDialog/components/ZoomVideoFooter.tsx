@@ -6,7 +6,6 @@ import { MediaStream } from '../../ZoomSdkService/types';
 import Button from '../../../../ui/Button';
 
 type OwnProps = {
-  onSoundClick: (e: any) => void;
   initLeaveSessionClick: () => void;
   shareRef?: MutableRefObject<HTMLCanvasElement | null>;
   sharing?: boolean;
@@ -14,13 +13,16 @@ type OwnProps = {
 };
 
 const ZoomVideoFooter : FC<OwnProps> = ({
-  onSoundClick,
   initLeaveSessionClick,
   shareRef,
   sharing,
   mediaStream,
 }) => {
   const [isStartedScreenShare, setIsStartedScreenShare] = useState(false);
+
+  const [isStartedAudio, setIsStartedAudio] = useState(false);
+
+  const [isMuted, setIsMuted] = useState(true);
 
   const onScreenShareClick = useCallback(async () => {
     if (!isStartedScreenShare && shareRef && shareRef.current) {
@@ -32,11 +34,25 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     }
   }, [mediaStream, isStartedScreenShare, shareRef]);
 
+  const handleSoundClick = async () => {
+    if (isStartedAudio) {
+      if (isMuted) {
+        await mediaStream?.unmuteAudio();
+        setIsMuted(false);
+      } else {
+        await mediaStream?.muteAudio();
+        setIsMuted(true);
+      }
+    } else {
+      await mediaStream?.startAudio();
+      setIsStartedAudio(true);
+    }
+  };
 
   return (
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
-        <div className="btn-box" onClick={onSoundClick}>
+        <div className="btn-box" onClick={handleSoundClick}>
           <i id="zoom-mic" className="hm-zoom-mic" />
           <span>Mute</span>
         </div>

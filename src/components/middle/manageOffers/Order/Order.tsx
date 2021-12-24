@@ -155,12 +155,11 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
       method: 'GET',
       body: {},
     });
-    if (response.status && response?.data) {
+    if (response?.status && response?.data) {
       if (response.data.data.status !== reservationStatus) {
         setReservationStatus(response.data.data.status);
       }
       if (response.data.data.status === ReservationStatus.MARKED_AS_STARTED) {
-        debugger
         setMeetingPassword(response.data.data.meetingPassword);
         setMeetingId(response.data.data.meetingId);
       }
