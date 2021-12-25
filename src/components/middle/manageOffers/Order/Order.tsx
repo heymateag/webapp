@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from '../../../../lib/teact/teact';
+import { withGlobal } from 'teact/teactn';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 import { GlobalActions } from '../../../../global/types';
@@ -15,12 +16,6 @@ import './Order.scss';
 
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
-// @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import play from '../../../../assets/heymate/play.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
@@ -32,7 +27,6 @@ import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessi
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import OrderFooter from './components/OrderFooter';
-import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
@@ -220,6 +214,7 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setReservationStatus(newStatus);
   };
+
   return (
     <div className="Offer-middle">
       <div className="offer-content">

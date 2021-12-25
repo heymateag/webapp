@@ -5,9 +5,12 @@ import VideoSDK from '@zoom/videosdk';
 import Modal from '../../../ui/Modal';
 import buildClassName from '../../../../util/buildClassName';
 import ZoomVideoFooter from './components/ZoomVideoFooter';
-import Loading from "../../../ui/Loading";
+import Loading from '../../../ui/Loading';
 
 import { useShare } from './hooks/useShare';
+import { useGalleryLayout } from './hooks/useGalleryLayout';
+import { usePagination } from './hooks/usePagination';
+import { useCanvasDimension } from './hooks/useCanvasDimension';
 
 import './VideoSessionDialog.scss';
 
@@ -68,6 +71,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const videoCanvas = useRef<HTMLCanvasElement>(null);
 
+  const canvasDimension = useCanvasDimension(stream, videoRef);
+
   const [isMuted, setIsMuted] = useState(false);
 
   const [isButtonAlreadyClicked, setIsButtonAlreadyClicked] = useState(false);
@@ -82,8 +87,28 @@ const VideoSessionDialog : FC<OwnProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
+  const {
+    page, pageSize, totalPage, totalSize, setPage,
+  } = usePagination(
+    zoomClient,
+    canvasDimension,
+  );
+
+  const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
+    zoomClient,
+    stream,
+    isVideoDecodeReady,
+    videoRef,
+    canvasDimension,
+    {
+      page,
+      pageSize,
+      totalPage,
+      totalSize,
+    },
+  );
+
   const audioTrack = useMemo(() => {
-    console.log('refresh');
     return VideoSDK.createLocalAudioTrack();
   }, []);
 
@@ -129,18 +154,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
       }
     }
   }, [stream, zoomClient]);
-
-  const toggleMuteUnmute = () => {
-    if (isMuted) {
-      audioTrack.mute();
-    } else {
-      audioTrack.unmute();
-    }
-  };
-
-  const handleSoundClick = async () => {
-
-  };
 
   const handleLeaveSessionClick = async () => {
     try {

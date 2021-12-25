@@ -37,9 +37,11 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   const handleSoundClick = async () => {
     if (isStartedAudio) {
       if (isMuted) {
+        console.log('voice started');
         await mediaStream?.unmuteAudio();
         setIsMuted(false);
       } else {
+        console.log('voice muted');
         await mediaStream?.muteAudio();
         setIsMuted(true);
       }
