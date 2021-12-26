@@ -11,7 +11,9 @@ import { useShare } from './hooks/useShare';
 import { useGalleryLayout } from './hooks/useGalleryLayout';
 import { usePagination } from './hooks/usePagination';
 import { useCanvasDimension } from './hooks/useCanvasDimension';
+import { useActiveVideo } from './hooks/useAvtiveVideo';
 
+import Avatar from './components/Avatar';
 import './VideoSessionDialog.scss';
 
 type OwnProps = {
@@ -73,8 +75,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const canvasDimension = useCanvasDimension(stream, videoRef);
 
-  const [isMuted, setIsMuted] = useState(false);
-
   const [isButtonAlreadyClicked, setIsButtonAlreadyClicked] = useState(false);
 
   const [isPreviewAudioConnected, setIsPreviewAudioConnected] = useState(false);
@@ -87,6 +87,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
+  const activeVideo = useActiveVideo(zoomClient);
+
   const {
     page, pageSize, totalPage, totalSize, setPage,
   } = usePagination(
@@ -97,7 +99,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
     zoomClient,
     stream,
-    isVideoDecodeReady,
+    true,
     videoRef,
     canvasDimension,
     {
@@ -244,6 +246,31 @@ const VideoSessionDialog : FC<OwnProps> = ({
           height="350"
           ref={videoRef}
         />
+        <ul className="avatar-list">
+          {visibleParticipants.map((user, index) => {
+            if (index > videoLayout.length - 1) {
+              return null;
+            }
+            const dimension = videoLayout[index];
+            const {
+              width, height, x, y,
+            } = dimension;
+            const { height: canvasHeight } = canvasDimension;
+            return (
+              <Avatar
+                participant={user}
+                key={user.userId}
+                isActive={activeVideo === user.userId}
+                style={{
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  top: `${canvasHeight - y - height}px`,
+                  left: `${x}px`,
+                }}
+              />
+            );
+          })}
+        </ul>
       </div>
       <ZoomVideoFooter
         sharing

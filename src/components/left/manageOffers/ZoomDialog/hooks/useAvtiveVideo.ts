@@ -19,11 +19,11 @@ export function useActiveVideo(zmClient: ClientType) {
     }
   }, []);
   useEffect(() => {
-    zmClient.on('video-active-change', onVideoActiveChange);
-    zmClient.on('active-speaker', onActiveSpeakerChange);
+    zmClient?.on('video-active-change', onVideoActiveChange);
+    zmClient?.on('active-speaker', onActiveSpeakerChange);
     return () => {
-      zmClient.off('video-active-change', onVideoActiveChange);
-      zmClient.off('active-speaker', onActiveSpeakerChange);
+      zmClient?.off('video-active-change', onVideoActiveChange);
+      zmClient?.off('active-speaker', onActiveSpeakerChange);
     };
   }, [zmClient, onVideoActiveChange, onActiveSpeakerChange]);
   return activeVideo || activeSpeaker;

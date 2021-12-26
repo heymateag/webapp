@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'teact/teact';
 import { maxViewportVideoCounts } from '../../ZoomSdkService/video-layout-helper';
 import { useMount } from '../../../../../hooks';
 import { Dimension } from '../../ZoomSdkService/video-types';
@@ -18,20 +18,20 @@ export function usePagination(zmClient: ClientType, dimension: Dimension) {
     setPageSize(size);
   }, [dimension]);
   const onParticipantsChange = useCallback(() => {
-    setTotalSize(zmClient.getAllUser().length);
+    setTotalSize(zmClient?.getAllUser().length);
   }, [zmClient]);
   useEffect(() => {
-    zmClient.on('user-added', onParticipantsChange);
-    zmClient.on('user-removed', onParticipantsChange);
-    zmClient.on('user-updated', onParticipantsChange);
+    zmClient?.on('user-added', onParticipantsChange);
+    zmClient?.on('user-removed', onParticipantsChange);
+    zmClient?.on('user-updated', onParticipantsChange);
     return () => {
-      zmClient.off('user-added', onParticipantsChange);
-      zmClient.off('user-removed', onParticipantsChange);
-      zmClient.off('user-updated', onParticipantsChange);
+      zmClient?.off('user-added', onParticipantsChange);
+      zmClient?.off('user-removed', onParticipantsChange);
+      zmClient?.off('user-updated', onParticipantsChange);
     };
   }, [zmClient, onParticipantsChange]);
   useMount(() => {
-    setTotalSize(zmClient.getAllUser().length);
+    setTotalSize(zmClient?.getAllUser().length);
   });
   return {
     page,

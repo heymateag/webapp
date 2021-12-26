@@ -35,8 +35,8 @@ export function useGalleryLayout(
     setLayout(getVideoLayout(dimension.width, dimension.height, size));
   }, [dimension, size]);
   const onParticipantsChange = useCallback(() => {
-    const participants = zmClient.getAllUser();
-    const currentUser = zmClient.getCurrentUserInfo();
+    const participants = zmClient?.getAllUser();
+    const currentUser = zmClient?.getCurrentUserInfo();
     if (currentUser && participants.length > 0) {
       let pageParticipants: any[] = [];
       if (participants.length === 1) {
@@ -58,13 +58,13 @@ export function useGalleryLayout(
     }
   }, [zmClient, page, pageSize]);
   useEffect(() => {
-    zmClient.on('user-added', onParticipantsChange);
-    zmClient.on('user-removed', onParticipantsChange);
-    zmClient.on('user-updated', onParticipantsChange);
+    zmClient?.on('user-added', onParticipantsChange);
+    zmClient?.on('user-removed', onParticipantsChange);
+    zmClient?.on('user-updated', onParticipantsChange);
     return () => {
-      zmClient.off('user-added', onParticipantsChange);
-      zmClient.off('user-removed', onParticipantsChange);
-      zmClient.off('user-updated', onParticipantsChange);
+      zmClient?.off('user-added', onParticipantsChange);
+      zmClient?.off('user-removed', onParticipantsChange);
+      zmClient?.off('user-updated', onParticipantsChange);
     };
   }, [zmClient, onParticipantsChange]);
   useEffect(() => {
