@@ -1,4 +1,4 @@
-import React from 'teact/teact';
+import React, { useEffect, useRef } from 'teact/teact';
 import buildClassName from '../../../../../util/buildClassName';
 import './ZoomAvatar.scss';
 import { MeetingParticipants } from '../../ZoomSdkService/types';
@@ -9,22 +9,34 @@ interface AvatarProps {
   isActive: boolean;
   className?: string;
 }
-const Avatar = (props: AvatarProps) => {
+const ZoomAvatar = (props: AvatarProps) => {
   const {
     participant, style, isActive, className,
   } = props;
   const {
     displayName, audio, muted, bVideoOn,
   } = participant;
+
+  const avatarRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (avatarRef.current) {
+      avatarRef.current.style.background = bVideoOn ? 'transparent' : 'rgb(26,26,26)';
+      avatarRef.current.style.width = style?.width || '50px';
+      avatarRef.current.style.height = style?.height || '50px';
+      avatarRef.current.style.top = style?.top || '50px';
+      avatarRef.current.style.left = style?.left || '50px';
+    }
+  }, [bVideoOn, style?.height, style?.left, style?.top, style?.width]);
   return (
     <div
+      ref={avatarRef}
       className={buildClassName('avatar', isActive && 'avatar-active', className)}
-      style={{ ...style, background: bVideoOn ? 'transparent' : 'rgb(26,26,26)' }}
     >
       {(bVideoOn || (audio === 'computer' && muted)) && (
         <div className="corner-name">
           {audio === 'computer' && muted && (
-            <div>Bou azar</div>
+            <div>Muted Audio</div>
           )}
           {bVideoOn && <span>{displayName}</span>}
         </div>
@@ -34,4 +46,4 @@ const Avatar = (props: AvatarProps) => {
   );
 };
 
-export default Avatar;
+export default ZoomAvatar;

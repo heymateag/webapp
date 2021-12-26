@@ -1,3 +1,4 @@
+import { withGlobal } from 'teact/teactn';
 import React, {
   FC,
   memo,
@@ -6,7 +7,6 @@ import React, {
   useRef,
   useState,
 } from '../../../../lib/teact/teact';
-import { withGlobal } from 'teact/teactn';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
 import { GlobalActions } from '../../../../global/types';
@@ -29,6 +29,8 @@ import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkSer
 import OrderFooter from './components/OrderFooter';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
+import {ApiUser} from "../../../../api/types";
+import {selectUser} from "../../../../modules/selectors";
 
 type TimeToStart = {
   days: number;
@@ -39,9 +41,18 @@ type OwnProps = {
   props: IMyOrders;
   orderType?: 'DEFAULT' | 'ONLINE';
 };
+type StateProps = {
+  currentUser?: ApiUser;
+};
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
-const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderType = 'DEFAULT' }) => {
+const Order: FC<OwnProps & DispatchProps & StateProps> = ({
+  props,
+  showNotification,
+  orderType = 'DEFAULT',
+  currentUser,
+}) => {
+  console.log(currentUser);
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
   // eslint-disable-next-line no-null/no-null
@@ -202,7 +213,7 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   };
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-    const client = new ZoomClient(meetingId, meetingPassword, 'John Doe!');
+    const client = new ZoomClient(meetingId, meetingPassword, currentUser?.firstName || 'Guest User');
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -294,8 +305,10 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
 };
 
 export default memo(withGlobal<OwnProps>(
-  (): any => {
+  (global): StateProps => {
+    const { currentUserId } = global;
     return {
+      currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

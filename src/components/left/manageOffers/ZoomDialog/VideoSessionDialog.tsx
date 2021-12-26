@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'teact/teact';
 import VideoSDK from '@zoom/videosdk';
 import Modal from '../../../ui/Modal';
@@ -13,7 +13,7 @@ import { usePagination } from './hooks/usePagination';
 import { useCanvasDimension } from './hooks/useCanvasDimension';
 import { useActiveVideo } from './hooks/useAvtiveVideo';
 
-import Avatar from './components/Avatar';
+import ZoomAvatar from './components/ZoomAvatar';
 import './VideoSessionDialog.scss';
 
 type OwnProps = {
@@ -49,6 +49,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const selfShareRef = useRef<HTMLCanvasElement & HTMLVideoElement | null>(null);
   // eslint-disable-next-line no-null/no-null
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
+  // eslint-disable-next-line no-null/no-null
+  const shareContainerViewPortRef = useRef<HTMLDivElement | null>(null);
 
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
@@ -71,6 +73,15 @@ const VideoSessionDialog : FC<OwnProps> = ({
     contentDimension.height = Math.floor(height * ratio);
   }
 
+  useEffect(() => {
+    if (shareContainerViewPortRef.current) {
+      debugger
+      shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
+      shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
+    }
+  }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
+
+  // eslint-disable-next-line no-null/no-null
   const videoCanvas = useRef<HTMLCanvasElement>(null);
 
   const canvasDimension = useCanvasDimension(stream, videoRef);
@@ -216,8 +227,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       >
         <div
           className="share-container-viewport"
-          // @ts-ignore
-          style={`${contentDimension.width}px;${contentDimension.height}px`}
+          ref={shareContainerViewPortRef}
         >
           <canvas
             className={buildClassName('share-canvas', 'other-share', isStartedShare && 'hidden')}
@@ -257,7 +267,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
             } = dimension;
             const { height: canvasHeight } = canvasDimension;
             return (
-              <Avatar
+              <ZoomAvatar
                 participant={user}
                 key={user.userId}
                 isActive={activeVideo === user.userId}
