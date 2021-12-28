@@ -75,7 +75,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
-      debugger
       shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
       shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
     }
@@ -85,10 +84,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const videoCanvas = useRef<HTMLCanvasElement>(null);
 
   const canvasDimension = useCanvasDimension(stream, videoRef);
-
-  const [isButtonAlreadyClicked, setIsButtonAlreadyClicked] = useState(false);
-
-  const [isPreviewAudioConnected, setIsPreviewAudioConnected] = useState(false);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -266,8 +261,10 @@ const VideoSessionDialog : FC<OwnProps> = ({
               width, height, x, y,
             } = dimension;
             const { height: canvasHeight } = canvasDimension;
+            const userId = JSON.parse(user.displayName).id;
             return (
               <ZoomAvatar
+                currentUserId={userId}
                 participant={user}
                 key={user.userId}
                 isActive={activeVideo === user.userId}

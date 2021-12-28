@@ -3,7 +3,7 @@ import React, {
   FC,
   memo,
   useCallback,
-  useEffect,
+  useEffect, useMemo,
   useRef,
   useState,
 } from '../../../../lib/teact/teact';
@@ -29,8 +29,8 @@ import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkSer
 import OrderFooter from './components/OrderFooter';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import {ApiUser} from "../../../../api/types";
-import {selectUser} from "../../../../modules/selectors";
+import { ApiUser } from '../../../../api/types';
+import { selectUser } from '../../../../modules/selectors';
 
 type TimeToStart = {
   days: number;
@@ -52,20 +52,31 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   orderType = 'DEFAULT',
   currentUser,
 }) => {
-  console.log(currentUser);
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const [zoomUser, setZoomUser] = useState<string>('Guest User');
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
+
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
+
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
+
   const [meetingId, setMeetingId] = useState<string>(props.meetingId);
+
   const [meetingPassword, setMeetingPassword] = useState<string>(props.meetingPassword);
+
   const [zoomStream, setZoomStream] = useState();
+
   const [zmClient, setZmClient] = useState<ClientType>();
+
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -185,6 +196,17 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     };
   }, [getOrderById, reservationStatus]);
 
+  useMemo(() => {
+    if (currentUser) {
+      let userData:any = {
+        firstName: currentUser.firstName,
+        id: currentUser.id,
+      };
+      userData = JSON.stringify(userData);
+      setZoomUser(userData);
+    }
+  }, [currentUser]);
+
   const handleCancelReservation = async () => {
     if (reservationStatus === ReservationStatus.BOOKED) {
       const response = await axiosService({
@@ -208,12 +230,14 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   const handleClose = () => {
     setIsMenuOpen(false);
   };
+
   const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
+
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-    const client = new ZoomClient(meetingId, meetingPassword, currentUser?.firstName || 'Guest User');
+    const client = new ZoomClient(meetingId, meetingPassword, zoomUser);
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -222,6 +246,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
     setJoinMeetingLoader(false);
   };
+
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setReservationStatus(newStatus);
   };

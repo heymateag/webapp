@@ -24,6 +24,8 @@ const ZoomVideoFooter : FC<OwnProps> = ({
 
   const [isMuted, setIsMuted] = useState(true);
 
+  const [isStartedVideo, setIsStartedVideo] = useState(false);
+
   const onScreenShareClick = useCallback(async () => {
     if (!isStartedScreenShare && shareRef && shareRef.current) {
       await mediaStream?.startShareScreen(shareRef.current);
@@ -34,10 +36,19 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     }
   }, [mediaStream, isStartedScreenShare, shareRef]);
 
+  const onCameraClick = useCallback(async () => {
+    if (isStartedVideo) {
+      await mediaStream?.stopVideo();
+      setIsStartedVideo(false);
+    } else {
+      await mediaStream?.startVideo();
+      setIsStartedVideo(true);
+    }
+  }, [mediaStream, isStartedVideo]);
+
   const handleSoundClick = async () => {
     if (isStartedAudio) {
       if (isMuted) {
-        console.log('voice started');
         await mediaStream?.unmuteAudio();
         setIsMuted(false);
       } else {
@@ -59,7 +70,11 @@ const ZoomVideoFooter : FC<OwnProps> = ({
           <span>Mute</span>
         </div>
         <div className="btn-box">
-          <i id="zoom-video" className="hm-zoom-video" />
+          <i
+            id="zoom-video"
+            onClick={onCameraClick}
+            className="hm-zoom-video"
+          />
           <span>Video</span>
         </div>
         <div className="btn-box" onClick={onScreenShareClick}>
