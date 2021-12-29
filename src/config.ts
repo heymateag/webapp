@@ -171,10 +171,16 @@ export const LIGHT_THEME_BG_COLOR = '#A2AF8E';
 export const DARK_THEME_BG_COLOR = '#0F0F0F';
 export const DARK_THEME_PATTERN_COLOR = '#0a0a0a8c';
 export const DEFAULT_PATTERN_COLOR = 'rgba(90, 110, 70, 0.6)';
-// export const HEYMATE_URL = 'https://lar9nm8ay9.execute-api.us-east-1.amazonaws.com/dev';
-export const HEYMATE_URL = 'http://localhost:3000/dev';
+export const HEYMATE_URL = 'https://lar9nm8ay9.execute-api.us-east-1.amazonaws.com/dev';
+// export const HEYMATE_URL = 'http://localhost:3000/dev';
 
 // Group calls
 export const GROUP_CALL_VOLUME_MULTIPLIER = 100;
 export const GROUP_CALL_DEFAULT_VOLUME = 100 * GROUP_CALL_VOLUME_MULTIPLIER;
 export const ENABLE_THUMBNAIL_VIDEO = false;
+export const OFFERS_ON_ALFAJORES = '0x54fB1CE9Fb9148860a07A2160b2F250D915930Fd';
+export const OFFERS_ON_MAINNET = '0xe71eEb0791A6F3E4705759fcD0bB95d15A5A6be1';
+export const RAMP_PRODUCTION_URL = 'https://buy.ramp.network';
+export const RAMP_STAGING_URL = 'https://ri-widget-staging.firebaseapp.com/';
+export const RAMP_MAIN_API_KEY = 'nwtv82ts9bpas9k5c5ef8w3mfoy2ak73goq3gvca';
+export const RAMP_RINKEBY_API_KEY = 'pskw6bmpx7tomwne2tp3tvrs5c35wexzp7byytdq';

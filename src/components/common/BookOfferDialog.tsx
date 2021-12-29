@@ -2,6 +2,11 @@ import React, {
   FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
 import { ChangeEvent } from 'react';
+import { withGlobal } from 'teact/teactn';
+import Web3 from 'web3';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import { GlobalActions } from 'src/global/types';
+import { ContractKit } from '@celo/contractkit';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -11,15 +16,13 @@ import TabList from '../ui/TabList';
 import { ITimeSlotModel } from '../../types/HeymateTypes/TimeSlot.model';
 import Button from '../ui/Button';
 import Transition from '../ui/Transition';
-import { withGlobal } from 'teact/teactn';
 import useLang from '../../hooks/useLang';
 import './BookOfferDialog.scss';
 import { pick } from '../../util/iteratees';
-
 import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
-import { GlobalActions } from 'src/global/types';
+import OfferPurchase from '../left/wallet/OfferPurchase';
 
 type OwnProps = {
   offer: IOffer;
@@ -59,6 +62,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const lang = useLang();
 
   const [timeSlots, setTimeSlots] = useState<ITimeSlotsRender[]>([]);
+  const [timeSlotList, setTimeSlotList] = useState<ITimeSlotsRender[]>([]);
   const [filteredDate, setFilteredDate] = useState<ITimeSlotsRender[]>([]);
 
   const [bookOfferLoading, setBookOfferLoading] = useState(false);
@@ -100,6 +104,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           return item;
         });
         setTimeSlots(temp);
+        setTimeSlotList(res);
         setFilteredDate(temp);
       });
     }
@@ -144,12 +149,30 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       method: 'POST',
       body: data,
     });
-    setBookOfferLoading(false);
-    if (response.status === 201) {
-      showNotification({message: 'Offer Booked Successfuly !' });
-      handleCLoseDetailsModal();
-    } else {
-      showNotification({message: 'some thing went wrong !'});
+    const activeTs = timeSlotList.find((item) => item.id === selectedTimeSlotId);
+    const provider = new WalletConnectProvider({});
+    let kit: ContractKit;
+    let address: string;
+    let offerPurchase;
+    if (provider.isWalletConnect) {
+      await provider.enable()
+        .then((res) => {
+          // eslint-disable-next-line prefer-destructuring
+          address = res[0];
+        });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignore
+      kit = newKitFromWeb3(web3);
+      offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], false);
+      // const response = await offerPurchase.purchase();
+      // setBookOfferLoading(false);
+      // if (response.status === 201) {
+      //   showNotification({ message: 'Offer Booked Successfuly !' });
+      //   handleCLoseDetailsModal();
+      // } else {
+      //   showNotification({ message: 'some thing went wrong !' });
+      // }
     }
   };
 
