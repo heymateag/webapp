@@ -1,7 +1,7 @@
 import { ApiMessage, ApiPhoto } from './messages';
 import { ApiBotCommand } from './bots';
 
-type ApiChatType = (
+type  ApiChatType = (
   'chatTypePrivate' | 'chatTypeSecret' |
   'chatTypeBasicGroup' | 'chatTypeSuperGroup' |
   'chatTypeChannel'

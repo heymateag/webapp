@@ -24,7 +24,7 @@ import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessi
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import { ApiUser } from '../../../../api/types';
+import { ApiFormattedText, ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { withGlobal } from 'teact/teactn';
 import { selectUser } from '../../../../modules/selectors';
@@ -41,11 +41,12 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendMessage'>;
 
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
+  sendMessage,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -185,6 +186,12 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setOpenVideoDialog(false);
   };
 
+  const sendMessageToParticipants = () => {
+    sendMessage({
+      id: '824928490',
+      text: 'hello world !',
+    });
+  };
   return (
     <div className="Offer-middle">
       <div className="offer-content">
@@ -225,7 +232,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
+              <MenuItem icon="group" onClick={sendMessageToParticipants}>send msg</MenuItem>
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
@@ -267,5 +274,6 @@ export default memo(withGlobal<OwnProps>(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'showNotification',
+    'sendMessage',
   ]),
 )(Offer));
