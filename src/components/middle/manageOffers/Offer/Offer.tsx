@@ -41,12 +41,12 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendMessage'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage'>;
 
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
-  sendMessage,
+  sendDirectMessage,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -187,9 +187,11 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const sendMessageToParticipants = () => {
-    sendMessage({
-      id: '824928490',
-      text: 'hello world !',
+    sendDirectMessage({
+      chat: {
+        id: '101738856',
+      },
+      text: `Heymate Offer https://heymate.works/reservation/${props.title}/123123123qwe/asd123123`,
     });
   };
   return (
@@ -274,6 +276,6 @@ export default memo(withGlobal<OwnProps>(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'showNotification',
-    'sendMessage',
+    'sendDirectMessage',
   ]),
 )(Offer));

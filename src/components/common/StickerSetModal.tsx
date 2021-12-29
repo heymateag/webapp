@@ -79,7 +79,6 @@ const StickerSetModal: FC<OwnProps & StateProps & DispatchProps> = ({
       ...sticker,
       isPreloadedGlobally: true,
     };
-    debugger
     sendMessage({ sticker });
     onClose();
   }, [onClose, sendMessage]);

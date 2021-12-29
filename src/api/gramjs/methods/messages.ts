@@ -214,10 +214,10 @@ export function sendMessage(
   },
   onProgress?: ApiOnProgress,
 ) {
-  debugger
   const localMessage = buildLocalMessage(
     chat, text, entities, replyingTo, attachment, sticker, gif, poll, groupedId, scheduledAt, serverTimeOffset,
   );
+  debugger
   onUpdate({
     '@type': localMessage.isScheduled ? 'newScheduledMessage' : 'newMessage',
     id: localMessage.id,
