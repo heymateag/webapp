@@ -3,9 +3,9 @@ import {
 } from '../../api/types';
 import { LangFn } from '../../hooks/useLang';
 
-import { LOCAL_MESSAGE_ID_BASE, SERVICE_NOTIFICATIONS_USER_ID, RE_LINK_TEMPLATE } from '../../config';
+import { LOCAL_MESSAGE_ID_BASE, RE_LINK_TEMPLATE, SERVICE_NOTIFICATIONS_USER_ID } from '../../config';
 import { getUserFullName } from './users';
-import { isWebpSupported, IS_OPUS_SUPPORTED } from '../../util/environment';
+import { IS_OPUS_SUPPORTED, isWebpSupported } from '../../util/environment';
 import { getChatTitle, isUserId } from './chats';
 import parseEmojiOnlyString from '../../components/common/helpers/parseEmojiOnlyString';
 
@@ -192,7 +192,8 @@ export function isOwnMessage(message: ApiMessage) {
  */
 export function isHeyMate(message: ApiMessage) {
   if (message.content.text) {
-    return message.content.text.text.includes('Heymate Offer');
+    const { text } = message.content.text;
+    return text.includes('Heymate Offer') || text.includes('Heymate meeting');
   }
   return false;
 }

@@ -153,7 +153,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.onConnect(() => {
     setOpenModal(false);
     setIsConnected(true);
-    showNotification({ message: 'Successfully Connected to Valor !' });
+    showNotification({ message: 'Successfully Connected to Wallet !' });
     setWcProvider(provider);
     makeKitsFromProvideAndGetBalance();
   });

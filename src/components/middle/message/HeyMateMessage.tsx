@@ -9,9 +9,13 @@ import { HEYMATE_URL } from '../../../config';
 import { IOffer } from '../../../types/HeymateTypes/Offer.model';
 import OfferDetailsDialog from '../../common/OfferDetailsDialog';
 import BookOfferDialog from '../../common/BookOfferDialog';
+import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus';
 import './HeyMateMessage.scss';
 // eslint-disable-next-line import/extensions
-import GenerateNewDate from '../../middle/helpers/generateDateBasedOnTimeStamp';
+import GenerateNewDate from '../helpers/generateDateBasedOnTimeStamp';
+import { ZoomClient } from '../../left/manageOffers/ZoomSdkService/ZoomSdkService';
+import { ClientType } from '../../left/manageOffers/ZoomSdkService/types';
+import VideoSessionDialog from '../../left/manageOffers/ZoomDialog/VideoSessionDialog';
 
 type OwnProps = {
   message: ApiMessage;
@@ -30,13 +34,22 @@ const HeyMateMessage: FC<OwnProps> = ({
    * Get Heymate Offer
    * @param uuid
    */
+  const [renderType, setRenderType] = useState<'OFFER' | 'RESERVATION'>('OFFER');
   const [offerMsg, setOfferMsg] = useState<IOffer>();
   const [offerLoaded, setOfferLoaded] = useState<boolean>(false);
-
+  const [reservationLoaded, setReservationLoaded] = useState<boolean>(false);
+  const [reservationId, setReservationId] = useState<string>('');
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
+  const [zoomStream, setZoomStream] = useState();
+  const [zmClient, setZmClient] = useState<ClientType>();
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+  const [canJoin, setCanJoin] = useState(false);
 
   const [bundlePrice, setBundlePrice] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
+
+  const [meetingData, setMeetingData] = useState<any>(undefined);
 
   const handleExpired = (expireTime: any) => {
     const now = new Date();
@@ -62,15 +75,76 @@ const HeyMateMessage: FC<OwnProps> = ({
       setOfferLoaded(false);
     }
   }
+
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
+  };
+
+  /**
+   * Get Reservation By Time Slot Id
+   * @param tsId
+   * @param userId
+   */
+  const getReservationByTimeSlotId = async (tsId: string, userId: string | null) => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/find-by-tsid?timeSlotId=${tsId}&consumerId=${userId}`,
+      method: 'GET',
+      body: {},
+    });
+    if ((response.data.data.length > 0) && response.status === 200) {
+      const reservationData = response.data.data[0];
+
+      if (reservationData.status === ReservationStatus.MARKED_AS_STARTED) {
+        setCanJoin(true);
+        setReservationId(reservationData.id);
+        setReservationLoaded(true);
+      } else {
+        setCanJoin(false);
+        setReservationLoaded(true);
+      }
+    } else {
+      setReservationLoaded(false);
+    }
+  };
+
   useEffect(() => {
     let offerId;
-    const matches = message.content.text?.text.split(/offer\/([a-f\d-]+)\?/);
-    if (matches && matches.length > 0) {
-      // eslint-disable-next-line prefer-destructuring
-      offerId = matches[1];
-      getOfferById(offerId);
+    if (message.content.text?.text.includes('Heymate meeting')) {
+      setRenderType('RESERVATION');
+      const meetingDetails = message.content.text.text.split('/');
+      setMeetingData({
+        title: meetingDetails[1],
+        topic: meetingDetails[2],
+        pass: meetingDetails[3],
+        tsId: meetingDetails[4],
+        telegramId: meetingDetails[5],
+        userName: meetingDetails[6],
+      });
+      if (localStorage.getItem('HM_USERID')) {
+        const userId = localStorage.getItem('HM_USERID');
+        if (meetingDetails[4]) {
+          getReservationByTimeSlotId(meetingDetails[4], userId);
+        } else {
+          setReservationLoaded(false);
+        }
+      } else {
+        setReservationLoaded(false);
+      }
+    } else {
+      const matches = message.content.text?.text.split(/offer\/([a-f\d-]+)\?/);
+      if (matches && matches.length > 0) {
+        // eslint-disable-next-line prefer-destructuring
+        offerId = matches[1];
+        getOfferById(offerId);
+      }
     }
   }, [message]);
+
+  useEffect(() => {
+    if (setReservationId) {
+      console.log(setReservationId);
+    }
+  }, [setReservationId]);
 
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
@@ -141,82 +215,146 @@ const HeyMateMessage: FC<OwnProps> = ({
     setOpenBookOfferModal(true);
   };
 
+  const joinMeeting = async () => {
+    setOpenVideoDialog(true);
+
+    const meetingId = meetingData.topic;
+    const sessionPassword = meetingData.pass;
+
+    const userData:any = {
+      firstName: meetingData.userName,
+      id: meetingData.telegramId,
+    };
+    const zoomUser = JSON.stringify(userData);
+
+    const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
+    setJoinMeetingLoader(true);
+    await client.join();
+
+    setZmClient(client.zmClient);
+    setZoomStream(client.mediaStream);
+
+    setJoinMeetingLoader(false);
+  };
+
   // @ts-ignore
   return (
     <div>
-      {
-        offerLoaded ? (
-          <>
-            <div className="HeyMateMessage">
-              <div className="my-offer-body">
-                <div className="my-offer-img-holder">
-                  <img src="https://picsum.photos/200/300" alt="" />
-                </div>
-                <div className="my-offer-descs">
-                  <h4 className="title">{offerMsg?.title}</h4>
-                  <span className="sub-title">{offerMsg?.category.main_cat}</span>
-                  <p className="description">
-                    {offerMsg?.description}
-                  </p>
-                </div>
-                <div className="my-offer-types">
-                  <div className="radios-grp">
-                    <RadioGroup
-                      name="report-message"
-                      options={purchasePlan}
-                      onChange={handleSelectType}
-                      selected={selectedReason}
-                    />
-                  </div>
-                  <div className="price-grp">
-                    <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
-                    {/*<span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span>*/}
-                    {/* <span className="prices"> */}
-                    {/*  {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`} */}
-                    {/* </span> */}
-                  </div>
-                </div>
-                {/* <div className="refer-offer"> */}
-                {/*  <div className="refer-offer-container"> */}
-                {/*    <i className="hm-gift" /> */}
-                {/*    <span>Refer this offer to and eran <i className="gift-price">$10</i></span> */}
-                {/*    <i className="hm-arrow-right" /> */}
-                {/*  </div> */}
-                {/* </div> */}
+      { (renderType === 'OFFER') && offerLoaded && (
+        <>
+          <div className="HeyMateMessage">
+            <div className="my-offer-body">
+              <div className="my-offer-img-holder">
+                <img src="https://picsum.photos/200/300" alt="" />
               </div>
-              <div className="my-offer-btn-group">
-                <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
-                  See Details
-                </Button>
-                <Button
-                  disabled={isExpired}
-                  onClick={handleOpenBookOfferModal}
-                  className="book-offer"
-                  size="smaller"
-                  color="primary">
-                  <span>Book Now</span>
-                </Button>
+              <div className="my-offer-descs">
+                <h4 className="title">{offerMsg?.title}</h4>
+                <span className="sub-title">{offerMsg?.category.main_cat}</span>
+                <p className="description">
+                  {offerMsg?.description}
+                </p>
+              </div>
+              <div className="my-offer-types">
+                <div className="radios-grp">
+                  <RadioGroup
+                    name="report-message"
+                    options={purchasePlan}
+                    onChange={handleSelectType}
+                    selected={selectedReason}
+                  />
+                </div>
+                <div className="price-grp">
+                  <span className="prices active">{`${offerMsg?.pricing?.price} ${offerMsg?.pricing?.currency}`}</span>
+                  {/* <span className="prices">{`${bundlePrice}  ${offerMsg?.pricing?.currency}`}</span> */}
+                  {/* <span className="prices"> */}
+                  {/*  {`${offerMsg?.pricing?.subscription?.subscription_price}  ${offerMsg?.pricing?.currency}`} */}
+                  {/* </span> */}
+                </div>
+              </div>
+              {/* <div className="refer-offer"> */}
+              {/*  <div className="refer-offer-container"> */}
+              {/*    <i className="hm-gift" /> */}
+              {/*    <span>Refer this offer to and eran <i className="gift-price">$10</i></span> */}
+              {/*    <i className="hm-arrow-right" /> */}
+              {/*  </div> */}
+              {/* </div> */}
+            </div>
+            <div className="my-offer-btn-group">
+              <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
+                See Details
+              </Button>
+              <Button
+                disabled={isExpired}
+                onClick={handleOpenBookOfferModal}
+                className="book-offer"
+                size="smaller"
+                color="primary"
+              >
+                <span>Book Now</span>
+              </Button>
+            </div>
+          </div>
+          <BookOfferDialog
+            purchasePlanType={planType}
+            offer={offerMsg}
+            openModal={openBookOfferModal}
+            onCloseModal={handleCLoseBookOfferModal}
+          />
+          <OfferDetailsDialog
+            onBookClicked={handleBookOfferClicked}
+            message={message}
+            openModal={openDetailsModal}
+            offer={offerMsg}
+            expired={isExpired}
+            onCloseModal={handleCLoseDetailsModal}
+          />
+        </>
+      )}
+      {(renderType === 'OFFER') && !offerLoaded && (
+        <div
+          className="message-content text has-action-button
+            is-forwarded has-shadow has-solid-background has-appendix"
+        >
+          <span className="normal-message">{message.content.text?.text}</span>
+        </div>
+      )}
+      {
+        (renderType === 'RESERVATION') && reservationLoaded ? (
+          <div className="HeyMateMessage">
+            <div className="my-offer-body">
+              <div className="my-offer-descs">
+                <h4 className="title">Your Meeting :</h4>
+                <span className="sub-title">{meetingData.title}</span>
+                <p className="description">
+                  has started, click join button to start !
+                </p>
               </div>
             </div>
-            <BookOfferDialog
-              purchasePlanType={planType}
-              offer={offerMsg}
-              openModal={openBookOfferModal}
-              onCloseModal={handleCLoseBookOfferModal}
+            <div className="my-offer-btn-group">
+              <Button
+                disabled={!canJoin}
+                onClick={joinMeeting}
+                className="book-offer"
+                size="smaller"
+                color="primary"
+              >
+                <span>Join</span>
+              </Button>
+            </div>
+            <VideoSessionDialog
+              reservationId={reservationId}
+              isLoading={joinMeetingLoader}
+              openModal={openVideoDialog}
+              onCloseModal={handleCloseVideoDialog}
+              stream={zoomStream}
+              zoomClient={zmClient}
             />
-            <OfferDetailsDialog
-              onBookClicked={handleBookOfferClicked}
-              message={message}
-              openModal={openDetailsModal}
-              offer={offerMsg}
-              expired={isExpired}
-              onCloseModal={handleCLoseDetailsModal}
-            />
-          </>
+          </div>
         ) : (
           <div
             className="message-content text has-action-button
-            is-forwarded has-shadow has-solid-background has-appendix">
+            is-forwarded has-shadow has-solid-background has-appendix"
+          >
             <span className="normal-message">{message.content.text?.text}</span>
           </div>
         )

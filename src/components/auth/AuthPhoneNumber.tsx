@@ -208,7 +208,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       method: 'POST',
       body: {
         phoneNumber: phone_number,
-        deviceId: '781', // Required as still persist in AWS DynamoDB User table Query  
+        deviceId: '781', // Required as still persist in AWS DynamoDB User table Query
       },
     });
     if (response.status === 201) {
@@ -231,11 +231,12 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     });
     if (response.status === 201) {
       const token = response.data.idToken.jwtToken;
+      const userId = response.data.idToken.payload.sub;
       const refreshToken = response.data.refreshToken.token;
       localStorage.setItem('HM_TOKEN', token);
       localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
       localStorage.setItem('HM_PHONE', phone_number);
-      console.log('login the user');
+      localStorage.setItem('HM_USERID', userId);
     }
   };
 

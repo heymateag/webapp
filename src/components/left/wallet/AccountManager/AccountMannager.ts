@@ -1,4 +1,7 @@
 import web3 from 'web3';
+import {CeloContract, StableToken} from "@celo/contractkit";
+import {StableTokenWrapper} from "@celo/contractkit/lib/wrappers/StableTokenWrapper";
+
 /**
  * Get New Kit Balances
  */
@@ -22,9 +25,11 @@ export const newKitBalances = async (kit:any, address: string) => {
 };
 
 export const sendcUSD = async (kit) => {
-  const amount = kit.web3.utils.toWei('0.001', 'ether');
+  const amount = kit.web3.utils.toWei('1', 'wei');
 
-  const stabletoken = await kit.contracts.getStableToken();
+  // const stabletoken = await kit.contracts.getStableToken(); //for celo gold
+  const stabletoken: StableTokenWrapper = await kit.contracts.getStableToken(StableToken.cEUR); // for euro
+  await kit.setFeeCurrency(CeloContract.StableTokenEUR);
   let tx;
   try {
     tx = await stabletoken.transfer('0xcedc9b7d6c225257ef87f06d17af1f9ac7d50aa6', amount).send();
@@ -33,6 +38,7 @@ export const sendcUSD = async (kit) => {
     await Promise.reject(err);
   }
   const receipt = await tx.waitReceipt();
+  debugger
   return receipt;
 };
 
