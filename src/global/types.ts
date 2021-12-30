@@ -490,7 +490,8 @@ export type ActionTypes = (
   'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
   'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' | 'editChatFolders' |
   // messages
-  'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
+  'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'sendDirectMessage' |
+  'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
   'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
   'editMessage' | 'deleteHistory' | 'enterMessageSelectMode' | 'toggleMessageSelection' | 'exitMessageSelectMode' |
   'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |

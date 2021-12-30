@@ -24,11 +24,13 @@ import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessi
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import { ApiUser } from '../../../../api/types';
+import { ApiFormattedText, ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { withGlobal } from 'teact/teactn';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
+import {axiosService} from "../../../../api/services/axiosService";
+import {HEYMATE_URL} from "../../../../config";
 
 type TimeToStart = {
   days: number;
@@ -41,11 +43,12 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage'>;
 
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
+  sendDirectMessage,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -167,7 +170,25 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setIsMenuOpen(false);
   };
 
+  const sendMessageToParticipants = async (meetingId: string, sessionPassword: string) => {
+    const tsId = props?.selectedSchedule?.id;
+    const participants = await getParticipants(tsId);
+    if (participants) {
+      for (const user of participants) {
+        sendDirectMessage({
+          chat: {
+            id: user.telegramId,
+          },
+          text: `Heymate meeting /${props.title}/${meetingId}/${sessionPassword}/${tsId}/${user.telegramId}/${user.fullName}`,
+        });
+      }
+    } else {
+      return false;
+    }
+  };
+
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
+    await sendMessageToParticipants(meetingId, sessionPassword);
     setOpenVideoDialog(true);
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
     setJoinMeetingLoader(true);
@@ -184,6 +205,19 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
+
+  async function getParticipants(timeSlotId: any) {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/offer/${timeSlotId}/offerParticipant`,
+      method: 'GET',
+      body: {},
+    });
+    if (response && response.status === 200) {
+      return response.data.data;
+    } else {
+      return false;
+    }
+  }
 
   return (
     <div className="Offer-middle">
@@ -225,7 +259,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
+              {/*<MenuItem icon="group" onClick={sendMessageToParticipants}>send msg</MenuItem>*/}
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
@@ -243,6 +277,8 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         />
       </div>
       <VideoSessionDialog
+        userType="SERVICE_PROVIDER"
+        reservationId={props?.selectedSchedule?.id}
         isLoading={joinMeetingLoader}
         openModal={openVideoDialog}
         onCloseModal={handleCloseVideoDialog}
@@ -267,5 +303,6 @@ export default memo(withGlobal<OwnProps>(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'showNotification',
+    'sendDirectMessage',
   ]),
 )(Offer));

@@ -15,6 +15,9 @@ import { useActiveVideo } from './hooks/useAvtiveVideo';
 
 import ZoomAvatar from './components/ZoomAvatar';
 import './VideoSessionDialog.scss';
+import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
+import { axiosService } from '../../../../api/services/axiosService';
+import { HEYMATE_URL } from '../../../../config';
 
 type OwnProps = {
   openModal: boolean;
@@ -27,6 +30,8 @@ type OwnProps = {
   stream: any;
   zoomClient: any;
   isLoading: boolean;
+  reservationId?: string;
+  userType?: 'SERVICE_PROVIDER' | 'CONSUMER';
 };
 
 const VideoSessionDialog : FC<OwnProps> = ({
@@ -40,6 +45,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
   stream,
   zoomClient,
   isLoading,
+  reservationId,
+  userType= 'CONSUMER',
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
@@ -163,9 +170,29 @@ const VideoSessionDialog : FC<OwnProps> = ({
     }
   }, [stream, zoomClient]);
 
+  const handleFinishMeeting = async () => {
+    let url;
+    let status;
+    if (userType === 'CONSUMER') {
+      url = `${HEYMATE_URL}/reservation/${reservationId}`;
+      status = ReservationStatus.FINISHED;
+    } else {
+      url = `${HEYMATE_URL}/time-table/${reservationId}`;
+      status = ReservationStatus.MARKED_AS_FINISHED;
+    }
+    const response = await axiosService({
+      url,
+      method: 'PUT',
+      body: {
+        status,
+      },
+    });
+  };
+
   const handleLeaveSessionClick = async () => {
     try {
       await zoomClient.leave();
+      await handleFinishMeeting();
       onCloseModal();
     } catch (e) {
       console.error('Error leaving session', e);

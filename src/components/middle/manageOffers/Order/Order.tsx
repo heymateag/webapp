@@ -316,6 +316,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         />
       </div>
       <VideoSessionDialog
+        reservationId={props.id}
+        userType="CONSUMER"
         isLoading={joinMeetingLoader}
         openModal={openVideoDialog}
         onCloseModal={handleCloseVideoDialog}

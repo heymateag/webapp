@@ -179,7 +179,6 @@ addReducer('sendMessage', (global, actions, payload) => {
   if (!currentMessageList) {
     return undefined;
   }
-
   const { chatId, threadId, type } = currentMessageList;
 
   if (type === 'scheduled' && !payload.scheduledAt) {
@@ -238,6 +237,57 @@ addReducer('sendMessage', (global, actions, payload) => {
         });
       });
     }
+  } else {
+    const {
+      text, entities, attachments, replyingTo, ...commonParams
+    } = params;
+
+    if (text) {
+      sendMessage({
+        ...commonParams,
+        text,
+        entities,
+        replyingTo,
+      });
+    }
+
+    attachments.forEach((attachment: ApiAttachment) => {
+      sendMessage({
+        ...commonParams,
+        attachment,
+      });
+    });
+  }
+
+  return undefined;
+});
+
+addReducer('sendDirectMessage', (global, actions, payload) => {
+  const { chat } = payload;
+  const threadId = -1;
+  const type = 'thread';
+  const chatId = chat.id;
+
+  // const chat = selectChat(global, chatId)!;
+
+  actions.setReplyingToId({ messageId: undefined });
+  actions.clearWebPagePreview({ chatId, threadId, value: false });
+
+  const params = {
+    ...payload,
+    chat,
+    replyingTo: selectReplyingToId(global, chatId, threadId),
+    noWebPage: selectNoWebPage(global, chatId, threadId),
+  };
+
+  const isSingle = !payload.attachments || payload.attachments.length <= 1;
+
+  if (isSingle) {
+    const { attachments, ...restParams } = params;
+    sendMessage({
+      ...restParams,
+      attachment: attachments ? attachments[0] : undefined,
+    });
   } else {
     const {
       text, entities, attachments, replyingTo, ...commonParams

@@ -97,9 +97,6 @@ const OfferFooter: FC<OwnProps> = ({
       setReservationStatus(newStatus);
       onStatusChanged(newStatus);
     }
-    // if (offerType === 'ONLINE') {
-    //   onJoinMeeting();
-    // }
   };
 
   const makeRandomString = (length: number) => {

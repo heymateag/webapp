@@ -217,6 +217,7 @@ export function sendMessage(
   const localMessage = buildLocalMessage(
     chat, text, entities, replyingTo, attachment, sticker, gif, poll, groupedId, scheduledAt, serverTimeOffset,
   );
+  debugger
   onUpdate({
     '@type': localMessage.isScheduled ? 'newScheduledMessage' : 'newMessage',
     id: localMessage.id,
