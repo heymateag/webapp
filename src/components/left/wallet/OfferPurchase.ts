@@ -30,12 +30,16 @@ class OfferPurchase {
 
   mainNet: boolean;
 
-  constructor(offer: IOffer, timeSlot: ITimeSlotModel, mContractKit: ContractKit, address: string, mainNet: boolean) {
+  provider: any;
+
+  // eslint-disable-next-line max-len
+  constructor(offer: IOffer, timeSlot: ITimeSlotModel, mContractKit: ContractKit, address: string, mainNet: boolean, provider: any) {
     this.offer = offer;
     this.timeSlot = timeSlot;
     this.mContractKit = mContractKit;
     this.address = address;
     this.mainNet = mainNet;
+    this.provider = provider;
   }
 
   purchase = async () => {
@@ -50,30 +54,34 @@ class OfferPurchase {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     }
     const balance = await stableToken.balanceOf(this.address);
-    if (new BN(balance.toString()) < amount) {
+    const bnBalance = new BN(balance.toString());
+    if (bnBalance.lt(new BN(amount.toString()))) {
       //open ramp
       const payAmount = amount.sub(new BN(balance.toString()));
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
-      url += `?userAddress${this.address}&hostApiKey=${RAMP_MAIN_API_KEY}&swapAmount=${payAmount}`;
-
+      url += `?userAddress=${this.address}&hostApiKey=${RAMP_MAIN_API_KEY}&swapAmount=${payAmount}`;
       window.open(url, '_blank');
+      return undefined;
     } else {
       const tradeId: string = `0x${this.generateUUID()}`;
-      const offerWrapper = new OfferWrapper(this.address, this.mContractKit, this.mainNet);
-      offerWrapper.create(this.offer, this.timeSlot, tradeId);
-      const data: IBookOfferModel = {
-        offerId: this.offer.id,
-        serviceProviderId: this.offer.userId,
-        purchasedPlanId: undefined,
-        timeSlotId: this.timeSlot.id,
-        tradeId,
-      };
-      const response = await axiosService({
-        url: `${HEYMATE_URL}/reservation`,
-        method: 'POST',
-        body: data,
-      });
-      return response;
+      const offerWrapper = new OfferWrapper(this.address, this.mContractKit, this.mainNet, this.provider);
+      const answer = await offerWrapper.create(this.offer, this.timeSlot, tradeId);
+      if (answer) {
+        const data: IBookOfferModel = {
+          offerId: this.offer.id,
+          serviceProviderId: this.offer.userId,
+          purchasedPlanId: undefined,
+          timeSlotId: this.timeSlot.id,
+          tradeId,
+        };
+        const response = await axiosService({
+          url: `${HEYMATE_URL}/reservation`,
+          method: 'POST',
+          body: data,
+        });
+        return response;
+      }
+      return null;
     }
   };
 

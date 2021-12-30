@@ -32,7 +32,7 @@ export const sendcUSD = async (kit) => {
     console.log(err);
     await Promise.reject(err);
   }
-  const receipt = await tx.waitReceipt();
+  const receipt = await tx.getHash();
   return receipt;
 };
 

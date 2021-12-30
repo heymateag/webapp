@@ -1,8 +1,9 @@
+import { withGlobal } from 'teact/teactn';
 import React, {
   FC,
   memo,
   useCallback,
-  useEffect,
+  useEffect, useMemo,
   useRef,
   useState,
 } from '../../../../lib/teact/teact';
@@ -15,12 +16,6 @@ import './Order.scss';
 
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
-// @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import play from '../../../../assets/heymate/play.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
@@ -32,9 +27,10 @@ import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessi
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import OrderFooter from './components/OrderFooter';
-import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
+import { ApiUser } from '../../../../api/types';
+import { selectUser } from '../../../../modules/selectors';
 
 type TimeToStart = {
   days: number;
@@ -45,22 +41,42 @@ type OwnProps = {
   props: IMyOrders;
   orderType?: 'DEFAULT' | 'ONLINE';
 };
+type StateProps = {
+  currentUser?: ApiUser;
+};
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
-const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderType = 'DEFAULT' }) => {
+const Order: FC<OwnProps & DispatchProps & StateProps> = ({
+  props,
+  showNotification,
+  orderType = 'DEFAULT',
+  currentUser,
+}) => {
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const [zoomUser, setZoomUser] = useState<string>('Guest User');
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
+
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
+
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
+
   const [meetingId, setMeetingId] = useState<string>(props.meetingId);
+
   const [meetingPassword, setMeetingPassword] = useState<string>(props.meetingPassword);
+
   const [zoomStream, setZoomStream] = useState();
+
   const [zmClient, setZmClient] = useState<ClientType>();
+
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -155,12 +171,11 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
       method: 'GET',
       body: {},
     });
-    if (response.status && response?.data) {
+    if (response?.status && response?.data) {
       if (response.data.data.status !== reservationStatus) {
         setReservationStatus(response.data.data.status);
       }
       if (response.data.data.status === ReservationStatus.MARKED_AS_STARTED) {
-        debugger
         setMeetingPassword(response.data.data.meetingPassword);
         setMeetingId(response.data.data.meetingId);
       }
@@ -180,6 +195,17 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
       clearInterval(intervalId);
     };
   }, [getOrderById, reservationStatus]);
+
+  useMemo(() => {
+    if (currentUser) {
+      let userData:any = {
+        firstName: currentUser.firstName,
+        id: currentUser.id,
+      };
+      userData = JSON.stringify(userData);
+      setZoomUser(userData);
+    }
+  }, [currentUser]);
 
   const handleCancelReservation = async () => {
     if (reservationStatus === ReservationStatus.BOOKED) {
@@ -204,12 +230,14 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
   const handleClose = () => {
     setIsMenuOpen(false);
   };
+
   const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
+
   const joinMeeting = async () => {
     setOpenVideoDialog(true);
-    const client = new ZoomClient(meetingId, meetingPassword, 'John Doe!');
+    const client = new ZoomClient(meetingId, meetingPassword, zoomUser);
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -218,9 +246,11 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
 
     setJoinMeetingLoader(false);
   };
+
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setReservationStatus(newStatus);
   };
+
   return (
     <div className="Offer-middle">
       <div className="offer-content">
@@ -300,8 +330,10 @@ const Order: FC<OwnProps & DispatchProps> = ({ props, showNotification, orderTyp
 };
 
 export default memo(withGlobal<OwnProps>(
-  (): any => {
+  (global): StateProps => {
+    const { currentUserId } = global;
     return {
+      currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

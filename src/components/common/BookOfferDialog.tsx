@@ -6,7 +6,7 @@ import { withGlobal } from 'teact/teactn';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { GlobalActions } from 'src/global/types';
-import { ContractKit } from '@celo/contractkit';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -23,6 +23,7 @@ import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
+import { sendcUSD } from '../left/wallet/AccountManager/AccountMannager';
 
 type OwnProps = {
   offer: IOffer;
@@ -74,6 +75,19 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
   ];
 
+  const getTodayRawDateString = useCallback((selectedTs) => {
+    const currentDate = new Date();
+    const unixTime = currentDate.getTime();
+    const rawDate = new Date(unixTime).toString().split(' ');
+    const toShowRawDate = `${rawDate[0]}, ${rawDate[1]} ${rawDate[2]} ${rawDate[3]}`;
+    setSelectedDate(toShowRawDate);
+
+    const startDate = currentDate.setHours(0, 0, 0, 0);
+    const endDate = currentDate.setHours(23, 59, 59, 999);
+    const filterDates = selectedTs.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setFilteredDate(filterDates);
+  }, []);
+
   const getOfferTimeSlots = async (offerId) => {
     const response = await axiosService({
       url: `${HEYMATE_URL}/time-table/${offerId}/schedule`,
@@ -104,11 +118,12 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           return item;
         });
         setTimeSlots(temp);
-        setTimeSlotList(res);
+        setTimeSlotList(res.data);
         setFilteredDate(temp);
+        getTodayRawDateString(temp);
       });
     }
-  }, [offer]);
+  }, [getTodayRawDateString, offer]);
 
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState('');
 
@@ -138,19 +153,14 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         planId = plan.id;
       }
     }
-    const data: IBookOfferModel = {
-      offerId: offer.id,
-      serviceProviderId: offer.userId,
-      purchasedPlanId: planId,
-      timeSlotId: selectedTimeSlotId,
-    };
-    const response = await axiosService({
-      url: `${HEYMATE_URL}/reservation`,
-      method: 'POST',
-      body: data,
-    });
+
     const activeTs = timeSlotList.find((item) => item.id === selectedTimeSlotId);
-    const provider = new WalletConnectProvider({});
+    const provider = new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },qrcode: false
+    });
     let kit: ContractKit;
     let address: string;
     let offerPurchase;
@@ -164,15 +174,24 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       const web3 = new Web3(provider);
       // @ts-ignore
       kit = newKitFromWeb3(web3);
-      offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], false);
-      // const response = await offerPurchase.purchase();
-      // setBookOfferLoading(false);
-      // if (response.status === 201) {
-      //   showNotification({ message: 'Offer Booked Successfuly !' });
-      //   handleCLoseDetailsModal();
-      // } else {
-      //   showNotification({ message: 'some thing went wrong !' });
-      // }
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], false, web3);
+      const response = await offerPurchase.purchase();
+      debugger
+      setBookOfferLoading(false);
+      if (!response) {
+        return;
+      }
+      if (response.status === 201) {
+        showNotification({ message: 'Offer Booked Successfuly !' });
+        handleCLoseDetailsModal();
+      } else if (response.status === 406) {
+        showNotification({ message: response.data.message });
+      } else {
+        showNotification({ message: 'Some thing went wrong !' });
+      }
     }
   };
 
@@ -244,7 +263,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                                 name={item.id}
                                 label={`${item.fromDateLocal} - ${item.toDateLocal}`}
                                 value={item.id}
-                                checked={false}
+                                checked={selectedTimeSlotId === item.id}
                                 onChange={handleChange}
                               />
                             </div>

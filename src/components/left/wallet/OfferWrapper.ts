@@ -15,21 +15,27 @@ class OfferWrapper {
 
   mContract: Contract;
 
-  constructor(address: string, contractKit: ContractKit, mainNet: boolean) {
+  provider: any;
+
+  address: string;
+
+  constructor(address: string, contractKit: ContractKit, mainNet: boolean, provider: any) {
     let contract: Contract;
+    this.provider = provider;
     if (mainNet) {
-      contract = new OfferContract(OFFERS_ON_MAINNET, address).create();
+      contract = new OfferContract(OFFERS_ON_MAINNET, address, provider).create();
     } else {
-      contract = new OfferContract(OFFERS_ON_ALFAJORES, address).create();
+      contract = new OfferContract(OFFERS_ON_ALFAJORES, address, provider).create();
     }
     // super(contractKit, contract);
     this.mContractKit = contractKit;
     this.mContract = contract;
+    this.address = address;
   }
 
   create = async (offer: IOffer, timeSlot: ITimeSlotModel, tradeId: string) => {
     const planId = '0x00000000000000000000000000000000';
-
+    const tradeIdHash = `${tradeId.split('-').join('')}`;
     // PricingInfo pricingInfo = new PricingInfo(new JSONObject(offer.getPricingInfo()));
 
     const rate: BN = new BN(offer.pricing.price);
@@ -39,14 +45,15 @@ class OfferWrapper {
     const initialDeposit = offer.payment_terms.deposit;
 
     // decide base on offer currency
-    let stableToken;
+    let stableToken: StableTokenWrapper;
     if (offer.pricing.currency === 'USD') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
     } else {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     }
     const userAddresses: string[] = [
-      offer.sp_wallet_address,
+      // offer.sp_wallet_address,
+      this.address,
       this.address,
       stableToken.address,
     ];
@@ -54,15 +61,14 @@ class OfferWrapper {
     // JSONObject configJSON = new JSONObject(offer.getTermsConfig());
 
     const config: BN[] = this.getConfig(offer);
-
-    this.transfer(rate, stableToken);
-
+    await this.transfer(amount, stableToken);
+    let answer;
     try {
-      await toTransactionObject(this.mContractKit.connection, this.mContract.methods.createOffer(
-        tradeId,
+      answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.createOffer(
+        tradeIdHash,
         planId,
         amount,
-        1, // bn 1
+        new BN(1),
         new BN(offer.expiration),
         new BN(timeSlot.form_time),
         initialDeposit,
@@ -70,15 +76,15 @@ class OfferWrapper {
         config,
         [],
         [],
-        offer.pricing.signature,
-      ));
-
-      // String transactionHash = receipt.getTransactionHash(); ehsan piade mikone
-
-      // System.out.println(transactionHash); // TODO To be returned for the new back-end.
+        // offer.pricing.signature,
+        '0x00',
+      )).send();
     } catch (error) {
+      debugger
       throw new Error('error');
     }
+    const receipt = await answer.getHash();
+    return receipt;
   };
 
   getConfig = (offer: IOffer) => {
@@ -110,29 +116,51 @@ class OfferWrapper {
     return config;
   };
 
-  transfer = async (amount: BN, stableToken: StableTokenWrapper) => {
-    await stableToken.transfer(OFFERS_ON_ALFAJORES, amount.toString()).send();
+  transfer = async (amount: any, stableToken: StableTokenWrapper) => {
+    const x = await stableToken.transfer(OFFERS_ON_ALFAJORES, amount).send();
+    const resid = await x.getHash();
+    return resid;
   };
 
   startService = async (offer: IOffer, reservation: ReservationModel, consumerAddress: string) => {
-    const tradeId = `0x${reservation.id.replace('-', '')}`;
+    const tradeId = `0x${reservation.tradeId.split('-').join('')}`;
     const pricingInfo = offer.pricing;
     const rate: number = pricingInfo.price;
     const amount = web3.utils.toWei(new BN(rate), 'ether');
     try {
-      await this.contract.methods.startService(tradeId, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
+      await this.mContract.methods.startService(tradeId, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
     } catch (error) {
       throw new Error('start error');
     }
   };
 
   cancelService = (tradeId: any, consumerCancelled: boolean, consumerAddress: string, amount: number) => {
+    const tradeIdHash = `${tradeId.split('-').join('')}`;
+
     if (consumerCancelled) {
-      this.mContract.consumerCancel(tradeId, this.address,
-        consumerAddress, amount, 1).send();
+      this.mContract.methods.consumerCancel(tradeIdHash, this.address,
+        consumerAddress, amount, new BN(1)).send();
     } else {
-      this.mContract.serviceProviderCancel(tradeId, this.address,
-        consumerAddress, amount, 1).send();
+      this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
+        consumerAddress, amount, new BN(1)).send();
+    }
+  };
+
+  finishService = (offer: IOffer, reservation: ReservationModel, consumerAddress: string) => {
+    const tradeIdHash = `${reservation.tradeId.split('-').join('')}`;
+
+    // PricingInfo pricingInfo = new PricingInfo(new JSONObject(offer.getPricingInfo()));
+
+    // String purchasePlanType = reservation.getPurchasedPlanType();
+
+    const rate: BN = new BN(offer.pricing.price);
+
+    const amount = web3.utils.toWei(rate, 'ether');
+
+    try {
+      this.mContract.methods.release(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1)).send();
+    } catch (error: any) {
+      throw new Error(error);
     }
   };
 }

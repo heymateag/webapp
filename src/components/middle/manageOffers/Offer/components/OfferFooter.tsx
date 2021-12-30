@@ -55,8 +55,7 @@ const OfferFooter: FC<OwnProps> = ({
       const dateFutureFrom = GenerateNewDate(fromTime);
       const dateFutureToTime = GenerateNewDate(toTime);
       const dateNow = new Date();
-      if ((dateFutureFrom.getTime() < dateNow.getTime())
-        && (dateNow.getTime() < dateFutureToTime.getTime())) {
+      if ((dateFutureFrom.getTime() < dateNow.getTime())) {
         setCanStart(true);
       } else {
         setCanStart(false);

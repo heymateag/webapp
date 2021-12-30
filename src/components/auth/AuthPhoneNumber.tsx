@@ -199,6 +199,24 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   }, [setAuthRememberMe]);
 
   /**
+   * Create User In To Heymate Back With Phone Number, Password, DeviceId, PushId
+   * @param phone_number
+   */
+  const handleHeymateCreateUser = async (phone_number: any) => {
+    const response: IAuth = await axiosService({
+      url: `${HEYMATE_URL}/users/putPushToken`,
+      method: 'POST',
+      body: {
+        phoneNumber: phone_number,
+        deviceId: '781', // Required as still persist in AWS DynamoDB User table Query  
+      },
+    });
+    if (response.status === 201) {
+      console.log(response);
+    }
+  };
+
+  /**
    * Sign In To Heymate Back With Phone Number
    * @param phone_number
    */
@@ -217,8 +235,10 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_TOKEN', token);
       localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
       localStorage.setItem('HM_PHONE', phone_number);
+      console.log('login the user');
     }
   };
+
   /**
    *Handle To Sign Up the User
    */
@@ -232,8 +252,16 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
         password: '123456',
       },
     });
-    handleHeymateLogin(userPhone);
+    if(response.data['message'] == 'An account with the given phone_number already exists.') {
+      handleHeymateLogin(userPhone);
+      // handleHeymateCreateUser function will be called only one time once for the new user if we use the conditional approach in the webapp
+      handleHeymateCreateUser(userPhone); // Todo: Later stage we will evolve the create user endpoint to check if the user already exists or not in user table.
+    } else {
+      handleHeymateLogin(userPhone);
+      handleHeymateCreateUser(userPhone);
+    }
   };
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 

@@ -1,14 +1,19 @@
 import React, {
-  FC, memo, useCallback, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'teact/teact';
 import VideoSDK from '@zoom/videosdk';
 import Modal from '../../../ui/Modal';
 import buildClassName from '../../../../util/buildClassName';
 import ZoomVideoFooter from './components/ZoomVideoFooter';
-import Loading from "../../../ui/Loading";
+import Loading from '../../../ui/Loading';
 
 import { useShare } from './hooks/useShare';
+import { useGalleryLayout } from './hooks/useGalleryLayout';
+import { usePagination } from './hooks/usePagination';
+import { useCanvasDimension } from './hooks/useCanvasDimension';
+import { useActiveVideo } from './hooks/useAvtiveVideo';
 
+import ZoomAvatar from './components/ZoomAvatar';
 import './VideoSessionDialog.scss';
 
 type OwnProps = {
@@ -44,6 +49,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const selfShareRef = useRef<HTMLCanvasElement & HTMLVideoElement | null>(null);
   // eslint-disable-next-line no-null/no-null
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
+  // eslint-disable-next-line no-null/no-null
+  const shareContainerViewPortRef = useRef<HTMLDivElement | null>(null);
 
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
@@ -66,13 +73,17 @@ const VideoSessionDialog : FC<OwnProps> = ({
     contentDimension.height = Math.floor(height * ratio);
   }
 
+  useEffect(() => {
+    if (shareContainerViewPortRef.current) {
+      shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
+      shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
+    }
+  }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
+
+  // eslint-disable-next-line no-null/no-null
   const videoCanvas = useRef<HTMLCanvasElement>(null);
 
-  const [isMuted, setIsMuted] = useState(false);
-
-  const [isButtonAlreadyClicked, setIsButtonAlreadyClicked] = useState(false);
-
-  const [isPreviewAudioConnected, setIsPreviewAudioConnected] = useState(false);
+  const canvasDimension = useCanvasDimension(stream, videoRef);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -82,8 +93,30 @@ const VideoSessionDialog : FC<OwnProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
+  const activeVideo = useActiveVideo(zoomClient);
+
+  const {
+    page, pageSize, totalPage, totalSize, setPage,
+  } = usePagination(
+    zoomClient,
+    canvasDimension,
+  );
+
+  const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
+    zoomClient,
+    stream,
+    true,
+    videoRef,
+    canvasDimension,
+    {
+      page,
+      pageSize,
+      totalPage,
+      totalSize,
+    },
+  );
+
   const audioTrack = useMemo(() => {
-    console.log('refresh');
     return VideoSDK.createLocalAudioTrack();
   }, []);
 
@@ -129,38 +162,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
       }
     }
   }, [stream, zoomClient]);
-
-  const toggleMuteUnmute = () => {
-    if (isMuted) {
-      audioTrack.mute();
-    } else {
-      audioTrack.unmute();
-    }
-  };
-
-  const handleSoundClick = async (event) => {
-    event.preventDefault();
-
-    if (!isButtonAlreadyClicked) {
-      // Blocks logic from executing again if already in progress
-      setIsButtonAlreadyClicked(true);
-
-      try {
-        if (!isPreviewAudioConnected) {
-          await audioTrack.start();
-          setIsPreviewAudioConnected(true);
-        }
-        setIsMuted(!isMuted);
-        await toggleMuteUnmute();
-      } catch (e) {
-        console.error('Error toggling mute', e);
-      }
-
-      setIsButtonAlreadyClicked(false);
-    } else {
-      console.log('=== WARNING: already toggling mic ===');
-    }
-  };
 
   const handleLeaveSessionClick = async () => {
     try {
@@ -221,8 +222,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       >
         <div
           className="share-container-viewport"
-          // @ts-ignore
-          style={`${contentDimension.width}px;${contentDimension.height}px`}
+          ref={shareContainerViewPortRef}
         >
           <canvas
             className={buildClassName('share-canvas', 'other-share', isStartedShare && 'hidden')}
@@ -251,12 +251,38 @@ const VideoSessionDialog : FC<OwnProps> = ({
           height="350"
           ref={videoRef}
         />
+        <ul className="avatar-list">
+          {visibleParticipants.map((user, index) => {
+            if (index > videoLayout.length - 1) {
+              return null;
+            }
+            const dimension = videoLayout[index];
+            const {
+              width, height, x, y,
+            } = dimension;
+            const { height: canvasHeight } = canvasDimension;
+            const userId = JSON.parse(user.displayName).id;
+            return (
+              <ZoomAvatar
+                currentUserId={userId}
+                participant={user}
+                key={user.userId}
+                isActive={activeVideo === user.userId}
+                style={{
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  top: `${canvasHeight - y - height}px`,
+                  left: `${x}px`,
+                }}
+              />
+            );
+          })}
+        </ul>
       </div>
       <ZoomVideoFooter
         sharing
         shareRef={selfShareRef}
         mediaStream={stream}
-        onSoundClick={handleSoundClick}
         initLeaveSessionClick={handleLeaveSessionClick}
       />
     </Modal>

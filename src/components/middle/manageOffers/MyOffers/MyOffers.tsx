@@ -102,7 +102,7 @@ const MyOffers: FC = () => {
   };
 
   return (
-    <div className="MyOrders-middle">
+    <div className="MyOrders-middle custom-scroll">
       <div className="myOrder-middle-filter">
         <div className="filters-holder">
           <div className="filters-select">

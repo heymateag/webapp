@@ -6,7 +6,6 @@ import { MediaStream } from '../../ZoomSdkService/types';
 import Button from '../../../../ui/Button';
 
 type OwnProps = {
-  onSoundClick: (e: any) => void;
   initLeaveSessionClick: () => void;
   shareRef?: MutableRefObject<HTMLCanvasElement | null>;
   sharing?: boolean;
@@ -14,13 +13,18 @@ type OwnProps = {
 };
 
 const ZoomVideoFooter : FC<OwnProps> = ({
-  onSoundClick,
   initLeaveSessionClick,
   shareRef,
   sharing,
   mediaStream,
 }) => {
   const [isStartedScreenShare, setIsStartedScreenShare] = useState(false);
+
+  const [isStartedAudio, setIsStartedAudio] = useState(false);
+
+  const [isMuted, setIsMuted] = useState(true);
+
+  const [isStartedVideo, setIsStartedVideo] = useState(false);
 
   const onScreenShareClick = useCallback(async () => {
     if (!isStartedScreenShare && shareRef && shareRef.current) {
@@ -32,16 +36,45 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     }
   }, [mediaStream, isStartedScreenShare, shareRef]);
 
+  const onCameraClick = useCallback(async () => {
+    if (isStartedVideo) {
+      await mediaStream?.stopVideo();
+      setIsStartedVideo(false);
+    } else {
+      await mediaStream?.startVideo();
+      setIsStartedVideo(true);
+    }
+  }, [mediaStream, isStartedVideo]);
+
+  const handleSoundClick = async () => {
+    if (isStartedAudio) {
+      if (isMuted) {
+        await mediaStream?.unmuteAudio();
+        setIsMuted(false);
+      } else {
+        console.log('voice muted');
+        await mediaStream?.muteAudio();
+        setIsMuted(true);
+      }
+    } else {
+      await mediaStream?.startAudio();
+      setIsStartedAudio(true);
+    }
+  };
 
   return (
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
-        <div className="btn-box" onClick={onSoundClick}>
+        <div className="btn-box" onClick={handleSoundClick}>
           <i id="zoom-mic" className="hm-zoom-mic" />
           <span>Mute</span>
         </div>
         <div className="btn-box">
-          <i id="zoom-video" className="hm-zoom-video" />
+          <i
+            id="zoom-video"
+            onClick={onCameraClick}
+            className="hm-zoom-video"
+          />
           <span>Video</span>
         </div>
         <div className="btn-box" onClick={onScreenShareClick}>

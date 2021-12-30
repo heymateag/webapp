@@ -3,7 +3,7 @@ import React, {
   FC,
   memo,
   useCallback,
-  useEffect,
+  useEffect, useMemo,
   useRef,
   useState,
 } from '../../../../lib/teact/teact';
@@ -13,15 +13,8 @@ import Button from '../../../ui/Button';
 import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
-
 // @ts-ignore
 import offer1 from '../../../../assets/heymate/offer1.svg';
-// @ts-ignore
-import datetime from '../../../../assets/heymate/date-time.svg';
-// @ts-ignore
-import play from '../../../../assets/heymate/play.svg';
-// @ts-ignore
-import time from '../../../../assets/heymate/time.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
@@ -31,6 +24,11 @@ import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessi
 import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
 import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
+import { ApiUser } from '../../../../api/types';
+import { GlobalActions } from '../../../../global/types';
+import { withGlobal } from 'teact/teactn';
+import { selectUser } from '../../../../modules/selectors';
+import { pick } from '../../../../util/iteratees';
 
 type TimeToStart = {
   days: number;
@@ -40,10 +38,19 @@ type TimeToStart = {
 type OwnProps = {
   props: IOffer;
 };
-const Offer: FC<OwnProps> = ({ props }) => {
+type StateProps = {
+  currentUser?: ApiUser;
+};
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+
+const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
+  props,
+  currentUser,
+}) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [zoomUser, setZoomUser] = useState<string>('Guest User');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [offerHour, setOfferHour] = useState('');
   const [offerStatus, setOfferStatus] = useState<ReservationStatus>(props.selectedSchedule?.status);
@@ -95,28 +102,6 @@ const Offer: FC<OwnProps> = ({ props }) => {
       const hour = GenerateNewDate(props.selectedSchedule?.form_time);
       setOfferHour(hour.toLocaleTimeString());
     }
-    const now = new Date();
-    const startTime = GenerateNewDate(props.selectedSchedule?.form_time);
-    const endTime = GenerateNewDate(props.selectedSchedule?.to_time);
-    // if (startTime > now) {
-    //   setTagStatus({
-    //     color: 'green',
-    //     text: 'Upcoming',
-    //   });
-    //   setOfferStatus(ReservationStatus.BOOKED);
-    // } else if (startTime < now && endTime > now) {
-    //   setTagStatus({
-    //     color: 'blue',
-    //     text: 'In progress',
-    //   });
-    //   setOfferStatus(ReservationStatus.INPROGRESS);
-    // } else if (endTime < now) {
-    //   setTagStatus({
-    //     color: 'gray',
-    //     text: 'Finished',
-    //   });
-    //   setOfferStatus(ReservationStatus.FINISHED);
-    // }
     switch (props.selectedSchedule?.status) {
       case ReservationStatus.BOOKED:
         setTagStatus({
@@ -163,6 +148,17 @@ const Offer: FC<OwnProps> = ({ props }) => {
     }
   }, [props.selectedSchedule, props.status]);
 
+  useMemo(() => {
+    if (currentUser) {
+      let userData:any = {
+        firstName: currentUser.firstName,
+        id: currentUser.id,
+      };
+      userData = JSON.stringify(userData);
+      setZoomUser(userData);
+    }
+  }, [currentUser]);
+
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
   }, []);
@@ -173,7 +169,7 @@ const Offer: FC<OwnProps> = ({ props }) => {
 
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
     setOpenVideoDialog(true);
-    const client = new ZoomClient(meetingId, sessionPassword, 'John Doe!');
+    const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -262,4 +258,14 @@ const Offer: FC<OwnProps> = ({ props }) => {
   );
 };
 
-export default memo(Offer);
+export default memo(withGlobal<OwnProps>(
+  (global): StateProps => {
+    const { currentUserId } = global;
+    return {
+      currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(Offer));

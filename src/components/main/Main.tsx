@@ -50,6 +50,8 @@ import StickerSetModal from '../common/StickerSetModal.async';
 import GroupCall from '../calls/group/GroupCall.async';
 import ActiveCallHeader from '../calls/ActiveCallHeader.async';
 import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
+import {ApiUser} from "../../api/types";
+import {selectUser} from "../../modules/selectors";
 
 import './Main.scss';
 import { IAuth } from '../../types/HeymateTypes/Auth.model';
@@ -78,6 +80,7 @@ type StateProps = {
   showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
   currentUserPhoneNumber?: string;
+  currentUser?: ApiUser;
 };
 
 type DispatchProps = Pick<
@@ -131,6 +134,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   checkVersionNotification,
   currentUserId,
   currentUserPhoneNumber,
+  currentUser,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
@@ -210,11 +214,27 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   };
 
-  // useEffect(() => {
-  //   if (typeof currentUserId !== 'undefined') {
-  //     handleHeymateLogin(currentUserPhoneNumber, currentUserId);
-  //   }
-  // }, [currentUserId, currentUserPhoneNumber]);
+  const handleHeymateUpdateUser = async (currentUser) => {
+    const response: IAuth = await axiosService({
+      url: `${HEYMATE_URL}/users/updateUserInfo`,
+      method: 'PATCH',
+      body: {
+        fullName: currentUser.firstName,
+        userName: currentUser.username,
+        avatarHash: currentUser.avatarHash,
+        telegramId: currentUser.id
+      },
+    });
+    if (response.status === 200) {
+      console.log(response);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof currentUserId !== 'undefined') {
+      handleHeymateUpdateUser(currentUser);
+    }
+  }, [currentUserId, currentUserPhoneNumber]);
 
   const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
     !isLeftColumnShown,
@@ -424,6 +444,7 @@ export default memo(withGlobal(
       isCallFallbackConfirmOpen: Boolean(global.groupCalls.isFallbackConfirmOpen),
       currentUserId,
       currentUserPhoneNumber,
+      currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

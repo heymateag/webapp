@@ -8,4 +8,5 @@ export interface ReservationModel {
   status: string;
   to_time: string;
   updated_at: string;
+  tradeId: string;
 }

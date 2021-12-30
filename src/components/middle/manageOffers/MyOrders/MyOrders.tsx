@@ -71,16 +71,10 @@ const MyOrders: FC = () => {
   }, [myOrders]);
 
   const handleRescheduleMessage = useCallback((date: Date) => {
-    // const startDate: any = date;
-    // const endDate: any = date;
     const stringDateArr = date.toString().split(' ');
     const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
     setSelectDate(stringDate);
-    // startDate = startDate.setHours(0, 0, 0, 0);
-    // endDate = endDate.setHours(23, 59, 59, 999);
-    // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
     setIsCalendarOpen(false);
-    // setFilteredDate(filterDates);
     handleDateChange(date);
   }, [handleDateChange]);
 
@@ -92,7 +86,7 @@ const MyOrders: FC = () => {
   };
 
   return (
-    <div className="MyOrders-middle">
+    <div className="MyOrders-middle custom-scroll">
       <div className="myOrder-middle-filter">
         <div className="filters-holder">
           <div className="filters-select">
