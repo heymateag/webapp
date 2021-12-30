@@ -309,6 +309,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       <ZoomVideoFooter
         sharing
         shareRef={selfShareRef}
+        zmClient={zoomClient}
         mediaStream={stream}
         initLeaveSessionClick={handleLeaveSessionClick}
       />
