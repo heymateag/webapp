@@ -7,6 +7,11 @@ import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
 import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import Web3 from 'web3';
+import OfferWrapper from '../../../../left/wallet/OfferWrapper';
+import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 
 type TimeToStart = {
   days: number;
@@ -25,6 +30,8 @@ type OwnProps = {
   role?: 'CONSUMER' | 'SERVICE_PROVIDER';
   offerType: 'DEFAULT' | 'ONLINE';
   reservationId: string;
+  offer: IOffer;
+  tradeId: string;
 };
 
 const OrderFooter: FC<OwnProps> = ({
@@ -38,6 +45,8 @@ const OrderFooter: FC<OwnProps> = ({
   reservationId,
   onStatusChanged,
   offerType,
+  offer,
+  tradeId,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -99,6 +108,66 @@ const OrderFooter: FC<OwnProps> = ({
     }
   };
 
+  const handleStartInCelo = async () => {
+    const provider = new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+    });
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+      });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const offerWrapper = new OfferWrapper(address, kit, false, provider);
+      const answer = await offerWrapper.startService(offer, tradeId, address);
+      if (answer) {
+        handleChangeReservationStatus(ReservationStatus.STARTED);
+      }
+    }
+  };
+
+  const handleFinishInCelo = async () => {
+    const provider = new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+    });
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+      });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const offerWrapper = new OfferWrapper(address, kit, false, provider);
+      const answer = await offerWrapper.finishService(offer, tradeId, address);
+      if (answer) {
+        handleChangeReservationStatus(ReservationStatus.FINISHED);
+      }
+    }
+  };
+
   return (
     <div className="offer-footer">
       <div className="date-time">
@@ -149,7 +218,7 @@ const OrderFooter: FC<OwnProps> = ({
           <div className="btn-finish">
             <Button
               isLoading={isLoading}
-              onClick={() => handleChangeReservationStatus(ReservationStatus.FINISHED)}
+              onClick={() => handleFinishInCelo()}
               size="tiny"
               color="hm-primary-red"
               disabled={reservationStatus === ReservationStatus.STARTED}
@@ -163,7 +232,8 @@ const OrderFooter: FC<OwnProps> = ({
           <div className="btn-confirm">
             <Button
               isLoading={isLoading}
-              onClick={() => handleChangeReservationStatus(ReservationStatus.STARTED)}
+              // onClick={() => handleChangeReservationStatus(ReservationStatus.STARTED)}
+              onClick={() => handleStartInCelo()}
               ripple
               size="tiny"
               color="primary"

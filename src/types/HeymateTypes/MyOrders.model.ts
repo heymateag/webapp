@@ -11,4 +11,5 @@ export interface IMyOrders {
   meetingPassword?: string;
   createdAt?: string;
   serviceProviderId?: string;
+  tradeId?: string;
 }

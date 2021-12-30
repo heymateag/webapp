@@ -311,6 +311,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
           status={reservationStatus}
           onJoinMeeting={joinMeeting}
           onStatusChanged={handleReservationStatusChanges}
+          offer={props.offer}
+          tradeId={props.tradeId || ''}
         />
       </div>
       <VideoSessionDialog

@@ -122,13 +122,15 @@ class OfferWrapper {
     return resid;
   };
 
-  startService = async (offer: IOffer, reservation: ReservationModel, consumerAddress: string) => {
-    const tradeId = `0x${reservation.tradeId.split('-').join('')}`;
+  startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
+    const tradeIdHash = `0x${tradeId.split('-').join('')}`;
     const pricingInfo = offer.pricing;
     const rate: number = pricingInfo.price;
     const amount = web3.utils.toWei(new BN(rate), 'ether');
     try {
-      await this.mContract.methods.startService(tradeId, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
+      // eslint-disable-next-line max-len
+      const response = await this.mContract.methods.startService(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
+      return response;
     } catch (error) {
       throw new Error('start error');
     }
@@ -146,8 +148,8 @@ class OfferWrapper {
     }
   };
 
-  finishService = (offer: IOffer, reservation: ReservationModel, consumerAddress: string) => {
-    const tradeIdHash = `${reservation.tradeId.split('-').join('')}`;
+  finishService = (offer: IOffer, tradeId: string, consumerAddress: string) => {
+    const tradeIdHash = `${tradeId.split('-').join('')}`;
 
     // PricingInfo pricingInfo = new PricingInfo(new JSONObject(offer.getPricingInfo()));
 
@@ -158,7 +160,9 @@ class OfferWrapper {
     const amount = web3.utils.toWei(rate, 'ether');
 
     try {
-      this.mContract.methods.release(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1)).send();
+      // eslint-disable-next-line max-len
+      const response = this.mContract.methods.release(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1)).send();
+      return response;
     } catch (error: any) {
       throw new Error(error);
     }
