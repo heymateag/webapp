@@ -111,6 +111,7 @@ const HeyMateMessage: FC<OwnProps> = ({
     let offerId;
     if (message.content.text?.text.includes('Heymate meeting')) {
       setRenderType('RESERVATION');
+      debugger
       const meetingDetails = message.content.text.text.split('/');
       setMeetingData({
         title: meetingDetails[1],
@@ -319,7 +320,7 @@ const HeyMateMessage: FC<OwnProps> = ({
         </div>
       )}
       {
-        (renderType === 'RESERVATION') && reservationLoaded ? (
+        (renderType === 'RESERVATION') && reservationLoaded && (
           <div className="HeyMateMessage">
             <div className="my-offer-body">
               <div className="my-offer-descs">
@@ -350,10 +351,13 @@ const HeyMateMessage: FC<OwnProps> = ({
               zoomClient={zmClient}
             />
           </div>
-        ) : (
+        )
+      }
+      {
+        (renderType === 'RESERVATION') && !reservationLoaded && (
           <div
             className="message-content text has-action-button
-            is-forwarded has-shadow has-solid-background has-appendix"
+              is-forwarded has-shadow has-solid-background has-appendix"
           >
             <span className="normal-message">{message.content.text?.text}</span>
           </div>

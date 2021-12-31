@@ -120,6 +120,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
         </div>
         <div className="btn-box">
           <i
+            onClick={onCameraClick}
             id="zoom-video"
             className={buildClassName('hm-zoom-video', isStartedVideo && 'active')}
           />
