@@ -1,15 +1,19 @@
 import React, {
-  FC, memo, useCallback, useState,
+  FC, memo, useCallback, useState, useEffect,
 } from 'teact/teact';
 import { MutableRefObject } from 'react';
-import { MediaStream } from '../../ZoomSdkService/types';
+import { MediaStream, ClientType } from '../../ZoomSdkService/types';
 import Button from '../../../../ui/Button';
+import { MediaDevice } from '../../ZoomSdkService/video-types';
+import { useUnmount } from '../../../../../hooks';
+import buildClassName from "../../../../../util/buildClassName";
 
 type OwnProps = {
   initLeaveSessionClick: () => void;
   shareRef?: MutableRefObject<HTMLCanvasElement | null>;
   sharing?: boolean;
   mediaStream: MediaStream;
+  zmClient: ClientType;
 };
 
 const ZoomVideoFooter : FC<OwnProps> = ({
@@ -17,6 +21,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   shareRef,
   sharing,
   mediaStream,
+  zmClient,
 }) => {
   const [isStartedScreenShare, setIsStartedScreenShare] = useState(false);
 
@@ -25,6 +30,13 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   const [isMuted, setIsMuted] = useState(true);
 
   const [isStartedVideo, setIsStartedVideo] = useState(false);
+
+  const [activeMicrophone, setActiveMicrophone] = useState('');
+  const [activeSpeaker, setActiveSpeaker] = useState('');
+  const [activeCamera, setActiveCamera] = useState('');
+  const [micList, setMicList] = useState<MediaDevice[]>([]);
+  const [speakerList, setSpeakerList] = useState<MediaDevice[]>([]);
+  const [cameraList, setCameraList] = useState<MediaDevice[]>([]);
 
   const onScreenShareClick = useCallback(async () => {
     if (!isStartedScreenShare && shareRef && shareRef.current) {
@@ -35,6 +47,40 @@ const ZoomVideoFooter : FC<OwnProps> = ({
       setIsStartedScreenShare(false);
     }
   }, [mediaStream, isStartedScreenShare, shareRef]);
+
+  const onDeviceChange = useCallback(() => {
+    if (mediaStream) {
+      setMicList(mediaStream.getMicList());
+      setSpeakerList(mediaStream.getSpeakerList());
+      setCameraList(mediaStream.getCameraList());
+      setActiveMicrophone(mediaStream.getActiveMicrophone());
+      setActiveSpeaker(mediaStream.getActiveSpeaker());
+      setActiveCamera(mediaStream.getActiveCamera());
+    }
+  }, [mediaStream]);
+
+  useEffect(() => {
+    // zmClient?.on('current-audio-change', onHostAudioMuted);
+    // zmClient?.on('passively-stop-share', onPassivelyStopShare);
+    zmClient?.on('device-change', onDeviceChange);
+    return () => {
+      // zmClient?.off('current-audio-change', onHostAudioMuted);
+      // zmClient?.off('passively-stop-share', onPassivelyStopShare);
+      zmClient?.off('device-change', onDeviceChange);
+    };
+  }, [zmClient, onDeviceChange]);
+
+  useUnmount(() => {
+    if (isStartedAudio) {
+      mediaStream?.stopAudio();
+    }
+    if (isStartedVideo) {
+      mediaStream?.stopVideo();
+    }
+    if (isStartedScreenShare) {
+      mediaStream?.stopShareScreen();
+    }
+  });
 
   const onCameraClick = useCallback(async () => {
     if (isStartedVideo) {
@@ -66,19 +112,24 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
         <div className="btn-box" onClick={handleSoundClick}>
-          <i id="zoom-mic" className="hm-zoom-mic" />
+          <i
+            className={buildClassName('hm-zoom-mic', !isMuted && 'active')}
+            id="zoom-mic"
+          />
           <span>Mute</span>
         </div>
         <div className="btn-box">
           <i
             id="zoom-video"
-            onClick={onCameraClick}
-            className="hm-zoom-video"
+            className={buildClassName('hm-zoom-video', isStartedVideo && 'active')}
           />
           <span>Video</span>
         </div>
         <div className="btn-box" onClick={onScreenShareClick}>
-          <i id="zoom-screen-share" className="hm-zoom-screenshare" />
+          <i
+            id="zoom-screen-share"
+            className={buildClassName('hm-zoom-screenshare', sharing && 'active')}
+          />
           <span>Share Screen</span>
         </div>
       </div>

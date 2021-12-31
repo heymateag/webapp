@@ -18,6 +18,7 @@ import './VideoSessionDialog.scss';
 import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
+import Button from '../../../ui/Button';
 
 type OwnProps = {
   openModal: boolean;
@@ -46,7 +47,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   zoomClient,
   isLoading,
   reservationId,
-  userType= 'CONSUMER',
+  userType = 'CONSUMER',
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
@@ -58,7 +59,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line no-null/no-null
   const shareContainerViewPortRef = useRef<HTMLDivElement | null>(null);
-
+  const [confirmModal, setConfirmModal] = useState(false);
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
     stream,
@@ -82,8 +83,12 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
-      shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
-      shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
+      if (contentDimension.width !== 0) {
+        shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
+      }
+      if (contentDimension.height !== 0) {
+        shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
+      }
     }
   }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
 
@@ -188,8 +193,12 @@ const VideoSessionDialog : FC<OwnProps> = ({
       },
     });
   };
+  const dismissDialog = () => {
+    setConfirmModal(false);
+  };
 
   const handleLeaveSessionClick = async () => {
+    setConfirmModal(false);
     try {
       await zoomClient.leave();
       await handleFinishMeeting();
@@ -200,7 +209,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   };
 
   const handleCloseZoomDialog = async () => {
-    await handleLeaveSessionClick();
+    setConfirmModal(true);
   };
 
   const handleMaxDialog = () => {
@@ -307,11 +316,24 @@ const VideoSessionDialog : FC<OwnProps> = ({
         </ul>
       </div>
       <ZoomVideoFooter
-        sharing
+        sharing={isStartedShare}
         shareRef={selfShareRef}
+        zmClient={zoomClient}
         mediaStream={stream}
-        initLeaveSessionClick={handleLeaveSessionClick}
+        initLeaveSessionClick={() => setConfirmModal(true)}
       />
+      <Modal
+        isOpen={confirmModal}
+        onClose={dismissDialog}
+        className="error"
+        title="End Session"
+      >
+        <p>Are you sure you want end to end this session ?</p>
+        <div className="confirm-end-session">
+          <Button isText className="confirm-dialog-button" onClick={handleLeaveSessionClick}>Yes</Button>
+          <Button isText className="confirm-dialog-button" onClick={() => setConfirmModal(false)}>No</Button>
+        </div>
+      </Modal>
     </Modal>
   );
 };
