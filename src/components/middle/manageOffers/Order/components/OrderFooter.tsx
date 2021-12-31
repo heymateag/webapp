@@ -253,8 +253,6 @@ const OrderFooter: FC<OwnProps> = ({
     setLoadingBalance(false);
   };
 
- 
-
   return (
     <div className="offer-footer">
       <div className="date-time">
