@@ -111,7 +111,6 @@ const HeyMateMessage: FC<OwnProps> = ({
     let offerId;
     if (message.content.text?.text.includes('Heymate meeting')) {
       setRenderType('RESERVATION');
-      debugger
       const meetingDetails = message.content.text.text.split('/');
       setMeetingData({
         title: meetingDetails[1],

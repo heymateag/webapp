@@ -28,6 +28,8 @@ export function useShare(
     [isStartedShare],
   );
   const onSharedContentDimensionChange = useCallback(({ width, height }) => {
+    console.log(width);
+    console.log(height);
     setSharedContentDimension({ width, height });
   }, []);
   const onCurrentUserUpdate = useCallback(

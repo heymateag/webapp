@@ -179,6 +179,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           chat: {
             id: user.telegramId,
           },
+          // eslint-disable-next-line max-len
           text: `Heymate meeting /${props.title}/${meetingId}/${sessionPassword}/${tsId}/${user.telegramId}/${user.fullName}`,
         });
       }
@@ -189,8 +190,20 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
     await sendMessageToParticipants(meetingId, sessionPassword);
-    setOpenVideoDialog(true);
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
+    setOpenVideoDialog(true);
+    setJoinMeetingLoader(true);
+    await client.join();
+
+    setZmClient(client.zmClient);
+    setZoomStream(client.mediaStream);
+
+    setJoinMeetingLoader(false);
+  };
+  const simpleJoin = async () => {
+    setOpenVideoDialog(true);
+    const client = new ZoomClient('qwe', '1234', zoomUser);
+    debugger
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -259,7 +272,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/*<MenuItem icon="group" onClick={sendMessageToParticipants}>send msg</MenuItem>*/}
+              <MenuItem icon="group" onClick={simpleJoin}>simple join</MenuItem>
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>

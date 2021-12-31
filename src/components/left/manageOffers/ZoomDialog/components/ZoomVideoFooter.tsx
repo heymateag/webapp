@@ -71,6 +71,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   }, [zmClient, onDeviceChange]);
 
   useUnmount(() => {
+    debugger
     if (isStartedAudio) {
       mediaStream?.stopAudio();
     }
@@ -97,6 +98,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
       if (isMuted) {
         await mediaStream?.unmuteAudio();
         setIsMuted(false);
+        console.log('voice opened');
       } else {
         console.log('voice muted');
         await mediaStream?.muteAudio();
@@ -118,9 +120,8 @@ const ZoomVideoFooter : FC<OwnProps> = ({
           />
           <span>Mute</span>
         </div>
-        <div className="btn-box">
+        <div className="btn-box" onClick={onCameraClick}>
           <i
-            onClick={onCameraClick}
             id="zoom-video"
             className={buildClassName('hm-zoom-video', isStartedVideo && 'active')}
           />

@@ -77,18 +77,14 @@ const VideoSessionDialog : FC<OwnProps> = ({
       height: containerHeight,
     } = shareContainerRef.current.getBoundingClientRect();
     const ratio = Math.min(containerWidth / width, containerHeight / height, 1);
-    contentDimension.width = Math.floor(width * ratio);
-    contentDimension.height = Math.floor(height * ratio);
+    contentDimension.width = containerWidth;
+    contentDimension.height = containerHeight;
   }
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
-      if (contentDimension.width !== 0) {
-        shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
-      }
-      if (contentDimension.height !== 0) {
-        shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
-      }
+      shareContainerViewPortRef.current.style.width = '100%';
+      shareContainerViewPortRef.current.style.height = '100%';
     }
   }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
 
@@ -193,6 +189,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       },
     });
   };
+
   const dismissDialog = () => {
     setConfirmModal(false);
   };
@@ -296,7 +293,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
             const {
               width, height, x, y,
             } = dimension;
-            const { height: canvasHeight } = canvasDimension;
+            const { height: canvasHeight } = canvasDimension;;
             const userId = JSON.parse(user.displayName).id;
             return (
               <ZoomAvatar
