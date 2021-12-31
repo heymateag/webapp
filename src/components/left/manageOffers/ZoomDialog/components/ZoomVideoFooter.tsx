@@ -6,6 +6,7 @@ import { MediaStream, ClientType } from '../../ZoomSdkService/types';
 import Button from '../../../../ui/Button';
 import { MediaDevice } from '../../ZoomSdkService/video-types';
 import { useUnmount } from '../../../../../hooks';
+import buildClassName from "../../../../../util/buildClassName";
 
 type OwnProps = {
   initLeaveSessionClick: () => void;
@@ -111,19 +112,24 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
         <div className="btn-box" onClick={handleSoundClick}>
-          <i id="zoom-mic" className="hm-zoom-mic" />
+          <i
+            className={buildClassName('hm-zoom-mic', !isMuted && 'active')}
+            id="zoom-mic"
+          />
           <span>Mute</span>
         </div>
         <div className="btn-box">
           <i
             id="zoom-video"
-            onClick={onCameraClick}
-            className="hm-zoom-video"
+            className={buildClassName('hm-zoom-video', isStartedVideo && 'active')}
           />
           <span>Video</span>
         </div>
         <div className="btn-box" onClick={onScreenShareClick}>
-          <i id="zoom-screen-share" className="hm-zoom-screenshare" />
+          <i
+            id="zoom-screen-share"
+            className={buildClassName('hm-zoom-screenshare', sharing && 'active')}
+          />
           <span>Share Screen</span>
         </div>
       </div>
