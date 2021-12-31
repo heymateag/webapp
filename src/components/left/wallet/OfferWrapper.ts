@@ -52,8 +52,8 @@ class OfferWrapper {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     }
     const userAddresses: string[] = [
-      // offer.sp_wallet_address,
-      this.address,
+      offer.sp_wallet_address,
+      // this.address,
       this.address,
       stableToken.address,
     ];
@@ -76,8 +76,8 @@ class OfferWrapper {
         config,
         [],
         [],
-        // offer.pricing.signature,
-        '0x00',
+        offer.pricing.signature,
+        // '0x00',
       )).send();
     } catch (error) {
       debugger
@@ -123,49 +123,59 @@ class OfferWrapper {
   };
 
   startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
-    const tradeIdHash = `0x${tradeId.split('-').join('')}`;
+    const tradeIdHash = `${tradeId.split('-').join('')}`;
     const pricingInfo = offer.pricing;
     const rate: number = pricingInfo.price;
     const amount = web3.utils.toWei(new BN(rate), 'ether');
+    let answer;
     try {
       // eslint-disable-next-line max-len
-      const response = await this.mContract.methods.startService(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
-      return response;
+      // const response = await this.mContract.methods.startService(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
+      answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.release(
+        tradeIdHash,
+        offer.sp_wallet_address,
+        consumerAddress,
+        amount,
+        new BN(1),
+      )).send();
     } catch (error) {
       throw new Error('start error');
     }
+    const receipt = await answer.getHash();
+    return receipt;
   };
 
   cancelService = (tradeId: any, consumerCancelled: boolean, consumerAddress: string, amount: number) => {
-    const tradeIdHash = `${tradeId.split('-').join('')}`;
+    // const tradeIdHash = `${tradeId.split('-').join('')}`;
 
     if (consumerCancelled) {
-      this.mContract.methods.consumerCancel(tradeIdHash, this.address,
+      this.mContract.methods.consumerCancel(tradeId, this.address,
         consumerAddress, amount, new BN(1)).send();
     } else {
-      this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
+      this.mContract.methods.serviceProviderCancel(tradeId, this.address,
         consumerAddress, amount, new BN(1)).send();
     }
   };
 
-  finishService = (offer: IOffer, tradeId: string, consumerAddress: string) => {
+  finishService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
     const tradeIdHash = `${tradeId.split('-').join('')}`;
-
-    // PricingInfo pricingInfo = new PricingInfo(new JSONObject(offer.getPricingInfo()));
-
-    // String purchasePlanType = reservation.getPurchasedPlanType();
-
     const rate: BN = new BN(offer.pricing.price);
-
     const amount = web3.utils.toWei(rate, 'ether');
+    let answer;
 
     try {
+      answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.release(
+        tradeIdHash,
+        offer.sp_wallet_address,
+        consumerAddress, amount,
+        new BN(1),
+      )).send();
       // eslint-disable-next-line max-len
-      const response = this.mContract.methods.release(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1)).send();
-      return response;
     } catch (error: any) {
       throw new Error(error);
     }
+    const receipt = await answer.getHash();
+    return receipt;
   };
 }
 
