@@ -38,11 +38,6 @@ type OwnProps = {
 const VideoSessionDialog : FC<OwnProps> = ({
   openModal,
   onCloseModal,
-  canvasWidth = 640,
-  canvasHeight = 360,
-  xOffset = 0,
-  yOffset = 0,
-  videoQuality = 2,
   stream,
   zoomClient,
   isLoading,
@@ -59,7 +54,15 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line no-null/no-null
   const shareContainerViewPortRef = useRef<HTMLDivElement | null>(null);
+
   const [confirmModal, setConfirmModal] = useState(false);
+
+  const canvasDimension = useCanvasDimension(stream, videoRef);
+
+  const [isMaximize, setIsMaximize] = useState(true);
+
+  const [isMinimize, setIsMinimize] = useState(false);
+
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
     stream,
@@ -88,15 +91,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
     }
   }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
 
-  // eslint-disable-next-line no-null/no-null
-  const videoCanvas = useRef<HTMLCanvasElement>(null);
-
-  const canvasDimension = useCanvasDimension(stream, videoRef);
-
-  const [isMaximize, setIsMaximize] = useState(true);
-
-  const [isMinimize, setIsMinimize] = useState(false);
-
   const isSupportWebCodecs = () => {
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
@@ -124,52 +118,9 @@ const VideoSessionDialog : FC<OwnProps> = ({
     },
   );
 
-  const audioTrack = useMemo(() => {
-    return VideoSDK.createLocalAudioTrack();
-  }, []);
-
-  const videoTrack = useMemo(() => {
-    return VideoSDK.createLocalVideoTrack();
-  }, []);
-
   const handleCLoseDetailsModal = () => {
     onCloseModal();
   };
-
-  const startVideo = useCallback(async () => {
-    const canvas = videoCanvas.current!;
-    if (!stream.isCapturingVideo()) {
-      try {
-        // await stream.startVideo();
-        const session = zoomClient.getSessionInfo();
-        await stream.startVideo();
-        await stream.renderVideo(
-          canvas,
-          session.userId,
-          canvasWidth,
-          canvasHeight,
-          xOffset,
-          yOffset,
-          videoQuality,
-        );
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  }, [canvasHeight, canvasWidth, stream, videoQuality, xOffset, yOffset, zoomClient]);
-
-  const stopVideo = useCallback(async () => {
-    const canvas = videoCanvas.current!;
-    if (stream.isCapturingVideo()) {
-      try {
-        await stream.stopVideo();
-        const session = zoomClient.getSessionInfo();
-        stream.stopRenderVideo(canvas, session.userId);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  }, [stream, zoomClient]);
 
   const handleFinishMeeting = async () => {
     let url;
@@ -280,8 +231,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
-          width="800"
-          height="350"
           ref={videoRef}
         />
         <ul className="avatar-list">
@@ -293,7 +242,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
             const {
               width, height, x, y,
             } = dimension;
-            const { height: canvasHeight } = canvasDimension;;
+            const { height: canvasHeight } = canvasDimension;
             const userId = JSON.parse(user.displayName).id;
             return (
               <ZoomAvatar
