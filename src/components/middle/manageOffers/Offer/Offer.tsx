@@ -203,7 +203,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   const simpleJoin = async () => {
     setOpenVideoDialog(true);
     const client = new ZoomClient('qwe', '1234', zoomUser);
-    debugger
+
     setJoinMeetingLoader(true);
     await client.join();
 

@@ -1,7 +1,7 @@
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useRef, useState,
 } from 'teact/teact';
-import VideoSDK from '@zoom/videosdk';
+import _ from 'lodash';
 import Modal from '../../../ui/Modal';
 import buildClassName from '../../../../util/buildClassName';
 import ZoomVideoFooter from './components/ZoomVideoFooter';
@@ -12,6 +12,8 @@ import { useGalleryLayout } from './hooks/useGalleryLayout';
 import { usePagination } from './hooks/usePagination';
 import { useCanvasDimension } from './hooks/useCanvasDimension';
 import { useActiveVideo } from './hooks/useAvtiveVideo';
+import { useSizeCallback } from '../../../../hooks';
+import { isShallowEqual } from '../ZoomSdkService/utils/util';
 
 import ZoomAvatar from './components/ZoomAvatar';
 import './VideoSessionDialog.scss';
@@ -63,6 +65,16 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const [isMinimize, setIsMinimize] = useState(false);
 
+  const [containerDimension, setContainerDimension] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  const [shareViewDimension, setShareViewDimension] = useState({
+    width: 0,
+    height: 0,
+  });
+
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
     stream,
@@ -71,25 +83,43 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const isSharing = isRecieveSharing || isStartedShare;
 
-  const contentDimension = sharedContentDimension;
+  useEffect(() => {
+    if (isSharing && shareContainerRef.current) {
+      const { width, height } = sharedContentDimension;
+      const { width: containerWidth, height: containerHeight } = containerDimension;
+      const ratio = Math.min(
+        containerWidth / width,
+        containerHeight / height,
+        1,
+      );
+      setShareViewDimension({
+        width: Math.floor(width * ratio),
+        height: Math.floor(height * ratio),
+      });
+    }
+  }, [isSharing, sharedContentDimension, containerDimension]);
 
-  if (isSharing && shareContainerRef.current) {
-    const { width, height } = sharedContentDimension;
-    const {
-      width: containerWidth,
-      height: containerHeight,
-    } = shareContainerRef.current.getBoundingClientRect();
-    const ratio = Math.min(containerWidth / width, containerHeight / height, 1);
-    contentDimension.width = containerWidth;
-    contentDimension.height = containerHeight;
-  }
+  const onShareContainerResize = useCallback(({ width, height }) => {
+    _.throttle(() => {
+      setContainerDimension({ width, height });
+    }, 50).call(this);
+  }, []);
+  useSizeCallback(shareContainerRef.current, onShareContainerResize);
+  useEffect(() => {
+    if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
+      stream?.updateSharingCanvasDimension(
+        shareViewDimension.width,
+        shareViewDimension.height,
+      );
+    }
+  }, [stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
-      shareContainerViewPortRef.current.style.width = '100%';
-      shareContainerViewPortRef.current.style.height = '100%';
+      shareContainerViewPortRef.current.style.width = `${shareViewDimension.width}px`;
+      shareContainerViewPortRef.current.style.height = `${shareViewDimension.height}px`;
     }
-  }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
+  }, [shareViewDimension.height, shareViewDimension.width, shareContainerViewPortRef]);
 
   const isSupportWebCodecs = () => {
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
