@@ -72,6 +72,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
+      // connector: {
+      //   peerId: localStorage.getItem('peerId') || 'testtest',
+      // },
     });
   }, []);
 

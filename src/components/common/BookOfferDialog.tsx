@@ -382,6 +382,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
             className="see-details"
             size="smaller"
             color="primary"
+            disabled={!selectedTimeSlotId}
           >
             Book Now
           </Button>
