@@ -1,7 +1,7 @@
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  FC, memo, useCallback, useEffect, useRef, useState,
 } from 'teact/teact';
-import VideoSDK from '@zoom/videosdk';
+import _ from 'lodash';
 import Modal from '../../../ui/Modal';
 import buildClassName from '../../../../util/buildClassName';
 import ZoomVideoFooter from './components/ZoomVideoFooter';
@@ -12,6 +12,8 @@ import { useGalleryLayout } from './hooks/useGalleryLayout';
 import { usePagination } from './hooks/usePagination';
 import { useCanvasDimension } from './hooks/useCanvasDimension';
 import { useActiveVideo } from './hooks/useAvtiveVideo';
+import { useSizeCallback } from '../../../../hooks';
+import { isShallowEqual } from '../ZoomSdkService/utils/util';
 
 import ZoomAvatar from './components/ZoomAvatar';
 import './VideoSessionDialog.scss';
@@ -38,11 +40,6 @@ type OwnProps = {
 const VideoSessionDialog : FC<OwnProps> = ({
   openModal,
   onCloseModal,
-  canvasWidth = 640,
-  canvasHeight = 360,
-  xOffset = 0,
-  yOffset = 0,
-  videoQuality = 2,
   stream,
   zoomClient,
   isLoading,
@@ -59,7 +56,25 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line no-null/no-null
   const shareContainerViewPortRef = useRef<HTMLDivElement | null>(null);
+
   const [confirmModal, setConfirmModal] = useState(false);
+
+  const canvasDimension = useCanvasDimension(stream, videoRef);
+
+  const [isMaximize, setIsMaximize] = useState(true);
+
+  const [isMinimize, setIsMinimize] = useState(false);
+
+  const [containerDimension, setContainerDimension] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  const [shareViewDimension, setShareViewDimension] = useState({
+    width: 0,
+    height: 0,
+  });
+
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
     zoomClient,
     stream,
@@ -68,38 +83,43 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const isSharing = isRecieveSharing || isStartedShare;
 
-  const contentDimension = sharedContentDimension;
+  useEffect(() => {
+    if (isSharing && shareContainerRef.current) {
+      const { width, height } = sharedContentDimension;
+      const { width: containerWidth, height: containerHeight } = containerDimension;
+      const ratio = Math.min(
+        containerWidth / width,
+        containerHeight / height,
+        1,
+      );
+      setShareViewDimension({
+        width: Math.floor(width * ratio),
+        height: Math.floor(height * ratio),
+      });
+    }
+  }, [isSharing, sharedContentDimension, containerDimension]);
 
-  if (isSharing && shareContainerRef.current) {
-    const { width, height } = sharedContentDimension;
-    const {
-      width: containerWidth,
-      height: containerHeight,
-    } = shareContainerRef.current.getBoundingClientRect();
-    const ratio = Math.min(containerWidth / width, containerHeight / height, 1);
-    contentDimension.width = Math.floor(width * ratio);
-    contentDimension.height = Math.floor(height * ratio);
-  }
+  const onShareContainerResize = useCallback(({ width, height }) => {
+    _.throttle(() => {
+      setContainerDimension({ width, height });
+    }, 50).call(this);
+  }, []);
+  useSizeCallback(shareContainerRef.current, onShareContainerResize);
+  useEffect(() => {
+    if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
+      stream?.updateSharingCanvasDimension(
+        shareViewDimension.width,
+        shareViewDimension.height,
+      );
+    }
+  }, [stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
-      if (contentDimension.width !== 0) {
-        shareContainerViewPortRef.current.style.width = `${contentDimension.width}px`;
-      }
-      if (contentDimension.height !== 0) {
-        shareContainerViewPortRef.current.style.height = `${contentDimension.height}px`;
-      }
+      shareContainerViewPortRef.current.style.width = `${shareViewDimension.width}px`;
+      shareContainerViewPortRef.current.style.height = `${shareViewDimension.height}px`;
     }
-  }, [contentDimension.height, contentDimension.width, shareContainerViewPortRef]);
-
-  // eslint-disable-next-line no-null/no-null
-  const videoCanvas = useRef<HTMLCanvasElement>(null);
-
-  const canvasDimension = useCanvasDimension(stream, videoRef);
-
-  const [isMaximize, setIsMaximize] = useState(true);
-
-  const [isMinimize, setIsMinimize] = useState(false);
+  }, [shareViewDimension.height, shareViewDimension.width, shareContainerViewPortRef]);
 
   const isSupportWebCodecs = () => {
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
@@ -128,52 +148,9 @@ const VideoSessionDialog : FC<OwnProps> = ({
     },
   );
 
-  const audioTrack = useMemo(() => {
-    return VideoSDK.createLocalAudioTrack();
-  }, []);
-
-  const videoTrack = useMemo(() => {
-    return VideoSDK.createLocalVideoTrack();
-  }, []);
-
   const handleCLoseDetailsModal = () => {
     onCloseModal();
   };
-
-  const startVideo = useCallback(async () => {
-    const canvas = videoCanvas.current!;
-    if (!stream.isCapturingVideo()) {
-      try {
-        // await stream.startVideo();
-        const session = zoomClient.getSessionInfo();
-        await stream.startVideo();
-        await stream.renderVideo(
-          canvas,
-          session.userId,
-          canvasWidth,
-          canvasHeight,
-          xOffset,
-          yOffset,
-          videoQuality,
-        );
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  }, [canvasHeight, canvasWidth, stream, videoQuality, xOffset, yOffset, zoomClient]);
-
-  const stopVideo = useCallback(async () => {
-    const canvas = videoCanvas.current!;
-    if (stream.isCapturingVideo()) {
-      try {
-        await stream.stopVideo();
-        const session = zoomClient.getSessionInfo();
-        stream.stopRenderVideo(canvas, session.userId);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-  }, [stream, zoomClient]);
 
   const handleFinishMeeting = async () => {
     let url;
@@ -193,6 +170,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       },
     });
   };
+
   const dismissDialog = () => {
     setConfirmModal(false);
   };
@@ -283,8 +261,6 @@ const VideoSessionDialog : FC<OwnProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
-          width="800"
-          height="350"
           ref={videoRef}
         />
         <ul className="avatar-list">
