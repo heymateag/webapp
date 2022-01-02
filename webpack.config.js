@@ -23,6 +23,7 @@ module.exports = (env = {}, argv = {}) => {
     devServer: {
       contentBase: [
         path.resolve(__dirname, 'public'),
+        path.resolve(__dirname, 'public/lib'),
         path.resolve(__dirname, 'node_modules/emoji-data-ios'),
         path.resolve(__dirname, 'node_modules/opus-recorder/dist'),
         path.resolve(__dirname, 'src/lib/webp'),
