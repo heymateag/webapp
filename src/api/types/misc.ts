@@ -1,4 +1,5 @@
 import { ApiDocument } from './messages';
+import { ClientType, MediaStream } from '../../components/main/components/ZoomSdkService/types';
 
 export interface ApiInitialArgs {
   userAgent: string;
@@ -80,6 +81,16 @@ export type ApiError = {
   hasErrorKey?: boolean;
   isSlowMode?: boolean;
   textParams?: Record<string, string>;
+};
+
+export type ZoomDialogProps = {
+  openModal: boolean;
+  onCloseModal: () => void;
+  stream: MediaStream;
+  zoomClient: ClientType;
+  isLoading: boolean;
+  reservationId?: string;
+  userType?: 'SERVICE_PROVIDER' | 'CONSUMER';
 };
 
 export type ApiFieldError = {

@@ -265,19 +265,16 @@ addReducer('sendMessage', (global, actions, payload) => {
 addReducer('sendDirectMessage', (global, actions, payload) => {
   const { chat } = payload;
   const threadId = -1;
-  const type = 'thread';
   const chatId = chat.id;
 
   // const chat = selectChat(global, chatId)!;
 
-  actions.setReplyingToId({ messageId: undefined });
+  // actions.setReplyingToId({ messageId: undefined });
   actions.clearWebPagePreview({ chatId, threadId, value: false });
 
   const params = {
     ...payload,
     chat,
-    replyingTo: selectReplyingToId(global, chatId, threadId),
-    noWebPage: selectNoWebPage(global, chatId, threadId),
   };
 
   const isSingle = !payload.attachments || payload.attachments.length <= 1;

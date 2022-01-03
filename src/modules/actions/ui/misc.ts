@@ -197,6 +197,22 @@ addReducer('showDialog', (global, actions, payload) => {
   };
 });
 
+addReducer('openZoomDialogModal', (global, actions, payload) => {
+
+  return {
+    ...global,
+    zoomDialog: payload,
+  };
+});
+
+addReducer('closeZoomDialogModal', (global, actions, payload) => {
+  // const { data } = payload!;
+  return {
+    ...global,
+    zoomDialog: payload,
+  };
+});
+
 addReducer('dismissDialog', (global) => {
   const newDialogs = [...global.dialogs];
 

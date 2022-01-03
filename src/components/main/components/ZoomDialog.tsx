@@ -2,44 +2,40 @@ import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from 'teact/teact';
 import _ from 'lodash';
-import Modal from '../../../ui/Modal';
-import buildClassName from '../../../../util/buildClassName';
+import { withGlobal } from 'teact/teactn';
+import { pick } from '../../../util/iteratees';
+import { ZoomDialogProps } from '../../../api/types';
+import { GlobalActions } from '../../../global/types';
+
+import Modal from '../../ui/Modal';
+import buildClassName from '../../../util/buildClassName';
 import ZoomVideoFooter from './components/ZoomVideoFooter';
-import Loading from '../../../ui/Loading';
+import Loading from '../../ui/Loading';
+import Button from '../../ui/Button';
 
 import { useShare } from './hooks/useShare';
 import { useGalleryLayout } from './hooks/useGalleryLayout';
 import { usePagination } from './hooks/usePagination';
 import { useCanvasDimension } from './hooks/useCanvasDimension';
 import { useActiveVideo } from './hooks/useAvtiveVideo';
-import { useSizeCallback } from '../../../../hooks';
-import { isShallowEqual } from '../ZoomSdkService/utils/util';
+import { useSizeCallback } from '../../../hooks';
+import { isShallowEqual } from './ZoomSdkService/utils/util';
 
 import ZoomAvatar from './components/ZoomAvatar';
-import './VideoSessionDialog.scss';
-import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
-import { axiosService } from '../../../../api/services/axiosService';
-import { HEYMATE_URL } from '../../../../config';
-import Button from '../../../ui/Button';
+import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus';
+import { axiosService } from '../../../api/services/axiosService';
+import { HEYMATE_URL } from '../../../config';
 
-type OwnProps = {
-  openModal: boolean;
-  onCloseModal: () => void;
-  stream: any;
-  zoomClient: any;
-  isLoading: boolean;
-  reservationId?: string;
-  userType?: 'SERVICE_PROVIDER' | 'CONSUMER';
+import './ZoomDialog.scss';
+
+type StateProps = {
+  zoomDialog: ZoomDialogProps;
 };
+type DispatchProps = Pick<GlobalActions, 'closeZoomDialogModal'>;
 
-const VideoSessionDialog : FC<OwnProps> = ({
-  openModal,
-  onCloseModal,
-  stream,
-  zoomClient,
-  isLoading,
-  reservationId,
-  userType = 'CONSUMER',
+const ZoomDialog : FC<DispatchProps & StateProps> = ({
+  zoomDialog,
+  closeZoomDialogModal,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
@@ -54,7 +50,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
 
   const [confirmModal, setConfirmModal] = useState(false);
 
-  const canvasDimension = useCanvasDimension(stream, videoRef);
+  const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -71,8 +67,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
   });
 
   const { isRecieveSharing, isStartedShare, sharedContentDimension } = useShare(
-    zoomClient,
-    stream,
+    zoomDialog?.zoomClient,
+    zoomDialog?.stream,
     shareRef,
   );
 
@@ -102,12 +98,12 @@ const VideoSessionDialog : FC<OwnProps> = ({
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
   useEffect(() => {
     if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
-      stream?.updateSharingCanvasDimension(
+      zoomDialog.stream?.updateSharingCanvasDimension(
         shareViewDimension.width,
         shareViewDimension.height,
       );
     }
-  }, [stream, sharedContentDimension, shareViewDimension]);
+  }, [zoomDialog.stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
@@ -120,18 +116,18 @@ const VideoSessionDialog : FC<OwnProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
-  const activeVideo = useActiveVideo(zoomClient);
+  const activeVideo = useActiveVideo(zoomDialog.zoomClient);
 
   const {
     page, pageSize, totalPage, totalSize, setPage,
   } = usePagination(
-    zoomClient,
+    zoomDialog.zoomClient,
     canvasDimension,
   );
 
   const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
-    zoomClient,
-    stream,
+    zoomDialog.zoomClient,
+    zoomDialog.stream,
     true,
     videoRef,
     canvasDimension,
@@ -144,17 +140,17 @@ const VideoSessionDialog : FC<OwnProps> = ({
   );
 
   const handleCLoseDetailsModal = () => {
-    onCloseModal();
+    zoomDialog.onCloseModal();
   };
 
   const handleFinishMeeting = async () => {
     let url;
     let status;
-    if (userType === 'CONSUMER') {
-      url = `${HEYMATE_URL}/reservation/${reservationId}`;
+    if (zoomDialog.userType === 'CONSUMER') {
+      url = `${HEYMATE_URL}/reservation/${zoomDialog.reservationId}`;
       status = ReservationStatus.FINISHED;
     } else {
-      url = `${HEYMATE_URL}/time-table/${reservationId}`;
+      url = `${HEYMATE_URL}/time-table/${zoomDialog.reservationId}`;
       status = ReservationStatus.MARKED_AS_FINISHED;
     }
     const response = await axiosService({
@@ -173,10 +169,15 @@ const VideoSessionDialog : FC<OwnProps> = ({
   const handleLeaveSessionClick = async () => {
     setConfirmModal(false);
     try {
-      await zoomClient.leave();
+      await zoomDialog.zoomClient.leave();
       await handleFinishMeeting();
-      onCloseModal();
+      closeZoomDialogModal({
+        openModal: false,
+      });
     } catch (e) {
+      closeZoomDialogModal({
+        openModal: false,
+      });
       console.error('Error leaving session', e);
     }
   };
@@ -208,9 +209,9 @@ const VideoSessionDialog : FC<OwnProps> = ({
   return (
     <Modal
       header={ModalHeader()}
-      isOpen={openModal}
+      isOpen={zoomDialog.openModal}
       onClose={handleCLoseDetailsModal}
-      onEnter={openModal ? handleCLoseDetailsModal : undefined}
+      onEnter={zoomDialog.openModal ? handleCLoseDetailsModal : undefined}
       className={
         buildClassName(
           'VideoSessionDialog video-session',
@@ -220,7 +221,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
       }
       title="Zoom Video"
     >
-      {isLoading && (
+      {zoomDialog.isLoading && (
         <div className="wait-to-session-init">
           <Loading key="loading" />
         </div>
@@ -289,8 +290,8 @@ const VideoSessionDialog : FC<OwnProps> = ({
       <ZoomVideoFooter
         sharing={isStartedShare}
         shareRef={selfShareRef}
-        zmClient={zoomClient}
-        mediaStream={stream}
+        zmClient={zoomDialog.zoomClient}
+        mediaStream={zoomDialog.stream}
         initLeaveSessionClick={() => setConfirmModal(true)}
       />
       <Modal
@@ -309,4 +310,7 @@ const VideoSessionDialog : FC<OwnProps> = ({
   );
 };
 
-export default memo(VideoSessionDialog);
+export default memo(withGlobal(
+  (global): StateProps => pick(global, ['zoomDialog']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['closeZoomDialogModal']),
+)(ZoomDialog));
