@@ -6,7 +6,7 @@ import { MediaStream, ClientType } from '../../ZoomSdkService/types';
 import Button from '../../../../ui/Button';
 import { MediaDevice } from '../../ZoomSdkService/video-types';
 import { useUnmount } from '../../../../../hooks';
-import buildClassName from "../../../../../util/buildClassName";
+import buildClassName from '../../../../../util/buildClassName';
 
 type OwnProps = {
   initLeaveSessionClick: () => void;
@@ -71,7 +71,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   }, [zmClient, onDeviceChange]);
 
   useUnmount(() => {
-    debugger
+    debugger;
     if (isStartedAudio) {
       mediaStream?.stopAudio();
     }
@@ -96,12 +96,25 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   const handleSoundClick = async () => {
     if (isStartedAudio) {
       if (isMuted) {
-        await mediaStream?.unmuteAudio();
+        try {
+          await mediaStream?.unmuteAudio().then((res) => {
+            debugger
+            console.log(res);
+          }).catch((e) => {
+            debugger
+            console.log(e.reason);
+          });
+        } catch (e) {
+          debugger
+        }
+
         setIsMuted(false);
-        console.log('voice opened');
       } else {
-        console.log('voice muted');
-        await mediaStream?.muteAudio();
+        await mediaStream?.muteAudio().then(res => {
+          debugger
+        }).catch(err => {
+          debugger
+        });
         setIsMuted(true);
       }
     } else {

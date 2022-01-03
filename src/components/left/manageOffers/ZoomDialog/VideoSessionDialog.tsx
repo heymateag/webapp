@@ -100,14 +100,14 @@ const VideoSessionDialog : FC<OwnProps> = ({
     }, 50).call(this);
   }, []);
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
-  useEffect(() => {
-    if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
-      stream?.updateSharingCanvasDimension(
-        shareViewDimension.width,
-        shareViewDimension.height,
-      );
-    }
-  }, [stream, sharedContentDimension, shareViewDimension]);
+  // useEffect(() => {
+  //   if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
+  //     stream?.updateSharingCanvasDimension(
+  //       shareViewDimension.width,
+  //       shareViewDimension.height,
+  //     );
+  //   }
+  // }, [stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
