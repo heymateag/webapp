@@ -300,6 +300,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       />
       <Modal
         isOpen={confirmModal}
+        noBackdrop
         onClose={dismissDialog}
         className="error"
         title="End Session"
