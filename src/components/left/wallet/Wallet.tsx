@@ -17,6 +17,8 @@ import TransactionRow from './TransactionRow/TransactionRow';
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
+// import HeymateOffer from './HeymateOffer';
+// import OfferContract from './OfferContract';
 
 export type OwnProps = {
   onReset: () => void;
@@ -44,6 +46,19 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setWidth(window.innerWidth);
   }, []);
 
+  // useEffect(() => {
+  //   const address = '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe';
+  //   const userAddress = '0x1234567890123456789012345678901234567891';
+  //   const offerContract = new OfferContract(address, userAddress);
+  //   // const web3 = new Web3();
+  //   // const HeymateContract = new web3.eth.Contract(HeymateOffer.abi, '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe', {
+  //   //   from: '0x1234567890123456789012345678901234567891', // default from address
+  //   //   gasPrice: '20000000000', // default gas price in wei, 20 gwei in this case
+  //   // });
+  //   const contract = offerContract.create();
+  //   debugger
+  // }, []);
+
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
@@ -57,6 +72,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
+      // connector: {
+      //   peerId: localStorage.getItem('peerId') || 'testtest',
+      // },
     });
   }, []);
 
@@ -162,11 +180,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     const reconnectToProvider = async () => {
       await provider.enable()
         .then((res) => {
+          debugger
           setIsConnected(true);
           makeKitsFromProvideAndGetBalance(res[0]);
         });
     };
     if (provider.isWalletConnect) {
+
       reconnectToProvider();
     } else {
       setLoadingBalance(false);

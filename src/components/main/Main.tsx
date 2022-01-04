@@ -227,7 +227,7 @@ const Main: FC<StateProps & DispatchProps> = ({
         telegramId: currentUser.id,
       },
     });
-    if (response.status === 200) {
+    if (response && response.status === 200) {
       console.log(response);
     }
   };

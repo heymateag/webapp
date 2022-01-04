@@ -25,8 +25,7 @@ export const newKitBalances = async (kit:any, address: string) => {
 };
 
 export const sendcUSD = async (kit) => {
-  const amount = kit.web3.utils.toWei('1', 'wei');
-
+  const amount = kit.web3.utils.toWei('1', 'ether');
   // const stabletoken = await kit.contracts.getStableToken(); //for celo gold
   const stabletoken: StableTokenWrapper = await kit.contracts.getStableToken(StableToken.cEUR); // for euro
   await kit.setFeeCurrency(CeloContract.StableTokenEUR);
@@ -37,8 +36,7 @@ export const sendcUSD = async (kit) => {
     console.log(err);
     await Promise.reject(err);
   }
-  const receipt = await tx.waitReceipt();
-  debugger
+  const receipt = await tx.getHash();
   return receipt;
 };
 

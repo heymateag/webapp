@@ -204,7 +204,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         <div className="header-actions">
           <i onClick={handleCloseZoomDialog} className="hm-zoom-close" />
           <i onClick={handleMaxDialog} id="zoom-max" className="hm-zoom-maximize" />
-          <i onClick={handleMinDialog} id="zoom-min" className="hm-zoom-minimize" />
+          <i onClick={handleMinDialog} id="zoom-min" />
         </div>
       </div>
     );
