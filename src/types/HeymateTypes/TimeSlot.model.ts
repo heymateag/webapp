@@ -8,4 +8,6 @@ export interface ITimeSlotModel {
   updated_at: string;
   created_at: string;
   status?: ReservationStatus;
+  meetingId?: string;
+  meetingPassword?: string;
 }

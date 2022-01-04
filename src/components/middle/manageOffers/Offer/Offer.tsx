@@ -191,7 +191,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const handleCloseVideoDialog = () => {;
+  const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
 
@@ -217,6 +217,12 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setZoomStream(client.mediaStream);
 
     setJoinMeetingLoader(false);
+  };
+
+  const reJoinMeeting = () => {
+    if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
+      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword);
+    }
   };
 
   const simpleJoin = async () => {
@@ -320,6 +326,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           toTime={props.selectedSchedule?.to_time}
           timeToStart={timeToStart}
           joinMeetingLoader={joinMeetingLoader}
+          onReJoinMeeting={reJoinMeeting}
           status={offerStatus}
           onJoinMeeting={joinMeeting}
           onStatusChanged={handleReservationStatusChanges}
