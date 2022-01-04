@@ -302,7 +302,7 @@ const OrderFooter: FC<OwnProps> = ({
           || reservationStatus === ReservationStatus.STARTED) && (
           <div className="btn-finish">
             <Button
-               isLoading={isLoading || joinMeetingLoader}
+              isLoading={isLoading || joinMeetingLoader}
               onClick={() => handleFinishInCelo()}
               size="tiny"
               color="hm-primary-red"
