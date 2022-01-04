@@ -333,15 +333,15 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           timeSlotId={props?.selectedSchedule?.id || ''}
         />
       </div>
-      <VideoSessionDialog
-        userType="SERVICE_PROVIDER"
-        reservationId={props?.selectedSchedule?.id}
-        isLoading={joinMeetingLoader}
-        openModal={openVideoDialog}
-        onCloseModal={handleCloseVideoDialog}
-        stream={zoomStream}
-        zoomClient={zmClient}
-      />
+      {/*<VideoSessionDialog*/}
+      {/*  userType="SERVICE_PROVIDER"*/}
+      {/*  reservationId={props?.selectedSchedule?.id}*/}
+      {/*  isLoading={joinMeetingLoader}*/}
+      {/*  openModal={openVideoDialog}*/}
+      {/*  onCloseModal={handleCloseVideoDialog}*/}
+      {/*  stream={zoomStream}*/}
+      {/*  zoomClient={zmClient}*/}
+      {/*/>*/}
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props}

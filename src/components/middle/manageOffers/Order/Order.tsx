@@ -327,15 +327,15 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
           tradeId={props.tradeId || ''}
         />
       </div>
-      <VideoSessionDialog
-        reservationId={props.id}
-        userType="CONSUMER"
-        isLoading={joinMeetingLoader}
-        openModal={openVideoDialog}
-        onCloseModal={handleCloseVideoDialog}
-        stream={zoomStream}
-        zoomClient={zmClient}
-      />
+      {/*<VideoSessionDialog*/}
+      {/*  reservationId={props.id}*/}
+      {/*  userType="CONSUMER"*/}
+      {/*  isLoading={joinMeetingLoader}*/}
+      {/*  openModal={openVideoDialog}*/}
+      {/*  onCloseModal={handleCloseVideoDialog}*/}
+      {/*  stream={zoomStream}*/}
+      {/*  zoomClient={zmClient}*/}
+      {/*/>*/}
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props.offer}

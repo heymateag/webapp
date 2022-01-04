@@ -355,14 +355,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
                 <span>Join</span>
               </Button>
             </div>
-            <VideoSessionDialog
-              reservationId={reservationId}
-              isLoading={joinMeetingLoader}
-              openModal={openVideoDialog}
-              onCloseModal={handleCloseVideoDialog}
-              stream={zoomStream}
-              zoomClient={zmClient}
-            />
+            {/*<VideoSessionDialog*/}
+            {/*  reservationId={reservationId}*/}
+            {/*  isLoading={joinMeetingLoader}*/}
+            {/*  openModal={openVideoDialog}*/}
+            {/*  onCloseModal={handleCloseVideoDialog}*/}
+            {/*  stream={zoomStream}*/}
+            {/*  zoomClient={zmClient}*/}
+            {/*/>*/}
           </div>
         )
       }

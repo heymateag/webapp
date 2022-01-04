@@ -18,6 +18,7 @@ export function useRenderVideo(
   const previousParticipants = useZoomPrevious(participants);
   const previousIsVideoDecodeReady = useZoomPrevious(isVideoDecodeReady);
   useEffect(() => {
+    console.log('im here video ready !');
     if (videoRef.current && layout && layout.length > 0 && isVideoDecodeReady) {
       const addedSubscribers = subscribedVideos.filter(
         (id) => !(previousSubscribedVideos || []).includes(id),
