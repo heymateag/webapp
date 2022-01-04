@@ -44,13 +44,15 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'openZoomDialogModal' | 'closeZoomDialogModal'>;
 
 const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   showNotification,
   orderType = 'DEFAULT',
   currentUser,
+  openZoomDialogModal,
+  closeZoomDialogModal,
 }) => {
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
@@ -236,10 +238,20 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const joinMeeting = async () => {
-    setOpenVideoDialog(true);
     const client = new ZoomClient(meetingId, meetingPassword, zoomUser);
+
     setJoinMeetingLoader(true);
+
     await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId: props.id,
+      userType: 'CONSUMER',
+    });
 
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
@@ -342,5 +354,7 @@ export default memo(withGlobal<OwnProps>(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'showNotification',
+    'openZoomDialogModal',
+    'closeZoomDialogModal',
   ]),
 )(Order));

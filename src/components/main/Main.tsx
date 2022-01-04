@@ -5,7 +5,7 @@ import React, {
 
 import { LangCode } from '../../types';
 import { GlobalActions } from '../../global/types';
-import { ApiMessage } from '../../api/types';
+import { ApiMessage, ApiUser } from '../../api/types';
 
 import '../../modules/actions/all';
 import {
@@ -22,6 +22,7 @@ import {
   selectIsMediaViewerOpen,
   selectIsRightColumnShown,
   selectIsServiceChatReady,
+  selectUser,
 } from '../../modules/selectors';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import buildClassName from '../../util/buildClassName';
@@ -42,6 +43,7 @@ import MediaViewer from '../mediaViewer/MediaViewer.async';
 import AudioPlayer from '../middle/AudioPlayer';
 import DownloadManager from './DownloadManager';
 import Notifications from './Notifications.async';
+import ZoomDialog from './components/ZoomDialog.async';
 import Dialogs from './Dialogs.async';
 import ForwardPicker from './ForwardPicker.async';
 import SafeLinkModal from './SafeLinkModal.async';
@@ -50,8 +52,6 @@ import StickerSetModal from '../common/StickerSetModal.async';
 import GroupCall from '../calls/group/GroupCall.async';
 import ActiveCallHeader from '../calls/ActiveCallHeader.async';
 import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
-import {ApiUser} from "../../api/types";
-import {selectUser} from "../../modules/selectors";
 
 import './Main.scss';
 import { IAuth } from '../../types/HeymateTypes/Auth.model';
@@ -64,6 +64,7 @@ type StateProps = {
   isMediaViewerOpen: boolean;
   isForwardModalOpen: boolean;
   hasNotifications: boolean;
+  openZoomDialog: boolean;
   hasDialogs: boolean;
   audioMessage?: ApiMessage;
   safeLinkModalUrl?: string;
@@ -110,6 +111,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   isMediaViewerOpen,
   isForwardModalOpen,
   hasNotifications,
+  openZoomDialog,
   hasDialogs,
   audioMessage,
   activeGroupCallId,
@@ -222,7 +224,7 @@ const Main: FC<StateProps & DispatchProps> = ({
         fullName: currentUser.firstName,
         userName: currentUser.username,
         avatarHash: currentUser.avatarHash,
-        telegramId: currentUser.id
+        telegramId: currentUser.id,
       },
     });
     if (response && response.status === 200) {
@@ -370,6 +372,7 @@ const Main: FC<StateProps & DispatchProps> = ({
       <MediaViewer isOpen={isMediaViewerOpen} />
       <ForwardPicker isOpen={isForwardModalOpen} />
       <Notifications isOpen={hasNotifications} />
+      <ZoomDialog isOpen={openZoomDialog} />
       <Dialogs isOpen={hasDialogs} />
       {audioMessage && <AudioPlayer key={audioMessage.id} message={audioMessage} noUi />}
       <SafeLinkModal url={safeLinkModalUrl} />
@@ -430,6 +433,7 @@ export default memo(withGlobal(
       isMediaViewerOpen: selectIsMediaViewerOpen(global),
       isForwardModalOpen: selectIsForwardModalOpen(global),
       hasNotifications: Boolean(global.notifications.length),
+      openZoomDialog: global.zoomDialog?.openModal || false,
       hasDialogs: Boolean(global.dialogs.length),
       audioMessage,
       safeLinkModalUrl: global.safeLinkModalUrl,

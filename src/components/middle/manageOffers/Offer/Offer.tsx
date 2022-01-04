@@ -29,8 +29,9 @@ import { GlobalActions } from '../../../../global/types';
 import { withGlobal } from 'teact/teactn';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
-import {axiosService} from "../../../../api/services/axiosService";
-import {HEYMATE_URL} from "../../../../config";
+import { axiosService } from '../../../../api/services/axiosService';
+import { HEYMATE_URL } from '../../../../config';
+import { MediaStream } from '../../../main/components/ZoomSdkService/types';
 
 type TimeToStart = {
   days: number;
@@ -43,12 +44,14 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage' | 'openZoomDialogModal' | 'closeZoomDialogModal'>;
 
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
   sendDirectMessage,
+  openZoomDialogModal,
+  closeZoomDialogModal,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -188,25 +191,62 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
+  const handleCloseVideoDialog = () => {;
+    setOpenVideoDialog(false);
+  };
+
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
     await sendMessageToParticipants(meetingId, sessionPassword);
+
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
-    setOpenVideoDialog(true);
+
     setJoinMeetingLoader(true);
+
     await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
 
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
 
     setJoinMeetingLoader(false);
   };
+
   const simpleJoin = async () => {
-    setOpenVideoDialog(true);
+    // setOpenVideoDialog(true);
     const client = new ZoomClient('qwe', '1234', zoomUser);
-
-    setJoinMeetingLoader(true);
     await client.join();
-
+    sendDirectMessage({
+      chat: {
+        id: '66304497',
+      },
+      // eslint-disable-next-line max-len
+      text: 'Hello this is for test !',
+    });
+    sendDirectMessage({
+      chat: {
+        id: '66017732',
+      },
+      // eslint-disable-next-line max-len
+      text: 'Hello this is for test !',
+    });
+    openZoomDialogModal({
+      openModal: true,
+      onCloseModal: handleCloseVideoDialog,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
+    // setJoinMeetingLoader(true);
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
 
@@ -214,9 +254,6 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setOfferStatus(newStatus);
-  };
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
   };
 
   async function getParticipants(timeSlotId: any) {
@@ -315,6 +352,8 @@ export default memo(withGlobal<OwnProps>(
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
+    'openZoomDialogModal',
+    'closeZoomDialogModal',
     'showNotification',
     'sendDirectMessage',
   ]),

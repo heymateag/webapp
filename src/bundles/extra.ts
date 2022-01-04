@@ -2,6 +2,7 @@ export { default as MediaViewer } from '../components/mediaViewer/MediaViewer';
 
 export { default as ForwardPicker } from '../components/main/ForwardPicker';
 export { default as Dialogs } from '../components/main/Dialogs';
+export { default as ZoomDialog } from '../components/main/components/ZoomDialog';
 export { default as Notifications } from '../components/main/Notifications';
 export { default as SafeLinkModal } from '../components/main/SafeLinkModal';
 export { default as HistoryCalendar } from '../components/main/HistoryCalendar';

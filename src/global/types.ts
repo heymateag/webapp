@@ -22,6 +22,7 @@ import {
   ApiCountryCode,
   ApiCountry,
   ApiGroupCall,
+  ZoomDialogProps,
 } from '../api/types';
 import {
   FocusDirection,
@@ -431,6 +432,7 @@ export type GlobalState = {
 
   notifications: ApiNotification[];
   dialogs: (ApiError | ApiInviteInfo)[];
+  zoomDialog: ZoomDialogProps;
 
   // TODO Move to settings
   activeSessions: ApiSession[];
@@ -476,6 +478,7 @@ export type ActionTypes = (
   'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
   'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |
   'setNewChatMembersDialogState' | 'disableHistoryAnimations' | 'setLeftColumnWidth' | 'resetLeftColumnWidth' |
+  'openZoomDialogModal' | 'closeZoomDialogModal' |
   // auth
   'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
   'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |

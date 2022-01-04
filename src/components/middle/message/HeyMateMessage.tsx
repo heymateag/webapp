@@ -141,10 +141,10 @@ const HeyMateMessage: FC<OwnProps> = ({
   }, [message]);
 
   useEffect(() => {
-    if (setReservationId) {
-      console.log(setReservationId);
+    if (reservationId) {
+      setReservationId(reservationId);
     }
-  }, [setReservationId]);
+  }, [reservationId]);
 
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
