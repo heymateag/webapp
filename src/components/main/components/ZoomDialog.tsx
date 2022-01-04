@@ -37,6 +37,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
 }) => {
+
+  useEffect(()=>{console.log(zoomDialog)}, [zoomDialog]);
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -96,14 +98,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     }, 50).call(this);
   }, []);
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
-  useEffect(() => {
-    if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
-      zoomDialog.stream?.updateSharingCanvasDimension(
-        shareViewDimension.width,
-        shareViewDimension.height,
-      );
-    }
-  }, [zoomDialog.stream, sharedContentDimension, shareViewDimension]);
+  // useEffect(() => {
+  //   if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
+  //     zoomDialog.stream?.updateSharingCanvasDimension(
+  //       shareViewDimension.width,
+  //       shareViewDimension.height,
+  //     );
+  //   }
+  // }, [zoomDialog.stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {
@@ -140,7 +142,9 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   );
 
   const handleCLoseDetailsModal = () => {
-    zoomDialog.onCloseModal();
+    closeZoomDialogModal({
+      openModal: false,
+    });
   };
 
   const handleFinishMeeting = async () => {

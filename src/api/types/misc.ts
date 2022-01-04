@@ -85,7 +85,6 @@ export type ApiError = {
 
 export type ZoomDialogProps = {
   openModal: boolean;
-  onCloseModal: () => void;
   stream: MediaStream;
   zoomClient: ClientType;
   isLoading: boolean;

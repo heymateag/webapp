@@ -191,21 +191,32 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
+  const handleCloseVideoDialog = () => {;
+    setOpenVideoDialog(false);
+  };
+
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
     await sendMessageToParticipants(meetingId, sessionPassword);
+
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
-    setOpenVideoDialog(true);
+
     setJoinMeetingLoader(true);
+
     await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
 
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
 
     setJoinMeetingLoader(false);
-  };
-
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
   };
 
   const simpleJoin = async () => {

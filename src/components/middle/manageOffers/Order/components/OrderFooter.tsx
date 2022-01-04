@@ -148,7 +148,7 @@ const OrderFooter: FC<OwnProps> = ({
           || reservationStatus === ReservationStatus.STARTED) && (
           <div className="btn-finish">
             <Button
-              isLoading={isLoading}
+              isLoading={isLoading || joinMeetingLoader}
               onClick={() => handleChangeReservationStatus(ReservationStatus.FINISHED)}
               size="tiny"
               color="hm-primary-red"
@@ -162,7 +162,7 @@ const OrderFooter: FC<OwnProps> = ({
           || reservationStatus === ReservationStatus.MARKED_AS_STARTED) && (
           <div className="btn-confirm">
             <Button
-              isLoading={isLoading}
+              isLoading={isLoading || joinMeetingLoader}
               onClick={() => handleChangeReservationStatus(ReservationStatus.STARTED)}
               ripple
               size="tiny"
