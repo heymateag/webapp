@@ -78,7 +78,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   useEffect(() => {
     if (offer?.expiration) {
       let expiration: any = offer?.expiration;
-      if (offer?.expiration.length <= 10) {
+      if (expiration.toString().length <= 10) {
         expiration = (parseInt(offer?.expiration, 10) * 1000) || 0;
       }
       const rawDate = new Date(expiration).toString().split(' ');
