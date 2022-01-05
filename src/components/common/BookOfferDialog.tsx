@@ -25,6 +25,7 @@ import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
 import { sendcUSD } from '../left/wallet/AccountManager/AccountMannager';
 import Spinner from '../ui/Spinner';
+import QrCreator from 'qr-creator';
 
 type OwnProps = {
   offer: IOffer;

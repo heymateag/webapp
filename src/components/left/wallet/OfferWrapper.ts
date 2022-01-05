@@ -123,7 +123,13 @@ class OfferWrapper {
   };
 
   startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
-    const tradeIdHash = `${tradeId.split('-').join('')}`;
+    debugger
+    let tradeIdHash;
+    if (tradeId.length <= 36) {
+      tradeIdHash = `0x${tradeId.split('-').join('')}`;
+    } else {
+      tradeIdHash = `${tradeId.split('-').join('')}`;
+    }
     const pricingInfo = offer.pricing;
     const rate: number = pricingInfo.price;
     const amount = web3.utils.toWei(new BN(rate), 'ether');
