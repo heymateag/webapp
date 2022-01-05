@@ -37,8 +37,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
 }) => {
-
-  useEffect(()=>{console.log(zoomDialog)}, [zoomDialog]);
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -300,6 +298,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       />
       <Modal
         isOpen={confirmModal}
+        noBackdrop
         onClose={dismissDialog}
         className="error"
         title="End Session"

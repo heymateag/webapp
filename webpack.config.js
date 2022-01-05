@@ -30,6 +30,10 @@ module.exports = (env = {}, argv = {}) => {
         path.resolve(__dirname, 'src/lib/rlottie'),
         path.resolve(__dirname, 'src/lib/secret-sauce'),
       ],
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
       port: 4200,
       host: 'localhost',
       disableHostCheck: true,

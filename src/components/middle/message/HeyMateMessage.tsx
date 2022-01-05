@@ -16,10 +16,15 @@ import GenerateNewDate from '../helpers/generateDateBasedOnTimeStamp';
 import { ZoomClient } from '../../left/manageOffers/ZoomSdkService/ZoomSdkService';
 import { ClientType } from '../../left/manageOffers/ZoomSdkService/types';
 import VideoSessionDialog from '../../left/manageOffers/ZoomDialog/VideoSessionDialog';
+import { withGlobal } from 'teact/teactn';
+import { selectUser } from '../../../modules/selectors';
+import { pick } from '../../../util/iteratees';
+import { GlobalActions } from '../../../global/types';
 
 type OwnProps = {
   message: ApiMessage;
 };
+type DispatchProps = Pick<GlobalActions, 'openZoomDialogModal'>;
 interface IPurchasePlan {
   value: string;
   label: string;
@@ -27,8 +32,9 @@ interface IPurchasePlan {
 }
 type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 
-const HeyMateMessage: FC<OwnProps> = ({
+const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   message,
+  openZoomDialogModal,
 }) => {
   /**
    * Get Heymate Offer
@@ -216,8 +222,6 @@ const HeyMateMessage: FC<OwnProps> = ({
   };
 
   const joinMeeting = async () => {
-    setOpenVideoDialog(true);
-
     const meetingId = meetingData.topic;
     const sessionPassword = meetingData.pass;
 
@@ -230,6 +234,15 @@ const HeyMateMessage: FC<OwnProps> = ({
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
     setJoinMeetingLoader(true);
     await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId,
+      userType: 'CONSUMER',
+    });
 
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
@@ -332,6 +345,7 @@ const HeyMateMessage: FC<OwnProps> = ({
             </div>
             <div className="my-offer-btn-group">
               <Button
+                isLoading={joinMeetingLoader}
                 disabled={!canJoin}
                 onClick={joinMeeting}
                 className="book-offer"
@@ -341,14 +355,14 @@ const HeyMateMessage: FC<OwnProps> = ({
                 <span>Join</span>
               </Button>
             </div>
-            <VideoSessionDialog
-              reservationId={reservationId}
-              isLoading={joinMeetingLoader}
-              openModal={openVideoDialog}
-              onCloseModal={handleCloseVideoDialog}
-              stream={zoomStream}
-              zoomClient={zmClient}
-            />
+            {/*<VideoSessionDialog*/}
+            {/*  reservationId={reservationId}*/}
+            {/*  isLoading={joinMeetingLoader}*/}
+            {/*  openModal={openVideoDialog}*/}
+            {/*  onCloseModal={handleCloseVideoDialog}*/}
+            {/*  stream={zoomStream}*/}
+            {/*  zoomClient={zmClient}*/}
+            {/*/>*/}
           </div>
         )
       }
@@ -366,4 +380,12 @@ const HeyMateMessage: FC<OwnProps> = ({
   );
 };
 
-export default memo(HeyMateMessage);
+export default memo(withGlobal<OwnProps>(
+  () => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'openZoomDialogModal',
+  ]),
+)(HeyMateMessage));

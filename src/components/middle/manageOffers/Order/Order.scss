@@ -46,6 +46,15 @@
       button {
         border-radius: 4px;
       }
+      .btn-join-rejoin {
+        width: auto;
+        display: flex;
+        justify-content: space-evenly;
+        .Button  {
+          width: 80px;
+          margin-right: 0.5rem;
+        }
+      }
       // min-width: 100%;
       display: flex;
       justify-content: flex-end;

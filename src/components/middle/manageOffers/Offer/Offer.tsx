@@ -191,7 +191,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const handleCloseVideoDialog = () => {;
+  const handleCloseVideoDialog = () => {
     setOpenVideoDialog(false);
   };
 
@@ -217,6 +217,12 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setZoomStream(client.mediaStream);
 
     setJoinMeetingLoader(false);
+  };
+
+  const reJoinMeeting = () => {
+    if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
+      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword);
+    }
   };
 
   const simpleJoin = async () => {
@@ -320,21 +326,22 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           toTime={props.selectedSchedule?.to_time}
           timeToStart={timeToStart}
           joinMeetingLoader={joinMeetingLoader}
+          onReJoinMeeting={reJoinMeeting}
           status={offerStatus}
           onJoinMeeting={joinMeeting}
           onStatusChanged={handleReservationStatusChanges}
           timeSlotId={props?.selectedSchedule?.id || ''}
         />
       </div>
-      <VideoSessionDialog
-        userType="SERVICE_PROVIDER"
-        reservationId={props?.selectedSchedule?.id}
-        isLoading={joinMeetingLoader}
-        openModal={openVideoDialog}
-        onCloseModal={handleCloseVideoDialog}
-        stream={zoomStream}
-        zoomClient={zmClient}
-      />
+      {/*<VideoSessionDialog*/}
+      {/*  userType="SERVICE_PROVIDER"*/}
+      {/*  reservationId={props?.selectedSchedule?.id}*/}
+      {/*  isLoading={joinMeetingLoader}*/}
+      {/*  openModal={openVideoDialog}*/}
+      {/*  onCloseModal={handleCloseVideoDialog}*/}
+      {/*  stream={zoomStream}*/}
+      {/*  zoomClient={zmClient}*/}
+      {/*/>*/}
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props}

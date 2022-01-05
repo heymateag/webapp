@@ -21,6 +21,7 @@ type OwnProps = {
   toTime?: string;
   status: ReservationStatus;
   onJoinMeeting: (meetingId: string, sessionPassword: string) => void;
+  onReJoinMeeting: () => void;
   onStatusChanged: (status: ReservationStatus) => void;
   joinMeetingLoader: boolean;
   role?: 'CONSUMER' | 'SERVICE_PROVIDER';
@@ -39,6 +40,7 @@ const OfferFooter: FC<OwnProps> = ({
   onStatusChanged,
   offerType,
   timeSlotId,
+  onReJoinMeeting,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -178,30 +180,24 @@ const OfferFooter: FC<OwnProps> = ({
         )}
         { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED)
         && (
-          <div className="btn-cancel">
+          <div className="btn-join-rejoin">
             <Button
               // disabled={!canFinish}
               isLoading={joinMeetingLoader}
               onClick={() => handleChangeReservationStatus(ReservationStatus.MARKED_AS_FINISHED)}
               size="tiny"
-              color="primary"
-            >
-              Finish
-            </Button>
-          </div>
-        )}
-        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.STARTED)
-        && (
-          <div className="btn-cancel">
-            <Button
-              disabled={!canFinish}
-              isLoading={joinMeetingLoader}
-              onClick={onJoinMeeting}
-              size="tiny"
               color="hm-primary-red"
             >
               Finish
             </Button>
+            {/*<Button*/}
+            {/*  isLoading={joinMeetingLoader}*/}
+            {/*  onClick={onReJoinMeeting}*/}
+            {/*  size="tiny"*/}
+            {/*  color="primary"*/}
+            {/*>*/}
+            {/*  Re Join*/}
+            {/*</Button>*/}
           </div>
         )}
       </div>
