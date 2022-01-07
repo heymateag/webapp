@@ -23,9 +23,8 @@ import Menu from '../../../ui/Menu';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 import { HEYMATE_URL } from '../../../../config';
 import { axiosService } from '../../../../api/services/axiosService';
-import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessionDialog';
-import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
-import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
+import { ClientType } from '../../../main/components/ZoomSdkService/types';
+import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkService';
 import OrderFooter from './components/OrderFooter';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
@@ -44,7 +43,7 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification' | 'openZoomDialogModal' | 'closeZoomDialogModal'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'openZoomDialogModal'>;
 
 const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
@@ -52,7 +51,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   orderType = 'DEFAULT',
   currentUser,
   openZoomDialogModal,
-  closeZoomDialogModal,
 }) => {
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
@@ -327,15 +325,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
           tradeId={props.tradeId || ''}
         />
       </div>
-      {/*<VideoSessionDialog*/}
-      {/*  reservationId={props.id}*/}
-      {/*  userType="CONSUMER"*/}
-      {/*  isLoading={joinMeetingLoader}*/}
-      {/*  openModal={openVideoDialog}*/}
-      {/*  onCloseModal={handleCloseVideoDialog}*/}
-      {/*  stream={zoomStream}*/}
-      {/*  zoomClient={zmClient}*/}
-      {/*/>*/}
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props.offer}
@@ -355,6 +344,5 @@ export default memo(withGlobal<OwnProps>(
   (setGlobal, actions): DispatchProps => pick(actions, [
     'showNotification',
     'openZoomDialogModal',
-    'closeZoomDialogModal',
   ]),
 )(Order));

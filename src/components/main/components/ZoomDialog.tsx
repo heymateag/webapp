@@ -56,6 +56,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const [isMinimize, setIsMinimize] = useState(false);
 
+  const [isSharing, setIsSharing] = useState(false);
+
   const [containerDimension, setContainerDimension] = useState({
     width: 0,
     height: 0,
@@ -72,7 +74,10 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     shareRef,
   );
 
-  const isSharing = isRecieveSharing || isStartedShare;
+  useEffect(() => {
+    setIsSharing(isRecieveSharing || isStartedShare);
+    console.log('here to share !');
+  }, [isRecieveSharing, isStartedShare]);
 
   useEffect(() => {
     if (isSharing && shareContainerRef.current) {
@@ -96,14 +101,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     }, 50).call(this);
   }, []);
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
-  // useEffect(() => {
-  //   if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
-  //     zoomDialog.stream?.updateSharingCanvasDimension(
-  //       shareViewDimension.width,
-  //       shareViewDimension.height,
-  //     );
-  //   }
-  // }, [zoomDialog.stream, sharedContentDimension, shareViewDimension]);
+  useEffect(() => {
+    if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
+      zoomDialog.stream?.updateSharingCanvasDimension(
+        shareViewDimension.width,
+        shareViewDimension.height,
+      );
+    }
+  }, [zoomDialog.stream, sharedContentDimension, shareViewDimension]);
 
   useEffect(() => {
     if (shareContainerViewPortRef.current) {

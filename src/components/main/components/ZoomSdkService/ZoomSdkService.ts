@@ -1,5 +1,5 @@
 import ZoomVideo from '@zoom/videosdk';
-import { generateSessionToken } from './js/tool';
+import { generateSessionToken } from './utils/tool';
 
 /**
  * Generate Zoom Video Session
