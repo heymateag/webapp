@@ -7,6 +7,7 @@ import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { GlobalActions } from 'src/global/types';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import QrCreator from 'qr-creator';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -25,7 +26,6 @@ import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
 import { sendcUSD } from '../left/wallet/AccountManager/AccountMannager';
 import Spinner from '../ui/Spinner';
-import QrCreator from 'qr-creator';
 
 type OwnProps = {
   offer: IOffer;
