@@ -20,18 +20,16 @@ import TaggedText from '../../../ui/TaggedText';
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
 import OfferFooter from './components/OfferFooter';
-import VideoSessionDialog from '../../../left/manageOffers/ZoomDialog/VideoSessionDialog';
-import { ClientType } from '../../../left/manageOffers/ZoomSdkService/types';
-import { ZoomClient } from '../../../left/manageOffers/ZoomSdkService/ZoomSdkService';
+import { ClientType } from '../../../main/components/ZoomSdkService/types';
+import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import { ApiFormattedText, ApiUser } from '../../../../api/types';
+import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { withGlobal } from 'teact/teactn';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
-import { MediaStream } from '../../../main/components/ZoomSdkService/types';
 
 type TimeToStart = {
   days: number;
@@ -44,14 +42,13 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
 };
-type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage' | 'openZoomDialogModal' | 'closeZoomDialogModal'>;
+type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage' | 'openZoomDialogModal'>;
 
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
   sendDirectMessage,
   openZoomDialogModal,
-  closeZoomDialogModal,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -333,15 +330,6 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           timeSlotId={props?.selectedSchedule?.id || ''}
         />
       </div>
-      {/*<VideoSessionDialog*/}
-      {/*  userType="SERVICE_PROVIDER"*/}
-      {/*  reservationId={props?.selectedSchedule?.id}*/}
-      {/*  isLoading={joinMeetingLoader}*/}
-      {/*  openModal={openVideoDialog}*/}
-      {/*  onCloseModal={handleCloseVideoDialog}*/}
-      {/*  stream={zoomStream}*/}
-      {/*  zoomClient={zmClient}*/}
-      {/*/>*/}
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props}
@@ -360,7 +348,6 @@ export default memo(withGlobal<OwnProps>(
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'openZoomDialogModal',
-    'closeZoomDialogModal',
     'showNotification',
     'sendDirectMessage',
   ]),

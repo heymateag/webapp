@@ -13,11 +13,9 @@ import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus
 import './HeyMateMessage.scss';
 // eslint-disable-next-line import/extensions
 import GenerateNewDate from '../helpers/generateDateBasedOnTimeStamp';
-import { ZoomClient } from '../../left/manageOffers/ZoomSdkService/ZoomSdkService';
-import { ClientType } from '../../left/manageOffers/ZoomSdkService/types';
-import VideoSessionDialog from '../../left/manageOffers/ZoomDialog/VideoSessionDialog';
+import { ZoomClient } from '../../main/components/ZoomSdkService/ZoomSdkService';
+import { ClientType } from '../../main/components/ZoomSdkService/types';
 import { withGlobal } from 'teact/teactn';
-import { selectUser } from '../../../modules/selectors';
 import { pick } from '../../../util/iteratees';
 import { GlobalActions } from '../../../global/types';
 import WalletConnectProvider from '@walletconnect/web3-provider';
@@ -477,14 +475,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
                 <span>Join</span>
               </Button>
             </div>
-            {/*<VideoSessionDialog*/}
-            {/*  reservationId={reservationId}*/}
-            {/*  isLoading={joinMeetingLoader}*/}
-            {/*  openModal={openVideoDialog}*/}
-            {/*  onCloseModal={handleCloseVideoDialog}*/}
-            {/*  stream={zoomStream}*/}
-            {/*  zoomClient={zmClient}*/}
-            {/*/>*/}
           </div>
         )
       }

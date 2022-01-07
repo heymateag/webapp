@@ -1,14 +1,10 @@
-import { ConnectionState } from '@zoom/videosdk';
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from '../../../../lib/teact/teact';
-import { ZoomClient } from '../ZoomSdkService/ZoomSdkService';
-import VideoSessionDialog from '../ZoomDialog/VideoSessionDialog';
 import OfferFooter from './components/OfferFooter';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 import useLang from '../../../../hooks/useLang';
 import Button from '../../../ui/Button';
-import { ClientType } from '../ZoomSdkService/types';
 import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
 import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
@@ -55,23 +51,9 @@ const Offer: FC<OwnProps & DispatchProps> = ({
     text: '',
     color: 'green',
   });
-  const [openVideoDialog, setOpenVideoDialog] = useState(false);
-
-  const [zmClient, setZmClient] = useState<ClientType>();
-
-  const [zoomStream, setZoomStream] = useState();
-
-  const [isFailover, setIsFailover] = useState<boolean>(false);
-
-  const [status, setStatus] = useState<string>('closed');
-
-  const [loadingText, setLoadingText] = useState('');
 
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
 
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
-  };
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -162,41 +144,8 @@ const Offer: FC<OwnProps & DispatchProps> = ({
   };
 
   const joinMeeting = async () => {
-    setOpenVideoDialog(true);
-    const client = new ZoomClient('test2', '5AR8pk', 'John Doe!');
-    setJoinMeetingLoader(true);
-    await client.join();
-
-    setZmClient(client.zmClient);
-    setZoomStream(client.mediaStream);
-
-    setJoinMeetingLoader(false);
+    // TODO join meeting from states
   };
-
-  const onConnectionChange = useCallback(
-    (payload) => {
-      if (payload.state === ConnectionState.Reconnecting) {
-        // setIsLoading(true);
-        setIsFailover(true);
-        setStatus('connecting');
-        const { reason } = payload;
-        if (reason === 'failover') {
-          setLoadingText('Session Disconnected,Try to reconnect');
-        }
-      } else if (payload.state === ConnectionState.Connected) {
-        setStatus('connected');
-        if (isFailover) {
-          // setIsLoading(false);
-        }
-      } else if (payload.state === ConnectionState.Closed) {
-        setStatus('closed');
-        if (payload.reason === 'ended by host') {
-          // TODO use general notification here !
-        }
-      }
-    },
-    [isFailover],
-  );
 
   const getOrderById = useCallback(async () => {
     const response = await axiosService({
@@ -224,17 +173,6 @@ const Offer: FC<OwnProps & DispatchProps> = ({
       clearInterval(intervalId);
     };
   }, [getOrderById, reservationStatus]);
-
-  useEffect(() => {
-    if (typeof zmClient !== 'undefined') {
-      zmClient?.on('connection-change', onConnectionChange);
-    }
-    return () => {
-      if (typeof zmClient !== 'undefined') {
-        zmClient?.off('connection-change', onConnectionChange);
-      }
-    };
-  }, [zmClient, onConnectionChange]);
 
   const handleCLoseDetailsModal = () => {
     setOpenDetailsModal(false);
@@ -317,13 +255,6 @@ const Offer: FC<OwnProps & DispatchProps> = ({
           onStatusChanged={handleReservationStatusChanges}
         />
       </div>
-      <VideoSessionDialog
-        isLoading={joinMeetingLoader}
-        openModal={openVideoDialog}
-        onCloseModal={handleCloseVideoDialog}
-        stream={zoomStream}
-        zoomClient={zmClient}
-      />
       <OfferDetailsDialog
         openModal={openDetailsModal}
         offer={props.offer}
