@@ -15,6 +15,7 @@ export function useCanvasDimension(
     ({ width, height }) => {
       if (videoRef) {
         _.debounce((...args) => {
+          console.log('taghirat');
           setDimension({
             width: args[0],
             height: args[1],

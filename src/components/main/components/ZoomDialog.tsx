@@ -37,6 +37,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
 }) => {
+  console.log('bo azar');
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -50,7 +51,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const [confirmModal, setConfirmModal] = useState(false);
 
-  const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
+  // const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -76,7 +77,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   useEffect(() => {
     setIsSharing(isRecieveSharing || isStartedShare);
-    console.log('here to share !');
   }, [isRecieveSharing, isStartedShare]);
 
   useEffect(() => {
@@ -100,7 +100,9 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       setContainerDimension({ width, height });
     }, 50).call(this);
   }, []);
+
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
+
   useEffect(() => {
     if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
       zoomDialog.stream?.updateSharingCanvasDimension(
@@ -121,28 +123,28 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
-  const activeVideo = useActiveVideo(zoomDialog.zoomClient);
+  // const activeVideo = useActiveVideo(zoomDialog.zoomClient);
+  //
+  // const {
+  //   page, pageSize, totalPage, totalSize, setPage,
+  // } = usePagination(
+  //   zoomDialog.zoomClient,
+  //   canvasDimension,
+  // );
 
-  const {
-    page, pageSize, totalPage, totalSize, setPage,
-  } = usePagination(
-    zoomDialog.zoomClient,
-    canvasDimension,
-  );
-
-  const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
-    zoomDialog.zoomClient,
-    zoomDialog.stream,
-    true,
-    videoRef,
-    canvasDimension,
-    {
-      page,
-      pageSize,
-      totalPage,
-      totalSize,
-    },
-  );
+  // const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
+  //   zoomDialog.zoomClient,
+  //   zoomDialog.stream,
+  //   true,
+  //   videoRef,
+  //   canvasDimension,
+  //   {
+  //     page,
+  //     pageSize,
+  //     totalPage,
+  //     totalSize,
+  //   },
+  // );
 
   const handleCLoseDetailsModal = () => {
     closeZoomDialogModal({
@@ -265,34 +267,12 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
+          width="500"
+          height="500"
           ref={videoRef}
         />
         <ul className="avatar-list">
-          {visibleParticipants.map((user, index) => {
-            if (index > videoLayout.length - 1) {
-              return null;
-            }
-            const dimension = videoLayout[index];
-            const {
-              width, height, x, y,
-            } = dimension;
-            const { height: canvasHeight } = canvasDimension;
-            const userId = JSON.parse(user.displayName).id;
-            return (
-              <ZoomAvatar
-                currentUserId={userId}
-                participant={user}
-                key={user.userId}
-                isActive={activeVideo === user.userId}
-                style={{
-                  width: `${width}px`,
-                  height: `${height}px`,
-                  top: `${canvasHeight - y - height}px`,
-                  left: `${x}px`,
-                }}
-              />
-            );
-          })}
+
         </ul>
       </div>
       <ZoomVideoFooter
