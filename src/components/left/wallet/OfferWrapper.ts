@@ -19,9 +19,12 @@ class OfferWrapper {
 
   address: string;
 
+  mainNet: boolean;
+
   constructor(address: string, contractKit: ContractKit, mainNet: boolean, provider: any) {
     let contract: Contract;
     this.provider = provider;
+    this.mainNet = mainNet;
     if (mainNet) {
       contract = new OfferContract(OFFERS_ON_MAINNET, address, provider).create();
     } else {
@@ -61,6 +64,7 @@ class OfferWrapper {
     // JSONObject configJSON = new JSONObject(offer.getTermsConfig());
 
     const config: BN[] = this.getConfig(offer);
+    debugger
     await this.transfer(amount, stableToken);
     let answer;
     try {
@@ -117,13 +121,12 @@ class OfferWrapper {
   };
 
   transfer = async (amount: any, stableToken: StableTokenWrapper) => {
-    const x = await stableToken.transfer(OFFERS_ON_ALFAJORES, amount).send();
+    const x = await stableToken.transfer(this.mainNet ? OFFERS_ON_MAINNET : OFFERS_ON_ALFAJORES, amount).send();
     const resid = await x.getHash();
     return resid;
   };
 
   startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
-    debugger
     let tradeIdHash;
     if (tradeId.length <= 36) {
       tradeIdHash = `0x${tradeId.split('-').join('')}`;

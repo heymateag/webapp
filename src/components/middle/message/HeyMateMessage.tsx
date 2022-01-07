@@ -359,7 +359,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       const accounts = await kit.web3.eth.getAccounts();
       // eslint-disable-next-line prefer-destructuring
       kit.defaultAccount = accounts[0];
-      const offerWrapper = new OfferWrapper(address, kit, false, provider);
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
       if (answer) {
         handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
