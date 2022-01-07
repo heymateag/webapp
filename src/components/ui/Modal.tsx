@@ -28,6 +28,7 @@ type OwnProps = {
   header?: any;
   hasCloseButton?: boolean;
   noBackdrop?: boolean;
+  hideBackDrop?: boolean
   children: any;
   onClose: () => void;
   onCloseAnimationEnd?: () => void;
@@ -47,6 +48,7 @@ const Modal: FC<OwnProps & StateProps> = ({
   header,
   hasCloseButton,
   noBackdrop,
+  hideBackDrop,
   children,
   onClose,
   onCloseAnimationEnd,
@@ -128,6 +130,7 @@ const Modal: FC<OwnProps & StateProps> = ({
     className,
     transitionClassNames,
     noBackdrop && 'transparent-backdrop',
+    hideBackDrop && 'hide-backdrop',
   );
 
   return (

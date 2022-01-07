@@ -211,6 +211,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   return (
     <Modal
       header={ModalHeader()}
+      hideBackDrop
       isOpen={zoomDialog.openModal}
       onClose={handleCLoseDetailsModal}
       onEnter={zoomDialog.openModal ? handleCLoseDetailsModal : undefined}

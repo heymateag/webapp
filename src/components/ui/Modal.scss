@@ -24,8 +24,14 @@
 
     .modal-dialog {
       max-width: none;
-      height: 90vh;
-      width: 70vw;
+      height: 30vh;
+      width: 20vw;
+    }
+
+    &.minimize {
+      .meeting-control-layer {
+        display: none !important;
+      }
     }
 
     &.maximize {
@@ -33,6 +39,9 @@
         max-width: none;
         height: 100vh;
         width: 100vw;
+      }
+      .meeting-control-layer {
+        display: flex;
       }
     }
 
@@ -67,6 +76,20 @@
 
   &.transparent-backdrop .modal-backdrop {
     background-color: transparent;
+  }
+
+  &.hide-backdrop {
+    .modal-backdrop {
+    background-color: transparent;
+    position: unset !important;
+    }
+    .modal-dialog {
+      margin: 0 !important;
+    }
+    .modal-container {
+      position: unset !important;
+      float: right;
+    }
   }
 
   .modal-dialog {
