@@ -1,3 +1,4 @@
+import { decode } from 'js-base64';
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState,
 } from 'teact/teact';
@@ -277,7 +278,10 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
               width, height, x, y,
             } = dimension;
             const { height: canvasHeight } = canvasDimension;
-            const userId = JSON.parse(user.displayName).id;
+            const test = user.displayName;
+            debugger
+            const userAllData = decode(user.displayName);
+            const userId = JSON.parse(userAllData).i;
             return (
               <ZoomAvatar
                 currentUserId={userId}

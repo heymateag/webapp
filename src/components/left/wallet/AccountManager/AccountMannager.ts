@@ -11,12 +11,17 @@ export const newKitBalances = async (kit:any, address: string) => {
   const temp = {
     CELO: '0',
     cUSD: '0',
+    cEUR: '0',
+    cREAL: '0',
   };
 
   if (accountBalances) {
     // @ts-ignore
     temp.CELO = web3.utils.fromWei(accountBalances.CELO.toString());
     // @ts-ignore
+    temp.cUSD = web3.utils.fromWei(accountBalances.cUSD.toString());
+    temp.cREAL = web3.utils.fromWei(accountBalances.cREAL.toString());
+    temp.cEUR = web3.utils.fromWei(accountBalances.cEUR.toString());
     temp.cUSD = web3.utils.fromWei(accountBalances.cUSD.toString());
   }
   return temp;

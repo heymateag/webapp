@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  FC, memo, useCallback, useEffect, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
 import RadioGroup from '../../ui/RadioGroup';
 import Button from '../../ui/Button';
@@ -18,6 +18,14 @@ import { ClientType } from '../../main/components/ZoomSdkService/types';
 import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../util/iteratees';
 import { GlobalActions } from '../../../global/types';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import QrCreator from 'qr-creator';
+import Modal from '../../ui/Modal';
+import Spinner from '../../ui/Spinner';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
+import OfferWrapper from '../../left/wallet/OfferWrapper';
+import Web3 from 'web3';
 
 type OwnProps = {
   message: ApiMessage;
@@ -43,6 +51,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [offerLoaded, setOfferLoaded] = useState<boolean>(false);
   const [reservationLoaded, setReservationLoaded] = useState<boolean>(false);
   const [reservationId, setReservationId] = useState<string>('');
+  const [reservationItem, setReservationItem] = useState<ReservationModel>('');
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
   const [zoomStream, setZoomStream] = useState();
   const [zmClient, setZmClient] = useState<ClientType>();
@@ -54,6 +63,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [isExpired, setIsExpired] = useState(false);
 
   const [meetingData, setMeetingData] = useState<any>(undefined);
+
+  const [openQrModal, setOpenQRModal] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(true);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+  const [uri, setUri] = useState<string>('');
+  const [isConnected, setIsConnected] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+
 
   const handleExpired = (expireTime: any) => {
     const now = new Date();
@@ -97,7 +114,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     });
     if ((response.data.data.length > 0) && response.status === 200) {
       const reservationData = response.data.data[0];
-
+      getOfferById(reservationData.offerId);
+      setReservationItem(reservationData);
       if (reservationData.status === ReservationStatus.MARKED_AS_STARTED) {
         setCanJoin(true);
         setReservationId(reservationData.id);
@@ -109,6 +127,65 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     } else {
       setReservationLoaded(false);
     }
+  };
+
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
+    });
+  }, []);
+  const renderUriAsQr = (givenUri?) => {
+    setOpenQRModal(true);
+    setLoadingQr(true);
+
+    setTimeout(() => {
+      const validUri = givenUri || uri;
+
+      const container = qrCodeRef.current!;
+      container.innerHTML = '';
+      container.classList.remove('pre-animate');
+
+      QrCreator.render({
+        text: `${validUri}`,
+        radius: 0.5,
+        ecLevel: 'M',
+        fill: '#4E96D4',
+        size: 280,
+      }, container);
+      setLoadingQr(false);
+    }, 100);
+  };
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
+    setOpenQRModal(true);
+    setLoadingQr(true);
+    renderUriAsQr();
+  };
+  provider.connector.on('display_uri', (err, payload) => {
+    setIsConnected(false);
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    renderUriAsQr(wcUri);
+    setLoadingQr(false);
+  });
+
+  const handleCLoseWCModal = () => {
+    setOpenQRModal(false);
+    provider.isConnecting = false;
+    setLoadingBalance(false);
   };
 
   useEffect(() => {
@@ -248,6 +325,51 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     setJoinMeetingLoader(false);
   };
 
+  const handleChangeReservationStatus = async (id: string, newStatus: ReservationStatus) => {
+    // setIsLoading(true);
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/${reservationId}`,
+      method: 'PUT',
+      body: {
+        status: newStatus,
+      },
+    });
+    // setIsLoading(false);
+    if (response?.status === 200) {
+      joinMeeting();
+    }
+  };
+
+  const handleStartInCelo = async () => {
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+        setIsConnected(true);
+        setOpenQRModal(false);
+      });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
+      if (answer) {
+        handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
+      } else {
+        console.log('failed');
+      }
+    } else {
+      handleOpenWCModal();
+    }
+  };
+
   // @ts-ignore
   return (
     <div>
@@ -345,7 +467,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
               <Button
                 isLoading={joinMeetingLoader}
                 disabled={!canJoin}
-                onClick={joinMeeting}
+                onClick={handleStartInCelo}
                 className="book-offer"
                 size="smaller"
                 color="primary"
@@ -366,6 +488,21 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )
       }
+      <Modal
+        hasCloseButton
+        isOpen={openQrModal}
+        onClose={handleCLoseWCModal}
+        onEnter={openQrModal ? handleCLoseWCModal : undefined}
+        className="WalletQrModal"
+        title="Wallet Connect"
+      >
+        {loadingQr && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
+        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      </Modal>
     </div>
   );
 };

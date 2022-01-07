@@ -17,8 +17,10 @@ import TransactionRow from './TransactionRow/TransactionRow';
 import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
+import Select from '../../ui/Select';
 // import HeymateOffer from './HeymateOffer';
 // import OfferContract from './OfferContract';
+import { axiosService } from '../../../api/services/axiosService';
 
 export type OwnProps = {
   onReset: () => void;
@@ -27,6 +29,8 @@ export type OwnProps = {
 interface IBalance {
   CELO: string;
   cUSD: string;
+  cEUR: string;
+  cREAL: string;
 }
 
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
@@ -41,6 +45,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const [isConnected, setIsConnected] = useState(false);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
+  const [balanceType, setBalanceType] = useState('cUSD');
+  const [transactionList, setTransactionList] = useState([]);
 
   useEffect(() => {
     setWidth(window.innerWidth);
@@ -83,6 +89,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
     CELO: '0',
+    cEUR: '0',
+    cREAL: '0',
   });
   const lang = useLang();
 
@@ -176,22 +184,42 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     makeKitsFromProvideAndGetBalance();
   });
 
+  const getTransactions = async () => {
+    const baseURL = provider.chainId !== 44787
+      ? 'https://explorer.celo.org/'
+      : 'https://alfajores-blockscout.celo-testnet.org/';
+    const url = `${baseURL}api?module=account&action=tokentx&page=0&offset=50&address=${provider.accounts[0]}`;
+    const response = await axiosService({
+      url,
+      method: 'GET',
+      body: {},
+    });
+    const weiEther = kit?.web3?.utils?.toWei('1', 'ether');
+    const filter = response.data.result.filter((row) => (row.value / weiEther) > 0.01);
+    // debugger
+    setTransactionList(filter);
+  };
+
   useEffect(() => {
     const reconnectToProvider = async () => {
       await provider.enable()
         .then((res) => {
-          debugger
           setIsConnected(true);
           makeKitsFromProvideAndGetBalance(res[0]);
         });
     };
     if (provider.isWalletConnect) {
-
       reconnectToProvider();
     } else {
       setLoadingBalance(false);
     }
   }, [provider]);
+
+  useEffect(() => {
+    if (kit) {
+      getTransactions();
+    }
+  }, [kit]);
 
   const doTransaction = () => {
     sendcUSD(kit).then((res) => {
@@ -199,6 +227,11 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     }).catch((err) => {
       showNotification({ message: err.message });
     });
+  };
+
+  const handleChangeCurrency = (e: any) => {
+    const filter = e.target.value;
+    setBalanceType(filter);
   };
 
   return (
@@ -229,7 +262,27 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           </div>
         )}
         {(!loadingBalance && isConnected) && (
-          <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>
+          <>
+            <div className="currency-select">
+              <Select
+                label="Currency"
+                placeholder="Currency"
+                onChange={handleChangeCurrency}
+                value={balanceType}
+                hasArrow={Boolean(true)}
+                id="status-filter"
+              >
+                <option value="cUSD">cUSD</option>
+                <option value="cEUR">cEUR</option>
+                <option value="cREAL">cREAL</option>
+                <option value="CELO">CELO</option>
+              </Select>
+            </div>
+            {balanceType === 'cUSD' && <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>}
+            {balanceType === 'cEUR' && <h3 id="balance">$ {parseFloat(balance.cEUR).toFixed(2)}</h3>}
+            {balanceType === 'cREAL' && <h3 id="balance">$ {parseFloat(balance.cREAL).toFixed(2)}</h3>}
+            {balanceType === 'CELO' && <h3 id="balance">$ {parseFloat(balance.CELO).toFixed(2)}</h3>}
+          </>
         )}
         {(!loadingBalance && !isConnected) && (
           <span id="balance">Connect Your Account</span>
@@ -254,15 +307,22 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       </div>
       <div className="wallet-transactions custom-scroll">
         <h4 id="caption">Transactions</h4>
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
-        <TransactionRow />
+        {
+          transactionList.map((name: any) => {
+            return (
+              <TransactionRow
+                key={name.timeStamp}
+                value={name.value}
+                weiEther={kit?.web3?.utils?.toWei('1', 'ether')}
+                from={name.from}
+                to={name.to}
+                timeStamp={name.timeStamp}
+                tokenSymbol={name.tokenSymbol}
+                address={provider.accounts[0]}
+              />
+            );
+          })
+        }
       </div>
       <Modal
         hasCloseButton

@@ -7,6 +7,7 @@ import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { GlobalActions } from 'src/global/types';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import QrCreator from 'qr-creator';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -251,7 +252,9 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       const accounts = await kit.web3.eth.getAccounts();
       // eslint-disable-next-line prefer-destructuring
       kit.defaultAccount = accounts[0];
-      offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], false, web3);
+      debugger
+      const mainNet = provider.chainId !== 44787;
+      offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], mainNet, web3);
       const response = await offerPurchase.purchase();
       setBookOfferLoading(false);
       if (!response) {

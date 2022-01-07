@@ -1,4 +1,5 @@
 import { withGlobal } from 'teact/teactn';
+import { encode } from 'js-base64';
 import React, {
   FC,
   memo,
@@ -30,6 +31,7 @@ import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
+import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 
 type TimeToStart = {
   days: number;
@@ -76,6 +78,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   const [zoomStream, setZoomStream] = useState();
 
   const [zmClient, setZmClient] = useState<ClientType>();
+
+  const [offer, setOffer] = useState<IOffer>({});
 
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
@@ -161,6 +165,21 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
+  const getOfferById = useCallback(async () => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/offer/${props.time_slot?.offerId}`,
+      method: 'GET',
+      body: {},
+    });
+    if (response?.status && response?.data) {
+      setOffer(response.data.data);
+    }
+  }, [props.time_slot?.offerId]);
+
+  useEffect(() => {
+    getOfferById();
+  }, []);
+
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
   }, []);
@@ -199,10 +218,11 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   useMemo(() => {
     if (currentUser) {
       let userData:any = {
-        firstName: currentUser.firstName,
-        id: currentUser.id,
+        f: currentUser.firstName,
+        i: currentUser.id,
       };
       userData = JSON.stringify(userData);
+      userData = encode(userData);
       setZoomUser(userData);
     }
   }, [currentUser]);
@@ -270,8 +290,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
               <img src={offer1} alt="" />
             </div>
             <div className="offer-details">
-              <h4>{props.offer.title}</h4>
-              <span className="offer-location">{props.offer.description}</span>
+              <h4>{offer.title}</h4>
+              <span className="offer-location">{offer.description}</span>
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>
                   {tagStatus.text}
@@ -321,13 +341,13 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
           status={reservationStatus}
           onJoinMeeting={joinMeeting}
           onStatusChanged={handleReservationStatusChanges}
-          offer={props.offer}
+          offer={offer}
           tradeId={props.tradeId || ''}
         />
       </div>
       <OfferDetailsDialog
         openModal={openDetailsModal}
-        offer={props.offer}
+        offer={offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
     </div>
