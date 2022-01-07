@@ -177,7 +177,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     setConfirmModal(false);
     try {
       await zoomDialog.zoomClient.leave();
-      await handleFinishMeeting();
+      // await handleFinishMeeting();
       closeZoomDialogModal({
         openModal: false,
       });
