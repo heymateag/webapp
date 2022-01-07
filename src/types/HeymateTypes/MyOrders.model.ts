@@ -12,4 +12,5 @@ export interface IMyOrders {
   createdAt?: string;
   serviceProviderId?: string;
   tradeId?: string;
+  offerId?: string;
 }

@@ -50,7 +50,7 @@ class OfferPurchase {
     let stableToken: StableTokenWrapper;
     if (this.offer.pricing.currency === 'USD') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
-    } else if (this.offer.pricing.currency === 'EURO') {
+    } else if (this.offer.pricing.currency === 'EUR') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     } else {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cREAL);

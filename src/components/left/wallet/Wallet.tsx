@@ -288,13 +288,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           <span id="balance">Connect Your Account</span>
         )}
         <div className="btn-row">
-          {/* {isConnected && (
+          {isConnected && (
             <div id="add-money" className="btn-holder">
               <Button onClick={doTransaction} size="smaller" color="primary">
                 Add Money
               </Button>
             </div>
-          )} */}
+          )}
           { (!loadingBalance && !isConnected)
             && (
               <div id="cashout" className="btn-holder">

@@ -1,4 +1,5 @@
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+import { encode } from 'js-base64';
 import React, {
   FC,
   memo,
@@ -154,10 +155,11 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   useMemo(() => {
     if (currentUser) {
       let userData:any = {
-        firstName: currentUser.firstName,
-        id: currentUser.id,
+        f: currentUser.firstName,
+        i: currentUser.id,
       };
       userData = JSON.stringify(userData);
+      userData = encode(userData);
       setZoomUser(userData);
     }
   }, [currentUser]);

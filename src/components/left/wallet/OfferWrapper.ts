@@ -51,7 +51,7 @@ class OfferWrapper {
     let stableToken: StableTokenWrapper;
     if (offer.pricing.currency === 'USD') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
-    } else if (offer.pricing.currency === 'EURO') {
+    } else if (offer.pricing.currency === 'EUR') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     } else {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cREAL);
@@ -66,7 +66,9 @@ class OfferWrapper {
     // JSONObject configJSON = new JSONObject(offer.getTermsConfig());
 
     const config: BN[] = this.getConfig(offer);
+
     await this.transfer(amount, stableToken);
+
     let answer;
     try {
       answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.createOffer(
@@ -85,6 +87,7 @@ class OfferWrapper {
         // '0x00',
       )).send();
     } catch (error) {
+
       throw new Error('error');
     }
     const receipt = await answer.getHash();
@@ -121,6 +124,7 @@ class OfferWrapper {
   };
 
   transfer = async (amount: any, stableToken: StableTokenWrapper) => {
+
     const x = await stableToken.transfer(this.mainNet ? OFFERS_ON_MAINNET : OFFERS_ON_ALFAJORES, amount).send();
     const resid = await x.getHash();
     return resid;
@@ -167,7 +171,12 @@ class OfferWrapper {
   };
 
   finishService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
-    const tradeIdHash = `${tradeId.split('-').join('')}`;
+    let tradeIdHash;
+    if (tradeId.length <= 36) {
+      tradeIdHash = `0x${tradeId.split('-').join('')}`;
+    } else {
+      tradeIdHash = `${tradeId.split('-').join('')}`;
+    }
     const rate: BN = new BN(offer.pricing.price);
     const amount = web3.utils.toWei(rate, 'ether');
     let answer;
