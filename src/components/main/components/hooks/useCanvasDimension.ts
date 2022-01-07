@@ -26,12 +26,13 @@ export function useCanvasDimension(
     [videoRef],
   );
   useSizeCallback(videoRef.current, onCanvasResize);
-  useMount(() => {
-    if (videoRef.current) {
-      const { width, height } = videoRef.current.getBoundingClientRect();
-      setDimension({ width, height });
-    }
-  });
+  // useMount(() => {
+  //   if (videoRef.current) {
+  //     debugger
+  //     const { width, height } = videoRef.current.getBoundingClientRect();
+  //     setDimension({ width, height });
+  //   }
+  // });
   useEffect(() => {
     const { width, height } = dimension;
     try {

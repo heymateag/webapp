@@ -199,8 +199,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   useMemo(() => {
     if (currentUser) {
       let userData:any = {
-        firstName: currentUser.firstName,
-        id: currentUser.id,
+        f: currentUser.firstName,
+        i: currentUser.id,
       };
       userData = JSON.stringify(userData);
       setZoomUser(userData);

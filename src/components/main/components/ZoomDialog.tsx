@@ -51,7 +51,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const [confirmModal, setConfirmModal] = useState(false);
 
-  // const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
+  const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
