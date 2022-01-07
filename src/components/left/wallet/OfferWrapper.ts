@@ -51,8 +51,10 @@ class OfferWrapper {
     let stableToken: StableTokenWrapper;
     if (offer.pricing.currency === 'USD') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
-    } else {
+    } else if (offer.pricing.currency === 'EURO') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
+    } else {
+      stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cREAL);
     }
     const userAddresses: string[] = [
       offer.sp_wallet_address,
@@ -64,7 +66,6 @@ class OfferWrapper {
     // JSONObject configJSON = new JSONObject(offer.getTermsConfig());
 
     const config: BN[] = this.getConfig(offer);
-    debugger
     await this.transfer(amount, stableToken);
     let answer;
     try {
@@ -84,7 +85,6 @@ class OfferWrapper {
         // '0x00',
       )).send();
     } catch (error) {
-      debugger
       throw new Error('error');
     }
     const receipt = await answer.getHash();
@@ -167,7 +167,6 @@ class OfferWrapper {
   };
 
   finishService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
-    debugger
     const tradeIdHash = `${tradeId.split('-').join('')}`;
     const rate: BN = new BN(offer.pricing.price);
     const amount = web3.utils.toWei(rate, 'ether');

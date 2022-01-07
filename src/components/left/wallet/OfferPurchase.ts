@@ -50,8 +50,10 @@ class OfferPurchase {
     let stableToken: StableTokenWrapper;
     if (this.offer.pricing.currency === 'USD') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
-    } else {
+    } else if (this.offer.pricing.currency === 'EURO') {
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
+    } else {
+      stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cREAL);
     }
     const balance = await stableToken.balanceOf(this.address);
     const bnBalance = new BN(balance.toString());
