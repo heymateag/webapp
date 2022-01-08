@@ -37,7 +37,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
 }) => {
-  console.log('bo azar');
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
