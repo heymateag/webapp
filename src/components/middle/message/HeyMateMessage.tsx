@@ -111,29 +111,47 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     }
   };
 
+  const getReservationMeta = async (rsId: string) => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/meta/${rsId}`,
+      method: 'GET',
+      body: {},
+    });
+    if (response.status) {
+      const { data } = response;
+      setMeetingData({
+        title: data.offer.title,
+        topic: data.meetingId,
+        pass: data.meetingPassword,
+        tsId: data.timeSlot.id,
+        telegramId: data.user.telegramId,
+        userName: data.user.fullName,
+      });
+    }
+  };
+
   useEffect(() => {
     let offerId;
-    if (message.content.text?.text.includes('Heymate meeting')) {
+    if (message.content.text?.text.includes('heymate reservation')) {
       setRenderType('RESERVATION');
       const meetingDetails = message.content.text.text.split('/');
-      setMeetingData({
-        title: meetingDetails[1],
-        topic: meetingDetails[2],
-        pass: meetingDetails[3],
-        tsId: meetingDetails[4],
-        telegramId: meetingDetails[5],
-        userName: meetingDetails[6],
-      });
-      if (localStorage.getItem('HM_USERID')) {
-        const userId = localStorage.getItem('HM_USERID');
-        if (meetingDetails[4]) {
-          getReservationByTimeSlotId(meetingDetails[4], userId);
-        } else {
-          setReservationLoaded(false);
-        }
+      const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
+
+      if (matches.length >= 2) {
+        const reservationId = matches[1];
+        getReservationMeta();
       } else {
         setReservationLoaded(false);
       }
+      debugger;
+      // setMeetingData({
+      //   title: meetingDetails[1],
+      //   topic: meetingDetails[2],
+      //   pass: meetingDetails[3],
+      //   tsId: meetingDetails[4],
+      //   telegramId: meetingDetails[5],
+      //   userName: meetingDetails[6],
+      // });
     } else {
       const matches = message.content.text?.text.split(/offer\/([a-f\d-]+)\?/);
       if (matches && matches.length > 0) {
@@ -224,8 +242,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     const sessionPassword = meetingData.pass;
 
     const userData:any = {
-      firstName: meetingData.userName,
-      id: meetingData.telegramId,
+      f: meetingData.userName,
+      i: meetingData.telegramId,
     };
     const zoomUser = JSON.stringify(userData);
 
