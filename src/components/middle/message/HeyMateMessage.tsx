@@ -191,16 +191,17 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       method: 'GET',
       body: {},
     });
-    if (response.status) {
-      const { data } = response;
+    if (response.status === 200) {
+      const { data } = response.data;
       setMeetingData({
         title: data.offer.title,
         topic: data.meetingId,
         pass: data.meetingPassword,
-        tsId: data.timeSlot.id,
+        tsId: data.time_slot.id,
         telegramId: data.user.telegramId,
         userName: data.user.fullName,
       });
+      setReservationLoaded(true);
     }
   };
 
@@ -217,7 +218,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       } else {
         setReservationLoaded(false);
       }
-      debugger;
       // setMeetingData({
       //   title: meetingDetails[1],
       //   topic: meetingDetails[2],
