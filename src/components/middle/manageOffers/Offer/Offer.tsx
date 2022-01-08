@@ -280,7 +280,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div className="avatar-holder">
-              <img src={offer1} alt="" />
+              <img src={props.media[0]?.previewUrl} alt="" />
             </div>
             <div className="offer-details">
               <h4>{`${props.title} - ${offerHour}`}</h4>
