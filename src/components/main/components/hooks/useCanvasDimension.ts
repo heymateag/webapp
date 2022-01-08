@@ -28,7 +28,7 @@ export function useCanvasDimension(
   useMount(() => {
     if (videoRef.current) {
       const { width, height } = videoRef.current.getBoundingClientRect();
-      if (dimension.width !== width || dimension.height !== height) {
+      if (dimension.width !== width) {
         onCanvasResize({ width, height });
       }
     }
