@@ -29,8 +29,7 @@ export function useCanvasDimension(
     if (videoRef.current) {
       const { width, height } = videoRef.current.getBoundingClientRect();
       if (dimension.width !== width || dimension.height !== height) {
-        console.log('doctor shiri');
-        setDimension({ width, height });
+        onCanvasResize({ width, height });
       }
     }
   });
