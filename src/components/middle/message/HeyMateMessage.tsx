@@ -4,11 +4,11 @@ import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
+import { encode } from 'js-base64';
 import React, {
   FC, memo, useCallback, useEffect, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
 
-import { encode } from 'js-base64';
 import RadioGroup from '../../ui/RadioGroup';
 import Button from '../../ui/Button';
 import { ApiMessage } from '../../../api/types';
@@ -22,7 +22,6 @@ import './HeyMateMessage.scss';
 // eslint-disable-next-line import/extensions
 import GenerateNewDate from '../helpers/generateDateBasedOnTimeStamp';
 import { ZoomClient } from '../../main/components/ZoomSdkService/ZoomSdkService';
-import { ClientType } from '../../main/components/ZoomSdkService/types';
 
 import { pick } from '../../../util/iteratees';
 import { GlobalActions } from '../../../global/types';
@@ -99,34 +98,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     }
   }
 
-  /**
-   * Get Reservation By Time Slot Id
-   * @param tsId
-   * @param userId
-   */
-  const getReservationByTimeSlotId = async (tsId: string, userId: string | null) => {
-    const response = await axiosService({
-      url: `${HEYMATE_URL}/reservation/find-by-tsid?timeSlotId=${tsId}&consumerId=${userId}`,
-      method: 'GET',
-      body: {},
-    });
-    if ((response.data.data.length > 0) && response.status === 200) {
-      const reservationData = response.data.data[0];
-      getOfferById(reservationData.offerId);
-      setReservationItem(reservationData);
-      if (reservationData.status === ReservationStatus.MARKED_AS_STARTED) {
-        setCanJoin(true);
-        setReservationId(reservationData.id);
-        setReservationLoaded(true);
-      } else {
-        setCanJoin(false);
-        setReservationLoaded(true);
-      }
-    } else {
-      setReservationLoaded(false);
-    }
-  };
-
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
@@ -193,6 +164,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     });
     if (response.status === 200) {
       const { data } = response.data;
+
+      if (data.status === ReservationStatus.MARKED_AS_STARTED) {
+        setCanJoin(true);
+        setReservationId(data.id);
+      } else {
+        setCanJoin(false);
+      }
+
       setMeetingData({
         title: data.offer.title,
         topic: data.meetingId,
@@ -209,7 +188,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     let offerId;
     if (message.content.text?.text.includes('heymate reservation')) {
       setRenderType('RESERVATION');
-      const meetingDetails = message.content.text.text.split('/');
+
       const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
 
       if (matches.length >= 2) {
@@ -218,14 +197,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       } else {
         setReservationLoaded(false);
       }
-      // setMeetingData({
-      //   title: meetingDetails[1],
-      //   topic: meetingDetails[2],
-      //   pass: meetingDetails[3],
-      //   tsId: meetingDetails[4],
-      //   telegramId: meetingDetails[5],
-      //   userName: meetingDetails[6],
-      // });
     } else {
       const matches = message.content.text?.text.split(/offer\/([a-f\d-]+)\?/);
       if (matches && matches.length > 0) {
@@ -236,11 +207,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     }
   }, [message]);
 
-  useEffect(() => {
-    if (reservationId) {
-      setReservationId(reservationId);
-    }
-  }, [reservationId]);
 
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
