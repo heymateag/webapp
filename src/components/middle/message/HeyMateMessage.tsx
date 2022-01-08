@@ -1,6 +1,13 @@
+import { withGlobal } from 'teact/teactn';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
+import Web3 from 'web3';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import QrCreator from 'qr-creator';
 import React, {
   FC, memo, useCallback, useEffect, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
+
 import RadioGroup from '../../ui/RadioGroup';
 import Button from '../../ui/Button';
 import { ApiMessage } from '../../../api/types';
@@ -15,17 +22,14 @@ import './HeyMateMessage.scss';
 import GenerateNewDate from '../helpers/generateDateBasedOnTimeStamp';
 import { ZoomClient } from '../../main/components/ZoomSdkService/ZoomSdkService';
 import { ClientType } from '../../main/components/ZoomSdkService/types';
-import { withGlobal } from 'teact/teactn';
+
 import { pick } from '../../../util/iteratees';
 import { GlobalActions } from '../../../global/types';
-import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
+
 import Modal from '../../ui/Modal';
 import Spinner from '../../ui/Spinner';
-import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
-import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
+
 import OfferWrapper from '../../left/wallet/OfferWrapper';
-import Web3 from 'web3';
 
 type OwnProps = {
   message: ApiMessage;
@@ -70,7 +74,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
-
 
   const handleExpired = (expireTime: any) => {
     const now = new Date();
@@ -128,7 +131,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       setReservationLoaded(false);
     }
   };
-
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -188,29 +190,47 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     setLoadingBalance(false);
   };
 
+  const getReservationMeta = async (rsId: string) => {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/reservation/meta/${rsId}`,
+      method: 'GET',
+      body: {},
+    });
+    if (response.status) {
+      const { data } = response;
+      setMeetingData({
+        title: data.offer.title,
+        topic: data.meetingId,
+        pass: data.meetingPassword,
+        tsId: data.timeSlot.id,
+        telegramId: data.user.telegramId,
+        userName: data.user.fullName,
+      });
+    }
+  };
+
   useEffect(() => {
     let offerId;
-    if (message.content.text?.text.includes('Heymate meeting')) {
+    if (message.content.text?.text.includes('heymate reservation')) {
       setRenderType('RESERVATION');
       const meetingDetails = message.content.text.text.split('/');
-      setMeetingData({
-        title: meetingDetails[1],
-        topic: meetingDetails[2],
-        pass: meetingDetails[3],
-        tsId: meetingDetails[4],
-        telegramId: meetingDetails[5],
-        userName: meetingDetails[6],
-      });
-      if (localStorage.getItem('HM_USERID')) {
-        const userId = localStorage.getItem('HM_USERID');
-        if (meetingDetails[4]) {
-          getReservationByTimeSlotId(meetingDetails[4], userId);
-        } else {
-          setReservationLoaded(false);
-        }
+      const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
+
+      if (matches.length >= 2) {
+        const rsId = matches[1];
+        getReservationMeta(rsId);
       } else {
         setReservationLoaded(false);
       }
+      debugger;
+      // setMeetingData({
+      //   title: meetingDetails[1],
+      //   topic: meetingDetails[2],
+      //   pass: meetingDetails[3],
+      //   tsId: meetingDetails[4],
+      //   telegramId: meetingDetails[5],
+      //   userName: meetingDetails[6],
+      // });
     } else {
       const matches = message.content.text?.text.split(/offer\/([a-f\d-]+)\?/);
       if (matches && matches.length > 0) {
@@ -301,8 +321,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     const sessionPassword = meetingData.pass;
 
     const userData:any = {
-      firstName: meetingData.userName,
-      id: meetingData.telegramId,
+      f: meetingData.userName,
+      i: meetingData.telegramId,
     };
     const zoomUser = JSON.stringify(userData);
 
