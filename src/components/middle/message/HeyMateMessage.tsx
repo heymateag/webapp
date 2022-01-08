@@ -8,6 +8,7 @@ import React, {
   FC, memo, useCallback, useEffect, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
 
+import { encode } from 'js-base64';
 import RadioGroup from '../../ui/RadioGroup';
 import Button from '../../ui/Button';
 import { ApiMessage } from '../../../api/types';
@@ -57,10 +58,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [reservationId, setReservationId] = useState<string>('');
   const [reservationItem, setReservationItem] = useState<ReservationModel>('');
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
-  const [zoomStream, setZoomStream] = useState();
-  const [zmClient, setZmClient] = useState<ClientType>();
+
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
-  const [openVideoDialog, setOpenVideoDialog] = useState(false);
   const [canJoin, setCanJoin] = useState(false);
 
   const [bundlePrice, setBundlePrice] = useState(0);
@@ -99,10 +98,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       setOfferLoaded(false);
     }
   }
-
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
-  };
 
   /**
    * Get Reservation By Time Slot Id
@@ -320,13 +315,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     const meetingId = meetingData.topic;
     const sessionPassword = meetingData.pass;
 
-    const userData:any = {
+    let userData:any = {
       f: meetingData.userName,
       i: meetingData.telegramId,
     };
-    const zoomUser = JSON.stringify(userData);
+    userData = JSON.stringify(userData);
+    userData = encode(userData);
 
-    const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
+    const client = new ZoomClient(meetingId, sessionPassword, userData);
     setJoinMeetingLoader(true);
     await client.join();
 
@@ -338,9 +334,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       reservationId,
       userType: 'CONSUMER',
     });
-
-    setZmClient(client.zmClient);
-    setZoomStream(client.mediaStream);
 
     setJoinMeetingLoader(false);
   };
