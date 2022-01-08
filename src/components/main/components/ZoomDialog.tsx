@@ -123,28 +123,28 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
-  // const activeVideo = useActiveVideo(zoomDialog.zoomClient);
-  //
-  // const {
-  //   page, pageSize, totalPage, totalSize, setPage,
-  // } = usePagination(
-  //   zoomDialog.zoomClient,
-  //   canvasDimension,
-  // );
+  const activeVideo = useActiveVideo(zoomDialog.zoomClient);
 
-  // const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
-  //   zoomDialog.zoomClient,
-  //   zoomDialog.stream,
-  //   true,
-  //   videoRef,
-  //   canvasDimension,
-  //   {
-  //     page,
-  //     pageSize,
-  //     totalPage,
-  //     totalSize,
-  //   },
-  // );
+  const {
+    page, pageSize, totalPage, totalSize, setPage,
+  } = usePagination(
+    zoomDialog.zoomClient,
+    canvasDimension,
+  );
+
+  const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
+    zoomDialog.zoomClient,
+    zoomDialog.stream,
+    true,
+    videoRef,
+    canvasDimension,
+    {
+      page,
+      pageSize,
+      totalPage,
+      totalSize,
+    },
+  );
 
   const handleCLoseDetailsModal = () => {
     closeZoomDialogModal({
@@ -272,7 +272,31 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           ref={videoRef}
         />
         <ul className="avatar-list">
-
+          {visibleParticipants.map((user, index) => {
+            if (index > videoLayout.length - 1) {
+              return null;
+            }
+            const dimension = videoLayout[index];
+            const {
+              width, height, x, y,
+            } = dimension;
+            const { height: canvasHeight } = canvasDimension;
+            const userId = JSON.parse(user.displayName).id;
+            return (
+              <ZoomAvatar
+                currentUserId={userId}
+                participant={user}
+                key={user.userId}
+                isActive={activeVideo === user.userId}
+                style={{
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  top: `${canvasHeight - y - height}px`,
+                  left: `${x}px`,
+                }}
+              />
+            );
+          })}
         </ul>
       </div>
       <ZoomVideoFooter
