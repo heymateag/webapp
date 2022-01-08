@@ -378,7 +378,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           <div className="HeyMateMessage">
             <div className="my-offer-body">
               <div className="my-offer-img-holder">
-                <img src="https://picsum.photos/200/300" alt="" />
+                <img src={offerMsg?.media[0]?.previewUrl} alt="" />
               </div>
               <div className="my-offer-descs">
                 <h4 className="title">{offerMsg?.title}</h4>
