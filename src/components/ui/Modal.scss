@@ -26,9 +26,6 @@
       max-width: none;
       height: 30vh;
       width: 20vw;
-    }
-
-    &.minimize {
       .meeting-control-layer {
         display: none !important;
       }
@@ -41,7 +38,7 @@
         width: 100vw;
       }
       .meeting-control-layer {
-        display: flex;
+        display: flex !important;
       }
     }
 

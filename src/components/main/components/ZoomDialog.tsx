@@ -267,8 +267,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
-          width="500"
-          height="500"
+          // width="500"
+          // height="500"
           ref={videoRef}
         />
         <ul className="avatar-list">
