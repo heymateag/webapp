@@ -135,7 +135,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
     >
       <div className="offer-details-modal-container">
         <div className="offer-images">
-          <img src={offer?.media[0]?.previewUrl}  alt="" />
+          <img src={offer?.media[0]?.previewUrl} crossOrigin="anonymous"  alt="" />
           {message && (
             <div id="share-offer" onClick={handleForward}>
               <i className="hm-arrow-share" />
