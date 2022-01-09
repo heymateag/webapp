@@ -77,7 +77,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   useEffect(() => {
     setIsSharing(isRecieveSharing || isStartedShare);
-    console.log('here to share !');
   }, [isRecieveSharing, isStartedShare]);
 
   useEffect(() => {
@@ -101,7 +100,9 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       setContainerDimension({ width, height });
     }, 50).call(this);
   }, []);
+
   useSizeCallback(shareContainerRef.current, onShareContainerResize);
+
   useEffect(() => {
     if (!isShallowEqual(shareViewDimension, sharedContentDimension)) {
       zoomDialog.stream?.updateSharingCanvasDimension(
@@ -266,6 +267,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
+          width="500"
+          height="500"
           ref={videoRef}
         />
         <ul className="avatar-list">

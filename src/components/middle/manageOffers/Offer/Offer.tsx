@@ -172,7 +172,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setIsMenuOpen(false);
   };
 
-  const sendMessageToParticipants = async (meetingId: string, sessionPassword: string) => {
+  const sendMessageToParticipants = async () => {
     const tsId = props?.selectedSchedule?.id;
     const participants = await getParticipants(tsId);
     if (participants) {
@@ -182,7 +182,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
             id: user.telegramId,
           },
           // eslint-disable-next-line max-len
-          text: `Heymate meeting /${props.title}/${meetingId}/${sessionPassword}/${tsId}/${user.telegramId}/${user.fullName}`,
+          text: `heymate reservation https://heymate.works/reservation/${user.reservationId}?dd`,
         });
       }
     } else {
@@ -195,7 +195,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const joinMeeting = async (meetingId: string, sessionPassword: string) => {
-    await sendMessageToParticipants(meetingId, sessionPassword);
+    await sendMessageToParticipants();
 
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
 
