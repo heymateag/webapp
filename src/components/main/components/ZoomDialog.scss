@@ -110,7 +110,12 @@
           align-items: center;
           overflow: hidden;
           width: calc(100% - 264px);
+          width: -webkit-calc(100%  - 264px);
+          width: -moz-calc(100%  - 264px);
+
           height: calc(100% - 46px);
+          height: -webkit-calc(100% - 46px);
+          height: -moz-calc(100% - 46px);
         }
         .share-container-viewport{
           display: inline-block;
