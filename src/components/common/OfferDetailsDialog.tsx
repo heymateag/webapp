@@ -51,6 +51,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('SINGLE');
 
   const [bundlePrice, setBundlePrice] = useState(0);
+  const [offerImage, setOfferImage] = useState('');
 
   const [stringRawDate, serStringRawData] = useState<StringRawData>({});
 
@@ -76,6 +77,13 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
   }, [openForwardMenu, message]);
 
   useEffect(() => {
+    if (offer) {
+      if (offer.media) {
+        if (offer.media[0]) {
+          setOfferImage(offer.media[0]?.previewUrl);
+        }
+      }
+    }
     if (offer?.expiration) {
       let expiration: any = offer?.expiration;
       if (expiration.toString().length <= 10) {
@@ -135,7 +143,7 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
     >
       <div className="offer-details-modal-container">
         <div className="offer-images">
-          <img src={offer?.media[0]?.previewUrl} crossOrigin="anonymous"  alt="" />
+          <img src={offerImage} crossOrigin="anonymous" alt="" />
           {message && (
             <div id="share-offer" onClick={handleForward}>
               <i className="hm-arrow-share" />

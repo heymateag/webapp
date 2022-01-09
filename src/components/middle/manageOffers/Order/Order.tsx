@@ -16,7 +16,6 @@ import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationSta
 import './Order.scss';
 
 // @ts-ignore
-import offer1 from '../../../../assets/heymate/offer1.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
@@ -32,6 +31,7 @@ import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+import Avatar from '../../../common/Avatar';
 
 type TimeToStart = {
   days: number;
@@ -165,20 +165,20 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
-  const getOfferById = useCallback(async () => {
-    const response = await axiosService({
-      url: `${HEYMATE_URL}/offer/${props.time_slot?.offerId}`,
-      method: 'GET',
-      body: {},
-    });
-    if (response?.status && response?.data) {
-      setOffer(response.data.data);
-    }
-  }, [props.time_slot?.offerId]);
+  // const getOfferById = useCallback(async () => {
+  //   const response = await axiosService({
+  //     url: `${HEYMATE_URL}/offer/${props.time_slot?.offerId}`,
+  //     method: 'GET',
+  //     body: {},
+  //   });
+  //   if (response?.status && response?.data) {
+  //     setOffer(response.data.data);
+  //   }
+  // }, [props.time_slot?.offerId]);
 
-  useEffect(() => {
-    getOfferById();
-  }, []);
+  // useEffect(() => {
+  //   getOfferById();
+  // }, []);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -286,12 +286,16 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       <div className="offer-content">
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
-            <div className="avatar-holder">
-              <img src={offer1} alt="" />
+            <div>
+              {/* <img src={props.offer?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" /> */}
+              <Avatar
+                size="tiny"
+                user={currentUser}
+              />
             </div>
             <div className="offer-details">
-              <h4>{offer.title}</h4>
-              <span className="offer-location">{offer.description}</span>
+              <h4>{props.offer.title}</h4>
+              <span className="offer-location">{props.offer.description}</span>
               <div className="offer-status">
                 <TaggedText color={tagStatus.color}>
                   {tagStatus.text}
