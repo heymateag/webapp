@@ -175,7 +175,6 @@ const OrderFooter: FC<OwnProps> = ({
   });
 
   const handleStartInCelo = async () => {
-    debugger
     // const provider = new WalletConnectProvider({
     //   rpc: {
     //     44787: 'https://alfajores-forno.celo-testnet.org',
