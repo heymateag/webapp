@@ -279,9 +279,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
               </Select>
             </div>
             {balanceType === 'cUSD' && <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>}
-            {balanceType === 'cEUR' && <h3 id="balance">$ {parseFloat(balance.cEUR).toFixed(2)}</h3>}
-            {balanceType === 'cREAL' && <h3 id="balance">$ {parseFloat(balance.cREAL).toFixed(2)}</h3>}
-            {balanceType === 'CELO' && <h3 id="balance">$ {parseFloat(balance.CELO).toFixed(2)}</h3>}
+            {balanceType === 'cEUR' && <h3 id="balance">€ {parseFloat(balance.cEUR).toFixed(2)}</h3>}
+            {balanceType === 'cREAL' && <h3 id="balance">R$ {parseFloat(balance.cREAL).toFixed(2)}</h3>}
+            {balanceType === 'CELO' && <h3 id="balance">CELO {parseFloat(balance.CELO).toFixed(2)}</h3>}
           </>
         )}
         {(!loadingBalance && !isConnected) && (

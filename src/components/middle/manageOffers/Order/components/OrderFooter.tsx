@@ -14,6 +14,9 @@ import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 import OfferWrapper from '../../../../left/wallet/OfferWrapper';
 import Modal from '../../../../ui/Modal';
 import Spinner from '../../../../ui/Spinner';
+import { GlobalActions } from 'src/global/types';
+import { withGlobal } from 'teact/teactn';
+import { pick } from '../../../../../util/iteratees';
 
 type TimeToStart = {
   days: number;
@@ -35,8 +38,10 @@ type OwnProps = {
   offer: IOffer;
   tradeId: string;
 };
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
-const OrderFooter: FC<OwnProps> = ({
+
+const OrderFooter: FC<OwnProps & DispatchProps> = ({
   timeToStart,
   fromTime,
   toTime,
@@ -49,6 +54,7 @@ const OrderFooter: FC<OwnProps> = ({
   offerType,
   offer,
   tradeId,
+  showNotification,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -175,13 +181,7 @@ const OrderFooter: FC<OwnProps> = ({
   });
 
   const handleStartInCelo = async () => {
-    // const provider = new WalletConnectProvider({
-    //   rpc: {
-    //     44787: 'https://alfajores-forno.celo-testnet.org',
-    //     42220: 'https://forno.celo.org',
-    //   },
-    //   qrcode: false,
-    // });
+    setIsLoading(true);
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
@@ -201,6 +201,11 @@ const OrderFooter: FC<OwnProps> = ({
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       const answer = await offerWrapper.startService(offer, tradeId, address);
+      if (answer?.message?.startsWith('Error')) {
+        setIsLoading(false);
+        showNotification({ message: answer.message });
+        return;
+      }
       if (answer) {
         handleChangeReservationStatus(ReservationStatus.STARTED);
       } else {
@@ -212,13 +217,7 @@ const OrderFooter: FC<OwnProps> = ({
   };
 
   const handleFinishInCelo = async () => {
-    // const provider = new WalletConnectProvider({
-    //   rpc: {
-    //     44787: 'https://alfajores-forno.celo-testnet.org',
-    //     42220: 'https://forno.celo.org',
-    //   },
-    //   qrcode: false,
-    // });
+    setIsLoading(true);
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
@@ -238,6 +237,11 @@ const OrderFooter: FC<OwnProps> = ({
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       const answer = await offerWrapper.finishService(offer, tradeId, address);
+      if (answer?.message?.startsWith('Error')) {
+        setIsLoading(false);
+        showNotification({ message: answer.message });
+        return;
+      }
       if (answer) {
         handleChangeReservationStatus(ReservationStatus.FINISHED);
       } else {
@@ -391,4 +395,12 @@ const OrderFooter: FC<OwnProps> = ({
   );
 };
 
-export default memo(OrderFooter);
+export default memo(withGlobal<OwnProps>(
+  (): any => {
+    return {
+    };
+  },
+  (setGlobal, actions): DispatchProps => pick(actions, [
+    'showNotification',
+  ]),
+)(OrderFooter));

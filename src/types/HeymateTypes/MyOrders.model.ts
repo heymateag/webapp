@@ -13,4 +13,7 @@ export interface IMyOrders {
   serviceProviderId?: string;
   tradeId?: string;
   offerId?: string;
+  user?: {
+    telegramId: string;
+  };
 }

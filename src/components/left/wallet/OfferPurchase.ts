@@ -68,6 +68,9 @@ class OfferPurchase {
       const tradeId: string = `0x${this.generateUUID()}`;
       const offerWrapper = new OfferWrapper(this.address, this.mContractKit, this.mainNet, this.provider);
       const answer = await offerWrapper.create(this.offer, this.timeSlot, tradeId);
+      if (answer?.message?.startsWith('Error')) {
+        return answer;
+      }
       if (answer) {
         const data: IBookOfferModel = {
           offerId: this.offer.id,
@@ -82,8 +85,9 @@ class OfferPurchase {
           body: data,
         });
         return response;
+      } else {
+        return new Error('error');
       }
-      return null;
     }
   };
 

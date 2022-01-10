@@ -67,7 +67,11 @@ class OfferWrapper {
 
     const config: BN[] = this.getConfig(offer);
 
-    await this.transfer(amount, stableToken);
+    try {
+      await this.transfer(amount, stableToken);
+    } catch (error: any) {
+      return new Error(error);
+    }
 
     let answer;
     try {
@@ -86,9 +90,8 @@ class OfferWrapper {
         offer.pricing.signature,
         // '0x00',
       )).send();
-    } catch (error) {
-
-      throw new Error('error');
+    } catch (error: any) {
+      return new Error(error);
     }
     const receipt = await answer.getHash();
     return receipt;
@@ -144,7 +147,7 @@ class OfferWrapper {
     try {
       // eslint-disable-next-line max-len
       // const response = await this.mContract.methods.startService(tradeIdHash, offer.sp_wallet_address, consumerAddress, amount, new BN(1));
-      answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.release(
+      answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.startService(
         tradeIdHash,
         offer.sp_wallet_address,
         consumerAddress,
@@ -154,8 +157,13 @@ class OfferWrapper {
     } catch (error) {
       throw new Error('start error');
     }
-    const receipt = await answer.getHash();
-    return receipt;
+    let receipt;
+    try {
+      receipt = await answer.getHash();
+      return receipt;
+    } catch (error: any) {
+      return new Error(error);
+    }
   };
 
   cancelService = (tradeId: any, consumerCancelled: boolean, consumerAddress: string, amount: number) => {
@@ -192,8 +200,13 @@ class OfferWrapper {
     } catch (error: any) {
       throw new Error(error);
     }
-    const receipt = await answer.getHash();
-    return receipt;
+    let receipt;
+    try {
+      receipt = await answer.getHash();
+      return receipt;
+    } catch (error: any) {
+      return new Error(error);
+    }
   };
 }
 
