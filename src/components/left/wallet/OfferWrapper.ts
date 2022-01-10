@@ -136,7 +136,7 @@ class OfferWrapper {
   startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
     let tradeIdHash;
     if (tradeId.length <= 36) {
-      tradeIdHash = `0x${tradeId.split('-').join('')}`;
+      tradeIdHash = `${tradeId.split('-').join('')}`;
     } else {
       tradeIdHash = `${tradeId.split('-').join('')}`;
     }
