@@ -32,6 +32,7 @@ import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Avatar from '../../../common/Avatar';
+import { GlobalState } from 'src/global/types';
 
 type TimeToStart = {
   days: number;
@@ -44,6 +45,7 @@ type OwnProps = {
 };
 type StateProps = {
   currentUser?: ApiUser;
+  globalState: GlobalState;
 };
 type DispatchProps = Pick<GlobalActions, 'showNotification' | 'openZoomDialogModal'>;
 
@@ -52,6 +54,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   showNotification,
   orderType = 'DEFAULT',
   currentUser,
+  globalState,
   openZoomDialogModal,
 }) => {
   const lang = useLang();
@@ -80,6 +83,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   const [zmClient, setZmClient] = useState<ClientType>();
 
   const [offer, setOffer] = useState<IOffer>({});
+  const [offerOwner, setOfferOwner] = useState<any>({});
 
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
@@ -118,6 +122,10 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   useEffect(() => {
+    if (props.user?.telegramId) {
+      const user = selectUser(globalState, props.user?.telegramId);
+      setOfferOwner(user);
+    }
     switch (reservationStatus) {
       case ReservationStatus.BOOKED:
         setTagStatus({
@@ -290,7 +298,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
               {/* <img src={props.offer?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" /> */}
               <Avatar
                 size="tiny"
-                user={currentUser}
+                user={offerOwner}
               />
             </div>
             <div className="offer-details">
@@ -359,9 +367,11 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
+  // eslint-disable-next-line teactn/mapStateToProps-no-store
   (global): StateProps => {
     const { currentUserId } = global;
     return {
+      globalState: global,
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
     };
   },
