@@ -109,13 +109,13 @@
           justify-content: center;
           align-items: center;
           overflow: hidden;
-          width: calc(100% - 264px);
-          width: -webkit-calc(100%  - 264px);
-          width: -moz-calc(100%  - 264px);
+          width: calc(100vw - 296px);
+          width: -webkit-calc(100vw  - 264px);
+          width: -moz-calc(100vw  - 264px);
 
-          height: calc(100% - 46px);
-          height: -webkit-calc(100% - 46px);
-          height: -moz-calc(100% - 46px);
+          height: calc(100vh - 105px);
+          height: -webkit-calc(100vh - 105px);
+          height: -moz-calc(100vh - 105px);
         }
         .share-container-viewport{
           display: inline-block;
