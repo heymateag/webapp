@@ -33,7 +33,7 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const tabs: IManageOfferTab[] = [
     { type: ManageOffer.MY_OFFERS, title: 'My Offers' },
     { type: ManageOffer.MY_ORDERS, title: 'My Orders' },
-    { type: ManageOffer.MY_SUBSCRIPTIONS, title: 'Subscriptions' },
+    // { type: ManageOffer.MY_SUBSCRIPTIONS, title: 'Subscriptions' },
   ];
   const [activeTab, setActiveTab] = useState<ManageOffer>(
     ManageOffer.MY_ORDERS,

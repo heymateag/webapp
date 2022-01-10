@@ -75,6 +75,17 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     shareRef,
   );
 
+  const startAudioMuted = useCallback(async () => {
+    await zoomDialog?.stream.startAudio();
+    if (!zoomDialog?.stream.isAudioMuted()) {
+      zoomDialog?.stream.muteAudio();
+    }
+  }, [zoomDialog?.stream]);
+
+  useEffect(() => {
+    startAudioMuted();
+  }, [startAudioMuted, zoomDialog]);
+
   useEffect(() => {
     setIsSharing(isRecieveSharing || isStartedShare);
   }, [isRecieveSharing, isStartedShare]);
@@ -282,7 +293,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
             } = dimension;
             const { height: canvasHeight } = canvasDimension;
             const test = user.displayName;
-            debugger
             const userAllData = decode(user.displayName);
             const userId = JSON.parse(userAllData).i;
             return (

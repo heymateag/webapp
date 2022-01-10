@@ -71,7 +71,6 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   }, [zmClient, onDeviceChange]);
 
   useUnmount(() => {
-    debugger;
     if (isStartedAudio) {
       mediaStream?.stopAudio();
     }

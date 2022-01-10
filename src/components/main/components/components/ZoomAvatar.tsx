@@ -41,20 +41,8 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
     displayName, audio, muted, bVideoOn,
   } = participant;
 
-  const [participantMeta, setParticipantMeta] = useState<IParticipantMeta>(undefined);
-
   const avatarRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (displayName) {
-      try {
-        const participantMetaData = JSON.parse(displayName);
-        setParticipantMeta(participantMetaData);
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  }, [displayName]);
   useEffect(() => {
     if (avatarRef.current) {
       avatarRef.current.style.background = bVideoOn ? 'transparent' : 'rgb(26,26,26)';

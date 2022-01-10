@@ -1,5 +1,6 @@
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import { encode } from 'js-base64';
+import { withGlobal } from 'teact/teactn';
 import React, {
   FC,
   memo,
@@ -26,7 +27,6 @@ import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkServi
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
-import { withGlobal } from 'teact/teactn';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
 import { axiosService } from '../../../../api/services/axiosService';
@@ -225,39 +225,6 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const simpleJoin = async () => {
-    // setOpenVideoDialog(true);
-    const client = new ZoomClient('qwe', '1234', zoomUser);
-    await client.join();
-    sendDirectMessage({
-      chat: {
-        id: '66304497',
-      },
-      // eslint-disable-next-line max-len
-      text: 'Hello this is for test !',
-    });
-    sendDirectMessage({
-      chat: {
-        id: '66017732',
-      },
-      // eslint-disable-next-line max-len
-      text: 'Hello this is for test !',
-    });
-    openZoomDialogModal({
-      openModal: true,
-      onCloseModal: handleCloseVideoDialog,
-      stream: client.mediaStream,
-      zoomClient: client.zmClient,
-      isLoading: joinMeetingLoader,
-      reservationId: props?.selectedSchedule?.id,
-      userType: 'SERVICE_PROVIDER',
-    });
-    // setJoinMeetingLoader(true);
-    setZmClient(client.zmClient);
-    setZoomStream(client.mediaStream);
-
-    setJoinMeetingLoader(false);
-  };
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setOfferStatus(newStatus);
   };
@@ -285,9 +252,13 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
                 : (
                   <Avatar
                     size="tiny"
-                    user={null}
+                    user={undefined}
                   />
                 )}
+              {/* <Avatar
+                size="tiny"
+                user={currentUser}
+            /> */}
             </div>
             <div className="offer-details">
               <h4>{`${props.title} - ${offerHour}`}</h4>
@@ -321,7 +292,6 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              <MenuItem icon="group" onClick={simpleJoin}>simple join</MenuItem>
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
