@@ -248,7 +248,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div className="avatar-holder">
-              {props.media[0]?.previewUrl ? <img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+              {props.media? <img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
                 : (
                   <Avatar
                     size="tiny"
