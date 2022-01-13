@@ -1,5 +1,5 @@
 import React, {
-  FC, useEffect, useRef, useState, memo, useMemo,
+  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
 } from 'teact/teact';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
@@ -136,7 +136,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.connector.on('display_uri', (err, payload) => {
     setIsConnected(false);
     const wcUri = payload.params[0];
-    console.log(wcUri);
     setUri(wcUri);
 
     renderUriAsQr(wcUri);
@@ -144,7 +143,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingQr(false);
   });
 
-  const makeKitsFromProvideAndGetBalance = async (address?: string) => {
+  const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
     // @ts-ignore
     const web3 = new Web3(provider);
     // @ts-ignore
@@ -164,7 +163,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
 
     setKit(myKit);
     setWcProvider(provider);
-  };
+  }, [provider]);
 
   provider.on('accountsChanged', (accounts) => {
     console.log(accounts);
@@ -184,7 +183,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     makeKitsFromProvideAndGetBalance();
   });
 
-  const getTransactions = async () => {
+  const getTransactions = useCallback(async () => {
     const baseURL = provider.chainId !== 44787
       ? 'https://explorer.celo.org/'
       : 'https://alfajores-blockscout.celo-testnet.org/';
@@ -196,9 +195,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     });
     const weiEther = kit?.web3?.utils?.toWei('1', 'ether');
     const filter = response.data.result.filter((row) => (row.value / weiEther) > 0.01);
-    // debugger
     setTransactionList(filter);
-  };
+  }, [kit?.web3?.utils, provider.accounts, provider.chainId]);
 
   useEffect(() => {
     const reconnectToProvider = async () => {
@@ -213,13 +211,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     } else {
       setLoadingBalance(false);
     }
-  }, [provider]);
+  }, [makeKitsFromProvideAndGetBalance, provider]);
 
   useEffect(() => {
     if (kit) {
       getTransactions();
     }
-  }, [kit]);
+  }, [getTransactions, kit]);
 
   const doTransaction = () => {
     sendcUSD(kit).then((res) => {
@@ -288,13 +286,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           <span id="balance">Connect Your Account</span>
         )}
         <div className="btn-row">
-           {isConnected && (
-            <div id="add-money" className="btn-holder">
-              <Button onClick={doTransaction} size="smaller" color="primary">
-                Add Money
-              </Button>
-            </div>
-          )}
+          {/* {isConnected && (*/}
+          {/*  <div id="add-money" className="btn-holder">*/}
+          {/*    <Button onClick={doTransaction} size="smaller" color="primary">*/}
+          {/*      Add Money*/}
+          {/*    </Button>*/}
+          {/*  </div>*/}
+          {/*)}*/}
           { (!loadingBalance && !isConnected)
             && (
               <div id="cashout" className="btn-holder">
