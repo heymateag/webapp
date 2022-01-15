@@ -122,8 +122,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   useEffect(() => {
-    if (props.user?.telegramId) {
-      const user = selectUser(globalState, props.user?.telegramId);
+    if (props.serviceProvider?.telegramId) {
+      const user = selectUser(globalState, props.serviceProvider?.telegramId);
       setOfferOwner(user);
     }
     switch (reservationStatus) {
@@ -173,20 +173,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
-  // const getOfferById = useCallback(async () => {
-  //   const response = await axiosService({
-  //     url: `${HEYMATE_URL}/offer/${props.time_slot?.offerId}`,
-  //     method: 'GET',
-  //     body: {},
-  //   });
-  //   if (response?.status && response?.data) {
-  //     setOffer(response.data.data);
-  //   }
-  // }, [props.time_slot?.offerId]);
-
-  // useEffect(() => {
-  //   getOfferById();
-  // }, []);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -259,10 +245,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     setIsMenuOpen(false);
   };
 
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
-  };
-
   const joinMeeting = async () => {
     const client = new ZoomClient(meetingId, meetingPassword, zoomUser);
 
@@ -295,9 +277,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div>
-              {/* <img src={props.offer?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" /> */}
               <Avatar
-                size="tiny"
+                size="large"
                 user={offerOwner}
               />
             </div>
@@ -333,7 +314,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
               {props.status === ReservationStatus.BOOKED
                && (
                  <MenuItem icon="user" onClick={handleCancelReservation}>
@@ -359,7 +339,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       </div>
       <OfferDetailsDialog
         openModal={openDetailsModal}
-        offer={offer}
+        offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
     </div>

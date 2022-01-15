@@ -71,6 +71,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
   const handleExpired = (expireTime: any) => {
@@ -186,7 +187,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
 
   useEffect(() => {
     let offerId;
-    if (message.content.text?.text.includes('heymate reservation')) {
+    if (message.content.text?.text.includes('https://heymate.works/reservation')) {
       setRenderType('RESERVATION');
 
       const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
