@@ -7,7 +7,7 @@ import BN from 'bn.js';
 import OfferWrapper from './OfferWrapper';
 import { axiosService } from '../../../api/services/axiosService';
 import {
-  HEYMATE_URL, RAMP_STAGING_URL, RAMP_PRODUCTION_URL, RAMP_MAIN_API_KEY,
+  HEYMATE_URL, RAMP_STAGING_URL, RAMP_RINKEBY_API_KEY, RAMP_PRODUCTION_URL, RAMP_MAIN_API_KEY,
 } from '../../../config';
 
 interface IBookOfferModel {
@@ -61,7 +61,8 @@ class OfferPurchase {
       //open ramp
       const payAmount = amount.sub(new BN(balance.toString()));
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
-      url += `?userAddress=${this.address}&hostApiKey=${RAMP_MAIN_API_KEY}&swapAmount=${payAmount}`;
+      const apiKey = this.mainNet ? RAMP_MAIN_API_KEY : RAMP_RINKEBY_API_KEY;
+      url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}`;
       window.open(url, '_blank');
       return undefined;
     } else {
