@@ -137,6 +137,9 @@ class OfferWrapper {
     let tradeIdHash;
     if (tradeId.length <= 36) {
       tradeIdHash = `${tradeId.split('-').join('')}`;
+      if (!tradeId.startsWith('0x')) {
+        tradeIdHash = `0x${tradeId.split('-').join('')}`;
+      }
     } else {
       tradeIdHash = `${tradeId.split('-').join('')}`;
     }
@@ -155,7 +158,7 @@ class OfferWrapper {
         new BN(1),
       )).send();
     } catch (error) {
-      throw new Error('start error');
+      throw new Error(error);
     }
     let receipt;
     try {

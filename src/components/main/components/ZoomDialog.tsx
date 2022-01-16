@@ -1,6 +1,6 @@
 import { decode } from 'js-base64';
 import React, {
-  FC, memo, useCallback, useEffect, useRef, useState,
+  FC, memo, useCallback, useEffect, useRef, useState, useMemo
 } from 'teact/teact';
 import _ from 'lodash';
 import { withGlobal } from 'teact/teactn';
@@ -27,16 +27,24 @@ import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus
 import { axiosService } from '../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../config';
 
+import Web3 from 'web3';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import QrCreator from 'qr-creator';
+
 import './ZoomDialog.scss';
+import OfferWrapper from '../../left/wallet/OfferWrapper';
+import Spinner from '../../ui/Spinner';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
 };
-type DispatchProps = Pick<GlobalActions, 'closeZoomDialogModal'>;
+type DispatchProps = Pick<GlobalActions, 'closeZoomDialogModal' | 'showNotification'>;
 
 const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
+  showNotification,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
@@ -58,6 +66,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const [isMinimize, setIsMinimize] = useState(false);
 
   const [isSharing, setIsSharing] = useState(false);
+
+  const [uri, setUri] = useState<string>('');
+  const [isConnected, setIsConnected] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const [openModal, setOpenModal] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(true);
+  const [offer, setOffer] = useState<any>({});
+  const [tradeId, setTradeId] = useState('');
 
   const [containerDimension, setContainerDimension] = useState({
     width: 0,
@@ -182,6 +198,114 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     });
   };
 
+  const getReservationById = useCallback(async () => {
+    const url = `${HEYMATE_URL}/reservation/${zoomDialog.reservationId}`;
+    const response = await axiosService({
+      url,
+      method: 'GET',
+      body: {},
+    });
+    const { offerId } = response.data.data;
+    setTradeId(response.data.data.tradeId);
+
+    const offerUrl = `${HEYMATE_URL}/offer/${offerId}`;
+    const offerItem = await axiosService({
+      url: offerUrl,
+      method: 'GET',
+      body: {},
+    });
+    setOffer(offerItem.data.data);
+  }, [zoomDialog.reservationId]);
+
+  useEffect(() => {
+    if (zoomDialog.userType === 'CONSUMER') {
+      getReservationById();
+    }
+  }, [getReservationById, zoomDialog]);
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
+    });
+  }, []);
+
+  const renderUriAsQr = (givenUri?) => {
+    setOpenModal(true);
+    setLoadingQr(true);
+
+    setTimeout(() => {
+      const validUri = givenUri || uri;
+      const container = qrCodeRef.current!;
+      container.innerHTML = '';
+      container.classList.remove('pre-animate');
+
+      QrCreator.render({
+        text: `${validUri}`,
+        radius: 0.5,
+        ecLevel: 'M',
+        fill: '#4E96D4',
+        size: 280,
+      }, container);
+      setLoadingQr(false);
+    }, 100);
+  };
+    /**
+   * Get Account Data
+   */
+  provider.connector.on('display_uri', (err, payload) => {
+    setIsConnected(false);
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    renderUriAsQr(wcUri);
+    setLoadingQr(false);
+  });
+
+  const handleFinishInCelo = async () => {
+    if (zoomDialog.userType !== 'CONSUMER') {
+      handleFinishMeeting();
+      return;
+    }
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+        setIsConnected(true);
+        setOpenModal(false);
+      });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      const answer = await offerWrapper.finishService(offer, tradeId, address);
+      if (answer?.message?.startsWith('Error')) {
+        showNotification({ message: answer.message });
+        return;
+      }
+      if (answer) {
+       handleFinishMeeting();
+      } else {
+        console.log('failed');
+      }
+    }
+  };
+
   const dismissDialog = () => {
     setConfirmModal(false);
   };
@@ -190,7 +314,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     setConfirmModal(false);
     try {
       await zoomDialog.zoomClient.leave();
-      // await handleFinishMeeting();
+      await handleFinishInCelo();
       closeZoomDialogModal({
         openModal: false,
       });
@@ -224,6 +348,11 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         </div>
       </div>
     );
+  };
+
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    provider.isConnecting = false;
   };
 
   return (
@@ -332,11 +461,26 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           <Button isText className="confirm-dialog-button" onClick={() => setConfirmModal(false)}>No</Button>
         </div>
       </Modal>
+      <Modal
+        hasCloseButton
+        isOpen={openModal}
+        onClose={handleCLoseWCModal}
+        onEnter={openModal ? handleCLoseWCModal : undefined}
+        className="WalletQrModal"
+        title="Wallet Connect"
+      >
+        {loadingQr && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
+        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      </Modal>
     </Modal>
   );
 };
 
 export default memo(withGlobal(
   (global): StateProps => pick(global, ['zoomDialog']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['closeZoomDialogModal']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['closeZoomDialogModal', 'showNotification']),
 )(ZoomDialog));
