@@ -193,7 +193,7 @@ export function isOwnMessage(message: ApiMessage) {
 export function isHeyMate(message: ApiMessage) {
   if (message.content.text) {
     const { text } = message.content.text;
-    return text.includes('Heymate Offer') || text.includes('heymate reservation');
+    return text.includes('https://heymate.works/reservation') || text.includes('https://heymate.works/offer');
   }
   return false;
 }

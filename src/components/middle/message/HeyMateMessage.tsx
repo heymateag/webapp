@@ -71,6 +71,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
   const handleExpired = (expireTime: any) => {
@@ -186,7 +187,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
 
   useEffect(() => {
     let offerId;
-    if (message.content.text?.text.includes('heymate reservation')) {
+    if (message.content.text?.text.includes('https://heymate.works/reservation')) {
       setRenderType('RESERVATION');
 
       const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
@@ -206,7 +207,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       }
     }
   }, [message]);
-
 
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
@@ -357,7 +357,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           <div className="HeyMateMessage">
             <div className="my-offer-body">
               <div className="my-offer-img-holder">
-                <img src={offerMsg?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+                //TODO Show Simple Image In Case Of No Image
+                {offerMsg?.media && (
+                  <img src={offerMsg?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+                )}
               </div>
               <div className="my-offer-descs">
                 <h4 className="title">{offerMsg?.title}</h4>
