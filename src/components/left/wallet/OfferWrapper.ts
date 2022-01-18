@@ -4,7 +4,6 @@ import { toTransactionObject, Contract } from '@celo/connect';
 import web3 from 'web3';
 import BN from 'bn.js';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
-import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
 import { StableTokenWrapper } from '@celo/contractkit/lib/wrappers/StableTokenWrapper';
 import { OFFERS_ON_ALFAJORES, OFFERS_ON_MAINNET } from '../../../config';
 import { ITimeSlotModel } from '../../../types/HeymateTypes/TimeSlot.model';
@@ -74,6 +73,7 @@ class OfferWrapper {
     }
 
     let answer;
+
     try {
       answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.createOffer(
         tradeIdHash,
@@ -93,6 +93,7 @@ class OfferWrapper {
     } catch (error: any) {
       return new Error(error);
     }
+
     const receipt = await answer.getHash();
     return receipt;
   };
@@ -127,7 +128,6 @@ class OfferWrapper {
   };
 
   transfer = async (amount: any, stableToken: StableTokenWrapper) => {
-
     const x = await stableToken.transfer(this.mainNet ? OFFERS_ON_MAINNET : OFFERS_ON_ALFAJORES, amount).send();
     const resid = await x.getHash();
     return resid;
@@ -157,7 +157,7 @@ class OfferWrapper {
         amount,
         new BN(1),
       )).send();
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(error);
     }
     let receipt;
