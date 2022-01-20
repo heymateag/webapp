@@ -149,13 +149,6 @@ const OfferFooter: FC<OwnProps> = ({
             <span>{`${timeToStart?.days}:${timeToStart?.hours}:${timeToStart?.minutes}`}</span>
           </div>
         )}
-        {reservationStatus === ReservationStatus.MARKED_AS_FINISHED && (
-          <div className={ReservationStatus.MARKED_AS_FINISHED}>
-            <i className="hm-time" />
-            {/* <span>Waiting for your confirm</span> */}
-            <span>Finished</span>
-          </div>
-        )}
         {reservationStatus === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
           <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
             <i className="hm-play" />

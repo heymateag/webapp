@@ -16,7 +16,7 @@ import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationSta
 import './Offer.scss';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 // @ts-ignore
-import offer1 from '../../../../assets/heymate/offer1.svg';
+import noOfferImg from '../../../../assets/heymate/no-offer-image.svg';
 import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
@@ -248,17 +248,10 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div className="avatar-holder">
-              {props.media? <img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+              {props.media ? <img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
                 : (
-                  <Avatar
-                    size="tiny"
-                    user={undefined}
-                  />
+                  <img src={noOfferImg} alt="no-img" />
                 )}
-              {/* <Avatar
-                size="tiny"
-                user={currentUser}
-            /> */}
             </div>
             <div className="offer-details">
               <h4>{`${props.title} - ${offerHour}`}</h4>

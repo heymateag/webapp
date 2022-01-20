@@ -1,9 +1,13 @@
 import { decode } from 'js-base64';
 import React, {
-  FC, memo, useCallback, useEffect, useRef, useState, useMemo
+  FC, memo, useCallback, useEffect, useRef, useState, useMemo,
 } from 'teact/teact';
 import _ from 'lodash';
 import { withGlobal } from 'teact/teactn';
+import Web3 from 'web3';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import QrCreator from 'qr-creator';
 import { pick } from '../../../util/iteratees';
 import { ZoomDialogProps } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
@@ -26,11 +30,6 @@ import ZoomAvatar from './components/ZoomAvatar';
 import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus';
 import { axiosService } from '../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../config';
-
-import Web3 from 'web3';
-import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
-import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
 
 import './ZoomDialog.scss';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
@@ -59,7 +58,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const [confirmModal, setConfirmModal] = useState(false);
 
-  const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
+  const canvasDimension = useCanvasDimension(zoomDialog?.stream, videoRef);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -299,7 +298,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         return;
       }
       if (answer) {
-       handleFinishMeeting();
+        handleFinishMeeting();
       } else {
         console.log('failed');
       }

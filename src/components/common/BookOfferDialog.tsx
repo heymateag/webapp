@@ -24,7 +24,6 @@ import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
-import { sendcUSD } from '../left/wallet/AccountManager/AccountMannager';
 import Spinner from '../ui/Spinner';
 
 type OwnProps = {
@@ -77,6 +76,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
   const tabs = [
@@ -368,7 +368,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                   );
                 default:
                   return (
-                    <div>ehsan</div>
+                    <div>There’s no available time for the selected date</div>
                   );
               }
             }}

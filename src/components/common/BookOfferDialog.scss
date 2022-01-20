@@ -9,8 +9,8 @@
       }
     }
     .book-offer-content {
-      max-height: 623px;
-      min-height: 430px;
+      height: 380px;
+      overflow-y: hidden;
       .TabList {
         z-index: 1;
       }
