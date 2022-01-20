@@ -1,7 +1,7 @@
 .UserWallet {
   height: 80%;
   .wallet-body {
-    background-color: white;
+    background-color: var(--color-background);
     //border-bottom: 8px solid var(--color-hm-gray6); ankit
     height: auto;
     display: flex;
@@ -62,7 +62,7 @@
     }
   }
   .wallet-transactions {
-    background-color: white;
+    background-color: var(--color-background);
     display: flex;
     flex-flow: row wrap;
     overflow-y: scroll;
