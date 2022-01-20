@@ -11,6 +11,9 @@ import { GlobalActions } from '../../global/types';
 import { ApiMessage } from '../../api/types';
 import { pick } from '../../util/iteratees';
 
+// @ts-ignore
+import noOfferImg from '../../assets/heymate/no-offer-image.svg';
+
 type OwnProps = {
   offer: IOffer;
   openModal: boolean;
@@ -143,7 +146,13 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
     >
       <div className="offer-details-modal-container">
         <div className="offer-images">
-          <img src={offerImage} crossOrigin="anonymous" alt="" />
+          {
+            offerImage ? (
+              <img src={offerImage} crossOrigin="anonymous" alt="" />
+            ) : (
+              <img src={noOfferImg} crossOrigin="anonymous" alt="" />
+            )
+          }
           {message && (
             <div id="share-offer" onClick={handleForward}>
               <i className="hm-arrow-share" />
@@ -195,7 +204,8 @@ const OfferDetailsDialog: FC<OwnProps & DispatchProps> = ({
               className="book-offer"
               size="smaller"
               disabled={expired}
-              color="primary">
+              color="primary"
+            >
               <span>Book Now</span>
             </Button>
           )}

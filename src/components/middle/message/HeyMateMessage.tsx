@@ -30,6 +30,8 @@ import Modal from '../../ui/Modal';
 import Spinner from '../../ui/Spinner';
 
 import OfferWrapper from '../../left/wallet/OfferWrapper';
+// @ts-ignore
+import noOfferImg from '../../../assets/heymate/no-offer-image.svg';
 
 type OwnProps = {
   message: ApiMessage;
@@ -357,9 +359,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           <div className="HeyMateMessage">
             <div className="my-offer-body">
               <div className="my-offer-img-holder">
-                //TODO Show Simple Image In Case Of No Image
-                {offerMsg?.media && (
+                { (offerMsg?.media && offerMsg?.media[0]) ? (
                   <img src={offerMsg?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+                ) : (
+                  <img src={noOfferImg} alt="no-img" />
                 )}
               </div>
               <div className="my-offer-descs">
