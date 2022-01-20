@@ -48,21 +48,25 @@ class OfferPurchase {
     const amount = web3.utils.toWei(convertedPrice, 'ether').divRound(new BN(100));
     // get user balance
     let stableToken: StableTokenWrapper;
+    let swapAsset = '';
     if (this.offer.pricing.currency === 'USD') {
+      swapAsset = 'cUSD';
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cUSD);
     } else if (this.offer.pricing.currency === 'EUR') {
+      swapAsset = 'cEUR';
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cEUR);
     } else {
+      swapAsset = 'cREAL';
       stableToken = await this.mContractKit.contracts.getStableToken(StableToken.cREAL);
     }
     const balance = await stableToken.balanceOf(this.address);
     const bnBalance = new BN(balance.toString());
-    if (bnBalance.lt(new BN(amount.toString()))) {
+    if (bnBalance.lt(new BN(amount.toString())) || true) {
       //open ramp
       const payAmount = amount.sub(new BN(balance.toString()));
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
       const apiKey = this.mainNet ? RAMP_MAIN_API_KEY : RAMP_RINKEBY_API_KEY;
-      url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}`;
+      url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}&swapAsset=${swapAsset}`;
       window.open(url, '_blank');
       return undefined;
     } else {
