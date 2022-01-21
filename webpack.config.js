@@ -133,7 +133,7 @@ module.exports = (env = {}, argv = {}) => {
       }),
       new EnvironmentPlugin({
         APP_NAME: 'Heymate App',
-        APP_VERSION: 'dev',
+        APP_VERSION: '',
         APP_ENV: '',
         TELEGRAM_T_API_ID: '',
         TELEGRAM_T_API_HASH: '',
