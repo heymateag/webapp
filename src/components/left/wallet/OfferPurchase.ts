@@ -61,7 +61,7 @@ class OfferPurchase {
     }
     const balance = await stableToken.balanceOf(this.address);
     const bnBalance = new BN(balance.toString());
-    if (bnBalance.lt(new BN(amount.toString())) || true) {
+    if (bnBalance.lt(new BN(amount.toString()))) {
       //open ramp
       const payAmount = amount.sub(new BN(balance.toString()));
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
