@@ -253,12 +253,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         <div className="logo-container">
           <img src={walletIcon} alt="" />
         </div>
-        <span id="total-balance">Total Balance</span>
-        {loadingBalance && (
-          <div className="spinner-holder">
-            <Spinner color="gray" />
-          </div>
-        )}
         {(!loadingBalance && isConnected) && (
           <>
             <div className="currency-select">
@@ -276,32 +270,39 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
                 <option value="CELO">CELO</option>
               </Select>
             </div>
+          </>
+        )}
+        {isConnected
+        && (
+          <div>
+            <span id="total-balance">Total Balance</span>
             {balanceType === 'cUSD' && <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>}
             {balanceType === 'cEUR' && <h3 id="balance">€ {parseFloat(balance.cEUR).toFixed(2)}</h3>}
             {balanceType === 'cREAL' && <h3 id="balance">R$ {parseFloat(balance.cREAL).toFixed(2)}</h3>}
             {balanceType === 'CELO' && <h3 id="balance">CELO {parseFloat(balance.CELO).toFixed(2)}</h3>}
-          </>
+          </div>
+        )}
+        {loadingBalance && (
+          <div className="spinner-holder">
+            <Spinner color="gray" />
+          </div>
         )}
         {(!loadingBalance && !isConnected) && (
           <span id="balance">Connect Your Account</span>
         )}
-        <div className="btn-row">
-          {/* {isConnected && (*/}
-          {/*  <div id="add-money" className="btn-holder">*/}
-          {/*    <Button onClick={doTransaction} size="smaller" color="primary">*/}
-          {/*      Add Money*/}
-          {/*    </Button>*/}
-          {/*  </div>*/}
-          {/*)}*/}
-          { (!loadingBalance && !isConnected)
-            && (
+
+        {
+          (!loadingBalance && !isConnected)
+          && (
+            <div className="btn-row">
               <div id="cashout" className="btn-holder">
                 <Button onClick={handleOpenWCModal} isText size="smaller" color="primary">
                   <span>Connect</span>
                 </Button>
               </div>
-            )}
-        </div>
+            </div>
+          )
+        }
       </div>
       <div className="wallet-transactions custom-scroll">
         <h4 id="caption">Transactions</h4>
