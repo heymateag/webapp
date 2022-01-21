@@ -416,7 +416,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         isOpen={openQrModal}
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="accept-title"
+        className="WalletQrModal"
         title="Scan qrCode with your phone"
       >
         {loadingQr && (
