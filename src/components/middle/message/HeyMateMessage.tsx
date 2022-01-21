@@ -76,6 +76,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
+
   const handleExpired = (expireTime: any) => {
     const now = new Date();
     const startTime = GenerateNewDate(expireTime);
@@ -340,7 +344,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer) {
         handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
       } else {
@@ -349,6 +357,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     } else {
       handleOpenWCModal();
     }
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   // @ts-ignore
@@ -479,7 +492,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         onClose={handleCLoseWCModal}
         onEnter={openQrModal ? handleCLoseWCModal : undefined}
         className="WalletQrModal"
-        title="Wallet Connect"
+        title="Scan qrCode with your phone"
       >
         {loadingQr && (
           <div className="spinner-holder">
@@ -488,6 +501,22 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
       </Modal>
+
+      <Modal
+        hasCloseButton
+        isOpen={openAcceptModal}
+        onClose={handleCloseAcceptModal}
+        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
+        className="WalletQrModal"
+        title="accept transaction in your phone to continue"
+      >
+        {loadAcceptLoading && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 };

@@ -72,6 +72,10 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
+
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
@@ -200,7 +204,11 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.startService(offer, tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -236,7 +244,11 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.finishService(offer, tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -256,6 +268,11 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     setOpenModal(false);
     provider.isConnecting = false;
     setLoadingBalance(false);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   return (
@@ -382,7 +399,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
         className="WalletQrModal"
-        title="Wallet Connect"
+        title="Scan qrCode with your phone"
       >
         {loadingQr && (
           <div className="spinner-holder">
@@ -390,6 +407,20 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      </Modal>
+      <Modal
+        hasCloseButton
+        isOpen={openAcceptModal}
+        onClose={handleCloseAcceptModal}
+        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
+        className="WalletQrModal"
+        title="accept transaction in your phone to continue"
+      >
+        {loadAcceptLoading && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
       </Modal>
     </div>
   );

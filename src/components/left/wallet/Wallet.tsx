@@ -328,7 +328,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
         className="WalletQrModal"
-        title="Wallet Connect"
+        title="Scan qrCode with your phone"
       >
         {loadingQr && (
           <div className="spinner-holder">

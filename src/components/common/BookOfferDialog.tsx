@@ -79,6 +79,10 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
+
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
@@ -254,7 +258,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], mainNet, web3);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const response = await offerPurchase.purchase();
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       setBookOfferLoading(false);
       if (!response) {
         return;
@@ -297,6 +305,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     setIsCalendarOpen(false);
     setFilteredDate(filterDates);
   }, [timeSlots]);
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
+  };
 
   return (
     <div>
@@ -403,8 +416,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         isOpen={openQrModal}
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
+        className="accept-title"
+        title="Scan qrCode with your phone"
       >
         {loadingQr && (
           <div className="spinner-holder">
@@ -413,6 +426,20 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
       </Modal>
+      <Modal
+        isOpen={openAcceptModal}
+        onClose={handleCloseAcceptModal}
+        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
+        className="WalletQrModal"
+        title="accept transaction in your phone to continue"
+      >
+        {loadAcceptLoading && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 };
