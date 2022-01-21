@@ -142,6 +142,8 @@ module.exports = (env = {}, argv = {}) => {
         ZOOM_SDK_SECRET: '',
         TEST_SESSION: '',
         NODE_DEBUG: '',
+        HEYMATE_DEV: '',
+        HEYMATE_PROD: '',
       }),
       new ProvidePlugin({
         Buffer: [require.resolve("buffer/"), "Buffer"],
