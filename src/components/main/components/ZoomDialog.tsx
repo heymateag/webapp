@@ -74,6 +74,9 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const [offer, setOffer] = useState<any>({});
   const [tradeId, setTradeId] = useState('');
 
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
   const [containerDimension, setContainerDimension] = useState({
     width: 0,
     height: 0,
@@ -291,8 +294,12 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       // eslint-disable-next-line prefer-destructuring
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       const answer = await offerWrapper.finishService(offer, tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer?.message?.startsWith('Error')) {
         showNotification({ message: answer.message });
         return;
@@ -352,6 +359,11 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const handleCLoseWCModal = () => {
     setOpenModal(false);
     provider.isConnecting = false;
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   return (
@@ -474,6 +486,19 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      </Modal>
+      <Modal
+        isOpen={openAcceptModal}
+        onClose={handleCloseAcceptModal}
+        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
+        className="WalletQrModal"
+        title="accept transaction in your phone to continue"
+      >
+        {loadAcceptLoading && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
       </Modal>
     </Modal>
   );
