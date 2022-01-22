@@ -11,7 +11,7 @@ Feel free to explore, provide feedback and contribute.
 ## Local setup
 
 ```sh
-mv .env.example .env
+mv ..env.example ..env
 
 npm i
 ```

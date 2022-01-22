@@ -27,7 +27,7 @@ addReducer('init', (global) => {
   document.documentElement.setAttribute('data-message-text-size', messageTextSize.toString());
   document.body.classList.add('initial');
   document.body.classList.add(`animation-level-${animationLevel}`);
-  document.body.classList.add(IS_TOUCH_ENV ? 'is-touch-env' : 'is-pointer-env');
+  document.body.classList.add(IS_TOUCH_ENV ? 'is-touch-.env' : 'is-pointer-.env');
   switchTheme(theme, animationLevel === ANIMATION_LEVEL_MAX);
   startWebsync();
 
