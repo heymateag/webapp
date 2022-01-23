@@ -17,6 +17,8 @@ import Spinner from '../../../../ui/Spinner';
 import { GlobalActions } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../../../util/iteratees';
+import renderText from "../../../../common/helpers/renderText";
+import useLang from "../../../../../hooks/useLang";
 
 type TimeToStart = {
   days: number;
@@ -56,6 +58,8 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
   tradeId,
   showNotification,
 }) => {
+  const lang = useLang();
+
   const [reservationStatus, setReservationStatus] = useState(status);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -407,6 +411,14 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
       <Modal
         hasCloseButton
@@ -421,6 +433,14 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
             <Spinner color="blue" />
           </div>
         )}
+        <div className="connection-notes">
+          <h4>{lang('Connect.Approve.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Approve.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Approve.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
     </div>
   );

@@ -9,13 +9,19 @@
       }
     }
     .book-offer-content {
-      height: 380px;
+      height: 350px;
       overflow-y: hidden;
       .TabList {
         z-index: 1;
       }
       .Transition {
+
+        height: calc(100% - 43px);
+        height: -webkit-calc(100% - 43px);
+        padding: 1rem 0;
+
         .TimeSlots {
+          height: 100%;
           .time-slots-picker {
             display: flex;
             justify-content: space-between;
@@ -33,7 +39,8 @@
             }
           }
           .time-slots-rows {
-            height: 300px;
+            height: calc(100% - 56px);
+            height: -webkit-calc(100% - 56px);
             overflow-y: scroll;
             .time-slot-row {
               display: flex;
@@ -101,9 +108,6 @@
             }
           }
         }
-        //min-height: 430px;
-        padding: 1rem 0;
-
       }
       .Calendar {
         height: 300px;

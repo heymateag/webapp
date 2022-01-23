@@ -34,6 +34,8 @@ import { HEYMATE_URL } from '../../../config';
 import './ZoomDialog.scss';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
 import Spinner from '../../ui/Spinner';
+import renderText from "../../common/helpers/renderText";
+import useLang from "../../../hooks/useLang";
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
@@ -45,6 +47,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   closeZoomDialogModal,
   showNotification,
 }) => {
+  const lang = useLang();
+
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -488,6 +492,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
       <Modal
         isOpen={openAcceptModal}
@@ -501,6 +513,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
             <Spinner color="blue" />
           </div>
         )}
+        <div className="connection-notes">
+          <h4>{lang('Connect.Approve.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Approve.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Approve.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
     </Modal>
   );

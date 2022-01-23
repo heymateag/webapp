@@ -6,6 +6,13 @@
     .modal-content {
       background-color: var(--color-background-secondary);
       padding: 0;
+      &.custom-scroll {
+        &:hover, &:focus, &:focus-within {
+          &::-webkit-scrollbar-thumb {
+            background-color: var(--color-primary);
+          }
+        }
+      }
     }
 
     .offer-details-box {

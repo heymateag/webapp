@@ -1777,6 +1777,38 @@ export default {
     key: 'Login.QR.Help3',
     value: 'Point your phone at this screen to confirm login',
   },
+  'Connect.Wallet.Title': {
+    key: 'Connect.Wallet.Title',
+    value: 'Connect to your wallet by QR code:',
+  },
+  'Connect.Wallet.Help1': {
+    key: 'Connect.Wallet.Help1',
+    value: 'Open Heymate App on your phone',
+  },
+  'Connect.Wallet.Help2': {
+    key: 'Connect.Wallet.Help2',
+    value: 'Go to **Settings** > **Devices** > **Scan QR**',
+  },
+  'Connect.Wallet.Help3': {
+    key: 'Connect.Wallet.Help3',
+    value: 'Point your phone at this screen to confirm connect',
+  },
+  'Connect.Approve.Title': {
+    key: 'Connect.Approve.Approve',
+    value: 'Accept incoming confirm in your phone:',
+  },
+  'Connect.Approve.Help1': {
+    key: 'Connect.Approve.Help1',
+    value: 'Open Heymate App on your phone',
+  },
+  'Connect.Approve.Help2': {
+    key: 'Connect.Approve.Help2',
+    value: 'Accept **Both**  **Incoming**  **Confirmations**',
+  },
+  'Connect.Approve.Help3': {
+    key: 'Connect.Approve.Help3',
+    value: 'Please Do Not Close Your App Until You Get Success Message !',
+  },
   'Login.QR.Cancel': {
     key: 'Login.QR.Cancel',
     value: 'Log in by phone Number',

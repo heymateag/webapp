@@ -18,9 +18,9 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
-// import HeymateOffer from './HeymateOffer';
-// import OfferContract from './OfferContract';
+
 import { axiosService } from '../../../api/services/axiosService';
+import renderText from "../../common/helpers/renderText";
 
 export type OwnProps = {
   onReset: () => void;
@@ -329,7 +329,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         onClose={handleCLoseWCModal}
         onEnter={openModal ? handleCLoseWCModal : undefined}
         className="WalletQrModal"
-        title="Scan qrCode with your phone"
+        title="Connect Your Wallet"
       >
         {loadingQr && (
           <div className="spinner-holder">
@@ -337,7 +337,16 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
+
     </div>
   );
 };

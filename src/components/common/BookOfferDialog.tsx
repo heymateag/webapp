@@ -25,6 +25,7 @@ import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
 import Spinner from '../ui/Spinner';
+import renderText from './helpers/renderText';
 
 type OwnProps = {
   offer: IOffer;
@@ -82,7 +83,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
-
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
@@ -124,7 +124,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       setLoadingQr(false);
     }, 100);
   };
-
 
   const handleOpenWCModal = async () => {
     if (uri === '') {
@@ -425,8 +424,17 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
       <Modal
+        hasCloseButton
         isOpen={openAcceptModal}
         onClose={handleCloseAcceptModal}
         onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
@@ -434,10 +442,18 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         title="accept transaction in your phone to continue"
       >
         {loadAcceptLoading && (
-          <div className="spinner-holder">
+          <div className="spinner-holder aproval-loader">
             <Spinner color="blue" />
           </div>
         )}
+        <div className="connection-notes">
+          <h4>{lang('Connect.Approve.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Approve.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Approve.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
 
     </div>

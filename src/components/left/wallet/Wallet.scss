@@ -82,6 +82,17 @@
   }
 }
 .WalletQrModal {
+  .modal-dialog {
+    max-width: 480px;
+  }
+  .modal-header {
+    flex-direction: row-reverse;
+    .modal-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+    }
+  }
   .spinner-holder {
     position: absolute;
     display: flex;
@@ -90,9 +101,12 @@
     right: 50%;
     z-index: 2;
     top: 50%;
+    &.aproval-loader {
+      position: inherit;
+    }
   }
   .qr-container {
-    min-height: 322px;
+    min-height: 280px;
     display: flex;
     justify-content: center;
     opacity: 1;
@@ -110,7 +124,51 @@
       margin-top: -.625rem;
     }
   }
+  .connection-notes {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    margin-top: 16px;
+
+    h4 {
+      margin: 1.5rem 0 1rem 0;
+      width: 100%;
+      padding-left: 3rem;
+    }
+
+    ol {
+      list-style: none;
+      counter-reset: item;
+      padding: 0 1.75rem;
+
+      li {
+        counter-increment: item;
+        text-align: left;
+        margin: 0.75rem 0;
+        display: flex;
+        font-size: 14px;
+        font-weight: normal;
+
+        &::before {
+          content: counter(item);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-width: 1.4rem;
+          height: 1.4rem;
+          padding: 0;
+          margin: 0 0.75rem 0 0;
+          background: var(--color-primary);
+          border-radius: 50%;
+          font-size: smaller;
+          color: white;
+        }
+      }
+    }
+  }
+
 }
+
 .currency-select {
   width: 150px;
   margin-top: 15px;

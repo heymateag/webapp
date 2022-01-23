@@ -32,6 +32,8 @@ import Spinner from '../../ui/Spinner';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
 // @ts-ignore
 import noOfferImg from '../../../assets/heymate/no-offer-image.svg';
+import renderText from '../../common/helpers/renderText';
+import useLang from '../../../hooks/useLang';
 
 type OwnProps = {
   message: ApiMessage;
@@ -48,10 +50,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   message,
   openZoomDialogModal,
 }) => {
-  /**
-   * Get Heymate Offer
-   * @param uuid
-   */
+  const lang = useLang();
+
   const [renderType, setRenderType] = useState<'OFFER' | 'RESERVATION'>('OFFER');
   const [offerMsg, setOfferMsg] = useState<IOffer>();
   const [offerLoaded, setOfferLoaded] = useState<boolean>(false);
@@ -78,7 +78,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
 
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
-
 
   const handleExpired = (expireTime: any) => {
     const now = new Date();
@@ -500,6 +499,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
         <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
 
       <Modal
@@ -515,6 +522,14 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
             <Spinner color="blue" />
           </div>
         )}
+        <div className="connection-notes">
+          <h4>{lang('Connect.Approve.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Approve.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Approve.Help3')}</span></li>
+          </ol>
+        </div>
       </Modal>
 
     </div>
