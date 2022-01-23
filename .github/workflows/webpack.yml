@@ -33,5 +33,5 @@ jobs:
         cd dist
         aws s3 sync . s3://${{ secrets.S3_BUCKET }}
         cd ..
-        aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_ID }}
+        aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_ID }} --path "/*"
         
