@@ -101,7 +101,9 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   }, [zoomDialog?.stream]);
 
   useEffect(() => {
-    startAudioMuted();
+    if (zoomDialog?.stream) {
+      startAudioMuted();
+    }
   }, [startAudioMuted, zoomDialog]);
 
   useEffect(() => {

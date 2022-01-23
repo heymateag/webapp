@@ -171,11 +171,7 @@ export const LIGHT_THEME_BG_COLOR = '#A2AF8E';
 export const DARK_THEME_BG_COLOR = '#0F0F0F';
 export const DARK_THEME_PATTERN_COLOR = '#0a0a0a8c';
 export const DEFAULT_PATTERN_COLOR = 'rgba(90, 110, 70, 0.6)';
-// export const HEYMATE_URL = (process..env.APP_ENV === 'production')
-//   ? process..env.HEYMATE_PROD
-//   : process..env.HEYMATE_DEV;
-export const HEYMATE_URL = 'https://lar9nm8ay9.execute-api.us-east-1.amazonaws.com/dev';
-
+export const HEYMATE_URL = process.env.HEYMATE_API_URL;
 // Group calls
 export const GROUP_CALL_VOLUME_MULTIPLIER = 100;
 export const GROUP_CALL_DEFAULT_VOLUME = 100 * GROUP_CALL_VOLUME_MULTIPLIER;

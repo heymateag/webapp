@@ -219,6 +219,9 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setJoinMeetingLoader(false);
   };
 
+  const simpleJoin = () => {
+
+  }
   const reJoinMeeting = () => {
     if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
       joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword);

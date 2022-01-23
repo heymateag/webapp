@@ -9,3 +9,4 @@ tests/
 dev/perf/screenshot*
 .DS_store
 dist
+deploy/deploy_to_aws.sh
