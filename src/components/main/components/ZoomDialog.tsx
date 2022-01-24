@@ -509,7 +509,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         title="accept transaction in your phone to continue"
       >
         {loadAcceptLoading && (
-          <div className="spinner-holder">
+          <div className="spinner-holder aproval-loader">
             <Spinner color="blue" />
           </div>
         )}

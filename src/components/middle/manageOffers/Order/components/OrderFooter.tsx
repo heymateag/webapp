@@ -429,7 +429,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
         title="accept transaction in your phone to continue"
       >
         {loadAcceptLoading && (
-          <div className="spinner-holder">
+          <div className="spinner-holder aproval-loader">
             <Spinner color="blue" />
           </div>
         )}
