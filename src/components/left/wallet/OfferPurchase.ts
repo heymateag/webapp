@@ -43,8 +43,6 @@ class OfferPurchase {
   }
 
   purchase = async () => {
-    // need to config before async call to bypass permission
-    const rampRedirect: any = window.open('', '_blank');
     // loading
     const convertedPrice = new BN((this.offer.pricing.price * 100) + 30);
     const amount = web3.utils.toWei(convertedPrice, 'ether').divRound(new BN(100));
@@ -69,7 +67,7 @@ class OfferPurchase {
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
       const apiKey = this.mainNet ? RAMP_MAIN_API_KEY : RAMP_RINKEBY_API_KEY;
       url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}&swapAsset=${swapAsset}`;
-      rampRedirect.location.href = url;
+      window.open(url, '_blank');
       return undefined;
     } else {
       const tradeId: string = `0x${this.generateUUID()}`;
