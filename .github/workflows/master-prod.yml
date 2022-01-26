@@ -1,4 +1,4 @@
-name: Deploy Production
+name: Deploy production
 
 on:
   push:
@@ -33,5 +33,6 @@ jobs:
         cd dist
         aws s3 sync . s3://${{ secrets.S3_BUCKET }}
         cd ..
+        npm --v
         aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_ID }} --path "/*"
         
