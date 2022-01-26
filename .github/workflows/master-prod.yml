@@ -29,7 +29,7 @@ jobs:
       run: |
         aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/production.env .env 
         npm install
-        npm run build:heymate-prod
+        npm run build:heymate-full
         cd dist
         aws s3 sync . s3://${{ secrets.S3_BUCKET }}
         cd ..
