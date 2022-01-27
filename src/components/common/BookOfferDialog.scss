@@ -37,6 +37,16 @@
               font-weight: 500;
               color: var(--color-primary);
             }
+            .calendar-wrapper {
+              display: flex;
+              align-items: center;
+              .icon-calendar {
+                font-size: 16px;
+                font-weight: 500;
+                color: var(--color-primary);
+              }
+            }
+
           }
           .time-slots-rows {
             height: calc(100% - 56px);

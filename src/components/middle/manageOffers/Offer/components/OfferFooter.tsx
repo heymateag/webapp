@@ -24,6 +24,7 @@ type OwnProps = {
   onReJoinMeeting: () => void;
   onStatusChanged: (status: ReservationStatus) => void;
   joinMeetingLoader: boolean;
+  reJoinMeetingLoader: boolean;
   role?: 'CONSUMER' | 'SERVICE_PROVIDER';
   offerType: 'DEFAULT' | 'ONLINE';
   timeSlotId: string;
@@ -41,6 +42,7 @@ const OfferFooter: FC<OwnProps> = ({
   offerType,
   timeSlotId,
   onReJoinMeeting,
+  reJoinMeetingLoader,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -183,14 +185,14 @@ const OfferFooter: FC<OwnProps> = ({
             >
               Finish
             </Button>
-            {/*<Button*/}
-            {/*  isLoading={joinMeetingLoader}*/}
-            {/*  onClick={onReJoinMeeting}*/}
-            {/*  size="tiny"*/}
-            {/*  color="primary"*/}
-            {/*>*/}
-            {/*  Re Join*/}
-            {/*</Button>*/}
+            <Button
+              isLoading={reJoinMeetingLoader}
+              onClick={onReJoinMeeting}
+              size="tiny"
+              color="primary"
+            >
+              Re Join
+            </Button>
           </div>
         )}
       </div>
