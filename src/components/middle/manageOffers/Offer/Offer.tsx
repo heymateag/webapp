@@ -228,9 +228,20 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const simpleJoin = () => {
+  const simpleJoin = async () => {
+    const client = new ZoomClient('testClient', '123123', zoomUser);
 
-  }
+    await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: false,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
+  };
   const reJoinMeeting = () => {
     if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
       joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword, true);
@@ -296,6 +307,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
+              <MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
