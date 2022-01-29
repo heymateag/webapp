@@ -31,7 +31,7 @@ jobs:
         aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/version.txt version.txt
         version="$(grep "" version.txt  | cut -d'=' -f2-)"
         npm install
-        cross-env APP_ENV=production APP_VERSION=${version} && npm run build
+        APP_ENV=production APP_VERSION=${version} && npm run build
         cd dist
         aws s3 sync . s3://${{ secrets.S3_BUCKET }}
         cd ..
