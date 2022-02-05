@@ -1779,7 +1779,7 @@ export default {
   },
   'Connect.Wallet.Title': {
     key: 'Connect.Wallet.Title',
-    value: 'Connect to your wallet by QR code:',
+    value: 'Please scan this QR code image via the back camera of your mobile:',
   },
   'Connect.Wallet.Help1': {
     key: 'Connect.Wallet.Help1',
@@ -1787,7 +1787,7 @@ export default {
   },
   'Connect.Wallet.Help2': {
     key: 'Connect.Wallet.Help2',
-    value: 'Go to **Settings** > **Devices** > **Scan QR**',
+    value: 'Use the  **Scan QR code** option in the menu of the Heymate Android/iOS App',
   },
   'Connect.Wallet.Help3': {
     key: 'Connect.Wallet.Help3',
