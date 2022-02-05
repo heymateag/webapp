@@ -326,9 +326,9 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       <div className="btn-holder">
         { (reservationStatus === ReservationStatus.MARKED_AS_FINISHED
           || reservationStatus === ReservationStatus.STARTED) && (
-          <div className="btn-finish">
+          <>
             <Button
-              isLoading={isLoading || joinMeetingLoader}
+              isLoading={isLoading}
               onClick={() => handleFinishInCelo()}
               size="tiny"
               color="hm-primary-red"
@@ -336,7 +336,15 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
             >
               Confirm End
             </Button>
-          </div>
+            <Button
+              isLoading={joinMeetingLoader}
+              onClick={onJoinMeeting}
+              size="tiny"
+              color="primary"
+            >
+              Re Join
+            </Button>
+          </>
         )}
         { (reservationStatus === ReservationStatus.BOOKED
           || reservationStatus === ReservationStatus.MARKED_AS_STARTED) && (

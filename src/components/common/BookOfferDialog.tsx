@@ -83,6 +83,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>();
+
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
@@ -203,7 +205,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
 
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState('');
 
-  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>, data: any) => {
+    setSelectedTimeSlot(data);
     const { value } = event.currentTarget;
     setSelectedTimeSlotId(value);
   }, []);
@@ -335,11 +338,15 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                     <div className="TimeSlots">
                       <div className="time-slots-picker">
                         <span id="caption">Available times for</span>
-                        <span
-                          id="time-picker"
-                          onClick={handleOpenCalendarModal}
-                        >{selectedDate}
-                        </span>
+                        <div className="calendar-wrapper">
+                          <i className="icon-calendar" />
+                          <span
+                            id="time-picker"
+                            onClick={handleOpenCalendarModal}
+                          >{selectedDate}
+                          </span>
+                        </div>
+
                       </div>
                       <div className="time-slots-rows custom-scroll">
                         {filteredDate.length > 0 ? filteredDate.map((item) => (
@@ -353,7 +360,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                                 label={`${item.fromDateLocal} - ${item.toDateLocal}`}
                                 value={item.id}
                                 checked={selectedTimeSlotId === item.id}
-                                onChange={handleChange}
+                                onChange={(e) => handleChange(e, item)}
                               />
                             </div>
                             <div className="remaining-of-total">
@@ -396,7 +403,9 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
             className="see-details"
             size="smaller"
             color="primary"
-            disabled={!selectedTimeSlotId}
+            disabled={
+              !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
+            }
           >
             Book Now
           </Button>

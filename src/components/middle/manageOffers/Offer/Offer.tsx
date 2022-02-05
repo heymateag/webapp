@@ -62,6 +62,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+  const [reJoinMeetingLoader, setReJoinMeetingLoader] = useState(false);
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
   const [zoomStream, setZoomStream] = useState();
   const [zmClient, setZmClient] = useState<ClientType>();
@@ -195,12 +196,16 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setOpenVideoDialog(false);
   };
 
-  const joinMeeting = async (meetingId: string, sessionPassword: string) => {
+  const joinMeeting = async (meetingId: string, sessionPassword: string, isRejoin?: boolean) => {
     await sendMessageToParticipants();
 
     const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
 
-    setJoinMeetingLoader(true);
+    if (isRejoin) {
+      setReJoinMeetingLoader(true);
+    } else {
+      setJoinMeetingLoader(true);
+    }
 
     await client.join();
 
@@ -216,15 +221,30 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setZmClient(client.zmClient);
     setZoomStream(client.mediaStream);
 
-    setJoinMeetingLoader(false);
+    if (isRejoin) {
+      setReJoinMeetingLoader(false);
+    } else {
+      setJoinMeetingLoader(false);
+    }
   };
 
-  const simpleJoin = () => {
+  const simpleJoin = async () => {
+    const client = new ZoomClient('testClient', '123123', zoomUser);
 
-  }
+    await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: false,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
+  };
   const reJoinMeeting = () => {
     if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
-      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword);
+      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword, true);
     }
   };
 
@@ -287,6 +307,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
+              {/*<MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>*/}
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
@@ -297,6 +318,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           toTime={props.selectedSchedule?.to_time}
           timeToStart={timeToStart}
           joinMeetingLoader={joinMeetingLoader}
+          reJoinMeetingLoader={reJoinMeetingLoader}
           onReJoinMeeting={reJoinMeeting}
           status={offerStatus}
           onJoinMeeting={joinMeeting}

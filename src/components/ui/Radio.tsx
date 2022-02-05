@@ -18,7 +18,7 @@ type OwnProps = {
   disabled?: boolean;
   hidden?: boolean;
   isLoading?: boolean;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: ChangeEvent<HTMLInputElement>, data?: any) => void;
 };
 
 const Radio: FC<OwnProps> = ({
