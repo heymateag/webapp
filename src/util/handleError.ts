@@ -17,6 +17,6 @@ const throttledAlert = throttle(window.alert, 1000);
 
 export function handleError(err: Error) {
   if (APP_ENV === 'development') {
-    throttledAlert(`${DEBUG_ALERT_MSG}\n\n${(err?.message) || err}\n${err?.stack}`);
+    // throttledAlert(`${DEBUG_ALERT_MSG}\n\n${(err?.message) || err}\n${err?.stack}`);
   }
 }
