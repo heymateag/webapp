@@ -77,7 +77,7 @@ type StateProps = {
   language?: LangCode;
   wasTimeFormatSetManually?: boolean;
   isCallFallbackConfirmOpen: boolean;
-  showHeymate?: boolean;
+  showHeymateScheduleMiddle?: boolean;
   showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
   currentUserPhoneNumber?: string;

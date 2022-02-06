@@ -21,7 +21,9 @@ import TaggedText from '../../../ui/TaggedText';
 
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
-
+import OfferFooter from './components/OfferFooter';
+import { ClientType } from '../../../main/components/ZoomSdkService/types';
+import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
@@ -47,16 +49,24 @@ type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
+  sendDirectMessage,
+  openZoomDialogModal,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [zoomUser, setZoomUser] = useState<string>('Guest User');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [offerHour, setOfferHour] = useState('');
-
+  const [offerStatus, setOfferStatus] = useState<ReservationStatus>(props.selectedSchedule?.status);
+  const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
-
-
+  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
+  const [reJoinMeetingLoader, setReJoinMeetingLoader] = useState(false);
+  const [openVideoDialog, setOpenVideoDialog] = useState(false);
+  const [zoomStream, setZoomStream] = useState();
+  const [zmClient, setZmClient] = useState<ClientType>();
+  const [offerStarted, setOfferStarted] = useState(false);
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
@@ -136,8 +146,10 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
       const dateNow = new Date();
       if (dateFuture.getTime() > dateNow.getTime()) {
         const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule.form_time);
+        setTimeToStart(res);
       } else {
-
+        setOfferStarted(true);
+        setTimeToStart({ days: 0, minutes: 0, hours: 0 });
       }
     }
   }, [props.selectedSchedule, props.status]);
@@ -150,6 +162,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
       };
       userData = JSON.stringify(userData);
       userData = encode(userData);
+      setZoomUser(userData);
     }
   }, [currentUser]);
 
@@ -161,6 +174,96 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setIsMenuOpen(false);
   };
 
+  const sendMessageToParticipants = async () => {
+    const tsId = props?.selectedSchedule?.id;
+    const participants = await getParticipants(tsId);
+    if (participants) {
+      for (const user of participants) {
+        sendDirectMessage({
+          chat: {
+            id: user.telegramId,
+          },
+          // eslint-disable-next-line max-len
+          text: `heymate reservation https://heymate.works/reservation/${user.reservationId}?dd`,
+        });
+      }
+    } else {
+      return false;
+    }
+  };
+
+  const handleCloseVideoDialog = () => {
+    setOpenVideoDialog(false);
+  };
+
+  const joinMeeting = async (meetingId: string, sessionPassword: string, isRejoin?: boolean) => {
+    await sendMessageToParticipants();
+
+    const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
+
+    if (isRejoin) {
+      setReJoinMeetingLoader(true);
+    } else {
+      setJoinMeetingLoader(true);
+    }
+
+    await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: joinMeetingLoader,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
+
+    setZmClient(client.zmClient);
+    setZoomStream(client.mediaStream);
+
+    if (isRejoin) {
+      setReJoinMeetingLoader(false);
+    } else {
+      setJoinMeetingLoader(false);
+    }
+  };
+
+  const simpleJoin = async () => {
+    const client = new ZoomClient('testClient', '123123', zoomUser);
+
+    await client.join();
+
+    openZoomDialogModal({
+      openModal: true,
+      stream: client.mediaStream,
+      zoomClient: client.zmClient,
+      isLoading: false,
+      reservationId: props?.selectedSchedule?.id,
+      userType: 'SERVICE_PROVIDER',
+    });
+  };
+  const reJoinMeeting = () => {
+    if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
+      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword, true);
+    }
+  };
+
+  const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
+    setOfferStatus(newStatus);
+  };
+
+  async function getParticipants(timeSlotId: any) {
+    const response = await axiosService({
+      url: `${HEYMATE_URL}/offer/${timeSlotId}/offerParticipant`,
+      method: 'GET',
+      body: {},
+    });
+    if (response && response.status === 200) {
+      return response.data.data;
+    } else {
+      return false;
+    }
+  }
 
   return (
     <div className="Offer-middle">
@@ -204,10 +307,24 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
+              <MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
         </div>
+        <OfferFooter
+          offerType={props.meeting_type || 'DEFAULT'}
+          fromTime={props.selectedSchedule?.form_time}
+          toTime={props.selectedSchedule?.to_time}
+          timeToStart={timeToStart}
+          joinMeetingLoader={joinMeetingLoader}
+          reJoinMeetingLoader={reJoinMeetingLoader}
+          onReJoinMeeting={reJoinMeeting}
+          status={offerStatus}
+          onJoinMeeting={joinMeeting}
+          onStatusChanged={handleReservationStatusChanges}
+          timeSlotId={props?.selectedSchedule?.id || ''}
+        />
       </div>
       <OfferDetailsDialog
         openModal={openDetailsModal}

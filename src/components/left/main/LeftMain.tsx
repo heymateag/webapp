@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import React, {
   FC,
   useState,
@@ -44,7 +45,8 @@ type OwnProps = {
   onReset: () => void;
 };
 
-type DispatchProps = Pick<GlobalActions, 'setShowHeymate' | 'setShowHeymateWalletMiddle'>;
+// eslint-disable-next-line max-len
+type DispatchProps = Pick<GlobalActions, 'setShowHeymateScheduleMiddle' | 'setShowHeymateWalletMiddle' | 'setShowHeymateManageOfferMiddle'>;
 
 type StateProps = Pick<GlobalState, 'connectionState'>;
 
@@ -66,8 +68,9 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   onScreenSelect,
   onReset,
   connectionState,
-  setShowHeymate,
+  setShowHeymateScheduleMiddle,
   setShowHeymateWalletMiddle,
+  setShowHeymateManageOfferMiddle,
 }) => {
   const [isNewChatButtonShown, setIsNewChatButtonShown] = useState(IS_TOUCH_ENV);
 
@@ -100,14 +103,15 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   /**
    * Ali's To Handle Show Offers In Middle Screen
    */
-  const handleSelectManageOffers = useCallback(() => {
+  const handleSelectMySchedule = useCallback(() => {
     if (width > 500) {
-      setShowHeymate({ showHeymate: true });
+      setShowHeymateScheduleMiddle({ showHeymateScheduleMiddle: true });
       setShowHeymateWalletMiddle({showHeymateWalletMiddle: false });
+      setShowHeymateManageOfferMiddle({showHeymateManageOfferMiddle: false});
     } else {
       onContentChange(LeftColumnContent.Offers);
     }
-  }, [setShowHeymate, onContentChange, width, setShowHeymateWalletMiddle]);
+  }, [setShowHeymateScheduleMiddle, onContentChange, width, setShowHeymateWalletMiddle, setShowHeymateManageOfferMiddle]);
   /**
    * Ehsan's To Handle Show Offers In Left Screen
    */
@@ -120,9 +124,20 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
       onContentChange(LeftColumnContent.wallet);
     } else {
       setShowHeymateWalletMiddle({showHeymateWalletMiddle: true });
-      setShowHeymate({ showHeymate: false });
+      setShowHeymateScheduleMiddle({ showHeymateScheduleMiddle: false });
+      setShowHeymateManageOfferMiddle({showHeymateManageOfferMiddle: false})
     }
-  }, [onContentChange, setShowHeymateWalletMiddle, width, setShowHeymate]);
+  }, [onContentChange, setShowHeymateWalletMiddle, width, setShowHeymateScheduleMiddle, setShowHeymateManageOfferMiddle]);
+
+  const handleSelectManageOffers = useCallback(() => {
+    if (width > 500) {
+      setShowHeymateScheduleMiddle({ showHeymateScheduleMiddle: false });
+      setShowHeymateWalletMiddle({showHeymateWalletMiddle: false });
+      setShowHeymateManageOfferMiddle({showHeymateManageOfferMiddle: true});
+    } else {
+      onContentChange(LeftColumnContent.Offers);
+    }
+  }, [setShowHeymateScheduleMiddle, onContentChange, width, setShowHeymateWalletMiddle, setShowHeymateManageOfferMiddle]);
 
   const handleMouseEnter = useCallback(() => {
     if (content !== LeftColumnContent.ChatList) {
@@ -187,6 +202,7 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
         onSelectContacts={handleSelectContacts}
         onSelectArchived={handleSelectArchived}
         onSelectManageOffers={handleSelectManageOffers}
+        onSelectMySchedule={handleSelectMySchedule}
         onSelectWallet={handleSelectWallet}
         onReset={onReset}
         shouldSkipTransition={shouldSkipTransition}
@@ -278,6 +294,6 @@ function useAppOutdatedCheck() {
 }
 
 export default withGlobal<OwnProps>(
-  (global): StateProps => pick(global, ['connectionState', 'showHeymate']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate', 'setShowHeymateWalletMiddle']),
+  (global): StateProps => pick(global, ['connectionState', 'showHeymateScheduleMiddle', 'showHeymateManageOfferMiddle']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymateScheduleMiddle', 'setShowHeymateWalletMiddle', 'setShowHeymateManageOfferMiddle']),
 )(LeftMain);

@@ -3,13 +3,13 @@ import React, { FC, memo, useCallback, useState } from 'teact/teact';
 import { GlobalActions, GlobalState } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
 import useLang from '../../../hooks/useLang';
-import './ManageOffers.scss';
+import './MySchedule.scss';
 import Button from '../../ui/Button';
 import TabList from '../../ui/TabList';
 import { pick } from '../../../util/iteratees';
 
-type StateProps = Pick<GlobalState, 'showHeymate'>;
-type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
+type StateProps = Pick<GlobalState, 'showHeymateScheduleMiddle'>;
+type DispatchProps = Pick<GlobalActions, 'setShowHeymateScheduleMiddle'>;
 
 export type OwnProps = {
   onReset: () => void;
@@ -27,7 +27,7 @@ interface IManageOfferTab {
 const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   handleSwitchTab,
-  setShowHeymate,
+  setShowHeymateScheduleMiddle,
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
@@ -44,13 +44,13 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   }, []);
 
   return (
-    <div className="ManageOffers">
+    <div className="MySchedule">
       <div className="left-header offer-header">
         <Button
           round
           size="smaller"
           color="translucent"
-          onClick={() => setShowHeymate({ showHeymate: false })}
+          onClick={() => setShowHeymateScheduleMiddle({ showHeymateScheduleMiddle: false })}
           ariaLabel="Return to chat list"
         >
           <i className="icon-arrow-left" />
@@ -74,6 +74,6 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
 //   )(ScheduleHeader),
 // );
 export default withGlobal<OwnProps>(
-  (global): StateProps => pick(global, ['connectionState', 'showHeymate']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
+  (global): StateProps => pick(global, ['connectionState', 'showHeymateScheduleMiddle']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymateScheduleMiddle']),
 )(ScheduleHeader);

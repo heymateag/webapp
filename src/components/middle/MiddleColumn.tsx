@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import React, {
   FC, useEffect, useState, memo, useMemo, useCallback,
 } from '../../lib/teact/teact';
@@ -90,7 +91,7 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
   messageLists?: GlobalMessageList[];
-} & Pick<GlobalState, 'showHeymate' | 'showHeymateWalletMiddle'>;
+} & Pick<GlobalState, 'showHeymateScheduleMiddle' | 'showHeymateWalletMiddle' | 'showHeymateManageOfferMiddle'>;
 
 type DispatchProps = Pick<GlobalActions, (
   'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode' |
@@ -129,8 +130,9 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   animationLevel,
   shouldSkipHistoryAnimations,
   currentTransitionKey,
-  showHeymate,
+  showHeymateScheduleMiddle,
   showHeymateWalletMiddle,
+  showHeymateManageOfferMiddle,
   openChat,
   unpinAllMessages,
   loadUser,
@@ -337,7 +339,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
         style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
       />
       <div id="middle-column-portals" />
-      {((renderingChatId && renderingThreadId) || showHeymate || showHeymateWalletMiddle) && (
+      {((renderingChatId && renderingThreadId) || showHeymateScheduleMiddle || showHeymateWalletMiddle || showHeymateManageOfferMiddle) && (
         <>
           <div className="messages-layout" onDragEnter={renderingCanPost ? handleDragEnter : undefined}>
             <MiddleHeader
@@ -368,7 +370,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                     activeTab={activeTab}
                   />
                   <div className={footerClassName}>
-                    {renderingCanPost && !showHeymate && !showHeymateWalletMiddle && (
+                    {renderingCanPost && !showHeymateScheduleMiddle && !showHeymateWalletMiddle && !showHeymateManageOfferMiddle && (
                       <Composer
                         chatId={renderingChatId}
                         threadId={renderingThreadId}
@@ -420,7 +422,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
             </Transition>
 
             <ScrollDownButton
-              isShown={renderingIsFabShown && !showHeymate && !showHeymateWalletMiddle}
+              isShown={renderingIsFabShown && !showHeymateScheduleMiddle && !showHeymateWalletMiddle && !showHeymateManageOfferMiddle}
               canPost={renderingCanPost}
               withExtraShift={isMessagingDisabled || isSelectModeActive || isPinnedMessageList}
             />
@@ -444,7 +446,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
 export default memo(withGlobal(
   (global): StateProps => {
     const theme = selectTheme(global);
-    const { showHeymate, showHeymateWalletMiddle } = global;
+    const { showHeymateScheduleMiddle, showHeymateWalletMiddle, showHeymateManageOfferMiddle } = global;
     const {
       isBlurred: isBackgroundBlurred, background: customBackground, backgroundColor, patternColor,
     } = global.settings.themes[theme] || {};
@@ -466,8 +468,9 @@ export default memo(withGlobal(
       isReceiptModalOpen: Boolean(global.payment.receipt),
       animationLevel: global.settings.byKey.animationLevel,
       currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
-      showHeymate,
+      showHeymateScheduleMiddle,
       showHeymateWalletMiddle,
+      showHeymateManageOfferMiddle,
     };
 
     if (!currentMessageList || !listIds.active) {
@@ -503,8 +506,9 @@ export default memo(withGlobal(
       pinnedMessagesCount: pinnedIds ? pinnedIds.length : 0,
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
       messageLists,
-      showHeymate,
+      showHeymateScheduleMiddle,
       showHeymateWalletMiddle,
+      showHeymateManageOfferMiddle,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

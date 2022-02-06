@@ -74,8 +74,9 @@ import AudioPlayer from './AudioPlayer';
 import GroupCallTopPane from '../calls/group/GroupCallTopPane';
 
 import './MiddleHeader.scss';
-import ScheduleHeader from './manageOffers/ScheduleHeader';
+import ScheduleHeader from './mySchedule/ScheduleHeader';
 import WalletMiddleHeader from './wallet/WalletMiddleHeader';
+import ManageOfferHeader from './manageOffers/ManageOfferHeader';
 
 const ANIMATION_DURATION = 350;
 const BACK_BUTTON_INACTIVE_TIME = 450;
@@ -107,7 +108,7 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
   connectionState?: ApiUpdateConnectionStateType;
-} & Pick<GlobalState, 'showHeymate' | 'showHeymateWalletMiddle'>;
+} & Pick<GlobalState, 'showHeymateScheduleMiddle' | 'showHeymateWalletMiddle' | 'showHeymateManageOfferMiddle'>;
 
 type DispatchProps = Pick<
 GlobalActions,
@@ -144,8 +145,9 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   shouldSkipHistoryAnimations,
   currentTransitionKey,
   connectionState,
-  showHeymate,
+  showHeymateScheduleMiddle,
   showHeymateWalletMiddle,
+  showHeymateManageOfferMiddle,
   openChatWithInfo,
   pinMessage,
   focusMessage,
@@ -463,13 +465,17 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   const isAudioPlayerRendered = Boolean(shouldRenderAudioPlayer && renderingAudioMessage);
 
   return (
-    showHeymate ? (
+    showHeymateScheduleMiddle ? (
       <div className="MiddleHeader schedule-header" ref={componentRef}>
         <ScheduleHeader handleSwitchTab={handleSwitchTab} />
       </div>
     ) : showHeymateWalletMiddle ? (
       <div className="MiddleHeader schedule-header" ref={componentRef}>
         <WalletMiddleHeader />
+      </div>
+    ) : showHeymateManageOfferMiddle ? (
+      <div className="MiddleHeader schedule-header" ref={componentRef}>
+        <ManageOfferHeader />
       </div>
     ) : (
       <div className="MiddleHeader" ref={componentRef}>
@@ -531,8 +537,9 @@ export default memo(
       const { isLeftColumnShown, lastSyncTime, shouldSkipHistoryAnimations } = global;
       const { byId: chatsById } = global.chats;
       const chat = selectChat(global, chatId);
-      const { showHeymate } = global;
+      const { showHeymateScheduleMiddle } = global;
       const { showHeymateWalletMiddle } = global;
+      const { showHeymateManageOfferMiddle } = global;
       const { typingStatus } = chat || {};
 
       const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
@@ -554,8 +561,9 @@ export default memo(
 
       const state: StateProps = {
         typingStatus,
-        showHeymate,
+        showHeymateScheduleMiddle,
         showHeymateWalletMiddle,
+        showHeymateManageOfferMiddle,
         isLeftColumnShown,
         isRightColumnShown: selectIsRightColumnShown(global),
         isSelectModeActive: selectIsInSelectMode(global),

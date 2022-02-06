@@ -41,6 +41,9 @@ const MyOffers: FC = () => {
       const flatList: any = [];
       response.data.data.forEach((item: any) => {
         item.schedules.forEach((time: any) => {
+          if (time.maximumReservations === time.remainingReservations) {
+            return;
+          }
           flatList.push({ ...item, ...{ selectedSchedule: time } });
         });
       });

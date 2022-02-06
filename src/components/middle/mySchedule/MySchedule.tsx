@@ -2,7 +2,7 @@
 import React, { FC } from 'teact/teact';
 
 import useLang from '../../../hooks/useLang';
-import './ManageOffers.scss';
+import './MySchedule.scss';
 import Transition from '../../ui/Transition';
 
 import OnlineMetting from './OnlineMeeting/OnlineMetting';
@@ -22,7 +22,7 @@ interface IManageOfferTab {
   title: string;
   type: any;
 }
-const ManageOffers: FC<OwnProps> = ({
+const MySchedule: FC<OwnProps> = ({
   activeTab,
 }) => {
   const lang = useLang();
@@ -39,7 +39,7 @@ const ManageOffers: FC<OwnProps> = ({
   // }, []);
 
   return (
-    <div className="ManageOffers">
+    <div className="MySchedule">
       <Transition
         className="full-content"
         name={lang.isRtl ? 'slide-reversed' : 'slide'}
@@ -74,8 +74,8 @@ const ManageOffers: FC<OwnProps> = ({
 
 // export default memo(
 //   withGlobal(
-//     (global): StateProps => pick(global, ['showHeymate']),
-//     (setGlobal, actions): DispatchProps => pick(actions, ["setShowHeymate"])
-//   )(ManageOffers),
+//     (global): StateProps => pick(global, ['showHeymateScheduleMiddle']),
+//     (setGlobal, actions): DispatchProps => pick(actions, ["setShowHeymateScheduleMiddle"])
+//   )(MySchedule),
 // );
-export default ManageOffers;
+export default MySchedule;

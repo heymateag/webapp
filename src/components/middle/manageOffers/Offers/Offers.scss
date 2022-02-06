@@ -1,0 +1,47 @@
+.Offers {
+  width: 90%;
+  height: 100%;
+  margin: 0 auto;
+  background-color: var(--color-background);
+  border-radius: 8px;
+  padding: 10px 0;
+  margin-top: 20px;
+  .loading-my-orders {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+  .no-order{
+    text-align: center;
+    margin-top: 3rem;
+    color: var(--color-gray);
+  }
+}
+
+.myOrder-middle-filter {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+  height: 70px;
+  border-bottom: solid 1px #ECEDF1;
+  .filters-holder {
+    display: flex;
+    justify-content: flex-start;
+  }
+  .filters-select {
+    width: 180px;
+    margin-right: 10px;
+  }
+  .filters-date {
+    border: 1px solid #ECEDF1;
+    padding: 4px 16px;
+    width: 180px;
+    margin-right: 10px;
+    height: 55px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+  }
+}
