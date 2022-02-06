@@ -32,6 +32,11 @@ export function useGalleryLayout(
   }
 
   useEffect(() => {
+    console.log('===page size ===');
+    console.log(size);
+    const videoLay = getVideoLayout(dimension.width, dimension.height, size);
+    console.log('===video layouts ===');
+    console.log(videoLay);
     setLayout(getVideoLayout(dimension.width, dimension.height, size));
   }, [dimension, size]);
   const onParticipantsChange = useCallback(() => {

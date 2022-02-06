@@ -1,4 +1,4 @@
-name: Deploy Dev
+name: Deploy production
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: dev
+    environment: production
     strategy:
       matrix:
         node-version: [14.x]
@@ -27,16 +27,14 @@ jobs:
 
     - name: Build & Deploy
       run: |
-        aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/dev.env .env
+        aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/production.env .env 
         aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/version.txt version.txt
-        IFS='=' read -ra ADDR  <<< `tail -1 version.txt`
-        new_version=`echo ${ADDR[1]} | awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}'`
-        echo ${{ github.sha }}=${new_version} >> version.txt 
-        aws s3 cp version.txt s3://${{ secrets.S3_BUCKET_MASTER }}/version.txt
+        version="$(grep "" version.txt  | cut -d'=' -f2-)"
         npm install
-        APP_ENV=staging APP_VERSION=${new_version} npm run build
+        APP_ENV=production APP_VERSION=${version} npm run build
         cd dist
         aws s3 sync . s3://${{ secrets.S3_BUCKET }}
         cd ..
+        npm --v
         aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_ID }} --path "/*"
         

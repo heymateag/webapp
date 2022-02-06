@@ -204,6 +204,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
+              {/*<MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>*/}
               <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>

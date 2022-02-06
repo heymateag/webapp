@@ -2,7 +2,7 @@ import { decode } from 'js-base64';
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState, useMemo,
 } from 'teact/teact';
-import _ from 'lodash';
+import { throttle } from 'lodash';
 import { withGlobal } from 'teact/teactn';
 import Web3 from 'web3';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
@@ -34,8 +34,8 @@ import { HEYMATE_URL } from '../../../config';
 import './ZoomDialog.scss';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
 import Spinner from '../../ui/Spinner';
-import renderText from "../../common/helpers/renderText";
-import useLang from "../../../hooks/useLang";
+import renderText from '../../common/helpers/renderText';
+import useLang from '../../../hooks/useLang';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
@@ -48,7 +48,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   showNotification,
 }) => {
   const lang = useLang();
-
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -63,6 +62,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const [confirmModal, setConfirmModal] = useState(false);
 
   const canvasDimension = useCanvasDimension(zoomDialog?.stream, videoRef);
+  console.log(canvasDimension);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -77,6 +77,8 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const [loadingQr, setLoadingQr] = useState(true);
   const [offer, setOffer] = useState<any>({});
   const [tradeId, setTradeId] = useState('');
+
+  const [isVideoDecodeReady, setIsVideoDecodeReady] = useState(false);
 
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
@@ -131,7 +133,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   }, [isSharing, sharedContentDimension, containerDimension]);
 
   const onShareContainerResize = useCallback(({ width, height }) => {
-    _.throttle(() => {
+    throttle(() => {
       setContainerDimension({ width, height });
     }, 50).call(this);
   }, []);
@@ -166,11 +168,10 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     zoomDialog.zoomClient,
     canvasDimension,
   );
-
   const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
     zoomDialog.zoomClient,
     zoomDialog.stream,
-    true,
+    isVideoDecodeReady,
     videoRef,
     canvasDimension,
     {
@@ -180,6 +181,17 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       totalSize,
     },
   );
+
+  useEffect(() => {
+    // Update the document title using the browser API
+    setTimeout(() => {
+      console.log('~~~~~~~~~video decode ready~~~~~~~~~~~~~');
+      setIsVideoDecodeReady(true);
+    }, 500);
+    return () => {
+      setIsVideoDecodeReady(false);
+    };
+  }, [zoomDialog?.openModal]);
 
   const handleCLoseDetailsModal = () => {
     closeZoomDialogModal({
@@ -324,6 +336,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const handleLeaveSessionClick = async () => {
     setConfirmModal(false);
+    setIsVideoDecodeReady(false);
     try {
       await zoomDialog.zoomClient.leave();
       await handleFinishInCelo();
@@ -393,78 +406,79 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           <Loading key="loading" />
         </div>
       )}
-      <div
-        className={buildClassName('share-container', isSharing && 'in-sharing')}
-        ref={shareContainerRef}
-      >
+      <div className="viewport">
         <div
-          className="share-container-viewport"
-          ref={shareContainerViewPortRef}
+          className={buildClassName('share-container', isSharing && 'in-sharing')}
+          ref={shareContainerRef}
+        >
+          <div
+            className="share-container-viewport"
+            ref={shareContainerViewPortRef}
+          >
+            <canvas
+              className={buildClassName('share-canvas', 'other-share', isStartedShare && 'hidden')}
+              ref={shareRef}
+            />
+            {isSupportWebCodecs() ? (
+              <video
+                className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
+                ref={selfShareRef}
+              />
+            ) : (
+              <canvas
+                className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
+                ref={selfShareRef}
+              />
+            )}
+          </div>
+        </div>
+        <div
+          className={buildClassName('video-container', isSharing && 'in-sharing')}
         >
           <canvas
-            className={buildClassName('share-canvas', 'other-share', isStartedShare && 'hidden')}
-            ref={shareRef}
+            className="video-canvas"
+            id="video-canvas"
+            ref={videoRef}
           />
-          {isSupportWebCodecs() ? (
-            <video
-              className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
-              ref={selfShareRef}
-            />
-          ) : (
-            <canvas
-              className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
-              ref={selfShareRef}
-            />
-          )}
+          <ul className="avatar-list">
+            {visibleParticipants.map((user, index) => {
+              if (index > videoLayout.length - 1) {
+                return null;
+              }
+              const dimension = videoLayout[index];
+              const {
+                width, height, x, y,
+              } = dimension;
+              const { height: canvasHeight } = canvasDimension;
+
+              const userAllData = decode(user.displayName);
+              const userId = JSON.parse(userAllData).i;
+
+              return (
+                <ZoomAvatar
+                  currentUserId={userId}
+                  participant={user}
+                  key={user.userId}
+                  isActive={activeVideo === user.userId}
+                  style={{
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    top: `${canvasHeight - y - height}px`,
+                    left: `${x}px`,
+                  }}
+                />
+              );
+            })}
+          </ul>
         </div>
-      </div>
-      <div
-        className={buildClassName('video-container', isSharing && 'in-sharing')}
-      >
-        <canvas
-          className="video-canvas"
-          id="video-canvas"
-          // width="500"
-          // height="500"
-          ref={videoRef}
+        <ZoomVideoFooter
+          sharing={isStartedShare}
+          shareRef={selfShareRef}
+          zmClient={zoomDialog.zoomClient}
+          mediaStream={zoomDialog.stream}
+          initLeaveSessionClick={() => setConfirmModal(true)}
         />
-        <ul className="avatar-list">
-          {visibleParticipants.map((user, index) => {
-            if (index > videoLayout.length - 1) {
-              return null;
-            }
-            const dimension = videoLayout[index];
-            const {
-              width, height, x, y,
-            } = dimension;
-            const { height: canvasHeight } = canvasDimension;
-            const test = user.displayName;
-            const userAllData = decode(user.displayName);
-            const userId = JSON.parse(userAllData).i;
-            return (
-              <ZoomAvatar
-                currentUserId={userId}
-                participant={user}
-                key={user.userId}
-                isActive={activeVideo === user.userId}
-                style={{
-                  width: `${width}px`,
-                  height: `${height}px`,
-                  top: `${canvasHeight - y - height}px`,
-                  left: `${x}px`,
-                }}
-              />
-            );
-          })}
-        </ul>
       </div>
-      <ZoomVideoFooter
-        sharing={isStartedShare}
-        shareRef={selfShareRef}
-        zmClient={zoomDialog.zoomClient}
-        mediaStream={zoomDialog.stream}
-        initLeaveSessionClick={() => setConfirmModal(true)}
-      />
       <Modal
         isOpen={confirmModal}
         noBackdrop
