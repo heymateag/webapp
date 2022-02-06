@@ -1,6 +1,9 @@
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import { encode } from 'js-base64';
 import { withGlobal } from 'teact/teactn';
+import RadioGroup from '../../../ui/RadioGroup';
+import BookOfferDialog from '../../../common/BookOfferDialog';
+
 import React, {
   FC,
   memo,
@@ -22,20 +25,18 @@ import TaggedText from '../../../ui/TaggedText';
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
 
-import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
-import { axiosService } from '../../../../api/services/axiosService';
-import { HEYMATE_URL } from '../../../../config';
-import Avatar from '../../../common/Avatar';
 
-type TimeToStart = {
-  days: number;
-  hours: number;
-  minutes: number;
-};
+interface IPurchasePlan {
+  value: string;
+  label: string;
+  subLabel: string;
+}
+type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
+
 type OwnProps = {
   props: IOffer;
 };
@@ -61,86 +62,16 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     text: '',
     color: 'green',
   });
-  /**
-   * Get Ongoing Offer Time To Start
-   */
-  const getHowMuchDaysUnitllStar = (timestamp) => {
-    let ts = timestamp;
-    if (ts.length <= 10) {
-      ts *= 1000;
-    }
-    const dateFuture = new Date(parseInt(ts || '', 10));
-    const dateNow = new Date();
-    // return Math.round(Math.abs((firstDate.getTime() - secondDate.getTime()) / (oneDay)));
 
-    let delta = Math.abs(dateFuture.getTime() - dateNow.getTime()) / 1000;
+  const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
+  const [selectedReason, setSelectedReason] = useState('single');
+  const handleSelectType = useCallback((value: string) => {
+    setSelectedReason(value);
+  }, []);
+  const [isExpired, setIsExpired] = useState(false);
+  const [planType, setPlanType] = useState<PlanType>('SINGLE');
+  const [openBookOfferModal, setOpenBookOfferModal] = useState(false);
 
-    // calculate (and subtract) whole days
-    const days = Math.floor(delta / 86400);
-    delta -= days * 86400;
-
-    // calculate (and subtract) whole hours
-    const hours = Math.floor(delta / 3600) % 24;
-    delta -= hours * 3600;
-
-    // calculate (and subtract) whole minutes
-    const minutes = Math.floor(delta / 60) % 60;
-    delta -= minutes * 60;
-    return {
-      days,
-      hours,
-      minutes,
-    };
-  };
-
-  useEffect(() => {
-    if (props.selectedSchedule) {
-      const hour = GenerateNewDate(props.selectedSchedule?.form_time);
-      setOfferHour(hour.toLocaleTimeString());
-    }
-    switch (props.selectedSchedule?.status) {
-      case ReservationStatus.BOOKED:
-        setTagStatus({
-          color: 'green',
-          text: 'Upcoming',
-        });
-        break;
-      case ReservationStatus.MARKED_AS_FINISHED:
-      case ReservationStatus.FINISHED:
-        setTagStatus({
-          color: 'gray',
-          text: 'Finished',
-        });
-        break;
-      case ReservationStatus.STARTED:
-        setTagStatus({
-          color: 'blue',
-          text: 'In progress',
-        });
-        break;
-      case ReservationStatus.MARKED_AS_STARTED:
-        setTagStatus({
-          color: 'blue',
-          text: 'In progress',
-        });
-        break;
-      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
-        setTagStatus({
-          color: 'yellow',
-          text: 'Pending',
-        });
-        break;
-    }
-    if (props?.selectedSchedule?.form_time) {
-      const dateFuture = GenerateNewDate(props?.selectedSchedule?.form_time);
-      const dateNow = new Date();
-      if (dateFuture.getTime() > dateNow.getTime()) {
-        const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule.form_time);
-      } else {
-
-      }
-    }
-  }, [props.selectedSchedule, props.status]);
 
   useMemo(() => {
     if (currentUser) {
@@ -161,59 +92,94 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setIsMenuOpen(false);
   };
 
+  const handleOpenDetailsModal = () => {
+    setOpenDetailsModal(true);
+  };
+  const handleOpenBookOfferModal = () => {
+    setOpenBookOfferModal(true);
+  };
+  // ============ Book Offer Modal
+  const handleCLoseBookOfferModal = () => {
+    setOpenBookOfferModal(false);
+  };
+  const handleBookOfferClicked = (plan: PlanType) => {
+    setPlanType(plan);
+    setOpenDetailsModal(false);
+    setOpenBookOfferModal(true);
+  };
+
+  const handleCLoseDetailsModal = () => {
+    setOpenDetailsModal(false);
+  };
 
   return (
-    <div className="Offer-middle">
-      <div className="offer-content">
-        <div className="offer-body">
-          <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
-            <div className="avatar-holder">
-              { (props.media?.length > 0)
-                ? (<img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />)
-                : (<img src={noOfferImg} alt="no-img" />)}
-            </div>
-            <div className="offer-details">
-              <h4>{`${props.title} - ${offerHour}`}</h4>
-              <span className="offer-location">{props.description}</span>
-              <div className="offer-status">
-                <TaggedText color={tagStatus.color}>
-                  {tagStatus.text}
-                </TaggedText>
-              </div>
-            </div>
+    // <div className="Offer-middle">
+    //  asdasd
+    //   <OfferDetailsDialog
+    //     openModal={openDetailsModal}
+    //     offer={props}
+    //     onCloseModal={() => setOpenDetailsModal(false)}
+    //   />
+    // </div>
+    <div className="testtest">
+      <div className="HeyMateMessage">
+        <div className="my-offer-body">
+          <div className="my-offer-img-holder">
+            { (props?.media && props?.media[0]) ? (
+              <img src={props?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+            ) : (
+              <img src={noOfferImg} alt="no-img" />
+            )}
           </div>
-          <div className="meeting-right-side">
-            <Button
-              ref={menuButtonRef}
-              className={isMenuOpen ? 'active' : ''}
-              round
-              ripple
-              onClick={handleHeaderMenuOpen}
-              size="smaller"
-              color="translucent"
-              ariaLabel="More actions"
-            >
-              <i className="icon-more" />
-            </Button>
-            <Menu
-              className="offer-operation-menu"
-              isOpen={isMenuOpen}
-              positionX="right"
-              positionY="top"
-              autoClose
-              onClose={handleClose}
-            >
-              <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/*<MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>*/}
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
-            </Menu>
+          <div className="my-offer-descs">
+            <h4 className="title">{props?.title}</h4>
+            <span className="sub-title">{props?.category.main_cat}</span>
+            <p className="description">
+              {props?.description}
+            </p>
+          </div>
+          <div className="my-offer-types">
+            <div className="radios-grp">
+              <RadioGroup
+                name="report-message"
+                options={purchasePlan}
+                onChange={handleSelectType}
+                selected={selectedReason}
+              />
+            </div>
+            <div className="price-grp">
+              <span className="prices active">{`${props?.pricing?.price} ${props?.pricing?.currency}`}</span>
+            </div>
           </div>
         </div>
+        <div className="my-offer-btn-group">
+          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
+            See Details
+          </Button>
+          <Button
+            disabled={isExpired}
+            onClick={handleOpenBookOfferModal}
+            className="book-offer"
+            size="smaller"
+            color="primary"
+          >
+            <span>Book Now</span>
+          </Button>
+        </div>
       </div>
+      <BookOfferDialog
+        purchasePlanType={planType}
+        offer={props}
+        openModal={openBookOfferModal}
+        onCloseModal={handleCLoseBookOfferModal}
+      />
       <OfferDetailsDialog
+        onBookClicked={handleBookOfferClicked}
+        message={undefined}
         openModal={openDetailsModal}
         offer={props}
-        onCloseModal={() => setOpenDetailsModal(false)}
+        expired={isExpired}
+        onCloseModal={handleCLoseDetailsModal}
       />
     </div>
   );

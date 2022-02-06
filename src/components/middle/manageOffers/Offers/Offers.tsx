@@ -1,16 +1,13 @@
 import React, {
   FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
-import { IOffer } from 'src/types/HeymateTypes/Offer.model';
-import { ITimeSlotModel } from 'src/types/HeymateTypes/TimeSlot.model';
+
 import { CalendarModal } from '../../../common/CalendarModal';
 import Button from '../../../ui/Button';
 import Select from '../../../ui/Select';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
-// import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
-import { MeetingType } from '../../../../types/HeymateTypes/Offer.model';
-import OnlineMetting from '../OnlineMeeting/OnlineMetting';
+
 import Offer from '../Offer/Offer';
 import Loading from '../../../ui/Loading';
 
@@ -40,12 +37,7 @@ const Offers: FC = () => {
     if (response?.status === 200) {
       const flatList: any = [];
       response.data.data.forEach((item: any) => {
-        item.schedules.forEach((time: any) => {
-          if (time.maximumReservations === time.remainingReservations) {
-            return;
-          }
-          flatList.push({ ...item, ...{ selectedSchedule: time } });
-        });
+        flatList.push(item);
       });
       setOffersList(flatList);
       setFilteredOffers(flatList);
@@ -154,17 +146,15 @@ const Offers: FC = () => {
         </div>
       </div>
       {!loading ? (
-        <>
+        <div className='offer-wrapper'>
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
-            <div>
-              <Offer props={item} />
-            </div>
+            <Offer props={item} />
           ))) : (
             <div className="no-order">
               There’s no available order for you !
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="loading-my-orders">
           <Loading key="loading" />

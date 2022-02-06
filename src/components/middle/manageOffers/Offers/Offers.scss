@@ -1,6 +1,6 @@
 .Offers {
   width: 90%;
-  height: 100%;
+  height: auto;
   margin: 0 auto;
   background-color: var(--color-background);
   border-radius: 8px;
@@ -44,4 +44,10 @@
     display: flex;
     align-items: center;
   }
+}
+
+.offer-wrapper {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
 }

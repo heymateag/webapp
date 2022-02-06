@@ -3,6 +3,7 @@ import React from 'teact/teact';
 
 import useLang from '../../../hooks/useLang';
 import './ManageOffer.scss';
+import Offers from './Offers/Offers';
 
 
 
@@ -12,7 +13,7 @@ const ManageOffer = () => {
 
   return (
     <div className="ManageOffer">
-      adadad
+      <Offers />
     </div>
   );
 };
