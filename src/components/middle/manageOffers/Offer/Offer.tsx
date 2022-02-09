@@ -1,34 +1,29 @@
+/* eslint-disable max-len */
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import { encode } from 'js-base64';
 import { withGlobal } from 'teact/teactn';
 import RadioGroup from '../../../ui/RadioGroup';
-import BookOfferDialog from '../../../common/BookOfferDialog';
 
 import React, {
   FC,
   memo,
-  useCallback,
-  useEffect, useMemo,
-  useRef,
+  useCallback, useMemo,
   useState,
-} from '../../../../lib/teact/teact';
-import useLang from '../../../../hooks/useLang';
+ useEffect } from '../../../../lib/teact/teact';
 import Button from '../../../ui/Button';
 
-import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 // @ts-ignore
 import noOfferImg from '../../../../assets/heymate/no-offer-image.svg';
-import TaggedText from '../../../ui/TaggedText';
 
-import MenuItem from '../../../ui/MenuItem';
-import Menu from '../../../ui/Menu';
+import ForwardPicker from '../../../main/ForwardPicker.async';
 
 import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
+import { HEYMATE_URL } from '../../../../config';
 
 interface IPurchasePlan {
   value: string;
@@ -48,21 +43,9 @@ type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage
 const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
+  sendDirectMessage,
 }) => {
-  const lang = useLang();
-  // eslint-disable-next-line no-null/no-null
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [offerHour, setOfferHour] = useState('');
-
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
-
-
-  const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
-    text: '',
-    color: 'green',
-  });
-
   const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
@@ -71,7 +54,13 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   const [isExpired, setIsExpired] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('SINGLE');
   const [openBookOfferModal, setOpenBookOfferModal] = useState(false);
+  const [isOpenForwardPicker, setIsOpenForwardPicker] = useState(false);
+  const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    const txt = `Heymate Offer ${props?.title} ‌@Alimusavi67 will provide  ${props.category.main_cat} at ‌${props.pricing.price} ${props.pricing.currency} ‌Per Session. Address: ${props.location?.address} ‌${props.payment_terms.deposit}% is paid upfront. ‌${props.payment_terms.delay_in_start.deposit}% is returned if they delay more than ‌${props.payment_terms.delay_in_start.deposit} minutes. Learn more here: https://heymate.works/offer/${props.id}?d=eyJjIjoiSGFuZHltYW4gJiBSZXBhaXIiLCJlIjoiMTY0NDY4Mzg1MSJ9&l=en&p=b2ZmZXJfcGhyYXNl`;
+    setMessage(txt);
+  }, [props]);
 
   useMemo(() => {
     if (currentUser) {
@@ -84,24 +73,10 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [currentUser]);
 
-  const handleHeaderMenuOpen = useCallback(() => {
-    setIsMenuOpen(true);
-  }, []);
-
-  const handleClose = () => {
-    setIsMenuOpen(false);
-  };
-
   const handleOpenDetailsModal = () => {
     setOpenDetailsModal(true);
   };
-  const handleOpenBookOfferModal = () => {
-    setOpenBookOfferModal(true);
-  };
-  // ============ Book Offer Modal
-  const handleCLoseBookOfferModal = () => {
-    setOpenBookOfferModal(false);
-  };
+
   const handleBookOfferClicked = (plan: PlanType) => {
     setPlanType(plan);
     setOpenDetailsModal(false);
@@ -112,15 +87,29 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setOpenDetailsModal(false);
   };
 
+  const shareOffer = async () => {
+    setIsOpenForwardPicker(true);
+    const shareData = {
+      title: 'MDN',
+      text: 'Learn web development on MDN!',
+      url: 'https://developer.mozilla.org',
+    }
+    await navigator.share(shareData);
+  };
+
+  const setForwardChat = (userId: any) => {
+
+    setIsOpenForwardPicker(false);
+    sendDirectMessage({
+      chat: {
+        id: userId.id,
+      },
+      // eslint-disable-next-line max-len
+      text: message,
+    });
+  };
+
   return (
-    // <div className="Offer-middle">
-    //  asdasd
-    //   <OfferDetailsDialog
-    //     openModal={openDetailsModal}
-    //     offer={props}
-    //     onCloseModal={() => setOpenDetailsModal(false)}
-    //   />
-    // </div>
     <div className="testtest">
       <div className="HeyMateMessage">
         <div className="my-offer-body">
@@ -153,34 +142,30 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
           </div>
         </div>
         <div className="my-offer-btn-group">
-          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="secondary">
+          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="primary">
             See Details
           </Button>
           <Button
-            disabled={isExpired}
-            onClick={handleOpenBookOfferModal}
+            onClick={shareOffer}
             className="book-offer"
             size="smaller"
             color="primary"
           >
-            <span>Book Now</span>
+            <span>Share</span>
           </Button>
         </div>
       </div>
-      <BookOfferDialog
-        purchasePlanType={planType}
-        offer={props}
-        openModal={openBookOfferModal}
-        onCloseModal={handleCLoseBookOfferModal}
-      />
+
       <OfferDetailsDialog
-        onBookClicked={handleBookOfferClicked}
+        // onBookClicked={handleBookOfferClicked}
         message={undefined}
         openModal={openDetailsModal}
         offer={props}
         expired={isExpired}
         onCloseModal={handleCLoseDetailsModal}
       />
+      <ForwardPicker isOpen={isOpenForwardPicker} setForwardChatId={setForwardChat} />
+
     </div>
   );
 };

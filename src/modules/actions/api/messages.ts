@@ -266,7 +266,6 @@ addReducer('sendDirectMessage', (global, actions, payload) => {
   const { chat } = payload;
   const threadId = -1;
   const chatId = chat.id;
-
   // const chat = selectChat(global, chatId)!;
 
   // actions.setReplyingToId({ messageId: undefined });

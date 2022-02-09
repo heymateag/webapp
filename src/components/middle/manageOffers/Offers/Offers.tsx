@@ -146,7 +146,7 @@ const Offers: FC = () => {
         </div>
       </div>
       {!loading ? (
-        <div className='offer-wrapper'>
+        <div className="offer-wrapper">
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
             <Offer props={item} />
           ))) : (
