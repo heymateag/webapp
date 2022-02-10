@@ -169,15 +169,47 @@ class OfferWrapper {
     }
   };
 
-  cancelService = (tradeId: any, consumerCancelled: boolean, consumerAddress: string, amount: number) => {
+  cancelService = async (offer: IOffer, tradeId: any, consumerCancelled: boolean, consumerAddress: string) => {
     // const tradeIdHash = `${tradeId.split('-').join('')}`;
-
-    if (consumerCancelled) {
-      this.mContract.methods.consumerCancel(tradeId, this.address,
-        consumerAddress, amount, new BN(1)).send();
+    let tradeIdHash;
+    if (tradeId.length <= 36) {
+      tradeIdHash = `0x${tradeId.split('-').join('')}`;
     } else {
-      this.mContract.methods.serviceProviderCancel(tradeId, this.address,
-        consumerAddress, amount, new BN(1)).send();
+      tradeIdHash = `${tradeId.split('-').join('')}`;
+    }
+    const pricingInfo = offer.pricing;
+    const rate: number = pricingInfo.price;
+    const amount = web3.utils.toWei(new BN(rate), 'ether');
+    let answer;
+    if (consumerCancelled) {
+      try {
+        answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.consumerCancel(
+          tradeIdHash, offer.sp_wallet_address,
+          consumerAddress, amount, new BN(1),
+        )).send();
+      } catch (error: any) {
+        throw new Error(error);
+      }
+      // this.mContract.methods.consumerCancel(tradeIdHash, this.address,
+      //   consumerAddress, convertedAmount, new BN(1)).send();
+    } else {
+      try {
+        answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.serviceProviderCancel(
+          tradeIdHash, offer.sp_wallet_address,
+          consumerAddress, amount, new BN(1),
+        )).send();
+      } catch (error: any) {
+        throw new Error(error);
+      }
+      // this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
+      //   consumerAddress, convertedAmount, new BN(1)).send();
+    }
+    let receipt;
+    try {
+      receipt = await answer.getHash();
+      return receipt;
+    } catch (error: any) {
+      return new Error(error);
     }
   };
 

@@ -33,6 +33,15 @@ import { selectUser } from '../../../../modules/selectors';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Avatar from '../../../common/Avatar';
 import { GlobalState } from 'src/global/types';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import QrCreator from 'qr-creator';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import OfferWrapper from '../../../left/wallet/OfferWrapper';
+import Modal from '../../../ui/Modal';
+import Spinner from '../../../ui/Spinner';
+import renderText from "../../../common/helpers/renderText";
+import Web3 from 'web3';
+
 
 type TimeToStart = {
   days: number;
@@ -89,6 +98,112 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     text: '',
     color: 'green',
   });
+
+  //celo action
+  const [uri, setUri] = useState<string>('');
+  const [isConnected, setIsConnected] = useState(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const [openModal, setOpenModal] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(true);
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
+    });
+  }, []);
+
+  const renderUriAsQr = (givenUri?) => {
+    setOpenModal(true);
+    setLoadingQr(true);
+
+    setTimeout(() => {
+      const validUri = givenUri || uri;
+
+      const container = qrCodeRef.current!;
+      container.innerHTML = '';
+      container.classList.remove('pre-animate');
+
+      QrCreator.render({
+        text: `${validUri}`,
+        radius: 0.5,
+        ecLevel: 'M',
+        fill: '#4E96D4',
+        size: 280,
+      }, container);
+      setLoadingQr(false);
+    }, 100);
+  };
+
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
+    setOpenModal(true);
+    setLoadingQr(true);
+    renderUriAsQr();
+  };
+  provider.connector.on('display_uri', (err, payload) => {
+    setIsConnected(false);
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    renderUriAsQr(wcUri);
+    setLoadingQr(false);
+  });
+
+  const handleCancelInCelo = async () => {
+    setIsLoading(true);
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+        setIsConnected(true);
+        setOpenModal(false);
+      });
+      debugger
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
+      const answer = await offerWrapper.cancelService(props.offer, props.tradeId, true, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
+      if (answer?.message?.startsWith('Error')) {
+        setIsLoading(false);
+        showNotification({ message: answer.message });
+        return;
+      }
+      if (answer) {
+        handleCancelReservation();
+      } else {
+        console.log('failed');
+      }
+    } else {
+      handleOpenWCModal();
+    }
+  };
+
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -271,6 +386,17 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     setReservationStatus(newStatus);
   };
 
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    provider.isConnecting = false;
+    setLoadingBalance(false);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
+  };
+
   return (
     <div className="Offer-middle">
       <div className="offer-content">
@@ -316,7 +442,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
               {props.status === ReservationStatus.BOOKED
                && (
-                 <MenuItem icon="user" onClick={handleCancelReservation}>
+                 <MenuItem icon="user" onClick={handleCancelInCelo}>
                    {lang('Cancel')}
                  </MenuItem>
                )}
@@ -342,6 +468,51 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
+      <Modal
+        hasCloseButton
+        isOpen={openModal}
+        onClose={handleCLoseWCModal}
+        onEnter={openModal ? handleCLoseWCModal : undefined}
+        className="WalletQrModal"
+        title="Scan qrCode with your phone"
+      >
+        {loadingQr && (
+          <div className="spinner-holder">
+            <Spinner color="blue" />
+          </div>
+        )}
+        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        <div className="connection-notes">
+          <h4>{lang('Connect.Wallet.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+          </ol>
+        </div>
+      </Modal>
+      <Modal
+        hasCloseButton
+        isOpen={openAcceptModal}
+        onClose={handleCloseAcceptModal}
+        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
+        className="WalletQrModal"
+        title="accept transaction in your phone to continue"
+      >
+        {loadAcceptLoading && (
+          <div className="spinner-holder aproval-loader">
+            <Spinner color="blue" />
+          </div>
+        )}
+        <div className="connection-notes">
+          <h4>{lang('Connect.Approve.Title')}</h4>
+          <ol>
+            <li><span>{lang('Connect.Approve.Help1')}</span></li>
+            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
+            <li><span>{lang('Connect.Approve.Help3')}</span></li>
+          </ol>
+        </div>
+      </Modal>
     </div>
   );
 };
