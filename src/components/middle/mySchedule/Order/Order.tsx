@@ -39,9 +39,8 @@ import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import OfferWrapper from '../../../left/wallet/OfferWrapper';
 import Modal from '../../../ui/Modal';
 import Spinner from '../../../ui/Spinner';
-import renderText from "../../../common/helpers/renderText";
+import renderText from '../../../common/helpers/renderText';
 import Web3 from 'web3';
-
 
 type TimeToStart = {
   days: number;
@@ -91,7 +90,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const [zmClient, setZmClient] = useState<ClientType>();
 
-  const [offer, setOffer] = useState<IOffer>({});
   const [offerOwner, setOfferOwner] = useState<any>({});
 
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
@@ -108,6 +106,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(true);
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -124,6 +123,26 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       },
     });
   }, []);
+
+  const handleCancelReservation = async () => {
+    if (reservationStatus === ReservationStatus.BOOKED) {
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/reservation/${props.id}`,
+        method: 'PUT',
+        body: {
+          status: 'CANCELED',
+        },
+      });
+      if (response?.status === 200) {
+        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
+        const msg = 'Your order has been cancelled !';
+        showNotification({ message: msg });
+      }
+    } else {
+      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
+      showNotification({ message: msg });
+    }
+  };
 
   const renderUriAsQr = (givenUri?) => {
     setOpenModal(true);
@@ -174,7 +193,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         setIsConnected(true);
         setOpenModal(false);
       });
-      debugger
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignoreffer
@@ -335,26 +353,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       setZoomUser(userData);
     }
   }, [currentUser]);
-
-  const handleCancelReservation = async () => {
-    if (reservationStatus === ReservationStatus.BOOKED) {
-      const response = await axiosService({
-        url: `${HEYMATE_URL}/reservation/${props.id}`,
-        method: 'PUT',
-        body: {
-          status: 'CANCELED',
-        },
-      });
-      if (response?.status === 200) {
-        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
-        const msg = 'Your order has been cancelled !';
-        showNotification({ message: msg });
-      }
-    } else {
-      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
-      showNotification({ message: msg });
-    }
-  };
 
   const handleClose = () => {
     setIsMenuOpen(false);
