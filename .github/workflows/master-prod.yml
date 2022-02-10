@@ -29,7 +29,7 @@ jobs:
       run: |
         aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/production.env .env 
         aws s3 cp s3://${{ secrets.S3_BUCKET_MASTER }}/version.txt version.txt
-        version="$(grep "" version.txt  | cut -d'=' -f2-)"
+        version="$(grep ${{ github.sha }} version.txt  | cut -d'=' -f2-)"
         npm install
         APP_ENV=production APP_VERSION=${version} npm run build
         cd dist
