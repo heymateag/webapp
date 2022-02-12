@@ -26,6 +26,7 @@ const MyOffers: FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [typeFilter, setTypeFilter] = useState<string>('All');
   const [loading, setLoading] = useState<boolean>(false);
+
   /**
    * Get All Offers
    */
@@ -92,6 +93,7 @@ const MyOffers: FC = () => {
     if (filter === 'All') {
       setFilteredOffers(offersList);
     } else {
+      debugger
       const filtered = offersList.filter((item) => item.meeting_type === filter);
       setFilteredOffers(filtered);
     }
@@ -139,7 +141,7 @@ const MyOffers: FC = () => {
               id="type-filter"
             >
               <option value="All">All</option>
-              <option value="OFFLINE">Offline</option>
+              <option value="DEFAULT">Offline</option>
               <option value="ONLINE">Online</option>
             </Select>
           </div>
@@ -156,7 +158,7 @@ const MyOffers: FC = () => {
       {!loading ? (
         <>
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
-            <div>
+            <div key={item.id}>
               <Offer props={item} />
             </div>
           ))) : (
