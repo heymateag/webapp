@@ -39,6 +39,7 @@ const Offers: FC = () => {
       response.data.data.forEach((item: any) => {
         flatList.push(item);
       });
+      flatList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setOffersList(flatList);
       setFilteredOffers(flatList);
     }

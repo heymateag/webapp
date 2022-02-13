@@ -34,8 +34,12 @@ const MyOrders: FC = () => {
     });
     setLoading(false);
     if (response?.status === 200) {
-      setMyOrders(response.data.data);
-      setFilteredOrders(response.data.data);
+      const list = response.data.data;
+      list.sort((a, b) => {
+        return b.time_slot?.form_time - a.time_slot?.form_time;
+      });
+      setMyOrders(list);
+      setFilteredOrders(list);
     }
   };
   useEffect(() => {

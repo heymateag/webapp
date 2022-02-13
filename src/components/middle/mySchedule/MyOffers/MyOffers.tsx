@@ -48,6 +48,9 @@ const MyOffers: FC = () => {
           flatList.push({ ...item, ...{ selectedSchedule: time } });
         });
       });
+      flatList.sort((a, b) => {
+        return b.selectedSchedule?.form_time - a.selectedSchedule?.form_time;
+      });
       setOffersList(flatList);
       setFilteredOffers(flatList);
     }
