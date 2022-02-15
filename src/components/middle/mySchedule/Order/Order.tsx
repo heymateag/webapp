@@ -1,5 +1,11 @@
 import { withGlobal } from 'teact/teactn';
 import { encode } from 'js-base64';
+import { GlobalState } from 'src/global/types';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+import Web3 from 'web3';
+import QrCreator from 'qr-creator';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import React, {
   FC,
   memo,
@@ -30,17 +36,10 @@ import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
-import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Avatar from '../../../common/Avatar';
-import { GlobalState } from 'src/global/types';
-import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
-import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import OfferWrapper from '../../../left/wallet/OfferWrapper';
-import Modal from '../../../ui/Modal';
-import Spinner from '../../../ui/Spinner';
-import renderText from '../../../common/helpers/renderText';
-import Web3 from 'web3';
+import QrCodeDialog from '../../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
 
 type TimeToStart = {
   days: number;
@@ -99,7 +98,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   //celo action
   const [uri, setUri] = useState<string>('');
-  const [isConnected, setIsConnected] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const [openModal, setOpenModal] = useState(false);
   const [loadingQr, setLoadingQr] = useState(true);
@@ -175,7 +173,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     renderUriAsQr();
   };
   provider.connector.on('display_uri', (err, payload) => {
-    setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
     renderUriAsQr(wcUri);
@@ -190,7 +187,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
-        setIsConnected(true);
         setOpenModal(false);
       });
       // @ts-ignore
@@ -386,11 +382,13 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenModal(false);
+    setIsLoading(false);
+    setLoadingQr(true);
     provider.isConnecting = false;
-    setLoadingBalance(false);
   };
 
   const handleCloseAcceptModal = () => {
+    setIsLoading(false);
     setOpenAcceptModal(false);
     setLoadAcceptLoading(false);
   };
@@ -466,51 +464,18 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
-      <Modal
-        hasCloseButton
-        isOpen={openModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Scan qrCode with your phone"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        <div className="connection-notes">
-          <h4>{lang('Connect.Wallet.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
-      <Modal
-        hasCloseButton
+      <QrCodeDialog
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+
+      <AcceptTransactionDialog
         isOpen={openAcceptModal}
-        onClose={handleCloseAcceptModal}
-        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
-        className="WalletQrModal"
-        title="accept transaction in your phone to continue"
-      >
-        {loadAcceptLoading && (
-          <div className="spinner-holder aproval-loader">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div className="connection-notes">
-          <h4>{lang('Connect.Approve.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Approve.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Approve.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
     </div>
   );
 };

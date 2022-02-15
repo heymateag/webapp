@@ -24,8 +24,8 @@ import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
-import Spinner from '../ui/Spinner';
-import renderText from './helpers/renderText';
+import QrCodeDialog from './QrCodeDialog';
+import AcceptTransactionDialog from './AcceptTransactionDialog';
 
 type OwnProps = {
   offer: IOffer;
@@ -149,8 +149,13 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenQRModal(false);
+    setLoadingQr(true);
     provider.isConnecting = false;
-    setLoadingBalance(false);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   const getTodayRawDateString = useCallback((selectedTs) => {
@@ -244,6 +249,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     let address: string;
     let offerPurchase;
     if (provider.isWalletConnect) {
+      handleOpenWCModal();
       await provider.enable()
         .then((res) => {
           // eslint-disable-next-line prefer-destructuring
@@ -307,11 +313,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     setIsCalendarOpen(false);
     setFilteredDate(filterDates);
   }, [timeSlots]);
-
-  const handleCloseAcceptModal = () => {
-    setOpenAcceptModal(false);
-    setLoadAcceptLoading(false);
-  };
 
   return (
     <div>
@@ -419,51 +420,17 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         onClose={() => setIsCalendarOpen(false)}
         onSubmit={handleRescheduleMessage}
       />
-      <Modal
-        hasCloseButton
-        isOpen={openQrModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Scan qrCode with your phone"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        <div className="connection-notes">
-          <h4>{lang('Connect.Wallet.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
-      <Modal
-        hasCloseButton
+      <QrCodeDialog
+        openModal={openQrModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+      <AcceptTransactionDialog
         isOpen={openAcceptModal}
-        onClose={handleCloseAcceptModal}
-        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
-        className="WalletQrModal"
-        title="accept transaction in your phone to continue"
-      >
-        {loadAcceptLoading && (
-          <div className="spinner-holder aproval-loader">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div className="connection-notes">
-          <h4>{lang('Connect.Approve.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Approve.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Approve.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
 
     </div>
   );

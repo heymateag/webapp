@@ -149,7 +149,7 @@ const Offers: FC = () => {
       {!loading ? (
         <div className="offer-wrapper">
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
-            <Offer props={item} />
+            <Offer props={item} key={item.id} />
           ))) : (
             <div className="no-order">
               There’s no available order for you !

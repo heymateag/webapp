@@ -161,7 +161,7 @@ const MyOffers: FC = () => {
       {!loading ? (
         <>
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
-            <div key={item.id}>
+            <div key={item.selectedSchedule.id}>
               <Offer props={item} />
             </div>
           ))) : (

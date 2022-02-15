@@ -34,6 +34,8 @@ import OfferWrapper from '../../left/wallet/OfferWrapper';
 import noOfferImg from '../../../assets/heymate/no-offer-image.svg';
 import renderText from '../../common/helpers/renderText';
 import useLang from '../../../hooks/useLang';
+import QrCodeDialog from '../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 
 type OwnProps = {
   message: ApiMessage;
@@ -485,52 +487,17 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )
       }
-      <Modal
-        hasCloseButton
-        isOpen={openQrModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openQrModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Scan qrCode with your phone"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        <div className="connection-notes">
-          <h4>{lang('Connect.Wallet.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
-
-      <Modal
-        hasCloseButton
+      <QrCodeDialog
+        openModal={openQrModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+      <AcceptTransactionDialog
         isOpen={openAcceptModal}
-        onClose={handleCloseAcceptModal}
-        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
-        className="WalletQrModal"
-        title="accept transaction in your phone to continue"
-      >
-        {loadAcceptLoading && (
-          <div className="spinner-holder aproval-loader">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div className="connection-notes">
-          <h4>{lang('Connect.Approve.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Approve.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Approve.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
 
     </div>
   );

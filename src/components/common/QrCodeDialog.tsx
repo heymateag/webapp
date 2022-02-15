@@ -1,0 +1,57 @@
+/* eslint-disable no-null/no-null */
+import React, {
+  FC,
+} from 'teact/teact';
+import useLang from '../../hooks/useLang';
+import Modal from '../ui/Modal';
+// import Button from '../ui/Button';
+import './QrCodeDialog.scss';
+import Spinner from '../ui/Spinner';
+import renderText from './helpers/renderText';
+
+type OwnProps = {
+  openModal: boolean;
+  loadingQr: boolean;
+  qrCodeRef: any;
+  onCloseModal: () => void;
+};
+
+const QrCodeDialog: FC<OwnProps> = ({
+  openModal = false,
+  loadingQr = false,
+  qrCodeRef,
+  onCloseModal,
+}) => {
+  const lang = useLang();
+
+  const handleCLoseWCModal = () => {
+    onCloseModal();
+  };
+  return (
+    <Modal
+      hasCloseButton
+      isOpen={openModal}
+      onClose={handleCLoseWCModal}
+      onEnter={openModal ? handleCLoseWCModal : undefined}
+      className="WalletQrModal"
+      title="Scan qrCode with your phone"
+    >
+      {loadingQr && (
+        <div className="spinner-holder">
+          <Spinner color="blue" />
+        </div>
+      )}
+      <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+      <div className="connection-notes">
+        <h4>{lang('Connect.Wallet.Title')}</h4>
+        <ol>
+          <li><span>{lang('Connect.Wallet.Help1')}</span></li>
+          <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
+          <li><span>{lang('Connect.Wallet.Help3')}</span></li>
+        </ol>
+      </div>
+    </Modal>
+  );
+};
+
+export default QrCodeDialog;
