@@ -144,6 +144,15 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   });
 
   const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
+    const reconnectTimeOut = setTimeout(() => {
+      if (loadingBalance) {
+        showNotification({ message: 'connection failed, please check your connection and retry' });
+        setLoadingBalance(false);
+        provider.disconnect();
+        setWcProvider(provider);
+        window.location.reload();
+      }
+    }, 60000);
     // @ts-ignore
     const web3 = new Web3(provider);
     // @ts-ignore
@@ -155,8 +164,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     // eslint-disable-next-line prefer-destructuring
     myKit.defaultAccount = accounts[0];
     await myKit.setFeeCurrency(CeloContract.StableToken);
-
     const accountBalance = await newKitBalances(myKit, walletAddress);
+    clearTimeout(reconnectTimeOut);
     setBalance(accountBalance);
 
     setLoadingBalance(false);
