@@ -18,8 +18,6 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
-// import HeymateOffer from './HeymateOffer';
-// import OfferContract from './OfferContract';
 import { axiosService } from '../../../api/services/axiosService';
 
 export type OwnProps = {
@@ -66,11 +64,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   // }, []);
 
   const provider = useMemo(() => {
+    debugger
     return new WalletConnectProvider({
       rpc: {
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
+      bridge: 'https://a.bridge.walletconnect.org',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',
@@ -78,9 +78,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
-      // connector: {
-      //   peerId: localStorage.getItem('peerId') || 'testtest',
-      // },
     });
   }, []);
 
@@ -177,6 +174,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   });
 
   provider.onConnect(() => {
+    // provider.connector.bridge = 'https://a.bridge.walletconnect.org';
+    // debugger
     setOpenModal(false);
     setIsConnected(true);
     showNotification({ message: 'Successfully Connected to Wallet !' });
@@ -288,13 +287,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           <span id="balance">Connect Your Account</span>
         )}
         <div className="btn-row">
-          {/* {isConnected && (
-            <div id="add-money" className="btn-holder">
-              <Button onClick={doTransaction} size="smaller" color="primary">
-                Add Money
-              </Button>
-            </div>
-          )} */}
           { (!loadingBalance && !isConnected)
             && (
               <div id="cashout" className="btn-holder">
