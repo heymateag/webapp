@@ -200,7 +200,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             {lang('Wallet')}
           </MenuItem>
           <MenuItem
-            icon="hm-manage-offers"
+            icon="hm-calendar"
             onClick={onSelectMySchedule}
           >
             {lang('MySchedule')}

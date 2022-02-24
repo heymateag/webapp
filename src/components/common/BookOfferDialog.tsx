@@ -47,6 +47,7 @@ interface ITimeSlotsRender extends ITimeSlotModel{
   remainingReservations?: number;
   completedReservations?: number;
   maximumReservations?: number; // 0 means unlimited
+  date?: string;
 }
 interface IBookOfferModel {
   offerId: string;
@@ -198,12 +199,13 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           item.toTs = toTs;
           item.fromDateLocal = new Date(fromTs).toLocaleTimeString();
           item.toDateLocal = new Date(toTs).toLocaleTimeString();
+          item.date = new Date(fromTs).toLocaleDateString('en');
           return item;
         });
         setTimeSlots(temp);
         setTimeSlotList(res.data);
         setFilteredDate(temp);
-        getTodayRawDateString(temp);
+        // getTodayRawDateString(temp);
       });
     }
   }, [getTodayRawDateString, offer]);
@@ -358,7 +360,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                             <div>
                               <Radio
                                 name={item.id}
-                                label={`${item.fromDateLocal} - ${item.toDateLocal}`}
+                                label={`${item.date} - ${item.fromDateLocal} - ${item.toDateLocal}`}
                                 value={item.id}
                                 checked={selectedTimeSlotId === item.id}
                                 onChange={(e) => handleChange(e, item)}

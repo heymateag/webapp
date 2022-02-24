@@ -71,6 +71,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
+      bridge: 'https://dd00ywh1z9i0t.cloudfront.net',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',

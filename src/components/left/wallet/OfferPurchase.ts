@@ -17,6 +17,7 @@ interface IBookOfferModel {
   timeSlotId: string;
   meetingId?: string;
   tradeId: string;
+  consumer_wallet_address?: string;
 }
 
 class OfferPurchase {
@@ -83,6 +84,7 @@ class OfferPurchase {
           purchasedPlanId: undefined,
           timeSlotId: this.timeSlot.id,
           tradeId,
+          consumer_wallet_address: this.address,
         };
         const response = await axiosService({
           url: `${HEYMATE_URL}/reservation`,
