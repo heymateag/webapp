@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import React, {
   FC, memo, useEffect, useState,
 } from 'teact/teact';
@@ -114,10 +115,14 @@ const OfferFooter: FC<OwnProps> = ({
   };
 
   const handleStart = () => {
-    const meetingId = makeRandomString(10);
-    const sessionPassword = makeRandomString(10);
-    handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
-    onJoinMeeting(meetingId, sessionPassword);
+    if (offerType === 'ONLINE') {
+      const meetingId = makeRandomString(10);
+      const sessionPassword = makeRandomString(10);
+      handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
+      onJoinMeeting(meetingId, sessionPassword);
+    } else {
+      handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED);
+    }
   };
 
   return (
@@ -173,7 +178,7 @@ const OfferFooter: FC<OwnProps> = ({
             </Button>
           </div>
         )}
-        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED)
+        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED && offerType === 'ONLINE')
         && (
           <div className="btn-join-rejoin">
             <Button
@@ -192,6 +197,20 @@ const OfferFooter: FC<OwnProps> = ({
               color="primary"
             >
               Re Join
+            </Button>
+          </div>
+        )}
+        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED && offerType === 'DEFAULT')
+        && (
+          <div className="btn-join-rejoin">
+            <Button
+              // disabled={!canFinish}
+              isLoading={joinMeetingLoader}
+              onClick={() => handleChangeReservationStatus(ReservationStatus.MARKED_AS_FINISHED)}
+              size="tiny"
+              color="hm-primary-red"
+            >
+              Finish
             </Button>
           </div>
         )}

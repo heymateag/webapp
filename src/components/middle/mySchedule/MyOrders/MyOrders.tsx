@@ -34,8 +34,12 @@ const MyOrders: FC = () => {
     });
     setLoading(false);
     if (response?.status === 200) {
-      setMyOrders(response.data.data);
-      setFilteredOrders(response.data.data);
+      const list = response.data.data;
+      list.sort((a, b) => {
+        return b.time_slot?.form_time - a.time_slot?.form_time;
+      });
+      setMyOrders(list);
+      setFilteredOrders(list);
     }
   };
   useEffect(() => {
@@ -122,7 +126,7 @@ const MyOrders: FC = () => {
               id="type-filter"
             >
               <option value="All">All</option>
-              <option value="OFFLINE">Offline</option>
+              <option value="DEFAULT">Offline</option>
               <option value="ONLINE">Online</option>
             </Select>
           </div>
@@ -139,7 +143,7 @@ const MyOrders: FC = () => {
       {!loading ? (
         <>
           {filteredOrders.length > 0 ? filteredOrders.map((item) => (
-            <div>
+            <div key={item.id}>
               <Order props={item} orderType={item.offer.meeting_type} />
             </div>
           )) : (

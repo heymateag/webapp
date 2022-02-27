@@ -20,7 +20,8 @@ import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
 
 import { axiosService } from '../../../api/services/axiosService';
-import renderText from "../../common/helpers/renderText";
+import useWindowSize from '../../../hooks/useWindowSize';
+import QrCodeDialog from '../../common/QrCodeDialog';
 
 export type OwnProps = {
   onReset: () => void;
@@ -52,25 +53,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setWidth(window.innerWidth);
   }, []);
 
-  // useEffect(() => {
-  //   const address = '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe';
-  //   const userAddress = '0x1234567890123456789012345678901234567891';
-  //   const offerContract = new OfferContract(address, userAddress);
-  //   // const web3 = new Web3();
-  //   // const HeymateContract = new web3.eth.Contract(HeymateOffer.abi, '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe', {
-  //   //   from: '0x1234567890123456789012345678901234567891', // default from address
-  //   //   gasPrice: '20000000000', // default gas price in wei, 20 gwei in this case
-  //   // });
-  //   const contract = offerContract.create();
-  //   debugger
-  // }, []);
-
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
+      // bridge: 'https://a.bridge.walletconnect.org',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',
@@ -144,6 +133,15 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   });
 
   const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
+    const reconnectTimeOut = setTimeout(() => {
+      if (loadingBalance) {
+        showNotification({ message: 'connection failed, please check your connection and retry' });
+        setLoadingBalance(false);
+        provider.disconnect();
+        setWcProvider(provider);
+        window.location.reload();
+      }
+    }, 60000);
     // @ts-ignore
     const web3 = new Web3(provider);
     // @ts-ignore
@@ -155,8 +153,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     // eslint-disable-next-line prefer-destructuring
     myKit.defaultAccount = accounts[0];
     await myKit.setFeeCurrency(CeloContract.StableToken);
-
     const accountBalance = await newKitBalances(myKit, walletAddress);
+    clearTimeout(reconnectTimeOut);
     setBalance(accountBalance);
 
     setLoadingBalance(false);
@@ -323,29 +321,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           })
         }
       </div>
-      <Modal
-        hasCloseButton
-        isOpen={openModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Connect Your Wallet"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        <div className="connection-notes">
-          <h4>{lang('Connect.Wallet.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
+      <QrCodeDialog
+        uri={uri}
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
 
     </div>
   );

@@ -59,7 +59,7 @@
     }
     .spinner-holder {
       padding-top: 0.45rem;
-      width: 100%;
+      width: auto;
       display: flex;
       justify-content: center;
     }
@@ -129,7 +129,24 @@
     flex-flow: row wrap;
     justify-content: center;
     margin-top: 16px;
-
+    .no-pad-margin {
+      h4 {
+        padding: 0;
+        margin: 0;
+      }
+    }
+    .wallet-deeplink {
+      width: 100%;
+      text-align: center;
+      height: 45px;
+      background-color: var(--color-primary);
+      color: var(--color-text);
+      border-radius: var(--border-radius-default);
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     h4 {
       margin: 1.5rem 0 1rem 0;
       width: 100%;

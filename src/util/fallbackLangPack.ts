@@ -1777,6 +1777,10 @@ export default {
     key: 'Login.QR.Help3',
     value: 'Point your phone at this screen to confirm login',
   },
+  'Connect.Wallet.DeepLink': {
+    key: 'Connect.Wallet.DeepLink',
+    value: 'Please scan this QR code image with other device or click the below button to open your wallet:',
+  },
   'Connect.Wallet.Title': {
     key: 'Connect.Wallet.Title',
     value: 'Please scan this QR code image via the back camera of your mobile:',

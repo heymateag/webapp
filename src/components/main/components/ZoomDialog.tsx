@@ -36,6 +36,8 @@ import OfferWrapper from '../../left/wallet/OfferWrapper';
 import Spinner from '../../ui/Spinner';
 import renderText from '../../common/helpers/renderText';
 import useLang from '../../../hooks/useLang';
+import QrCodeDialog from '../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
@@ -377,6 +379,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenModal(false);
+    setLoadingQr(true);
     provider.isConnecting = false;
   };
 
@@ -492,50 +495,18 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           <Button isText className="confirm-dialog-button" onClick={() => setConfirmModal(false)}>No</Button>
         </div>
       </Modal>
-      <Modal
-        hasCloseButton
-        isOpen={openModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        <div className="connection-notes">
-          <h4>{lang('Connect.Wallet.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Wallet.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Wallet.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Wallet.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
-      <Modal
+      <QrCodeDialog
+        uri={uri}
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+      <AcceptTransactionDialog
         isOpen={openAcceptModal}
-        onClose={handleCloseAcceptModal}
-        onEnter={openAcceptModal ? handleCloseAcceptModal : undefined}
-        className="WalletQrModal"
-        title="accept transaction in your phone to continue"
-      >
-        {loadAcceptLoading && (
-          <div className="spinner-holder aproval-loader">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div className="connection-notes">
-          <h4>{lang('Connect.Approve.Title')}</h4>
-          <ol>
-            <li><span>{lang('Connect.Approve.Help1')}</span></li>
-            <li><span>{renderText(lang('Connect.Approve.Help2'), ['simple_markdown'])}</span></li>
-            <li><span>{lang('Connect.Approve.Help3')}</span></li>
-          </ol>
-        </div>
-      </Modal>
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
     </Modal>
   );
 };

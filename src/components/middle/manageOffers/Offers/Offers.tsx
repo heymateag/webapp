@@ -39,6 +39,7 @@ const Offers: FC = () => {
       response.data.data.forEach((item: any) => {
         flatList.push(item);
       });
+      flatList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setOffersList(flatList);
       setFilteredOffers(flatList);
     }
@@ -100,7 +101,7 @@ const Offers: FC = () => {
     <div className="Offers custom-scroll">
       <div className="myOrder-middle-filter">
         <div className="filters-holder">
-          <div className="filters-select">
+          {/* <div className="filters-select">
             <Select
               label="Status"
               placeholder="Status"
@@ -120,7 +121,7 @@ const Offers: FC = () => {
               <option value="CANCELED_BY_CONSUMER">CANCELED BY CONSUMER</option>
 
             </Select>
-          </div>
+          </div> */}
           <div className="filters-select">
             <Select
               label="Type"
@@ -135,9 +136,9 @@ const Offers: FC = () => {
               <option value="ONLINE">Online</option>
             </Select>
           </div>
-          <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
+          {/* <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
             <span>{selectedDate}</span>
-          </div>
+          </div> */}
         </div>
         <div>
           <Button size="tiny" color="translucent" onClick={clearFilters}>
@@ -148,7 +149,7 @@ const Offers: FC = () => {
       {!loading ? (
         <div className="offer-wrapper">
           {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
-            <Offer props={item} />
+            <Offer props={item} key={item.id} />
           ))) : (
             <div className="no-order">
               There’s no available order for you !
