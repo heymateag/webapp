@@ -19,6 +19,8 @@ import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
 import { axiosService } from '../../../api/services/axiosService';
+import useWindowSize from '../../../hooks/useWindowSize';
+import { MOBILE_SCREEN_MAX_WIDTH } from '../../../config';
 
 export type OwnProps = {
   onReset: () => void;
@@ -34,6 +36,8 @@ interface IBalance {
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
+  const { width: windowWidth } = useWindowSize();
+  console.log(windowWidth);
   const [openModal, setOpenModal] = useState(false);
   const [loadingQr, setLoadingQr] = useState(true);
   // eslint-disable-next-line no-null/no-null
@@ -64,13 +68,12 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   // }, []);
 
   const provider = useMemo(() => {
-    debugger
     return new WalletConnectProvider({
       rpc: {
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
-      bridge: 'https://a.bridge.walletconnect.org',
+      // bridge: 'https://a.bridge.walletconnect.org',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',
@@ -329,7 +332,11 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
             <Spinner color="blue" />
           </div>
         )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        {(windowWidth <= MOBILE_SCREEN_MAX_WIDTH) ? (
+          <a href={uri}>Open Heymate App</a>
+        ) : (
+          <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
+        )}
       </Modal>
     </div>
   );
