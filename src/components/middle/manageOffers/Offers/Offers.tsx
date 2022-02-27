@@ -1,95 +1,107 @@
 import React, {
-  FC, memo, useEffect, useState, useCallback,
+  FC, memo, useCallback, useEffect, useState,
 } from 'teact/teact';
+
+import { CalendarModal } from '../../../common/CalendarModal';
 import Button from '../../../ui/Button';
 import Select from '../../../ui/Select';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
-import { IMyOrders } from '../../../../types/HeymateTypes/MyOrders.model';
+
+import Offer from '../Offer/Offer';
 import Loading from '../../../ui/Loading';
-import './MyOrders.scss';
-import Order from '../Order/Order';
-import { CalendarModal } from '../../../common/CalendarModal';
+
+import './Offers.scss';
 import { getDayStartAt } from '../../../../util/dateFormat';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 
-const MyOrders: FC = () => {
-  const [myOrders, setMyOrders] = useState<IMyOrders[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<IMyOrders[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+const Offers: FC = () => {
+  const [offersList, setOffersList] = useState<any[]>([]);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [selectedDate, setSelectDate] = useState('Date');
-  const [loading, setLoading] = useState(false);
+  const [filteredOffers, setFilteredOffers] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
   const [typeFilter, setTypeFilter] = useState<string>('All');
-
+  const [loading, setLoading] = useState<boolean>(false);
   /**
    * Get All Offers
    */
-  const getMyOrders = async () => {
+  const getOffers = async () => {
     setLoading(true);
     const response = await axiosService({
-      url: `${HEYMATE_URL}/reservation/myOrders`,
+      url: `${HEYMATE_URL}/offer/me`,
       method: 'GET',
       body: {},
     });
     setLoading(false);
     if (response?.status === 200) {
-      setMyOrders(response.data.data);
-      setFilteredOrders(response.data.data);
+      const flatList: any = [];
+      response.data.data.forEach((item: any) => {
+        flatList.push(item);
+      });
+      flatList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setOffersList(flatList);
+      setFilteredOffers(flatList);
     }
   };
   useEffect(() => {
-    getMyOrders();
+    getOffers();
   }, []);
+
+  const handleDateChange = useCallback((date: any) => {
+    // eslint-disable-next-line max-len
+    const filtered = offersList.filter((item) => GenerateNewDate(item.selectedSchedule?.form_time).setHours(0,0,0,0) === (date.getTime()));
+    setFilteredOffers(filtered);
+  }, [offersList]);
+
+  const handleRescheduleMessage = useCallback((date: Date) => {
+    // const startDate: any = date;
+    // const endDate: any = date;
+    const stringDateArr = date.toString().split(' ');
+    const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
+    setSelectDate(stringDate);
+    // startDate = startDate.setHours(0, 0, 0, 0);
+    // endDate = endDate.setHours(23, 59, 59, 999);
+    // const filterDates = timeSlots.filter((item) => (startDate <= item.fromTs && item.fromTs <= endDate));
+    setIsCalendarOpen(false);
+    // setFilteredDate(filterDates);
+    handleDateChange(date);
+  }, [handleDateChange]);
 
   const handleStatusChange = useCallback((e) => {
     const filter = e.target.value;
     setStatusFilter(filter);
     if (filter === 'All') {
-      setFilteredOrders(myOrders);
+      setFilteredOffers(offersList);
     } else {
-      const filtered = myOrders.filter((item) => item.status === filter);
-      setFilteredOrders(filtered);
+      const filtered = offersList.filter((item) => item.selectedSchedule.status === filter);
+      setFilteredOffers(filtered);
     }
-  }, [myOrders]);
+  }, [offersList]);
 
   const handleTypeChange = useCallback((e) => {
     const filter = e.target.value;
     setTypeFilter(filter);
     if (filter === 'All') {
-      setFilteredOrders(myOrders);
+      setFilteredOffers(offersList);
     } else {
-      const filtered = myOrders.filter((item) => item.offer.meeting_type === filter);
-      setFilteredOrders(filtered);
+      const filtered = offersList.filter((item) => item.meeting_type === filter);
+      setFilteredOffers(filtered);
     }
-  }, [myOrders]);
-
-  const handleDateChange = useCallback((date: any) => {
-    // eslint-disable-next-line max-len
-    const filtered = myOrders.filter((item) => GenerateNewDate(item.time_slot?.form_time).setHours(0, 0, 0, 0) === (date.getTime()));
-    setFilteredOrders(filtered);
-  }, [myOrders]);
-
-  const handleRescheduleMessage = useCallback((date: Date) => {
-    const stringDateArr = date.toString().split(' ');
-    const stringDate = `${stringDateArr[1]} ${stringDateArr[2]}, ${stringDateArr[3]}`;
-    setSelectDate(stringDate);
-    setIsCalendarOpen(false);
-    handleDateChange(date);
-  }, [handleDateChange]);
+  }, [offersList]);
 
   const clearFilters = () => {
-    setSelectDate('Date');
     setStatusFilter('All');
     setTypeFilter('All');
-    setFilteredOrders(myOrders);
+    setSelectDate('Date');
+    setFilteredOffers(offersList);
   };
 
   return (
-    <div className="MyOrders-middle custom-scroll">
+    <div className="Offers custom-scroll">
       <div className="myOrder-middle-filter">
         <div className="filters-holder">
-          <div className="filters-select">
+          {/* <div className="filters-select">
             <Select
               label="Status"
               placeholder="Status"
@@ -97,8 +109,6 @@ const MyOrders: FC = () => {
               value={statusFilter}
               hasArrow={Boolean(true)}
               id="status-filter"
-            // error={formErrors.billingCountry}
-            // ref={selectCountryRef}
             >
               <option value="All">All</option>
               <option value="BOOKED">BOOKED</option>
@@ -111,7 +121,7 @@ const MyOrders: FC = () => {
               <option value="CANCELED_BY_CONSUMER">CANCELED BY CONSUMER</option>
 
             </Select>
-          </div>
+          </div> */}
           <div className="filters-select">
             <Select
               label="Type"
@@ -126,9 +136,9 @@ const MyOrders: FC = () => {
               <option value="ONLINE">Online</option>
             </Select>
           </div>
-          <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
+          {/* <div className="filters-date" onClick={() => setIsCalendarOpen(true)}>
             <span>{selectedDate}</span>
-          </div>
+          </div> */}
         </div>
         <div>
           <Button size="tiny" color="translucent" onClick={clearFilters}>
@@ -137,17 +147,15 @@ const MyOrders: FC = () => {
         </div>
       </div>
       {!loading ? (
-        <>
-          {filteredOrders.length > 0 ? filteredOrders.map((item) => (
-            <div>
-              <Order props={item} orderType={item.offer.meeting_type} />
-            </div>
-          )) : (
+        <div className="offer-wrapper">
+          {filteredOffers.length > 0 ? (filteredOffers.map((item) => (
+            <Offer props={item} key={item.id} />
+          ))) : (
             <div className="no-order">
               There’s no available order for you !
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="loading-my-orders">
           <Loading key="loading" />
@@ -164,4 +172,4 @@ const MyOrders: FC = () => {
     </div>
   );
 };
-export default memo(MyOrders);
+export default memo(Offers);

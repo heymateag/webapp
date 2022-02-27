@@ -19,8 +19,9 @@ export const INITIAL_STATE: GlobalState = {
   newChatMembersProgress: NewChatMembersProgress.Closed,
   uiReadyState: 0,
   serverTimeOffset: 0,
-  showHeymate: false,
+  showHeymateScheduleMiddle: false,
   showHeymateWalletMiddle: false,
+  showHeymateManageOfferMiddle: false,
   authRememberMe: true,
   countryList: {
     phoneCodes: [],

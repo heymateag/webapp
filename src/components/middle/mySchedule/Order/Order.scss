@@ -64,8 +64,9 @@
       .btn-confirm {
         min-width: 117px;
       }
-      .btn-finish {
-        min-width: 110px;
+      .btn-finish-rejoin {
+       width: auto;
+
       }
     }
   }
@@ -76,9 +77,9 @@
     overflow: hidden;
   }
   .avatar-holder img{
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 }
 .icon-img {
@@ -102,4 +103,7 @@
 }
 .gray {
   color: var(--color-hm-gray2) !important;
+}
+.confirm-end {
+  width: 100px !important;
 }

@@ -1,5 +1,5 @@
 import React, { FC, memo } from '../../../lib/teact/teact';
-import { OwnProps } from './ManageOffers';
+import { OwnProps } from './MySchedule';
 import { Bundles } from '../../../util/moduleLoader';
 
 import useModuleLoader from '../../../hooks/useModuleLoader';

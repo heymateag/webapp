@@ -30,6 +30,12 @@ import Modal from '../../ui/Modal';
 import Spinner from '../../ui/Spinner';
 
 import OfferWrapper from '../../left/wallet/OfferWrapper';
+// @ts-ignore
+import noOfferImg from '../../../assets/heymate/no-offer-image.svg';
+import renderText from '../../common/helpers/renderText';
+import useLang from '../../../hooks/useLang';
+import QrCodeDialog from '../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 
 type OwnProps = {
   message: ApiMessage;
@@ -46,10 +52,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   message,
   openZoomDialogModal,
 }) => {
-  /**
-   * Get Heymate Offer
-   * @param uuid
-   */
+  const lang = useLang();
+
   const [renderType, setRenderType] = useState<'OFFER' | 'RESERVATION'>('OFFER');
   const [offerMsg, setOfferMsg] = useState<IOffer>();
   const [offerLoaded, setOfferLoaded] = useState<boolean>(false);
@@ -71,7 +75,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
   const handleExpired = (expireTime: any) => {
     const now = new Date();
@@ -186,7 +194,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
 
   useEffect(() => {
     let offerId;
-    if (message.content.text?.text.includes('heymate reservation')) {
+    if (message.content.text?.text.includes('https://heymate.works/reservation')) {
       setRenderType('RESERVATION');
 
       const matches = message.content.text?.text.split(/reservation\/([a-f\d-]+)\?/);
@@ -206,7 +214,6 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       }
     }
   }, [message]);
-
 
   const [selectedReason, setSelectedReason] = useState('single');
   const handleSelectType = useCallback((value: string) => {
@@ -338,7 +345,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer) {
         handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
       } else {
@@ -349,6 +360,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     }
   };
 
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
+  };
+
   // @ts-ignore
   return (
     <div>
@@ -357,7 +373,11 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           <div className="HeyMateMessage">
             <div className="my-offer-body">
               <div className="my-offer-img-holder">
-                <img src={offerMsg?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+                { (offerMsg?.media && offerMsg?.media[0]) ? (
+                  <img src={offerMsg?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+                ) : (
+                  <img src={noOfferImg} alt="no-img" />
+                )}
               </div>
               <div className="my-offer-descs">
                 <h4 className="title">{offerMsg?.title}</h4>
@@ -467,21 +487,19 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )
       }
-      <Modal
-        hasCloseButton
-        isOpen={openQrModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openQrModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-      </Modal>
+      <QrCodeDialog
+        uri={uri}
+        openModal={openQrModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+      <AcceptTransactionDialog
+        isOpen={openAcceptModal}
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
+
     </div>
   );
 };

@@ -4,7 +4,6 @@ import { toTransactionObject, Contract } from '@celo/connect';
 import web3 from 'web3';
 import BN from 'bn.js';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
-import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
 import { StableTokenWrapper } from '@celo/contractkit/lib/wrappers/StableTokenWrapper';
 import { OFFERS_ON_ALFAJORES, OFFERS_ON_MAINNET } from '../../../config';
 import { ITimeSlotModel } from '../../../types/HeymateTypes/TimeSlot.model';
@@ -74,6 +73,7 @@ class OfferWrapper {
     }
 
     let answer;
+
     try {
       answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.createOffer(
         tradeIdHash,
@@ -93,6 +93,7 @@ class OfferWrapper {
     } catch (error: any) {
       return new Error(error);
     }
+
     const receipt = await answer.getHash();
     return receipt;
   };
@@ -127,7 +128,6 @@ class OfferWrapper {
   };
 
   transfer = async (amount: any, stableToken: StableTokenWrapper) => {
-
     const x = await stableToken.transfer(this.mainNet ? OFFERS_ON_MAINNET : OFFERS_ON_ALFAJORES, amount).send();
     const resid = await x.getHash();
     return resid;
@@ -137,6 +137,9 @@ class OfferWrapper {
     let tradeIdHash;
     if (tradeId.length <= 36) {
       tradeIdHash = `${tradeId.split('-').join('')}`;
+      if (!tradeId.startsWith('0x')) {
+        tradeIdHash = `0x${tradeId.split('-').join('')}`;
+      }
     } else {
       tradeIdHash = `${tradeId.split('-').join('')}`;
     }
@@ -154,8 +157,8 @@ class OfferWrapper {
         amount,
         new BN(1),
       )).send();
-    } catch (error) {
-      throw new Error('start error');
+    } catch (error: any) {
+      throw new Error(error);
     }
     let receipt;
     try {
@@ -166,15 +169,47 @@ class OfferWrapper {
     }
   };
 
-  cancelService = (tradeId: any, consumerCancelled: boolean, consumerAddress: string, amount: number) => {
+  cancelService = async (offer: IOffer, tradeId: any, consumerCancelled: boolean, consumerAddress: string) => {
     // const tradeIdHash = `${tradeId.split('-').join('')}`;
-
-    if (consumerCancelled) {
-      this.mContract.methods.consumerCancel(tradeId, this.address,
-        consumerAddress, amount, new BN(1)).send();
+    let tradeIdHash;
+    if (tradeId.length <= 36) {
+      tradeIdHash = `0x${tradeId.split('-').join('')}`;
     } else {
-      this.mContract.methods.serviceProviderCancel(tradeId, this.address,
-        consumerAddress, amount, new BN(1)).send();
+      tradeIdHash = `${tradeId.split('-').join('')}`;
+    }
+    const pricingInfo = offer.pricing;
+    const rate: number = pricingInfo.price;
+    const amount = web3.utils.toWei(new BN(rate), 'ether');
+    let answer;
+    if (consumerCancelled) {
+      try {
+        answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.consumerCancel(
+          tradeIdHash, offer.sp_wallet_address,
+          consumerAddress, amount, new BN(1),
+        )).send();
+      } catch (error: any) {
+        throw new Error(error);
+      }
+      // this.mContract.methods.consumerCancel(tradeIdHash, this.address,
+      //   consumerAddress, convertedAmount, new BN(1)).send();
+    } else {
+      try {
+        answer = await toTransactionObject(this.mContractKit.connection, this.mContract.methods.serviceProviderCancel(
+          tradeIdHash, offer.sp_wallet_address,
+          consumerAddress, amount, new BN(1),
+        )).send();
+      } catch (error: any) {
+        throw new Error(error);
+      }
+      // this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
+      //   consumerAddress, convertedAmount, new BN(1)).send();
+    }
+    let receipt;
+    try {
+      receipt = await answer.getHash();
+      return receipt;
+    } catch (error: any) {
+      return new Error(error);
     }
   };
 

@@ -6,17 +6,17 @@ import QrCreator from 'qr-creator';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import { GlobalActions } from 'src/global/types';
+import { withGlobal } from 'teact/teactn';
 import { ReservationStatus } from '../../../../../types/HeymateTypes/ReservationStatus';
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../../config';
 import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 import OfferWrapper from '../../../../left/wallet/OfferWrapper';
-import Modal from '../../../../ui/Modal';
-import Spinner from '../../../../ui/Spinner';
-import { GlobalActions } from 'src/global/types';
-import { withGlobal } from 'teact/teactn';
 import { pick } from '../../../../../util/iteratees';
+import QrCodeDialog from '../../../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../../../common/AcceptTransactionDialog';
 
 type TimeToStart = {
   days: number;
@@ -40,7 +40,6 @@ type OwnProps = {
 };
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
-
 const OrderFooter: FC<OwnProps & DispatchProps> = ({
   timeToStart,
   fromTime,
@@ -60,17 +59,15 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [hasExpired, setHasExpired] = useState(false);
-
   const [canStart, setCanStart] = useState(false);
 
   const [canFinish, setCanFinish] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [loadingQr, setLoadingQr] = useState(true);
-  const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
-  const [isConnected, setIsConnected] = useState(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -168,12 +165,10 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     setLoadingQr(true);
     renderUriAsQr();
   };
-
-    /**
+  /**
    * Get Account Data
-   */
+  */
   provider.connector.on('display_uri', (err, payload) => {
-    setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
     renderUriAsQr(wcUri);
@@ -185,10 +180,10 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
+      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
-        setIsConnected(true);
         setOpenModal(false);
       });
       // @ts-ignore
@@ -200,7 +195,11 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.startService(offer, tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -221,10 +220,10 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
+      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
-        setIsConnected(true);
         setOpenModal(false);
       });
       // @ts-ignore
@@ -236,7 +235,11 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const answer = await offerWrapper.finishService(offer, tradeId, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -254,8 +257,15 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenModal(false);
+    setIsLoading(false);
+    setLoadingQr(true);
     provider.isConnecting = false;
-    setLoadingBalance(false);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setIsLoading(false);
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   return (
@@ -305,16 +315,27 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       <div className="btn-holder">
         { (reservationStatus === ReservationStatus.MARKED_AS_FINISHED
           || reservationStatus === ReservationStatus.STARTED) && (
-          <div className="btn-finish">
+          <div className="btn-join-rejoin">
             <Button
-              isLoading={isLoading || joinMeetingLoader}
+              isLoading={isLoading}
               onClick={() => handleFinishInCelo()}
               size="tiny"
               color="hm-primary-red"
+              className="confirm-end"
               disabled={reservationStatus === ReservationStatus.STARTED}
             >
               Confirm End
             </Button>
+            {(offerType === 'ONLINE' && reservationStatus !== ReservationStatus.MARKED_AS_FINISHED) && (
+              <Button
+                isLoading={joinMeetingLoader}
+                onClick={onJoinMeeting}
+                size="tiny"
+                color="primary"
+              >
+                Re Join
+              </Button>
+            )}
           </div>
         )}
         { (reservationStatus === ReservationStatus.BOOKED
@@ -376,21 +397,19 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
       </div>
-      <Modal
-        hasCloseButton
-        isOpen={openModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-      </Modal>
+      <QrCodeDialog
+        uri={uri}
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+
+      <AcceptTransactionDialog
+        isOpen={openAcceptModal}
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
     </div>
   );
 };

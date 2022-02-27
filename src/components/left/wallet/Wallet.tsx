@@ -1,5 +1,5 @@
 import React, {
-  FC, useEffect, useRef, useState, memo, useMemo,
+  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
 } from 'teact/teact';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
@@ -18,9 +18,10 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
+
 import { axiosService } from '../../../api/services/axiosService';
 import useWindowSize from '../../../hooks/useWindowSize';
-import { MOBILE_SCREEN_MAX_WIDTH } from '../../../config';
+import QrCodeDialog from '../../common/QrCodeDialog';
 
 export type OwnProps = {
   onReset: () => void;
@@ -36,8 +37,6 @@ interface IBalance {
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
-  const { width: windowWidth } = useWindowSize();
-  console.log(windowWidth);
   const [openModal, setOpenModal] = useState(false);
   const [loadingQr, setLoadingQr] = useState(true);
   // eslint-disable-next-line no-null/no-null
@@ -54,19 +53,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setWidth(window.innerWidth);
   }, []);
 
-  // useEffect(() => {
-  //   const address = '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe';
-  //   const userAddress = '0x1234567890123456789012345678901234567891';
-  //   const offerContract = new OfferContract(address, userAddress);
-  //   // const web3 = new Web3();
-  //   // const HeymateContract = new web3.eth.Contract(HeymateOffer.abi, '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe', {
-  //   //   from: '0x1234567890123456789012345678901234567891', // default from address
-  //   //   gasPrice: '20000000000', // default gas price in wei, 20 gwei in this case
-  //   // });
-  //   const contract = offerContract.create();
-  //   debugger
-  // }, []);
-
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
@@ -81,6 +67,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
+      // connector: {
+      //   peerId: localStorage.getItem('peerId') || 'testtest',
+      // },
     });
   }, []);
 
@@ -136,7 +125,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.connector.on('display_uri', (err, payload) => {
     setIsConnected(false);
     const wcUri = payload.params[0];
-    console.log(wcUri);
     setUri(wcUri);
 
     renderUriAsQr(wcUri);
@@ -144,7 +132,16 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingQr(false);
   });
 
-  const makeKitsFromProvideAndGetBalance = async (address?: string) => {
+  const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
+    const reconnectTimeOut = setTimeout(() => {
+      if (loadingBalance) {
+        showNotification({ message: 'connection failed, please check your connection and retry' });
+        setLoadingBalance(false);
+        provider.disconnect();
+        setWcProvider(provider);
+        window.location.reload();
+      }
+    }, 60000);
     // @ts-ignore
     const web3 = new Web3(provider);
     // @ts-ignore
@@ -156,15 +153,15 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     // eslint-disable-next-line prefer-destructuring
     myKit.defaultAccount = accounts[0];
     await myKit.setFeeCurrency(CeloContract.StableToken);
-
     const accountBalance = await newKitBalances(myKit, walletAddress);
+    clearTimeout(reconnectTimeOut);
     setBalance(accountBalance);
 
     setLoadingBalance(false);
 
     setKit(myKit);
     setWcProvider(provider);
-  };
+  }, [provider]);
 
   provider.on('accountsChanged', (accounts) => {
     console.log(accounts);
@@ -177,8 +174,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   });
 
   provider.onConnect(() => {
-    // provider.connector.bridge = 'https://a.bridge.walletconnect.org';
-    // debugger
     setOpenModal(false);
     setIsConnected(true);
     showNotification({ message: 'Successfully Connected to Wallet !' });
@@ -186,7 +181,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     makeKitsFromProvideAndGetBalance();
   });
 
-  const getTransactions = async () => {
+  const getTransactions = useCallback(async () => {
     const baseURL = provider.chainId !== 44787
       ? 'https://explorer.celo.org/'
       : 'https://alfajores-blockscout.celo-testnet.org/';
@@ -198,9 +193,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     });
     const weiEther = kit?.web3?.utils?.toWei('1', 'ether');
     const filter = response.data.result.filter((row) => (row.value / weiEther) > 0.01);
-    // debugger
     setTransactionList(filter);
-  };
+  }, [kit?.web3?.utils, provider.accounts, provider.chainId]);
 
   useEffect(() => {
     const reconnectToProvider = async () => {
@@ -215,13 +209,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     } else {
       setLoadingBalance(false);
     }
-  }, [provider]);
+  }, [makeKitsFromProvideAndGetBalance, provider]);
 
   useEffect(() => {
     if (kit) {
       getTransactions();
     }
-  }, [kit]);
+  }, [getTransactions, kit]);
 
   const doTransaction = () => {
     sendcUSD(kit).then((res) => {
@@ -257,12 +251,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         <div className="logo-container">
           <img src={walletIcon} alt="" />
         </div>
-        <span id="total-balance">Total Balance</span>
-        {loadingBalance && (
-          <div className="spinner-holder">
-            <Spinner color="gray" />
-          </div>
-        )}
         {(!loadingBalance && isConnected) && (
           <>
             <div className="currency-select">
@@ -280,25 +268,39 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
                 <option value="CELO">CELO</option>
               </Select>
             </div>
+          </>
+        )}
+        {isConnected
+        && (
+          <div>
+            <span id="total-balance">Total Balance</span>
             {balanceType === 'cUSD' && <h3 id="balance">$ {parseFloat(balance.cUSD).toFixed(2)}</h3>}
             {balanceType === 'cEUR' && <h3 id="balance">€ {parseFloat(balance.cEUR).toFixed(2)}</h3>}
             {balanceType === 'cREAL' && <h3 id="balance">R$ {parseFloat(balance.cREAL).toFixed(2)}</h3>}
             {balanceType === 'CELO' && <h3 id="balance">CELO {parseFloat(balance.CELO).toFixed(2)}</h3>}
-          </>
+          </div>
+        )}
+        {loadingBalance && (
+          <div className="spinner-holder">
+            <Spinner color="gray" />
+          </div>
         )}
         {(!loadingBalance && !isConnected) && (
           <span id="balance">Connect Your Account</span>
         )}
-        <div className="btn-row">
-          { (!loadingBalance && !isConnected)
-            && (
+
+        {
+          (!loadingBalance && !isConnected)
+          && (
+            <div className="btn-row">
               <div id="cashout" className="btn-holder">
                 <Button onClick={handleOpenWCModal} isText size="smaller" color="primary">
                   <span>Connect</span>
                 </Button>
               </div>
-            )}
-        </div>
+            </div>
+          )
+        }
       </div>
       <div className="wallet-transactions custom-scroll">
         <h4 id="caption">Transactions</h4>
@@ -319,25 +321,14 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           })
         }
       </div>
-      <Modal
-        hasCloseButton
-        isOpen={openModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        {(windowWidth <= MOBILE_SCREEN_MAX_WIDTH) ? (
-          <a href={uri}>Open Heymate App</a>
-        ) : (
-          <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        )}
-      </Modal>
+      <QrCodeDialog
+        uri={uri}
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+
     </div>
   );
 };

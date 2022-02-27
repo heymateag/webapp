@@ -24,8 +24,8 @@ import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
-import { sendcUSD } from '../left/wallet/AccountManager/AccountMannager';
-import Spinner from '../ui/Spinner';
+import QrCodeDialog from './QrCodeDialog';
+import AcceptTransactionDialog from './AcceptTransactionDialog';
 
 type OwnProps = {
   offer: IOffer;
@@ -47,6 +47,7 @@ interface ITimeSlotsRender extends ITimeSlotModel{
   remainingReservations?: number;
   completedReservations?: number;
   maximumReservations?: number; // 0 means unlimited
+  date?: string;
 }
 interface IBookOfferModel {
   offerId: string;
@@ -77,7 +78,13 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>();
 
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
@@ -121,7 +128,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     }, 100);
   };
 
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
@@ -144,8 +150,13 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenQRModal(false);
+    setLoadingQr(true);
     provider.isConnecting = false;
-    setLoadingBalance(false);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
   };
 
   const getTodayRawDateString = useCallback((selectedTs) => {
@@ -188,19 +199,21 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           item.toTs = toTs;
           item.fromDateLocal = new Date(fromTs).toLocaleTimeString();
           item.toDateLocal = new Date(toTs).toLocaleTimeString();
+          item.date = new Date(fromTs).toLocaleDateString('en');
           return item;
         });
         setTimeSlots(temp);
         setTimeSlotList(res.data);
         setFilteredDate(temp);
-        getTodayRawDateString(temp);
+        // getTodayRawDateString(temp);
       });
     }
   }, [getTodayRawDateString, offer]);
 
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState('');
 
-  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>, data: any) => {
+    setSelectedTimeSlot(data);
     const { value } = event.currentTarget;
     setSelectedTimeSlotId(value);
   }, []);
@@ -238,6 +251,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     let address: string;
     let offerPurchase;
     if (provider.isWalletConnect) {
+      handleOpenWCModal();
       await provider.enable()
         .then((res) => {
           // eslint-disable-next-line prefer-destructuring
@@ -254,7 +268,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       kit.defaultAccount = accounts[0];
       const mainNet = provider.chainId !== 44787;
       offerPurchase = new OfferPurchase(offer, activeTs, kit, provider.accounts[0], mainNet, web3);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
       const response = await offerPurchase.purchase();
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
       setBookOfferLoading(false);
       if (!response) {
         return;
@@ -323,11 +341,15 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                     <div className="TimeSlots">
                       <div className="time-slots-picker">
                         <span id="caption">Available times for</span>
-                        <span
-                          id="time-picker"
-                          onClick={handleOpenCalendarModal}
-                        >{selectedDate}
-                        </span>
+                        <div className="calendar-wrapper">
+                          <i className="icon-calendar" />
+                          <span
+                            id="time-picker"
+                            onClick={handleOpenCalendarModal}
+                          >{selectedDate}
+                          </span>
+                        </div>
+
                       </div>
                       <div className="time-slots-rows custom-scroll">
                         {filteredDate.length > 0 ? filteredDate.map((item) => (
@@ -338,10 +360,10 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                             <div>
                               <Radio
                                 name={item.id}
-                                label={`${item.fromDateLocal} - ${item.toDateLocal}`}
+                                label={`${item.date} - ${item.fromDateLocal} - ${item.toDateLocal}`}
                                 value={item.id}
                                 checked={selectedTimeSlotId === item.id}
-                                onChange={handleChange}
+                                onChange={(e) => handleChange(e, item)}
                               />
                             </div>
                             <div className="remaining-of-total">
@@ -368,7 +390,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                   );
                 default:
                   return (
-                    <div>ehsan</div>
+                    <div>There’s no available time for the selected date</div>
                   );
               }
             }}
@@ -384,7 +406,9 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
             className="see-details"
             size="smaller"
             color="primary"
-            disabled={!selectedTimeSlotId}
+            disabled={
+              !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
+            }
           >
             Book Now
           </Button>
@@ -398,21 +422,19 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         onClose={() => setIsCalendarOpen(false)}
         onSubmit={handleRescheduleMessage}
       />
-      <Modal
-        hasCloseButton
-        isOpen={openQrModal}
-        onClose={handleCLoseWCModal}
-        onEnter={openModal ? handleCLoseWCModal : undefined}
-        className="WalletQrModal"
-        title="Wallet Connect"
-      >
-        {loadingQr && (
-          <div className="spinner-holder">
-            <Spinner color="blue" />
-          </div>
-        )}
-        <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-      </Modal>
+      <QrCodeDialog
+        uri={uri}
+        openModal={openQrModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+      <AcceptTransactionDialog
+        isOpen={openAcceptModal}
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
+      />
+
     </div>
   );
 };

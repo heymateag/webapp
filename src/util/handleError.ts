@@ -16,10 +16,7 @@ function handleErrorEvent(e: ErrorEvent | PromiseRejectionEvent) {
 const throttledAlert = throttle(window.alert, 1000);
 
 export function handleError(err: Error) {
-  // eslint-disable-next-line no-console
-  console.error(err);
-
-  if (APP_ENV === 'development' || APP_ENV === 'staging') {
-    throttledAlert(`${DEBUG_ALERT_MSG}\n\n${(err?.message) || err}\n${err?.stack}`);
+  if (APP_ENV === 'development') {
+    // throttledAlert(`${DEBUG_ALERT_MSG}\n\n${(err?.message) || err}\n${err?.stack}`);
   }
 }

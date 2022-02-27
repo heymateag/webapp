@@ -10,13 +10,11 @@ export function useCanvasDimension(
   mediaStream: MediaStream | null,
   videoRef: MutableRefObject<HTMLCanvasElement | null>,
 ) {
-
   const [dimension, setDimension] = useState({ width: 0, height: 0 });
   const onCanvasResize = useCallback(
     ({ width, height }) => {
       if (videoRef) {
         _.debounce((...args) => {
-
           setDimension({
             width: args[0],
             height: args[1],

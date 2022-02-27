@@ -12251,6 +12251,10 @@
     "key": "ManageOffers",
     "value": "Manage Offers"
   },
+  "MySchedule": {
+    "key": "MySchedule",
+    "value": "My Schedule"
+  },
   "SavedMessages": {
     "key": "SavedMessages",
     "value": "Saved Messages"

@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import React, {
   FC, memo, useCallback, useState,
 } from 'teact/teact';
@@ -14,9 +15,9 @@ import MyOrders from './MyOrders/MyOrders';
 // import OnlineMetting from './OnlineMeeting/OnlineMetting';
 import { pick } from '../../../util/iteratees';
 
-type StateProps = Pick<GlobalState, 'showHeymate'>;
+type StateProps = Pick<GlobalState, 'showHeymateScheduleMiddle'>;
 // @ts-ignore
-type DispatchProps = Pick<GlobalActions, 'setShowHeymate'>;
+type DispatchProps = Pick<GlobalActions, 'setShowHeymateScheduleMiddle'>;
 
 export type OwnProps = {
   onReset: () => void;
@@ -31,8 +32,8 @@ interface IManageOfferTab {
 }
 const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
-  setShowHeymate,
-  showHeymate,
+  setShowHeymateScheduleMiddle,
+  showHeymateScheduleMiddle,
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
@@ -80,7 +81,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
                 <>
                   <span
                     className="page-caption"
-                    onClick={() => setShowHeymate({ showHeymate: !showHeymate })}
+                    onClick={() => setShowHeymateScheduleMiddle({ showHeymateScheduleMiddle: !showHeymateScheduleMiddle })}
                   >
                     On Going
                   </span>
@@ -97,7 +98,7 @@ const ManageOffers: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(
   withGlobal(
-    (global): StateProps => pick(global, ['showHeymate']),
-    (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymate']),
+    (global): StateProps => pick(global, ['showHeymateScheduleMiddle']),
+    (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymateScheduleMiddle']),
   )(ManageOffers),
 );

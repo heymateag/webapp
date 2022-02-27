@@ -1,16 +1,19 @@
 .UserWallet {
   height: 80%;
   .wallet-body {
-    background-color: white;
+    background-color: var(--color-background);
     //border-bottom: 8px solid var(--color-hm-gray6); ankit
     height: auto;
     display: flex;
-    flex-flow: row wrap;
-    align-content: flex-start;
+    padding: 20px 10px;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: space-around;
     margin: 3% 15% 1% 15%; //ankit
     border-radius: 10px; //ankit
     .logo-container {
-      width: 100%;
+      width: 60px;
+      height: 60px;;
       display: flex;
       justify-content: center;
     }
@@ -28,17 +31,17 @@
       width: 100%;
       color: #2A4255;
       font-weight: bold;
-      font-size: 32px;
+      font-size: 28px;
     }
     .btn-row {
-      margin-top: 40px;
+      // margin-top: 40px;
       padding: 0 16px;
       display: flex;
-      width: 100%;
+      width: auto;
       flex-direction: row-reverse;
       justify-content: center;
       .btn-holder{
-        width: 45%;
+        width: 100px;
         &#cashout {
           button {
             text-transform: none;
@@ -56,13 +59,13 @@
     }
     .spinner-holder {
       padding-top: 0.45rem;
-      width: 100%;
+      width: auto;
       display: flex;
       justify-content: center;
     }
   }
   .wallet-transactions {
-    background-color: white;
+    background-color: var(--color-background);
     display: flex;
     flex-flow: row wrap;
     overflow-y: scroll;
@@ -79,6 +82,17 @@
   }
 }
 .WalletQrModal {
+  .modal-dialog {
+    max-width: 480px;
+  }
+  .modal-header {
+    flex-direction: row-reverse;
+    .modal-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+    }
+  }
   .spinner-holder {
     position: absolute;
     display: flex;
@@ -87,9 +101,12 @@
     right: 50%;
     z-index: 2;
     top: 50%;
+    &.aproval-loader {
+      position: inherit;
+    }
   }
   .qr-container {
-    min-height: 322px;
+    min-height: 280px;
     display: flex;
     justify-content: center;
     opacity: 1;
@@ -107,9 +124,69 @@
       margin-top: -.625rem;
     }
   }
+  .connection-notes {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    margin-top: 16px;
+    .no-pad-margin {
+      h4 {
+        padding: 0;
+        margin: 0;
+      }
+    }
+    .wallet-deeplink {
+      width: 100%;
+      text-align: center;
+      height: 45px;
+      background-color: var(--color-primary);
+      color: var(--color-text);
+      border-radius: var(--border-radius-default);
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    h4 {
+      margin: 1.5rem 0 1rem 0;
+      width: 100%;
+      padding-left: 3rem;
+    }
+
+    ol {
+      list-style: none;
+      counter-reset: item;
+      padding: 0 1.75rem;
+
+      li {
+        counter-increment: item;
+        text-align: left;
+        margin: 0.75rem 0;
+        display: flex;
+        font-size: 14px;
+        font-weight: normal;
+
+        &::before {
+          content: counter(item);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-width: 1.4rem;
+          height: 1.4rem;
+          padding: 0;
+          margin: 0 0.75rem 0 0;
+          background: var(--color-primary);
+          border-radius: 50%;
+          font-size: smaller;
+          color: white;
+        }
+      }
+    }
+  }
+
 }
+
 .currency-select {
-  width: 200px;
-  margin: 0 auto;
+  width: 150px;
   margin-top: 15px;
 }

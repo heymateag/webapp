@@ -133,15 +133,15 @@ module.exports = (env = {}, argv = {}) => {
       }),
       new EnvironmentPlugin({
         APP_NAME: 'Heymate App',
-        APP_VERSION: 'dev',
-        APP_ENV: 'development',
+        APP_VERSION: '',
+        APP_ENV: '',
         TELEGRAM_T_API_ID: '',
         TELEGRAM_T_API_HASH: '',
-        CELO_NET_URL: '',
         ZOOM_SDK_KEY: '',
         ZOOM_SDK_SECRET: '',
         TEST_SESSION: '',
-        NODE_DEBUG: ''
+        NODE_DEBUG: '',
+        HEYMATE_API_URL: '',
       }),
       new ProvidePlugin({
         Buffer: [require.resolve("buffer/"), "Buffer"],

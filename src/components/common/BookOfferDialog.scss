@@ -9,13 +9,19 @@
       }
     }
     .book-offer-content {
-      max-height: 623px;
-      min-height: 430px;
+      height: 350px;
+      overflow-y: hidden;
       .TabList {
         z-index: 1;
       }
       .Transition {
+
+        height: calc(100% - 43px);
+        height: -webkit-calc(100% - 43px);
+        padding: 1rem 0;
+
         .TimeSlots {
+          height: 100%;
           .time-slots-picker {
             display: flex;
             justify-content: space-between;
@@ -31,9 +37,20 @@
               font-weight: 500;
               color: var(--color-primary);
             }
+            .calendar-wrapper {
+              display: flex;
+              align-items: center;
+              .icon-calendar {
+                font-size: 16px;
+                font-weight: 500;
+                color: var(--color-primary);
+              }
+            }
+
           }
           .time-slots-rows {
-            height: 300px;
+            height: calc(100% - 56px);
+            height: -webkit-calc(100% - 56px);
             overflow-y: scroll;
             .time-slot-row {
               display: flex;
@@ -101,9 +118,6 @@
             }
           }
         }
-        //min-height: 430px;
-        padding: 1rem 0;
-
       }
       .Calendar {
         height: 300px;
@@ -119,4 +133,13 @@
     }
   }
 
+}
+// .spinner-holder {
+//   padding-top: 0.45rem;
+//   width: 100%;
+//   display: flex;
+//   justify-content: center;
+// }
+.modal-header{
+  margin-bottom: 20px;
 }

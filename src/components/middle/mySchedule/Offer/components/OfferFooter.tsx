@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import React, {
   FC, memo, useEffect, useState,
 } from 'teact/teact';
@@ -24,6 +25,7 @@ type OwnProps = {
   onReJoinMeeting: () => void;
   onStatusChanged: (status: ReservationStatus) => void;
   joinMeetingLoader: boolean;
+  reJoinMeetingLoader: boolean;
   role?: 'CONSUMER' | 'SERVICE_PROVIDER';
   offerType: 'DEFAULT' | 'ONLINE';
   timeSlotId: string;
@@ -41,6 +43,7 @@ const OfferFooter: FC<OwnProps> = ({
   offerType,
   timeSlotId,
   onReJoinMeeting,
+  reJoinMeetingLoader,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -112,10 +115,14 @@ const OfferFooter: FC<OwnProps> = ({
   };
 
   const handleStart = () => {
-    const meetingId = makeRandomString(10);
-    const sessionPassword = makeRandomString(10);
-    handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
-    onJoinMeeting(meetingId, sessionPassword);
+    if (offerType === 'ONLINE') {
+      const meetingId = makeRandomString(10);
+      const sessionPassword = makeRandomString(10);
+      handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED, meetingId, sessionPassword);
+      onJoinMeeting(meetingId, sessionPassword);
+    } else {
+      handleChangeReservationStatus(ReservationStatus.MARKED_AS_STARTED);
+    }
   };
 
   return (
@@ -149,13 +156,6 @@ const OfferFooter: FC<OwnProps> = ({
             <span>{`${timeToStart?.days}:${timeToStart?.hours}:${timeToStart?.minutes}`}</span>
           </div>
         )}
-        {reservationStatus === ReservationStatus.MARKED_AS_FINISHED && (
-          <div className={ReservationStatus.MARKED_AS_FINISHED}>
-            <i className="hm-time" />
-            {/* <span>Waiting for your confirm</span> */}
-            <span>Finished</span>
-          </div>
-        )}
         {reservationStatus === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
           <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
             <i className="hm-play" />
@@ -178,7 +178,7 @@ const OfferFooter: FC<OwnProps> = ({
             </Button>
           </div>
         )}
-        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED)
+        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED && offerType === 'ONLINE')
         && (
           <div className="btn-join-rejoin">
             <Button
@@ -190,14 +190,28 @@ const OfferFooter: FC<OwnProps> = ({
             >
               Finish
             </Button>
-            {/*<Button*/}
-            {/*  isLoading={joinMeetingLoader}*/}
-            {/*  onClick={onReJoinMeeting}*/}
-            {/*  size="tiny"*/}
-            {/*  color="primary"*/}
-            {/*>*/}
-            {/*  Re Join*/}
-            {/*</Button>*/}
+            <Button
+              isLoading={reJoinMeetingLoader}
+              onClick={onReJoinMeeting}
+              size="tiny"
+              color="primary"
+            >
+              Re Join
+            </Button>
+          </div>
+        )}
+        { (role === 'SERVICE_PROVIDER' && reservationStatus === ReservationStatus.MARKED_AS_STARTED && offerType === 'DEFAULT')
+        && (
+          <div className="btn-join-rejoin">
+            <Button
+              // disabled={!canFinish}
+              isLoading={joinMeetingLoader}
+              onClick={() => handleChangeReservationStatus(ReservationStatus.MARKED_AS_FINISHED)}
+              size="tiny"
+              color="hm-primary-red"
+            >
+              Finish
+            </Button>
           </div>
         )}
       </div>

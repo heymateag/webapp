@@ -1,5 +1,11 @@
 import { withGlobal } from 'teact/teactn';
 import { encode } from 'js-base64';
+import { GlobalState } from 'src/global/types';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+import Web3 from 'web3';
+import QrCreator from 'qr-creator';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import React, {
   FC,
   memo,
@@ -30,9 +36,10 @@ import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
 import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
-import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Avatar from '../../../common/Avatar';
-import { GlobalState } from 'src/global/types';
+import OfferWrapper from '../../../left/wallet/OfferWrapper';
+import QrCodeDialog from '../../../common/QrCodeDialog';
+import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
 
 type TimeToStart = {
   days: number;
@@ -82,13 +89,135 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const [zmClient, setZmClient] = useState<ClientType>();
 
-  const [offer, setOffer] = useState<IOffer>({});
   const [offerOwner, setOfferOwner] = useState<any>({});
 
   const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
     text: '',
     color: 'green',
   });
+
+  //celo action
+  const [uri, setUri] = useState<string>('');
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const [openModal, setOpenModal] = useState(false);
+  const [loadingQr, setLoadingQr] = useState(true);
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
+    });
+  }, []);
+
+  const handleCancelReservation = async () => {
+    if (reservationStatus === ReservationStatus.BOOKED) {
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/reservation/${props.id}`,
+        method: 'PUT',
+        body: {
+          status: 'CANCELED',
+        },
+      });
+      if (response?.status === 200) {
+        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
+        const msg = 'Your order has been cancelled !';
+        showNotification({ message: msg });
+      }
+    } else {
+      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
+      showNotification({ message: msg });
+    }
+  };
+
+  const renderUriAsQr = (givenUri?) => {
+    setOpenModal(true);
+    setLoadingQr(true);
+
+    setTimeout(() => {
+      const validUri = givenUri || uri;
+
+      const container = qrCodeRef.current!;
+      container.innerHTML = '';
+      container.classList.remove('pre-animate');
+
+      QrCreator.render({
+        text: `${validUri}`,
+        radius: 0.5,
+        ecLevel: 'M',
+        fill: '#4E96D4',
+        size: 280,
+      }, container);
+      setLoadingQr(false);
+    }, 100);
+  };
+
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
+    setOpenModal(true);
+    setLoadingQr(true);
+    renderUriAsQr();
+  };
+  provider.connector.on('display_uri', (err, payload) => {
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    renderUriAsQr(wcUri);
+    setLoadingQr(false);
+  });
+
+  const handleCancelInCelo = async () => {
+    setIsLoading(true);
+    let kit: ContractKit;
+    let address: string = '';
+    if (provider.isWalletConnect) {
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+        setOpenModal(false);
+      });
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
+      const answer = await offerWrapper.cancelService(props.offer, props.tradeId, true, address);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
+      if (answer?.message?.startsWith('Error')) {
+        setIsLoading(false);
+        showNotification({ message: answer.message });
+        return;
+      }
+      if (answer) {
+        handleCancelReservation();
+      } else {
+        console.log('failed');
+      }
+    } else {
+      handleOpenWCModal();
+    }
+  };
+
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -122,8 +251,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   useEffect(() => {
-    if (props.user?.telegramId) {
-      const user = selectUser(globalState, props.user?.telegramId);
+    if (props.serviceProvider?.telegramId) {
+      const user = selectUser(globalState, props.serviceProvider?.telegramId);
       setOfferOwner(user);
     }
     switch (reservationStatus) {
@@ -173,20 +302,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
-  // const getOfferById = useCallback(async () => {
-  //   const response = await axiosService({
-  //     url: `${HEYMATE_URL}/offer/${props.time_slot?.offerId}`,
-  //     method: 'GET',
-  //     body: {},
-  //   });
-  //   if (response?.status && response?.data) {
-  //     setOffer(response.data.data);
-  //   }
-  // }, [props.time_slot?.offerId]);
-
-  // useEffect(() => {
-  //   getOfferById();
-  // }, []);
 
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
@@ -235,32 +350,8 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [currentUser]);
 
-  const handleCancelReservation = async () => {
-    if (reservationStatus === ReservationStatus.BOOKED) {
-      const response = await axiosService({
-        url: `${HEYMATE_URL}/reservation/${props.id}`,
-        method: 'PUT',
-        body: {
-          status: 'CANCELED',
-        },
-      });
-      if (response?.status === 200) {
-        setReservationStatus(ReservationStatus.CANCELED_BY_CONSUMER);
-        const msg = 'Your order has been cancelled !';
-        showNotification({ message: msg });
-      }
-    } else {
-      const msg = `Sorry, we are not able to cancel as it on ${reservationStatus} state!`;
-      showNotification({ message: msg });
-    }
-  };
-
   const handleClose = () => {
     setIsMenuOpen(false);
-  };
-
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
   };
 
   const joinMeeting = async () => {
@@ -289,15 +380,27 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     setReservationStatus(newStatus);
   };
 
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    setIsLoading(false);
+    setLoadingQr(true);
+    provider.isConnecting = false;
+  };
+
+  const handleCloseAcceptModal = () => {
+    setIsLoading(false);
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
+  };
+
   return (
     <div className="Offer-middle">
       <div className="offer-content">
         <div className="offer-body">
           <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
             <div>
-              {/* <img src={props.offer?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" /> */}
               <Avatar
-                size="tiny"
+                size="large"
                 user={offerOwner}
               />
             </div>
@@ -333,10 +436,9 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/* <MenuItem icon="group">Re-Schedule</MenuItem> */}
               {props.status === ReservationStatus.BOOKED
                && (
-                 <MenuItem icon="user" onClick={handleCancelReservation}>
+                 <MenuItem icon="user" onClick={handleCancelInCelo}>
                    {lang('Cancel')}
                  </MenuItem>
                )}
@@ -359,8 +461,21 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       </div>
       <OfferDetailsDialog
         openModal={openDetailsModal}
-        offer={offer}
+        offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
+      />
+      <QrCodeDialog
+        uri={uri}
+        openModal={openModal}
+        onCloseModal={handleCLoseWCModal}
+        loadingQr={loadingQr}
+        qrCodeRef={qrCodeRef}
+      />
+
+      <AcceptTransactionDialog
+        isOpen={openAcceptModal}
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
       />
     </div>
   );

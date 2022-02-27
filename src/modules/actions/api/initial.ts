@@ -201,12 +201,12 @@ addReducer('deleteDeviceToken', (global) => {
   setGlobal(newGlobal);
 });
 
-addReducer('setShowHeymate', (global, actions, payload) => {
-  const { showHeymate } = payload!;
+addReducer('setShowHeymateScheduleMiddle', (global, actions, payload) => {
+  const { showHeymateScheduleMiddle } = payload!;
 
   return {
     ...global,
-    showHeymate,
+    showHeymateScheduleMiddle,
   };
 });
 addReducer('setShowHeymateWalletMiddle', (global, actions, payload) => {
@@ -215,6 +215,14 @@ addReducer('setShowHeymateWalletMiddle', (global, actions, payload) => {
   return {
     ...global,
     showHeymateWalletMiddle,
+  };
+});
+addReducer('setShowHeymateManageOfferMiddle', (global, actions, payload) => {
+  const { showHeymateManageOfferMiddle } = payload!;
+
+  return {
+    ...global,
+    showHeymateManageOfferMiddle,
   };
 });
 

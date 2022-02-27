@@ -48,7 +48,7 @@ export interface IOffer {
     delay_in_start: {
       // in min
       duration: number;
-      penalty: number;
+      deposit: number;
     };
     cancellation: {
       // in min
@@ -65,7 +65,7 @@ export interface IOffer {
   status: string; // ARCHIVED ACTIVE offer status
   userId: string; // who created offer ?
   media: IMediaModel[];
-  created_at: string;
+  createdAt: string;
   updated_at: string;
   expiration: string; // Time Stamp
 }

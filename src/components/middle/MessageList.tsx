@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import { getGlobal, withGlobal } from 'teact/teactn';
 import React, {
   FC, memo, useCallback, useEffect, useMemo, useRef, useState,
@@ -64,8 +65,9 @@ import ContactGreeting from './ContactGreeting';
 import NoMessages from './NoMessages';
 
 import './MessageList.scss';
-import ManageOffers from './manageOffers/ManageOffers';
+import MySchedule from './mySchedule/MySchedule';
 import Wallet from '../left/wallet/Wallet';
+import ManageOffer from './manageOffers/ManageOffer';
 
 type OwnProps = {
   chatId: string;
@@ -102,7 +104,7 @@ type StateProps = {
   threadTopMessageId?: number;
   threadFirstMessageId?: number;
   hasLinkedChat?: boolean;
-} & Pick<GlobalState, 'showHeymate' | 'showHeymateWalletMiddle'>;
+} & Pick<GlobalState, 'showHeymateScheduleMiddle' | 'showHeymateWalletMiddle' | 'showHeymateManageOfferMiddle'>;
 
 type DispatchProps = Pick<
 GlobalActions,
@@ -153,8 +155,9 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
   threadTopMessageId,
   hasLinkedChat,
   openHistoryCalendar,
-  showHeymate,
+  showHeymateScheduleMiddle,
   showHeymateWalletMiddle,
+  showHeymateManageOfferMiddle,
   activeTab,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -514,7 +517,7 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
     (!isPrivate && !isChannelChat) || isChatWithSelf || isRepliesChat,
   );
   const noAvatars = Boolean(!withUsers || isChannelChat);
-  const shouldRenderGreeting = !showHeymate && !showHeymateWalletMiddle && ((showHeymate || showHeymateWalletMiddle) ? false : isUserId(chatId))
+  const shouldRenderGreeting = !showHeymateScheduleMiddle && !showHeymateWalletMiddle && !showHeymateManageOfferMiddle && ((showHeymateScheduleMiddle || showHeymateWalletMiddle || showHeymateManageOfferMiddle) ? false : isUserId(chatId))
     && !isChatWithSelf
     && !isBot
     && ((!messageGroups
@@ -549,9 +552,9 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
       onScroll={handleScroll}
       onMouseDown={preventMessageInputBlur}
     >
-      {showHeymate ? (
-        <ManageOffers activeTab={activeTab} />
-      ) : showHeymateWalletMiddle ? (<Wallet />) : isRestricted ? (
+      {showHeymateScheduleMiddle ? (
+        <MySchedule activeTab={activeTab} />
+      ) : showHeymateWalletMiddle ? (<Wallet />) : showHeymateManageOfferMiddle ? (<ManageOffer />) : isRestricted ? (
         <div className="empty">
           <span>
             {restrictionReason
@@ -609,11 +612,12 @@ const MessageList: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(
   withGlobal<OwnProps>(
     (global, { chatId, threadId, type }): StateProps => {
-      const { showHeymate } = global;
+      const { showHeymateScheduleMiddle } = global;
       const { showHeymateWalletMiddle } = global;
+      const { showHeymateManageOfferMiddle } = global;
       const chat = selectChat(global, chatId);
       if (!chat) {
-        return { showHeymate, showHeymateWalletMiddle };
+        return { showHeymateScheduleMiddle, showHeymateWalletMiddle, showHeymateManageOfferMiddle };
       }
 
       const messageIds = selectCurrentMessageIds(
@@ -661,10 +665,10 @@ export default memo(
           botDescription = 'Updating bot info...';
         }
       }
-
       return {
-        showHeymate,
+        showHeymateScheduleMiddle,
         showHeymateWalletMiddle,
+        showHeymateManageOfferMiddle,
         isChatLoaded: true,
         isRestricted,
         restrictionReason,

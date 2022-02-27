@@ -1,43 +1,37 @@
+/* eslint-disable max-len */
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import { encode } from 'js-base64';
 import { withGlobal } from 'teact/teactn';
+import RadioGroup from '../../../ui/RadioGroup';
+
 import React, {
   FC,
   memo,
-  useCallback,
-  useEffect, useMemo,
-  useRef,
+  useCallback, useMemo,
   useState,
-} from '../../../../lib/teact/teact';
-import useLang from '../../../../hooks/useLang';
+ useEffect } from '../../../../lib/teact/teact';
 import Button from '../../../ui/Button';
 
-import { ReservationStatus } from '../../../../types/HeymateTypes/ReservationStatus';
 import './Offer.scss';
 import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 // @ts-ignore
-import offer1 from '../../../../assets/heymate/offer1.svg';
-import TaggedText from '../../../ui/TaggedText';
+import noOfferImg from '../../../../assets/heymate/no-offer-image.svg';
 
-import MenuItem from '../../../ui/MenuItem';
-import Menu from '../../../ui/Menu';
-import OfferFooter from './components/OfferFooter';
-import { ClientType } from '../../../main/components/ZoomSdkService/types';
-import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkService';
-import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
+import ForwardPicker from '../../../main/ForwardPicker.async';
+
 import { ApiUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
-import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
-import Avatar from '../../../common/Avatar';
 
-type TimeToStart = {
-  days: number;
-  hours: number;
-  minutes: number;
-};
+interface IPurchasePlan {
+  value: string;
+  label: string;
+  subLabel: string;
+}
+type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
+
 type OwnProps = {
   props: IOffer;
 };
@@ -50,108 +44,23 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   props,
   currentUser,
   sendDirectMessage,
-  openZoomDialogModal,
 }) => {
-  const lang = useLang();
-  // eslint-disable-next-line no-null/no-null
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const [zoomUser, setZoomUser] = useState<string>('Guest User');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [offerHour, setOfferHour] = useState('');
-  const [offerStatus, setOfferStatus] = useState<ReservationStatus>(props.selectedSchedule?.status);
-  const [timeToStart, setTimeToStart] = useState<TimeToStart>();
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
-  const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
-  const [openVideoDialog, setOpenVideoDialog] = useState(false);
-  const [zoomStream, setZoomStream] = useState();
-  const [zmClient, setZmClient] = useState<ClientType>();
-  const [offerStarted, setOfferStarted] = useState(false);
-  const [tagStatus, setTagStatus] = useState<{ text: string; color: any }>({
-    text: '',
-    color: 'green',
-  });
-  /**
-   * Get Ongoing Offer Time To Start
-   */
-  const getHowMuchDaysUnitllStar = (timestamp) => {
-    let ts = timestamp;
-    if (ts.length <= 10) {
-      ts *= 1000;
-    }
-    const dateFuture = new Date(parseInt(ts || '', 10));
-    const dateNow = new Date();
-    // return Math.round(Math.abs((firstDate.getTime() - secondDate.getTime()) / (oneDay)));
-
-    let delta = Math.abs(dateFuture.getTime() - dateNow.getTime()) / 1000;
-
-    // calculate (and subtract) whole days
-    const days = Math.floor(delta / 86400);
-    delta -= days * 86400;
-
-    // calculate (and subtract) whole hours
-    const hours = Math.floor(delta / 3600) % 24;
-    delta -= hours * 3600;
-
-    // calculate (and subtract) whole minutes
-    const minutes = Math.floor(delta / 60) % 60;
-    delta -= minutes * 60;
-    return {
-      days,
-      hours,
-      minutes,
-    };
-  };
+  const [purchasePlan, setPurchasePlan] = useState<IPurchasePlan[]>([]);
+  const [selectedReason, setSelectedReason] = useState('single');
+  const handleSelectType = useCallback((value: string) => {
+    setSelectedReason(value);
+  }, []);
+  const [isExpired, setIsExpired] = useState(false);
+  const [planType, setPlanType] = useState<PlanType>('SINGLE');
+  const [openBookOfferModal, setOpenBookOfferModal] = useState(false);
+  const [isOpenForwardPicker, setIsOpenForwardPicker] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (props.selectedSchedule) {
-      const hour = GenerateNewDate(props.selectedSchedule?.form_time);
-      setOfferHour(hour.toLocaleTimeString());
-    }
-    switch (props.selectedSchedule?.status) {
-      case ReservationStatus.BOOKED:
-        setTagStatus({
-          color: 'green',
-          text: 'Upcoming',
-        });
-        break;
-      case ReservationStatus.MARKED_AS_FINISHED:
-      case ReservationStatus.FINISHED:
-        setTagStatus({
-          color: 'gray',
-          text: 'Finished',
-        });
-        break;
-      case ReservationStatus.STARTED:
-        setTagStatus({
-          color: 'blue',
-          text: 'In progress',
-        });
-        break;
-      case ReservationStatus.MARKED_AS_STARTED:
-        setTagStatus({
-          color: 'blue',
-          text: 'In progress',
-        });
-        break;
-      case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
-        setTagStatus({
-          color: 'yellow',
-          text: 'Pending',
-        });
-        break;
-    }
-    if (props?.selectedSchedule?.form_time) {
-      const dateFuture = GenerateNewDate(props?.selectedSchedule?.form_time);
-      const dateNow = new Date();
-      if (dateFuture.getTime() > dateNow.getTime()) {
-        const res: any = getHowMuchDaysUnitllStar(props.selectedSchedule.form_time);
-        setTimeToStart(res);
-      } else {
-        setOfferStarted(true);
-        setTimeToStart({ days: 0, minutes: 0, hours: 0 });
-      }
-    }
-  }, [props.selectedSchedule, props.status]);
+    const txt = `Heymate Offer ${props?.title} ‌@Alimusavi67 will provide  ${props.category.main_cat} at ‌${props.pricing.price} ${props.pricing.currency} ‌Per Session. Address: ${props.location?.address} ‌${props.payment_terms.deposit}% is paid upfront. ‌${props.payment_terms.delay_in_start.deposit}% is returned if they delay more than ‌${props.payment_terms.delay_in_start.deposit} minutes. Learn more here: https://heymate.works/offer/${props.id}?d=eyJjIjoiSGFuZHltYW4gJiBSZXBhaXIiLCJlIjoiMTY0NDY4Mzg1MSJ9&l=en&p=b2ZmZXJfcGhyYXNl`;
+    setMessage(txt);
+  }, [props]);
 
   useMemo(() => {
     if (currentUser) {
@@ -161,159 +70,102 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
       };
       userData = JSON.stringify(userData);
       userData = encode(userData);
-      setZoomUser(userData);
     }
   }, [currentUser]);
 
-  const handleHeaderMenuOpen = useCallback(() => {
-    setIsMenuOpen(true);
-  }, []);
-
-  const handleClose = () => {
-    setIsMenuOpen(false);
+  const handleOpenDetailsModal = () => {
+    setOpenDetailsModal(true);
   };
 
-  const sendMessageToParticipants = async () => {
-    const tsId = props?.selectedSchedule?.id;
-    const participants = await getParticipants(tsId);
-    if (participants) {
-      for (const user of participants) {
-        sendDirectMessage({
-          chat: {
-            id: user.telegramId,
-          },
-          // eslint-disable-next-line max-len
-          text: `heymate reservation https://heymate.works/reservation/${user.reservationId}?dd`,
-        });
-      }
-    } else {
-      return false;
+  const handleBookOfferClicked = (plan: PlanType) => {
+    setPlanType(plan);
+    setOpenDetailsModal(false);
+    setOpenBookOfferModal(true);
+  };
+
+  const handleCLoseDetailsModal = () => {
+    setOpenDetailsModal(false);
+  };
+
+  const shareOffer = async () => {
+    setIsOpenForwardPicker(true);
+    const shareData = {
+      title: 'MDN',
+      text: 'Learn web development on MDN!',
+      url: 'https://developer.mozilla.org',
     }
+    await navigator.share(shareData);
   };
 
-  const handleCloseVideoDialog = () => {
-    setOpenVideoDialog(false);
-  };
+  const setForwardChat = (userId: any) => {
 
-  const joinMeeting = async (meetingId: string, sessionPassword: string) => {
-    await sendMessageToParticipants();
-
-    const client = new ZoomClient(meetingId, sessionPassword, zoomUser);
-
-    setJoinMeetingLoader(true);
-
-    await client.join();
-
-    openZoomDialogModal({
-      openModal: true,
-      stream: client.mediaStream,
-      zoomClient: client.zmClient,
-      isLoading: joinMeetingLoader,
-      reservationId: props?.selectedSchedule?.id,
-      userType: 'SERVICE_PROVIDER',
+    setIsOpenForwardPicker(false);
+    sendDirectMessage({
+      chat: {
+        id: userId.id,
+      },
+      // eslint-disable-next-line max-len
+      text: message,
     });
-
-    setZmClient(client.zmClient);
-    setZoomStream(client.mediaStream);
-
-    setJoinMeetingLoader(false);
   };
-
-  const reJoinMeeting = () => {
-    if (props.selectedSchedule?.meetingId && props.selectedSchedule?.meetingPassword) {
-      joinMeeting(props.selectedSchedule?.meetingId, props.selectedSchedule?.meetingPassword);
-    }
-  };
-
-  const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
-    setOfferStatus(newStatus);
-  };
-
-  async function getParticipants(timeSlotId: any) {
-    const response = await axiosService({
-      url: `${HEYMATE_URL}/offer/${timeSlotId}/offerParticipant`,
-      method: 'GET',
-      body: {},
-    });
-    if (response && response.status === 200) {
-      return response.data.data;
-    } else {
-      return false;
-    }
-  }
 
   return (
-    <div className="Offer-middle">
-      <div className="offer-content">
-        <div className="offer-body">
-          <div className="meeting-left-side" onClick={() => setOpenDetailsModal(true)}>
-            <div className="avatar-holder">
-              {props.media[0]?.previewUrl ? <img src={props.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
-                : (
-                  <Avatar
-                    size="tiny"
-                    user={undefined}
-                  />
-                )}
-              {/* <Avatar
-                size="tiny"
-                user={currentUser}
-            /> */}
-            </div>
-            <div className="offer-details">
-              <h4>{`${props.title} - ${offerHour}`}</h4>
-              <span className="offer-location">{props.description}</span>
-              <div className="offer-status">
-                <TaggedText color={tagStatus.color}>
-                  {tagStatus.text}
-                </TaggedText>
-              </div>
-            </div>
+    <div className="testtest">
+      <div className="HeyMateMessage">
+        <div className="my-offer-body">
+          <div className="my-offer-img-holder">
+            { (props?.media && props?.media[0]) ? (
+              <img src={props?.media[0]?.previewUrl} crossOrigin="anonymous" alt="" />
+            ) : (
+              <img src={noOfferImg} alt="no-img" />
+            )}
           </div>
-          <div className="meeting-right-side">
-            <Button
-              ref={menuButtonRef}
-              className={isMenuOpen ? 'active' : ''}
-              round
-              ripple
-              onClick={handleHeaderMenuOpen}
-              size="smaller"
-              color="translucent"
-              ariaLabel="More actions"
-            >
-              <i className="icon-more" />
-            </Button>
-            <Menu
-              className="offer-operation-menu"
-              isOpen={isMenuOpen}
-              positionX="right"
-              positionY="top"
-              autoClose
-              onClose={handleClose}
-            >
-              <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
-            </Menu>
+          <div className="my-offer-descs">
+            <h4 className="title">{props?.title}</h4>
+            <span className="sub-title">{props?.category.main_cat}</span>
+            <p className="description">
+              {props?.description}
+            </p>
+          </div>
+          <div className="my-offer-types">
+            <div className="radios-grp">
+              <RadioGroup
+                name="report-message"
+                options={purchasePlan}
+                onChange={handleSelectType}
+                selected={selectedReason}
+              />
+            </div>
+            <div className="price-grp">
+              <span className="prices active">{`${props?.pricing?.price} ${props?.pricing?.currency}`}</span>
+            </div>
           </div>
         </div>
-        <OfferFooter
-          offerType={props.meeting_type || 'DEFAULT'}
-          fromTime={props.selectedSchedule?.form_time}
-          toTime={props.selectedSchedule?.to_time}
-          timeToStart={timeToStart}
-          joinMeetingLoader={joinMeetingLoader}
-          onReJoinMeeting={reJoinMeeting}
-          status={offerStatus}
-          onJoinMeeting={joinMeeting}
-          onStatusChanged={handleReservationStatusChanges}
-          timeSlotId={props?.selectedSchedule?.id || ''}
-        />
+        <div className="my-offer-btn-group">
+          <Button onClick={handleOpenDetailsModal} className="see-details" size="smaller" color="primary">
+            See Details
+          </Button>
+          <Button
+            onClick={shareOffer}
+            className="book-offer"
+            size="smaller"
+            color="primary"
+          >
+            <span>Share</span>
+          </Button>
+        </div>
       </div>
+
       <OfferDetailsDialog
+        // onBookClicked={handleBookOfferClicked}
+        message={undefined}
         openModal={openDetailsModal}
         offer={props}
-        onCloseModal={() => setOpenDetailsModal(false)}
+        expired={isExpired}
+        onCloseModal={handleCLoseDetailsModal}
       />
+      <ForwardPicker isOpen={isOpenForwardPicker} setForwardChatId={setForwardChat} />
+
     </div>
   );
 };

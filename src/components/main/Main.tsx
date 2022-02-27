@@ -77,7 +77,7 @@ type StateProps = {
   language?: LangCode;
   wasTimeFormatSetManually?: boolean;
   isCallFallbackConfirmOpen: boolean;
-  showHeymate?: boolean;
+  showHeymateScheduleMiddle?: boolean;
   showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
   currentUserPhoneNumber?: string;
@@ -217,6 +217,12 @@ const Main: FC<StateProps & DispatchProps> = ({
   };
 
   const handleHeymateUpdateUser = async (currentUser) => {
+    if(currentUser?.avatarHash == undefined) {
+      currentUser.avatarHash = "";
+    }
+    if(currentUser?.fullName == undefined) {
+      currentUser.fullName = "";
+    }
     const response: IAuth = await axiosService({
       url: `${HEYMATE_URL}/users/updateUserInfo`,
       method: 'PATCH',
