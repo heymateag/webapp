@@ -286,7 +286,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       <AuthOnBoarding />
       <div className="auth-form">
         <div id="logo" />
-        <h2>Telegram</h2>
+        <h2>Heymate Web</h2>
         <p className="note">{lang('StartText')}</p>
         <form action="" onSubmit={handleSubmit}>
           <CountryCodeInput

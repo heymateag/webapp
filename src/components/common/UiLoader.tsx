@@ -18,7 +18,7 @@ import buildClassName from '../../util/buildClassName';
 import './UiLoader.scss';
 
 // @ts-ignore
-import telegramLogoPath from '../../assets/telegram-logo.svg';
+import telegramLogoPath from '../../assets/heymate/heymate-logo1x.png';
 // @ts-ignore
 import monkeyPath from '../../assets/monkey.svg';
 import { selectIsRightColumnShown, selectTheme } from '../../modules/selectors';
