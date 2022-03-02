@@ -173,7 +173,7 @@ export const DARK_THEME_PATTERN_COLOR = '#0a0a0a8c';
 export const DEFAULT_PATTERN_COLOR = 'rgba(90, 110, 70, 0.6)';
 export const HEYMATE_URL = process.env.HEYMATE_API_URL;
 // export const HEYMATE_URL = 'https://lar9nm8ay9.execute-api.us-east-1.amazonaws.com/dev';
-
+export const HEYMATE_DOC_URL = 'http://docs.heymate.works/';
 // Group calls
 export const GROUP_CALL_VOLUME_MULTIPLIER = 100;
 export const GROUP_CALL_DEFAULT_VOLUME = 100 * GROUP_CALL_VOLUME_MULTIPLIER;

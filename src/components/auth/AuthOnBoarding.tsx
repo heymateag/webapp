@@ -109,7 +109,7 @@ const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber})
         <div id="button-holder">
           <Button color="hm-primary" ripple onClick={handlealaki}>Keep Messaging</Button>
           <div id="hm-typo" />
-          <a href="https://www.google.com" target="_blank" rel="noreferrer">read more</a>
+          <a href="http://docs.heymate.works/" target="_blank" rel="noreferrer">Help</a>
         </div>
       </div>
     </div>
