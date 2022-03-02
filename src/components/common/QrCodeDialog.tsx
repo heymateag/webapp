@@ -30,17 +30,16 @@ const QrCodeDialog: FC<OwnProps> = ({
   const lang = useLang();
   const { width: windowWidth } = useWindowSize();
 
-  const handleCLoseWCModal = () => {
-    onCloseModal();
-    WalletConnectQRCodeModal.close();
-  };
   useEffect(() => {
     if (openModal) {
-      WalletConnectQRCodeModal.open(uri);
+      WalletConnectQRCodeModal.open(uri, () => {
+        onCloseModal();
+        WalletConnectQRCodeModal.close();
+      });
     } else {
       WalletConnectQRCodeModal.close();
     }
-  }, [openModal, uri]);
+  }, [onCloseModal, openModal, uri]);
   return (
     <></>
     // <Modal

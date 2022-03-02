@@ -50,12 +50,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const [balanceType, setBalanceType] = useState('cUSD');
   const [transactionList, setTransactionList] = useState([]);
 
-  useWalletConnectQrModal(uri, openModal);
-
-  useEffect(() => {
-    setWidth(window.innerWidth);
-  }, []);
-
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
@@ -74,6 +68,18 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       //   peerId: localStorage.getItem('peerId') || 'testtest',
       // },
     });
+  }, []);
+
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    provider.isConnecting = false;
+    setLoadingBalance(false);
+  };
+
+  // useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
+
+  useEffect(() => {
+    setWidth(window.innerWidth);
   }, []);
 
   const [wcProvider, setWcProvider] = useState<any>(provider);
@@ -108,19 +114,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     }, 100);
   };
 
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    provider.isConnecting = false;
-    setLoadingBalance(false);
-  };
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
     }
     setOpenModal(true);
     setLoadingQr(true);
-    renderUriAsQr();
+    // renderUriAsQr();
   };
   /**
    * Get Account Balance

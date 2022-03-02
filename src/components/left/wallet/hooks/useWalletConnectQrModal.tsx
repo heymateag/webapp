@@ -1,13 +1,12 @@
 import { useEffect } from 'teact/teact';
 import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 
-export function useWalletConnectQrModal(uri: string, openModal: boolean) {
+export function useWalletConnectQrModal(uri: string, openModal: boolean, cb: any) {
   useEffect(() => {
-    debugger
     if (openModal) {
-      WalletConnectQRCodeModal.open(uri, undefined);
+      WalletConnectQRCodeModal.open(uri, cb);
     } else {
       WalletConnectQRCodeModal.close();
     }
-  }, [openModal, uri]);
+  }, [cb, openModal, uri]);
 }
