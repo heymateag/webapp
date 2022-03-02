@@ -21,6 +21,7 @@ import Select from '../../ui/Select';
 
 import { axiosService } from '../../../api/services/axiosService';
 import useWindowSize from '../../../hooks/useWindowSize';
+import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
 import QrCodeDialog from '../../common/QrCodeDialog';
 
 export type OwnProps = {
@@ -48,6 +49,8 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const [uri, setUri] = useState<string>('');
   const [balanceType, setBalanceType] = useState('cUSD');
   const [transactionList, setTransactionList] = useState([]);
+
+  useWalletConnectQrModal(uri, openModal);
 
   useEffect(() => {
     setWidth(window.innerWidth);
@@ -125,9 +128,11 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.connector.on('display_uri', (err, payload) => {
     setIsConnected(false);
     const wcUri = payload.params[0];
-    setUri(wcUri);
 
-    renderUriAsQr(wcUri);
+    setUri(wcUri);
+    setOpenModal(true);
+
+    // renderUriAsQr(wcUri);
 
     setLoadingQr(false);
   });

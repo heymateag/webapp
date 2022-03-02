@@ -250,3 +250,16 @@
     }
   }
 }
+.walletconnect-modal__base {
+  background-color: var(--color-background) !important;
+  #walletconnect-qrcode-text {
+    color: var(--color-text);
+  }
+  .walletconnect-modal__footer a {
+    color: var(--color-primary);
+  }
+}
+
+.walletconnect-modal__mobile__toggle a {
+  color: var(--color-primary) !important;
+}
