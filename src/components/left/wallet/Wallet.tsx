@@ -22,6 +22,7 @@ import Select from '../../ui/Select';
 import { axiosService } from '../../../api/services/axiosService';
 import useWindowSize from '../../../hooks/useWindowSize';
 import QrCodeDialog from '../../common/QrCodeDialog';
+import walletLoggerService from '../../common/helpers/walletLoggerService';
 
 export type OwnProps = {
   onReset: () => void;
@@ -73,7 +74,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     });
   }, []);
 
-  const [wcProvider, setWcProvider] = useState<any>(provider);
+  // const [wcProvider, setWcProvider] = useState<any>(provider);
 
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
@@ -123,6 +124,10 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
    * Get Account Balance
    */
   provider.connector.on('display_uri', (err, payload) => {
+    walletLoggerService({
+      description: 'start connecting wallet',
+      status: 'Waiting',
+    });
     setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
@@ -138,7 +143,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         showNotification({ message: 'connection failed, please check your connection and retry' });
         setLoadingBalance(false);
         provider.disconnect();
-        setWcProvider(provider);
+        // setWcProvider(provider);
         window.location.reload();
       }
     }, 60000);
@@ -160,7 +165,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingBalance(false);
 
     setKit(myKit);
-    setWcProvider(provider);
+    // setWcProvider(provider);
   }, [provider]);
 
   provider.on('accountsChanged', (accounts) => {
@@ -170,14 +175,18 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.on('disconnect', (code: number, reason: string) => {
     showNotification({ message: reason });
     setIsConnected(false);
-    setWcProvider(provider);
+    // setWcProvider(provider);
   });
 
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'connected wallet',
+      status: 'Success',
+    });
     setOpenModal(false);
     setIsConnected(true);
     showNotification({ message: 'Successfully Connected to Wallet !' });
-    setWcProvider(provider);
+    // setWcProvider(provider);
     makeKitsFromProvideAndGetBalance();
   });
 
