@@ -72,7 +72,7 @@ const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber})
    */
   const renderSLides = () => {
     const indexKey = list[index].key;
-    const { title } = list[index];
+    const { title, desc } = list[index];
     const image = list[index].img;
     return (
       <div key={indexKey}>
@@ -81,8 +81,7 @@ const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber})
         </div>
         <h2>{title}</h2>
         <p className="note">
-          Stay in touch with your customers on your existing
-          <br />social network on Telegram.
+          { desc }
         </p>
       </div>
     );
@@ -110,6 +109,7 @@ const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber})
         <div id="button-holder">
           <Button color="hm-primary" ripple onClick={handlealaki}>Keep Messaging</Button>
           <div id="hm-typo" />
+          <a href="https://www.google.com" target="_blank" rel="noreferrer">read more</a>
         </div>
       </div>
     </div>
