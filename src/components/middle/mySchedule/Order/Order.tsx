@@ -113,6 +113,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
+       bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],

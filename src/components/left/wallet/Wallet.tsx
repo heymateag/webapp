@@ -56,7 +56,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
-      // bridge: 'https://a.bridge.walletconnect.org',
+      bridge: 'https://wc-bridge.heymate.works/',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',
