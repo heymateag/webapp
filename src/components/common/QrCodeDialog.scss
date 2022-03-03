@@ -252,6 +252,13 @@
 }
 .walletconnect-modal__base {
   // background-color: var(--color-background) !important;
+  .walletconnect-modal__header {
+    position: relative !important;
+    top: 0 !important;
+  }
+  .walletconnect-modal__mobile__toggle {
+    margin: 10px auto !important;
+  }
   #walletconnect-qrcode-text {
     color: var(--color-text);
   }
