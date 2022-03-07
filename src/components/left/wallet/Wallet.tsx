@@ -64,9 +64,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
-      // connector: {
-      //   peerId: localStorage.getItem('peerId') || 'testtest',
-      // },
     });
   }, []);
 
@@ -76,7 +73,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingBalance(false);
   };
 
-  // useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
 
   useEffect(() => {
     setWidth(window.innerWidth);
@@ -326,13 +323,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           })
         }
       </div>
-      <QrCodeDialog
-        uri={uri}
-        openModal={openModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/*<QrCodeDialog*/}
+      {/*  uri={uri}*/}
+      {/*  openModal={openModal}*/}
+      {/*  onCloseModal={handleCLoseWCModal}*/}
+      {/*  loadingQr={loadingQr}*/}
+      {/*  qrCodeRef={qrCodeRef}*/}
+      {/*/>*/}
 
     </div>
   );

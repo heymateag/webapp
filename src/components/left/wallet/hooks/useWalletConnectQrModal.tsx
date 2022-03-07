@@ -4,7 +4,12 @@ import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 export function useWalletConnectQrModal(uri: string, openModal: boolean, cb: any) {
   useEffect(() => {
     if (openModal) {
-      WalletConnectQRCodeModal.open(uri, cb);
+      const isOpen = document.getElementById('walletconnect-qrcode-modal') || undefined;
+      if (typeof isOpen === 'undefined') {
+        WalletConnectQRCodeModal.open(uri, cb);
+      } else {
+        console.log('already open !');
+      }
     } else {
       WalletConnectQRCodeModal.close();
     }
