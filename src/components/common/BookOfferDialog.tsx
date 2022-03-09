@@ -8,6 +8,7 @@ import WalletConnectProvider from '@walletconnect/web3-provider';
 import { GlobalActions } from 'src/global/types';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import QrCreator from 'qr-creator';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
 import { IOffer } from '../../types/HeymateTypes/Offer.model';
@@ -24,8 +25,9 @@ import { getDayStartAt } from '../../util/dateFormat';
 import { CalendarModal } from './CalendarModal';
 import buildClassName from '../../util/buildClassName';
 import OfferPurchase from '../left/wallet/OfferPurchase';
-import QrCodeDialog from './QrCodeDialog';
+// import QrCodeDialog from './QrCodeDialog';
 import AcceptTransactionDialog from './AcceptTransactionDialog';
+import { useWalletConnectQrModal } from '../left/wallet/hooks/useWalletConnectQrModal';
 
 type OwnProps = {
   offer: IOffer;
@@ -98,7 +100,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
-       bridge: 'https://wc-bridge.heymate.works/',
+      bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],
@@ -107,13 +109,21 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
       },
     });
   }, []);
+
+  const handleCLoseWCModal = () => {
+    setOpenQRModal(false);
+    setLoadingQr(true);
+    provider.isConnecting = false;
+  };
+
+  useWalletConnectQrModal(uri, openQrModal, handleCLoseWCModal);
+
   const renderUriAsQr = (givenUri?) => {
     setOpenQRModal(true);
     setLoadingQr(true);
 
     setTimeout(() => {
       const validUri = givenUri || uri;
-
       const container = qrCodeRef.current!;
       container.innerHTML = '';
       container.classList.remove('pre-animate');
@@ -135,7 +145,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     }
     setOpenQRModal(true);
     setLoadingQr(true);
-    renderUriAsQr();
+    // renderUriAsQr();
   };
 
   /**
@@ -145,16 +155,15 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
-    renderUriAsQr(wcUri);
+    setOpenQRModal(true);
+    // renderUriAsQr(wcUri);
     setLoadingQr(false);
   });
-
-  const handleCLoseWCModal = () => {
+  provider.onConnect(() => {
     setOpenQRModal(false);
-    setLoadingQr(true);
-    provider.isConnecting = false;
-  };
-
+    showNotification({ message: 'Successfully Connected to Wallet !' });
+    WalletConnectQRCodeModal.close();
+  });
   const handleCloseAcceptModal = () => {
     setOpenAcceptModal(false);
     setLoadAcceptLoading(false);
@@ -252,7 +261,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     let address: string;
     let offerPurchase;
     if (provider.isWalletConnect) {
-      handleOpenWCModal();
       await provider.enable()
         .then((res) => {
           // eslint-disable-next-line prefer-destructuring
@@ -423,13 +431,13 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         onClose={() => setIsCalendarOpen(false)}
         onSubmit={handleRescheduleMessage}
       />
-      <QrCodeDialog
-        uri={uri}
-        openModal={openQrModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openQrModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
         onCloseModal={handleCloseAcceptModal}

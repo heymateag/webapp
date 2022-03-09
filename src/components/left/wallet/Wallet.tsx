@@ -18,11 +18,10 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
-
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { axiosService } from '../../../api/services/axiosService';
-import useWindowSize from '../../../hooks/useWindowSize';
+
 import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
-import QrCodeDialog from '../../common/QrCodeDialog';
 
 export type OwnProps = {
   onReset: () => void;
@@ -79,8 +78,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setWidth(window.innerWidth);
   }, []);
 
-  const [wcProvider, setWcProvider] = useState<any>(provider);
-
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
     CELO: '0',
@@ -88,28 +85,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     cREAL: '0',
   });
   const lang = useLang();
-
-  const renderUriAsQr = (givenUri?) => {
-    setOpenModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
 
   const handleOpenWCModal = async () => {
     if (uri === '') {
@@ -140,7 +115,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         showNotification({ message: 'connection failed, please check your connection and retry' });
         setLoadingBalance(false);
         provider.disconnect();
-        setWcProvider(provider);
         window.location.reload();
       }
     }, 60000);
@@ -162,7 +136,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingBalance(false);
 
     setKit(myKit);
-    setWcProvider(provider);
   }, [provider]);
 
   provider.on('accountsChanged', (accounts) => {
@@ -172,15 +145,14 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   provider.on('disconnect', (code: number, reason: string) => {
     showNotification({ message: reason });
     setIsConnected(false);
-    setWcProvider(provider);
   });
 
   provider.onConnect(() => {
     setOpenModal(false);
     setIsConnected(true);
     showNotification({ message: 'Successfully Connected to Wallet !' });
-    setWcProvider(provider);
     makeKitsFromProvideAndGetBalance();
+    WalletConnectQRCodeModal.close();
   });
 
   const getTransactions = useCallback(async () => {
@@ -218,14 +190,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       getTransactions();
     }
   }, [getTransactions, kit]);
-
-  const doTransaction = () => {
-    sendcUSD(kit).then((res) => {
-      console.log(res);
-    }).catch((err) => {
-      showNotification({ message: err.message });
-    });
-  };
 
   const handleChangeCurrency = (e: any) => {
     const filter = e.target.value;
@@ -323,13 +287,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           })
         }
       </div>
-      {/*<QrCodeDialog*/}
-      {/*  uri={uri}*/}
-      {/*  openModal={openModal}*/}
-      {/*  onCloseModal={handleCLoseWCModal}*/}
-      {/*  loadingQr={loadingQr}*/}
-      {/*  qrCodeRef={qrCodeRef}*/}
-      {/*/>*/}
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
 
     </div>
   );

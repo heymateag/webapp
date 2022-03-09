@@ -7,11 +7,7 @@ export function useWalletConnectQrModal(uri: string, openModal: boolean, cb: any
       const isOpen = document.getElementById('walletconnect-qrcode-modal') || undefined;
       if (typeof isOpen === 'undefined') {
         WalletConnectQRCodeModal.open(uri, cb);
-      } else {
-        console.log('already open !');
       }
-    } else {
-      WalletConnectQRCodeModal.close();
     }
   }, [cb, openModal, uri]);
 }
