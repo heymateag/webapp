@@ -5,8 +5,11 @@
     .custom-header {
       width: 100%;
       display: flex;
+      display: -webkit-flex;
       flex-direction: row;
+      -webkit-flex-direction: row;
       justify-content: flex-end;
+      -webkit-justify-content: flex-end;
       min-height: 42px;
       padding: 0 1rem;
 
@@ -14,9 +17,12 @@
         min-width: 80px;
         height: 100%;
         display: flex;
+        display: -webkit-flex;
         flex-direction: row-reverse;
+        -webkit-flex-direction: row-reverse;
         align-items: center;
         justify-content: space-between;
+        -webkit-justify-content: space-between;
 
         i {
           font-size: 20px;
@@ -42,6 +48,7 @@
 
     .modal-content {
       display: flex;
+      display: -webkit-flex;
 
       height: -webkit-calc(100% - 60px);
       height: -moz-calc(100% - 60px);
@@ -49,6 +56,7 @@
 
       background-color: #1B1F23;
       flex-flow: row wrap;
+      -webkit-flex-flow: row wrap;
       align-content: space-between;
       padding: 0;
 
@@ -57,6 +65,7 @@
         top: 50%;
         width: 100%;
         display: flex;
+        display: -webkit-flex;
         justify-content: center;
         align-items: center;
       }
@@ -67,20 +76,26 @@
         padding: 0 1rem;
         height: 60px;
         display: flex;
+        display: -webkit-flex;
         justify-content: flex-start;
+        -webkit-justify-content: flex-start;
         background-color: var(--color-background);
 
         .meeting-option-buttons {
           display: flex;
+          display: -webkit-flex;
           flex: 70%;
           justify-content: flex-start;
+          -webkit-justify-content: flex-start;
 
           .btn-box {
             flex-direction: column;
+            -webkit-flex-direction: column;
             cursor: pointer;
             height: 100%;
             width: 112px;
             justify-content: space-around;
+            -webkit-justify-content: space-around;
             display: flex;
             align-items: center;
             i {
@@ -99,6 +114,7 @@
 
         .leave-btn-holder {
           display: flex;
+          display: -webkit-flex;
           flex: 30%;
           align-items: center;
           max-width: 56px;
@@ -111,15 +127,21 @@
         height: 100%;
         box-sizing: border-box;
         display: flex;
+        display: -webkit-flex;
         flex-flow: row wrap;
+        -webkit-flex-flow: row wrap;
 
         .share-container{
           display: none;
           &.in-sharing {
             display: flex;
+            display: -webkit-flex;
             flex-grow: 1;
+            -webkit-flex-grow: 1;
             justify-content: center;
+            -webkit-justify-content: center;
             align-items: center;
+            -webkit-align-items: center;
             overflow: hidden;
             width: calc(100vw - 296px);
             width: -webkit-calc(100vw  - 296px);
@@ -148,6 +170,7 @@
           &.in-sharing{
             width: 264px;
             flex-shrink: 0;
+            -webkit-flex-shrink: 0;
             border-left: 1px solid #333;
           }
           .video-canvas{
