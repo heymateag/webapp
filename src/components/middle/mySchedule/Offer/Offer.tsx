@@ -229,7 +229,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const simpleJoin = async () => {
-    const client = new ZoomClient('testEhsan', '123123', zoomUser);
+    const client = new ZoomClient('testEhsan2', '123123', zoomUser);
 
     await client.join();
 
