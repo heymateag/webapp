@@ -38,6 +38,7 @@ export function useRenderVideo(
         addedSubscribers.forEach(async (userId) => {
           const index = participants.findIndex((user) => user.userId === userId);
           const cellDimension = layout[index];
+          debugger
           console.log('===cellDimension===');
           console.log(cellDimension);
           if (cellDimension) {
@@ -152,6 +153,9 @@ export function useRenderVideo(
           const {
             width, height, x, y, quality,
           } = cellDimension;
+          if (videoRef.current) {
+            await mediaStream?.clearVideoCanvas(videoRef.current);
+          }
           await mediaStream?.renderVideo(
             videoRef.current as HTMLCanvasElement,
             userId,
@@ -177,6 +181,7 @@ export function useRenderVideo(
     if (subscribedVideos.length > 0) {
       subscribedVideos.forEach((userId) => {
         mediaStream?.stopRenderVideo(videoCanvasDOM, userId);
+        mediaStream?.clearVideoCanvas(videoCanvasDOM);
       });
     }
   });
