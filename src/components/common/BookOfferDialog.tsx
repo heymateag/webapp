@@ -207,8 +207,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           }
           item.fromTs = fromTs;
           item.toTs = toTs;
-          item.fromDateLocal = new Date(fromTs).toLocaleTimeString();
-          item.toDateLocal = new Date(toTs).toLocaleTimeString();
+          item.fromDateLocal = new Date(fromTs).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          item.toDateLocal = new Date(toTs).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
           item.date = new Date(fromTs).toLocaleDateString('en');
           return item;
         });
@@ -375,10 +375,16 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                                 onChange={(e) => handleChange(e, item)}
                               />
                             </div>
-                            <div className="remaining-of-total">
-                              <span id="remaining">{item.completedReservations}</span>
-                              <span id="total">of {item.maximumReservations}</span>
-                            </div>
+                            {item.completedReservations && item.completedReservations > 10000 ? (
+                              <div className="remaining-of-total">
+                                <span id="remaining">{item.completedReservations}</span>
+                                <span id="total">  of {item.maximumReservations}</span>
+                              </div>
+                            ) : (
+                              <div className="remaining-of-total">
+                                unlimited
+                              </div>
+                            )}
                           </div>
                         )) : (
                           <div className="no-time-slot-founds">

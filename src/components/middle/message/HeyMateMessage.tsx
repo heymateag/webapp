@@ -181,7 +181,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     });
     if (response.status === 200) {
       const { data } = response.data;
-
+      setOfferMsg(data.offer);
+      setReservationItem(data);
       if (data.status === ReservationStatus.MARKED_AS_STARTED) {
         setCanJoin(true);
         setReservationId(data.id);
@@ -345,6 +346,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         setIsConnected(true);
         setOpenQRModal(false);
       });
+      debugger
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignoreffer
