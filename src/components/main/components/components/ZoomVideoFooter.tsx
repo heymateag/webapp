@@ -84,7 +84,10 @@ const ZoomVideoFooter : FC<OwnProps> = ({
 
   const onCameraClick = useCallback(async () => {
     if (isStartedVideo) {
+      console.log('===start the video ===');
+      console.log(mediaStream);
       await mediaStream?.stopVideo();
+      console.log('===video started ===');
       setIsStartedVideo(false);
     } else {
       await mediaStream?.startVideo();
