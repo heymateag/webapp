@@ -38,15 +38,12 @@ export function useRenderVideo(
         addedSubscribers.forEach(async (userId) => {
           const index = participants.findIndex((user) => user.userId === userId);
           const cellDimension = layout[index];
-          console.log('===cellDimension===');
-          console.log(cellDimension);
+
           if (cellDimension) {
             const {
               width, height, x, y, quality,
             } = cellDimension;
             if (videoRef.current) {
-              console.log('=============================CLear Vide Canvas==============');
-              console.log(cellDimension);
               await mediaStream?.clearVideoCanvas(videoRef.current);
             }
             await mediaStream?.renderVideo(
