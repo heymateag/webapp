@@ -167,6 +167,7 @@ class OfferWrapper {
       receipt = await answer.getHash();
       return receipt;
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
   };
