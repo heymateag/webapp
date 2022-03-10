@@ -175,7 +175,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
-      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
@@ -215,7 +214,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
-      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
