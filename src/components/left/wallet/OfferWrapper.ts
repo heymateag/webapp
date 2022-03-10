@@ -69,6 +69,7 @@ class OfferWrapper {
     try {
       await this.transfer(amount, stableToken);
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
 
@@ -91,6 +92,7 @@ class OfferWrapper {
         // '0x00',
       )).send();
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
 

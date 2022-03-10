@@ -2,12 +2,13 @@ import React, {
   FC, memo, useEffect, useState, useRef, useMemo,
 } from 'teact/teact';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
-import QrCreator from 'qr-creator';
+// import QrCreator from 'qr-creator';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import { GlobalActions } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { ReservationStatus } from '../../../../../types/HeymateTypes/ReservationStatus';
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
@@ -15,8 +16,9 @@ import { HEYMATE_URL } from '../../../../../config';
 import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 import OfferWrapper from '../../../../left/wallet/OfferWrapper';
 import { pick } from '../../../../../util/iteratees';
-import QrCodeDialog from '../../../../common/QrCodeDialog';
+// import QrCodeDialog from '../../../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../../../common/AcceptTransactionDialog';
+import { useWalletConnectQrModal } from '../../../../left/wallet/hooks/useWalletConnectQrModal';
 
 type TimeToStart = {
   days: number;
@@ -117,6 +119,13 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     }
   }, [reservationStatus, status]);
 
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    setIsLoading(false);
+    setLoadingQr(true);
+    provider.isConnecting = false;
+  };
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
   const handleChangeReservationStatus = async (newStatus: ReservationStatus) => {
     setIsLoading(true);
     const response = await axiosService({
@@ -136,44 +145,29 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     }
   };
 
-  const renderUriAsQr = (givenUri?) => {
-    setOpenModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
     }
     setOpenModal(true);
     setLoadingQr(true);
-    renderUriAsQr();
+    // renderUriAsQr();
   };
   /**
    * Get Account Data
   */
   provider.connector.on('display_uri', (err, payload) => {
+    // setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
-    renderUriAsQr(wcUri);
+    setOpenModal(true);
+    // renderUriAsQr(wcUri);
     setLoadingQr(false);
+  });
+  provider.onConnect(() => {
+    setOpenModal(false);
+    showNotification({ message: 'Successfully Connected to Wallet !' });
+    WalletConnectQRCodeModal.close();
   });
 
   const handleStartInCelo = async () => {
@@ -256,12 +250,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     }
   };
 
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    setIsLoading(false);
-    setLoadingQr(true);
-    provider.isConnecting = false;
-  };
+
 
   const handleCloseAcceptModal = () => {
     setIsLoading(false);
@@ -398,13 +387,13 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
       </div>
-      <QrCodeDialog
+      {/* <QrCodeDialog
         uri={uri}
         openModal={openModal}
         onCloseModal={handleCLoseWCModal}
         loadingQr={loadingQr}
         qrCodeRef={qrCodeRef}
-      />
+      /> */}
 
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
