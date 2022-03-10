@@ -32,6 +32,7 @@ const QrCodeDialog: FC<OwnProps> = ({
 
   useEffect(() => {
     if (openModal) {
+      console.log('openModal Callse');
       WalletConnectQRCodeModal.open(uri, () => {
         onCloseModal();
         WalletConnectQRCodeModal.close();

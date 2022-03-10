@@ -229,7 +229,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const simpleJoin = async () => {
-    const client = new ZoomClient('testClient', '123123', zoomUser);
+    const client = new ZoomClient('testEhsan', '123123', zoomUser);
 
     await client.join();
 
@@ -307,8 +307,8 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
               onClose={handleClose}
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
-              {/* <MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem> */}
+              <MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>
+              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
         </div>
