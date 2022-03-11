@@ -1,6 +1,9 @@
 .VideoGalleryLayout{
   width: 100%;
-  height: -webkit-calc(100% - 60px);
-  height: -moz-calc(100% - 60px);
-  height: calc(100% - 60px);
+  height: 100%;
+  display: flex;
+  display: -webkit-flex;
+  flex-flow: row wrap;
+  -webkit-flex-flow: row wrap;
+  box-sizing: border-box;
 }

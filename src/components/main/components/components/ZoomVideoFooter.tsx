@@ -8,8 +8,6 @@ import { MediaDevice } from '../ZoomSdkService/video-types';
 import { useUnmount } from '../../../../hooks';
 import buildClassName from '../../../../util/buildClassName';
 
-
-
 type OwnProps = {
   initLeaveSessionClick: () => void;
   shareRef?: MutableRefObject<HTMLCanvasElement | null>;

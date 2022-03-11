@@ -15,14 +15,19 @@ import { usePagination } from '../hooks/usePagination';
 import { useGalleryLayout } from '../hooks/useGalleryLayout';
 import { ZoomDialogProps } from '../../../../api/types';
 
-import "./Video.scss"
+import './Video.scss';
+import ZoomVideoFooter from './ZoomVideoFooter';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
+  onLeaveSessionClicked: () => void;
+  isVideoReady: boolean;
 };
 
 const Video: FC<StateProps> = ({
   zoomDialog,
+  onLeaveSessionClicked,
+  isVideoReady = false,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
@@ -38,8 +43,6 @@ const Video: FC<StateProps> = ({
   const canvasDimension = useCanvasDimension(zoomDialog?.stream, videoRef);
 
   const [isSharing, setIsSharing] = useState(false);
-
-  const [isVideoDecodeReady, setIsVideoDecodeReady] = useState(false);
 
   const [containerDimension, setContainerDimension] = useState({
     width: 0,
@@ -129,7 +132,7 @@ const Video: FC<StateProps> = ({
   const { visibleParticipants, layout: videoLayout } = useGalleryLayout(
     zoomDialog.zoomClient,
     zoomDialog.stream,
-    isVideoDecodeReady,
+    isVideoReady,
     videoRef,
     canvasDimension,
     {
@@ -139,16 +142,6 @@ const Video: FC<StateProps> = ({
       totalSize,
     },
   );
-
-  useEffect(() => {
-    // Update the document title using the browser API
-    setTimeout(() => {
-      setIsVideoDecodeReady(true);
-    }, 500);
-    return () => {
-      setIsVideoDecodeReady(false);
-    };
-  }, [zoomDialog?.openModal]);
 
   return (
     <div className="VideoGalleryLayout">
@@ -222,6 +215,13 @@ const Video: FC<StateProps> = ({
           })}
         </ul>
       </div>
+      <ZoomVideoFooter
+        sharing={isStartedShare}
+        shareRef={selfShareRef}
+        zmClient={zoomDialog.zoomClient}
+        mediaStream={zoomDialog.stream}
+        initLeaveSessionClick={onLeaveSessionClicked}
+      />
     </div>
   );
 };
