@@ -1,13 +1,14 @@
 import React, {
-  FC, memo, useEffect, useState, useRef, useMemo,
+  FC, memo, useEffect, useState, useMemo,
 } from 'teact/teact';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
-import QrCreator from 'qr-creator';
+// import QrCreator from 'qr-creator';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import { GlobalActions } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { ReservationStatus } from '../../../../../types/HeymateTypes/ReservationStatus';
 import Button from '../../../../ui/Button';
 import { axiosService } from '../../../../../api/services/axiosService';
@@ -15,8 +16,10 @@ import { HEYMATE_URL } from '../../../../../config';
 import GenerateNewDate from '../../../helpers/generateDateBasedOnTimeStamp';
 import OfferWrapper from '../../../../left/wallet/OfferWrapper';
 import { pick } from '../../../../../util/iteratees';
-import QrCodeDialog from '../../../../common/QrCodeDialog';
+// import QrCodeDialog from '../../../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../../../common/AcceptTransactionDialog';
+import { useWalletConnectQrModal } from '../../../../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from '../../../../common/helpers/walletLoggerService';
 
 type TimeToStart = {
   days: number;
@@ -63,9 +66,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
 
   const [canFinish, setCanFinish] = useState(false);
   const [openModal, setOpenModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
   const [uri, setUri] = useState<string>('');
-  const qrCodeRef = useRef<HTMLDivElement>(null);
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
@@ -76,6 +77,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
+      bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],
@@ -116,6 +118,12 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     }
   }, [reservationStatus, status]);
 
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    setIsLoading(false);
+    provider.isConnecting = false;
+  };
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
   const handleChangeReservationStatus = async (newStatus: ReservationStatus) => {
     setIsLoading(true);
     const response = await axiosService({
@@ -135,44 +143,33 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     }
   };
 
-  const renderUriAsQr = (givenUri?) => {
-    setOpenModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
     }
     setOpenModal(true);
-    setLoadingQr(true);
-    renderUriAsQr();
   };
   /**
    * Get Account Data
   */
   provider.connector.on('display_uri', (err, payload) => {
+    // setIsConnected(false);
+    walletLoggerService({
+      description: 'start connecting to wallet',
+      status: 'Waiting',
+    });
     const wcUri = payload.params[0];
     setUri(wcUri);
-    renderUriAsQr(wcUri);
-    setLoadingQr(false);
+    setOpenModal(true);
+  });
+  provider.onConnect(() => {
+    walletLoggerService({
+      description: 'finish connecting to wallet',
+      status: 'Success',
+    });
+    setOpenModal(false);
+    showNotification({ message: 'Successfully Connected to Wallet !' });
+    WalletConnectQRCodeModal.close();
   });
 
   const handleStartInCelo = async () => {
@@ -180,7 +177,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
-      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
@@ -197,9 +193,17 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       setLoadAcceptLoading(true);
       setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting start',
+        status: 'Waiting',
+      });
       const answer = await offerWrapper.startService(offer, tradeId, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting start',
+        status: 'Success',
+      });
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -220,7 +224,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
-      handleOpenWCModal();
       await provider.enable().then((res) => {
         // eslint-disable-next-line prefer-destructuring
         address = res[0];
@@ -237,9 +240,17 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       setLoadAcceptLoading(true);
       setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting finish',
+        status: 'Waiting',
+      });
       const answer = await offerWrapper.finishService(offer, tradeId, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting finish',
+        status: 'Success',
+      });
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -253,13 +264,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     } else {
       handleOpenWCModal();
     }
-  };
-
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    setIsLoading(false);
-    setLoadingQr(true);
-    provider.isConnecting = false;
   };
 
   const handleCloseAcceptModal = () => {
@@ -397,13 +401,13 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
           </div>
         )}
       </div>
-      <QrCodeDialog
+      {/* <QrCodeDialog
         uri={uri}
         openModal={openModal}
         onCloseModal={handleCLoseWCModal}
         loadingQr={loadingQr}
         qrCodeRef={qrCodeRef}
-      />
+      /> */}
 
       <AcceptTransactionDialog
         isOpen={openAcceptModal}

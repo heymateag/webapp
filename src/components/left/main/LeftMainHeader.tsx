@@ -8,7 +8,7 @@ import { LeftColumnContent, ISettings } from '../../../types';
 import { ApiChat } from '../../../api/types';
 
 import {
-  ANIMATION_LEVEL_MAX, APP_NAME, APP_VERSION, FEEDBACK_URL,
+  ANIMATION_LEVEL_MAX, APP_NAME, APP_VERSION, FEEDBACK_URL,HEYMATE_DOC_URL
 } from '../../../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import buildClassName from '../../../util/buildClassName';
@@ -272,6 +272,12 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             href={FEEDBACK_URL}
           >
             Report Bug
+          </MenuItem>
+          <MenuItem
+            icon="icon-help"
+            href={HEYMATE_DOC_URL}
+          >
+            Help
           </MenuItem>
           {withOtherVersions && (
             <>

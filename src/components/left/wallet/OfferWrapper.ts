@@ -8,6 +8,7 @@ import { StableTokenWrapper } from '@celo/contractkit/lib/wrappers/StableTokenWr
 import { OFFERS_ON_ALFAJORES, OFFERS_ON_MAINNET } from '../../../config';
 import { ITimeSlotModel } from '../../../types/HeymateTypes/TimeSlot.model';
 import OfferContract from './OfferContract';
+import walletLoggerService from '../../common/helpers/walletLoggerService';
 
 class OfferWrapper {
   mContractKit: ContractKit;
@@ -65,10 +66,14 @@ class OfferWrapper {
     // JSONObject configJSON = new JSONObject(offer.getTermsConfig());
 
     const config: BN[] = this.getConfig(offer);
-
     try {
       await this.transfer(amount, stableToken);
+      walletLoggerService({
+        description: 'send create contract request',
+        status: 'Success',
+      });
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
 
@@ -90,7 +95,12 @@ class OfferWrapper {
         offer.pricing.signature,
         // '0x00',
       )).send();
+      walletLoggerService({
+        description: 'send transfer request',
+        status: 'Success',
+      });
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
 
@@ -165,6 +175,7 @@ class OfferWrapper {
       receipt = await answer.getHash();
       return receipt;
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
   };

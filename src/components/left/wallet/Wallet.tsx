@@ -1,15 +1,14 @@
 import React, {
-  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
+  FC, useEffect, useState, memo, useMemo, useCallback,
 } from 'teact/teact';
 import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
 import Web3 from 'web3';
 import { newKitFromWeb3, CeloContract } from '@celo/contractkit';
 import { withGlobal } from 'teact/teactn';
-import { newKitBalances, sendcUSD } from './AccountManager/AccountMannager';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
+import { newKitBalances } from './AccountManager/AccountMannager';
 import useLang from '../../../hooks/useLang';
 import Spinner from '../../ui/Spinner';
-import Modal from '../../ui/Modal';
 import './Wallet.scss';
 import Button from '../../ui/Button';
 import TransactionRow from './TransactionRow/TransactionRow';
@@ -18,11 +17,10 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
-
 import { axiosService } from '../../../api/services/axiosService';
-import useWindowSize from '../../../hooks/useWindowSize';
-import QrCodeDialog from '../../common/QrCodeDialog';
 import walletLoggerService from '../../common/helpers/walletLoggerService';
+
+import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
 
 export type OwnProps = {
   onReset: () => void;
@@ -39,9 +37,6 @@ type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
   const [openModal, setOpenModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
-  // eslint-disable-next-line no-null/no-null
-  const qrCodeRef = useRef<HTMLDivElement>(null);
   const [kit, setKit] = useState<any>();
   const [width, setWidth] = useState<number>(0);
   const [isConnected, setIsConnected] = useState(false);
@@ -50,17 +45,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const [balanceType, setBalanceType] = useState('cUSD');
   const [transactionList, setTransactionList] = useState([]);
 
-  useEffect(() => {
-    setWidth(window.innerWidth);
-  }, []);
-
   const provider = useMemo(() => {
     return new WalletConnectProvider({
       rpc: {
         44787: 'https://alfajores-forno.celo-testnet.org',
         42220: 'https://forno.celo.org',
       },
-      // bridge: 'https://a.bridge.walletconnect.org',
+      bridge: 'https://wc-bridge.heymate.works/',
       qrcode: false,
       clientMeta: {
         description: 'Just a test description !',
@@ -68,13 +59,21 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         url: 'www.ehsan.com',
         name: 'Heymate App',
       },
-      // connector: {
-      //   peerId: localStorage.getItem('peerId') || 'testtest',
-      // },
     });
   }, []);
 
   // const [wcProvider, setWcProvider] = useState<any>(provider);
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    provider.isConnecting = false;
+    setLoadingBalance(false);
+  };
+
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
+
+  useEffect(() => {
+    setWidth(window.innerWidth);
+  }, []);
 
   const [balance, setBalance] = useState<IBalance>({
     cUSD: '0',
@@ -84,41 +83,12 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   });
   const lang = useLang();
 
-  const renderUriAsQr = (givenUri?) => {
-    setOpenModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
-
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    provider.isConnecting = false;
-    setLoadingBalance(false);
-  };
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
     }
     setOpenModal(true);
-    setLoadingQr(true);
-    renderUriAsQr();
+    // renderUriAsQr();
   };
   /**
    * Get Account Balance
@@ -130,11 +100,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     });
     setIsConnected(false);
     const wcUri = payload.params[0];
+
     setUri(wcUri);
-
-    renderUriAsQr(wcUri);
-
-    setLoadingQr(false);
+    setOpenModal(true);
   });
 
   const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
@@ -168,10 +136,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     // setWcProvider(provider);
   }, [provider]);
 
-  provider.on('accountsChanged', (accounts) => {
-    console.log(accounts);
-  });
-
   provider.on('disconnect', (code: number, reason: string) => {
     showNotification({ message: reason });
     setIsConnected(false);
@@ -188,6 +152,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     showNotification({ message: 'Successfully Connected to Wallet !' });
     // setWcProvider(provider);
     makeKitsFromProvideAndGetBalance();
+    WalletConnectQRCodeModal.close();
   });
 
   const getTransactions = useCallback(async () => {
@@ -225,14 +190,6 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       getTransactions();
     }
   }, [getTransactions, kit]);
-
-  const doTransaction = () => {
-    sendcUSD(kit).then((res) => {
-      console.log(res);
-    }).catch((err) => {
-      showNotification({ message: err.message });
-    });
-  };
 
   const handleChangeCurrency = (e: any) => {
     const filter = e.target.value;
@@ -330,13 +287,13 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
           })
         }
       </div>
-      <QrCodeDialog
-        uri={uri}
-        openModal={openModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
 
     </div>
   );
