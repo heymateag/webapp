@@ -28,6 +28,7 @@ import { useSizeCallback } from '../../../hooks';
 import { isShallowEqual } from './ZoomSdkService/utils/util';
 
 import ZoomAvatar from './components/ZoomAvatar';
+import Video from "./components/Video";
 import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus';
 import { axiosService } from '../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../config';
@@ -35,7 +36,6 @@ import { HEYMATE_URL } from '../../../config';
 import './ZoomDialog.scss';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
 
-import useLang from '../../../hooks/useLang';
 // import QrCodeDialog from '../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
@@ -50,7 +50,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   closeZoomDialogModal,
   showNotification,
 }) => {
-  const lang = useLang();
+
   // eslint-disable-next-line no-null/no-null
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line no-null/no-null
@@ -65,7 +65,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   const [confirmModal, setConfirmModal] = useState(false);
 
   const canvasDimension = useCanvasDimension(zoomDialog?.stream, videoRef);
-  console.log(canvasDimension);
 
   const [isMaximize, setIsMaximize] = useState(true);
 
@@ -420,70 +419,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         </div>
       )}
       <div className="viewport">
-        <div
-          className={buildClassName('share-container', isSharing && 'in-sharing')}
-          ref={shareContainerRef}
-        >
-          <div
-            className="share-container-viewport"
-            ref={shareContainerViewPortRef}
-          >
-            <canvas
-              className={buildClassName('share-canvas', 'other-share', isStartedShare && 'hidden')}
-              ref={shareRef}
-            />
-            {isSupportWebCodecs() ? (
-              <video
-                className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
-                ref={selfShareRef}
-              />
-            ) : (
-              <canvas
-                className={buildClassName('share-canvas', isRecieveSharing && 'hidden')}
-                ref={selfShareRef}
-              />
-            )}
-          </div>
-        </div>
-        <div
-          className={buildClassName('video-container', isSharing && 'in-sharing')}
-        >
-          <canvas
-            className="video-canvas"
-            id="video-canvas"
-            ref={videoRef}
-          />
-          <ul className="avatar-list">
-            {visibleParticipants.map((user, index) => {
-              if (index > videoLayout.length - 1) {
-                return null;
-              }
-              const dimension = videoLayout[index];
-              const {
-                width, height, x, y,
-              } = dimension;
-              const { height: canvasHeight } = canvasDimension;
-
-              const userAllData = decode(user.displayName);
-              const userId = JSON.parse(userAllData).i;
-
-              return (
-                <ZoomAvatar
-                  currentUserId={userId}
-                  participant={user}
-                  key={user.userId}
-                  isActive={activeVideo === user.userId}
-                  style={{
-                    width: `${width}px`,
-                    height: `${height}px`,
-                    top: `${canvasHeight - y - height}px`,
-                    left: `${x}px`,
-                  }}
-                />
-              );
-            })}
-          </ul>
-        </div>
+        <Video zoomDialog={zoomDialog} />
         <ZoomVideoFooter
           sharing={isStartedShare}
           shareRef={selfShareRef}
