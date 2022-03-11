@@ -37,18 +37,12 @@ const VideoSingle: FC<OwnProps> = ({
     return typeof (window as any).MediaStreamTrackProcessor === 'function';
   };
 
-  function isSupportOffscreenCanvas() {
-    return typeof (window as any).OffscreenCanvas === 'function';
-  }
-
-
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   const shareRef = useRef<HTMLCanvasElement | null>(null);
   const selfShareRef = useRef<HTMLCanvasElement & HTMLVideoElement>(null);
   const shareContainerRef = useRef<HTMLDivElement | null>(null);
-  const [participants, setParticipants] = useState<MeetingParticipants[]>([]);
+
   const [activeVideo, setActiveVideo] = useState<number>(0);
-  const previousActiveUser = useRef<MeetingParticipants>();
 
   const canvasDimension = useCanvasDimension(zoomDialog.stream, videoRef);
 
@@ -90,9 +84,6 @@ const VideoSingle: FC<OwnProps> = ({
     height: 0,
   });
 
-  useParticipantsChange(zoomDialog.zoomClient, (payload) => {
-    setParticipants(payload);
-  });
   const onActiveVideoChange = useCallback((payload) => {
     const { userId } = payload;
     setActiveVideo(userId);
@@ -103,55 +94,6 @@ const VideoSingle: FC<OwnProps> = ({
       zoomDialog.zoomClient.off('video-active-change', onActiveVideoChange);
     };
   }, [zoomDialog.zoomClient, onActiveVideoChange]);
-
-  const activeUser = useMemo(
-    () => participants.find((user) => user.userId === activeVideo),
-    [participants, activeVideo],
-  );
-  const isCurrentUserStartedVideo = zoomDialog.zoomClient.getCurrentUserInfo()?.bVideoOn;
-
-  // useEffect(() => {
-  //   if (zoomDialog.stream && videoRef.current && isVideoReady) {
-  //     if (activeUser?.bVideoOn !== previousActiveUser.current?.bVideoOn) {
-  //       if (activeUser?.bVideoOn) {
-  //         zoomDialog.stream.renderVideo(
-  //           videoRef.current,
-  //           activeUser.userId,
-  //           canvasDimension.width,
-  //           canvasDimension.height,
-  //           0,
-  //           0,
-  //           VideoQuality.Video_360P as any,
-  //         );
-  //       } else if (previousActiveUser.current?.bVideoOn) {
-  //         zoomDialog.stream.stopRenderVideo(
-  //           videoRef.current,
-  //           previousActiveUser.current?.userId,
-  //         );
-  //       }
-  //     }
-  //     if (
-  //       activeUser?.bVideoOn
-  //       && previousActiveUser.current?.bVideoOn
-  //       && activeUser.userId !== previousActiveUser.current.userId
-  //     ) {
-  //       zoomDialog.stream.stopRenderVideo(
-  //         videoRef.current,
-  //         previousActiveUser.current?.userId,
-  //       );
-  //       zoomDialog.stream.renderVideo(
-  //         videoRef.current,
-  //         activeUser.userId,
-  //         canvasDimension.width,
-  //         canvasDimension.height,
-  //         0,
-  //         0,
-  //         VideoQuality.Video_360P as any,
-  //       );
-  //     }
-  //     previousActiveUser.current = activeUser;
-  //   }
-  // }, [zoomDialog.stream, activeUser, isVideoReady, canvasDimension]);
 
   useMount(() => {
     if (zoomDialog.stream) {

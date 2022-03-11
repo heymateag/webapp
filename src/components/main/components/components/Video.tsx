@@ -60,18 +60,18 @@ const Video: FC<StateProps> = ({
     shareRef,
   );
 
-  const startAudioMuted = useCallback(async () => {
-    await zoomDialog?.stream.startAudio();
-    if (!zoomDialog?.stream.isAudioMuted()) {
-      zoomDialog?.stream.muteAudio();
-    }
-  }, [zoomDialog?.stream]);
-
-  useEffect(() => {
-    if (zoomDialog?.stream) {
-      startAudioMuted();
-    }
-  }, [startAudioMuted, zoomDialog]);
+  // const startAudioMuted = useCallback(async () => {
+  //   await zoomDialog?.stream.startAudio();
+  //   if (!zoomDialog?.stream.isAudioMuted()) {
+  //     zoomDialog?.stream.muteAudio();
+  //   }
+  // }, [zoomDialog?.stream]);
+  //
+  // useEffect(() => {
+  //   if (zoomDialog?.stream) {
+  //     startAudioMuted();
+  //   }
+  // }, [startAudioMuted, zoomDialog]);
 
   useEffect(() => {
     setIsSharing(isRecieveSharing || isStartedShare);

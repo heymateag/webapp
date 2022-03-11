@@ -76,7 +76,6 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
           quality,
         );
       } else if (bVideoOn && videoStarted) {
-        debugger
         renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
         renderItems?.mediaStream.stopRenderVideo(
           videoCanvasRef.current,

@@ -27,7 +27,7 @@ const ZoomVideoFooter : FC<OwnProps> = ({
 
   const [isStartedAudio, setIsStartedAudio] = useState(false);
 
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   const [isStartedVideo, setIsStartedVideo] = useState(false);
 
@@ -95,14 +95,12 @@ const ZoomVideoFooter : FC<OwnProps> = ({
     }
   }, [mediaStream, isStartedVideo]);
 
-  const handleSoundClick = async () => {
+  const onMicrophoneClick = useCallback(async () => {
     if (isStartedAudio) {
       if (isMuted) {
         await mediaStream?.unmuteAudio();
         setIsMuted(false);
-        console.log('voice opened');
       } else {
-        console.log('voice muted');
         await mediaStream?.muteAudio();
         setIsMuted(true);
       }
@@ -110,12 +108,12 @@ const ZoomVideoFooter : FC<OwnProps> = ({
       await mediaStream?.startAudio();
       setIsStartedAudio(true);
     }
-  };
+  }, [mediaStream, isStartedAudio, isMuted]);
 
   return (
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
-        <div className="btn-box" onClick={handleSoundClick}>
+        <div className="btn-box" onClick={onMicrophoneClick}>
           <i
             className={buildClassName('hm-zoom-mic', !isMuted && 'active')}
             id="zoom-mic"
