@@ -11,6 +11,7 @@ import Avatar from '../../../common/Avatar';
 import { selectUser } from '../../../../modules/selectors';
 import { ApiUser } from '../../../../api/types';
 import { IS_ANDROID } from '../../../../util/environment';
+import {useCanvasDimension} from "../hooks/useCanvasDimension";
 
 type RenderVideoProps = {
   mediaStream?: any;
@@ -19,6 +20,7 @@ type RenderVideoProps = {
   subscribedVideos?: any;
   visibleParticipants?: any;
   zoomClient?: any;
+  canvasHeight?: any;
 };
 
 interface AvatarProps {
@@ -54,63 +56,49 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
   const avatarRef = useRef<HTMLDivElement | null>(null);
   const videoCanvasRef = useRef<HTMLCanvasElement & HTMLVideoElement>(null);
   const [videoStarted, setVideoStarted] = useState(false);
+  const canvasDimension = useCanvasDimension(renderItems?.mediaStream, videoCanvasRef);
 
-  useEffect(async () => {
+  useEffect(() => {
     if (renderItems?.mediaStream && videoCanvasRef.current && renderItems.isVideoDecodeReady && !isSupportGalleryView) {
       const index = renderItems.visibleParticipants.findIndex((user) => user.userId === userId);
       const cellDimension = renderItems.layout[index];
-      console.log('=== User first render dim ');
-      console.log(cellDimension);
-      const {
-        width, height, x, y, quality,
-      } = cellDimension;
-      videoCanvasRef.current.style.background = bVideoOn ? 'transparent' : 'rgb(26,26,26)';
-      videoCanvasRef.current.style.width = `${width}px`;
-      videoCanvasRef.current.style.height = `${height}px`;
-      videoCanvasRef.current.style.top = `${y}px`;
-      videoCanvasRef.current.style.left = `${x}px`;
+
+      const { quality } = cellDimension;
       if (bVideoOn && !videoStarted) {
-        console.log(`=== User ${userId} started video`);
         setVideoStarted(true);
-        await renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current as HTMLCanvasElement,
+        renderItems?.mediaStream.renderVideo(
+          videoCanvasRef.current,
           userId,
-          width,
-          height,
-          x,
-          y,
+          canvasDimension.width,
+          canvasDimension.height,
+          0,
+          0,
           quality,
         );
       } else if (bVideoOn && videoStarted) {
-        setVideoStarted(true);
-        console.log('=== New Render With');
-        console.log(cellDimension);
-        await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        await renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current as HTMLCanvasElement,
+        renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
+        renderItems?.mediaStream.renderVideo(
+          videoCanvasRef.current,
           userId,
-          width,
-          height,
-          x,
-          y,
+          canvasDimension.width,
+          canvasDimension.height,
+          0,
+          0,
           quality,
         );
-      } else if (!bVideoOn && videoStarted) {
+      } else if(!bVideoOn && videoStarted) {
         setVideoStarted(false);
-        console.log(`=== User ${userId} stoped video`);
-        await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        await renderItems?.mediaStream.stopRenderVideo(
+        renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
+        renderItems?.mediaStream.stopRenderVideo(
           videoCanvasRef.current,
           userId,
         );
       }
     }
   }, [renderItems?.mediaStream,
-    videoStarted,
     renderItems?.isVideoDecodeReady,
-    style,
     renderItems?.visibleParticipants,
-    renderItems?.layout, bVideoOn, userId, isSupportGalleryView]);
+    renderItems?.layout, bVideoOn, userId]);
 
   const isUseVideoElementToDrawSelfVideo = IS_ANDROID || isSupportOffscreenCanvas();
 
@@ -121,6 +109,11 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
       avatarRef.current.style.height = style?.height || '50px';
       avatarRef.current.style.top = style?.top || '50px';
       avatarRef.current.style.left = style?.left || '50px';
+    }
+    if (videoCanvasRef.current && !isSupportGalleryView) {
+
+      videoCanvasRef.current.style.width = style?.width || '50px';
+      videoCanvasRef.current.style.height = style?.height || '50px';
     }
   }, [bVideoOn, style?.height, style?.left, style?.top, style?.width]);
   return (
@@ -133,6 +126,7 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
         <div>
           <canvas
             key={userId}
+            className="video-canvas"
             id={`video-canvas-${userId}`}
             ref={videoCanvasRef}
           />

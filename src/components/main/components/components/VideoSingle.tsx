@@ -254,6 +254,7 @@ const VideoSingle: FC<OwnProps> = ({
                     subscribedVideos,
                     visibleParticipants,
                     zoomClient: zoomDialog.zoomClient,
+                    canvasHeight,
                   }
                 }
                 isSupportGalleryView={false}
