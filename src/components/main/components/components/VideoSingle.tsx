@@ -222,8 +222,6 @@ const VideoSingle: FC<OwnProps> = ({
         <canvas
           className="video-canvas"
           id="video-canvas"
-          width="800"
-          height="600"
           ref={videoRef}
         />
         <ul className="avatar-list">

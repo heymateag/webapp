@@ -73,13 +73,13 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
         console.log(`=== User ${userId} started video`);
         setVideoStarted(true);
         await renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current,
+          videoCanvasRef.current as HTMLCanvasElement,
           userId,
           width,
           height,
           x,
           y,
-          3,
+          quality,
         );
       } else if (bVideoOn && videoStarted) {
         setVideoStarted(true);
@@ -87,13 +87,13 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
         console.log(cellDimension);
         await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
         await renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current,
+          videoCanvasRef.current as HTMLCanvasElement,
           userId,
           width,
           height,
           x,
           y,
-          3,
+          quality,
         );
       } else if (!bVideoOn && videoStarted) {
         setVideoStarted(false);
