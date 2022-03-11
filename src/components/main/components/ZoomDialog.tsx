@@ -8,6 +8,7 @@ import Web3 from 'web3';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import QrCreator from 'qr-creator';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { pick } from '../../../util/iteratees';
 import { ZoomDialogProps } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
@@ -33,11 +34,11 @@ import { HEYMATE_URL } from '../../../config';
 
 import './ZoomDialog.scss';
 import OfferWrapper from '../../left/wallet/OfferWrapper';
-import Spinner from '../../ui/Spinner';
-import renderText from '../../common/helpers/renderText';
+
 import useLang from '../../../hooks/useLang';
-import QrCodeDialog from '../../common/QrCodeDialog';
+// import QrCodeDialog from '../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
+import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
@@ -187,7 +188,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   useEffect(() => {
     // Update the document title using the browser API
     setTimeout(() => {
-      console.log('~~~~~~~~~video decode ready~~~~~~~~~~~~~');
       setIsVideoDecodeReady(true);
     }, 500);
     return () => {
@@ -252,7 +252,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
-       bridge: 'https://wc-bridge.heymate.works/',
+      bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],
@@ -261,6 +261,14 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       },
     });
   }, []);
+
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    setLoadingQr(true);
+    provider.isConnecting = false;
+  };
+
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
 
   const renderUriAsQr = (givenUri?) => {
     setOpenModal(true);
@@ -289,8 +297,15 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
-    renderUriAsQr(wcUri);
+    setOpenModal(true);
+    // renderUriAsQr(wcUri);
     setLoadingQr(false);
+  });
+
+  provider.onConnect(() => {
+    setOpenModal(false);
+    showNotification({ message: 'Successfully Connected to Wallet !' });
+    WalletConnectQRCodeModal.close();
   });
 
   const handleFinishInCelo = async () => {
@@ -376,12 +391,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         </div>
       </div>
     );
-  };
-
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    setLoadingQr(true);
-    provider.isConnecting = false;
   };
 
   const handleCloseAcceptModal = () => {
@@ -496,13 +505,13 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
           <Button isText className="confirm-dialog-button" onClick={() => setConfirmModal(false)}>No</Button>
         </div>
       </Modal>
-      <QrCodeDialog
-        uri={uri}
-        openModal={openModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
         onCloseModal={handleCloseAcceptModal}

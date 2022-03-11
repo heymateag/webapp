@@ -3,7 +3,8 @@ import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import { ReservationModel } from 'src/types/HeymateTypes/Reservation.model';
 import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
+// import QrCreator from 'qr-creator';
 import { encode } from 'js-base64';
 import React, {
   FC, memo, useCallback, useEffect, useState, useMemo, useRef,
@@ -26,16 +27,14 @@ import { ZoomClient } from '../../main/components/ZoomSdkService/ZoomSdkService'
 import { pick } from '../../../util/iteratees';
 import { GlobalActions } from '../../../global/types';
 
-import Modal from '../../ui/Modal';
-import Spinner from '../../ui/Spinner';
-
 import OfferWrapper from '../../left/wallet/OfferWrapper';
 // @ts-ignore
 import noOfferImg from '../../../assets/heymate/no-offer-image.svg';
-import renderText from '../../common/helpers/renderText';
 import useLang from '../../../hooks/useLang';
-import QrCodeDialog from '../../common/QrCodeDialog';
+// import QrCodeDialog from '../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
+
+import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
 
 type OwnProps = {
   message: ApiMessage;
@@ -113,7 +112,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
-       bridge: 'https://wc-bridge.heymate.works/',
+      bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],
@@ -122,48 +121,57 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       },
     });
   }, []);
-  const renderUriAsQr = (givenUri?) => {
-    setOpenQRModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
-  const handleOpenWCModal = async () => {
-    if (uri === '') {
-      await provider.enable();
-    }
-    setOpenQRModal(true);
-    setLoadingQr(true);
-    renderUriAsQr();
-  };
-  provider.connector.on('display_uri', (err, payload) => {
-    setIsConnected(false);
-    const wcUri = payload.params[0];
-    setUri(wcUri);
-    renderUriAsQr(wcUri);
-    setLoadingQr(false);
-  });
 
   const handleCLoseWCModal = () => {
     setOpenQRModal(false);
     provider.isConnecting = false;
     setLoadingBalance(false);
   };
+
+  useWalletConnectQrModal(uri, openQrModal, handleCLoseWCModal);
+
+  // const renderUriAsQr = (givenUri?) => {
+  //   setOpenQRModal(true);
+  //   setLoadingQr(true);
+  //
+  //   setTimeout(() => {
+  //     const validUri = givenUri || uri;
+  //
+  //     const container = qrCodeRef.current!;
+  //     container.innerHTML = '';
+  //     container.classList.remove('pre-animate');
+  //
+  //     QrCreator.render({
+  //       text: `${validUri}`,
+  //       radius: 0.5,
+  //       ecLevel: 'M',
+  //       fill: '#4E96D4',
+  //       size: 280,
+  //     }, container);
+  //     setLoadingQr(false);
+  //   }, 100);
+  // };
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
+    setOpenQRModal(true);
+    setLoadingQr(true);
+    // renderUriAsQr();
+  };
+  provider.connector.on('display_uri', (err, payload) => {
+    setIsConnected(false);
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    setOpenQRModal(true);
+    // renderUriAsQr(wcUri);
+    setLoadingQr(false);
+  });
+
+  provider.onConnect(() => {
+    setOpenQRModal(false);
+    WalletConnectQRCodeModal.close();
+  });
 
   const getReservationMeta = async (rsId: string) => {
     const response = await axiosService({
@@ -173,7 +181,8 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     });
     if (response.status === 200) {
       const { data } = response.data;
-
+      setOfferMsg(data.offer);
+      setReservationItem(data);
       if (data.status === ReservationStatus.MARKED_AS_STARTED) {
         setCanJoin(true);
         setReservationId(data.id);
@@ -337,6 +346,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         setIsConnected(true);
         setOpenQRModal(false);
       });
+      debugger
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignoreffer
@@ -488,13 +498,13 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )
       }
-      <QrCodeDialog
-        uri={uri}
-        openModal={openQrModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/*<QrCodeDialog*/}
+      {/*  uri={uri}*/}
+      {/*  openModal={openQrModal}*/}
+      {/*  onCloseModal={handleCLoseWCModal}*/}
+      {/*  loadingQr={loadingQr}*/}
+      {/*  qrCodeRef={qrCodeRef}*/}
+      {/*/>*/}
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
         onCloseModal={handleCloseAcceptModal}

@@ -2,10 +2,11 @@ import { withGlobal } from 'teact/teactn';
 import { encode } from 'js-base64';
 import { GlobalState } from 'src/global/types';
 import WalletConnectProvider from '@walletconnect/web3-provider';
-import { IOffer } from 'src/types/HeymateTypes/Offer.model';
+// import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Web3 from 'web3';
 import QrCreator from 'qr-creator';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import React, {
   FC,
   memo,
@@ -38,8 +39,9 @@ import { ApiUser } from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
 import Avatar from '../../../common/Avatar';
 import OfferWrapper from '../../../left/wallet/OfferWrapper';
-import QrCodeDialog from '../../../common/QrCodeDialog';
+// import QrCodeDialog from '../../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
+import { useWalletConnectQrModal } from '../../../left/wallet/hooks/useWalletConnectQrModal';
 
 type TimeToStart = {
   days: number;
@@ -96,7 +98,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     color: 'green',
   });
 
-  //celo action
+  // celo action
   const [uri, setUri] = useState<string>('');
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const [openModal, setOpenModal] = useState(false);
@@ -113,7 +115,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         42220: 'https://forno.celo.org',
       },
       qrcode: false,
-       bridge: 'https://wc-bridge.heymate.works/',
+      bridge: 'https://wc-bridge.heymate.works/',
       clientMeta: {
         description: 'Just a test description !',
         icons: [],
@@ -122,6 +124,15 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       },
     });
   }, []);
+
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    setIsLoading(false);
+    setLoadingQr(true);
+    provider.isConnecting = false;
+  };
+
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
 
   const handleCancelReservation = async () => {
     if (reservationStatus === ReservationStatus.BOOKED) {
@@ -171,13 +182,21 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
     setOpenModal(true);
     setLoadingQr(true);
-    renderUriAsQr();
+    // renderUriAsQr();
   };
+
   provider.connector.on('display_uri', (err, payload) => {
     const wcUri = payload.params[0];
     setUri(wcUri);
-    renderUriAsQr(wcUri);
+    setOpenModal(true);
+    // renderUriAsQr(wcUri);
     setLoadingQr(false);
+  });
+
+  provider.onConnect(() => {
+    setOpenModal(false);
+    showNotification({ message: 'Successfully Connected to Wallet !' });
+    WalletConnectQRCodeModal.close();
   });
 
   const handleCancelInCelo = async () => {
@@ -303,7 +322,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }, [reservationStatus, props?.time_slot?.form_time]);
 
-
   const handleHeaderMenuOpen = useCallback(() => {
     setIsMenuOpen(true);
   }, []);
@@ -379,13 +397,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const handleReservationStatusChanges = (newStatus: ReservationStatus) => {
     setReservationStatus(newStatus);
-  };
-
-  const handleCLoseWCModal = () => {
-    setOpenModal(false);
-    setIsLoading(false);
-    setLoadingQr(true);
-    provider.isConnecting = false;
   };
 
   const handleCloseAcceptModal = () => {
@@ -465,13 +476,13 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         offer={props.offer}
         onCloseModal={() => setOpenDetailsModal(false)}
       />
-      <QrCodeDialog
-        uri={uri}
-        openModal={openModal}
-        onCloseModal={handleCLoseWCModal}
-        loadingQr={loadingQr}
-        qrCodeRef={qrCodeRef}
-      />
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
 
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
