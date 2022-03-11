@@ -76,7 +76,12 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
           quality,
         );
       } else if (bVideoOn && videoStarted) {
+        debugger
         renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
+        renderItems?.mediaStream.stopRenderVideo(
+          videoCanvasRef.current,
+          userId,
+        );
         renderItems?.mediaStream.renderVideo(
           videoCanvasRef.current,
           userId,
@@ -86,7 +91,7 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
           0,
           quality,
         );
-      } else if(!bVideoOn && videoStarted) {
+      } else if (!bVideoOn && videoStarted) {
         setVideoStarted(false);
         renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
         renderItems?.mediaStream.stopRenderVideo(
@@ -96,6 +101,7 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
       }
     }
   }, [renderItems?.mediaStream,
+    canvasDimension,
     renderItems?.isVideoDecodeReady,
     renderItems?.visibleParticipants,
     renderItems?.layout, bVideoOn, userId]);
