@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useEffect, useState, useRef, useMemo,
+  FC, memo, useEffect, useState, useMemo,
 } from 'teact/teact';
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 // import QrCreator from 'qr-creator';
@@ -19,6 +19,7 @@ import { pick } from '../../../../../util/iteratees';
 // import QrCodeDialog from '../../../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../../../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from '../../../../common/helpers/walletLoggerService';
 
 type TimeToStart = {
   days: number;
@@ -65,9 +66,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
 
   const [canFinish, setCanFinish] = useState(false);
   const [openModal, setOpenModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
   const [uri, setUri] = useState<string>('');
-  const qrCodeRef = useRef<HTMLDivElement>(null);
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
@@ -122,7 +121,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
   const handleCLoseWCModal = () => {
     setOpenModal(false);
     setIsLoading(false);
-    setLoadingQr(true);
     provider.isConnecting = false;
   };
   useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
@@ -150,21 +148,25 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       await provider.enable();
     }
     setOpenModal(true);
-    setLoadingQr(true);
-    // renderUriAsQr();
   };
   /**
    * Get Account Data
   */
   provider.connector.on('display_uri', (err, payload) => {
     // setIsConnected(false);
+    walletLoggerService({
+      description: 'start connecting to wallet',
+      status: 'Waiting',
+    });
     const wcUri = payload.params[0];
     setUri(wcUri);
     setOpenModal(true);
-    // renderUriAsQr(wcUri);
-    setLoadingQr(false);
   });
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'finish connecting to wallet',
+      status: 'Success',
+    });
     setOpenModal(false);
     showNotification({ message: 'Successfully Connected to Wallet !' });
     WalletConnectQRCodeModal.close();
@@ -191,9 +193,17 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       setLoadAcceptLoading(true);
       setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting start',
+        status: 'Waiting',
+      });
       const answer = await offerWrapper.startService(offer, tradeId, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting start',
+        status: 'Success',
+      });
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -230,9 +240,17 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       setLoadAcceptLoading(true);
       setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting finish',
+        status: 'Waiting',
+      });
       const answer = await offerWrapper.finishService(offer, tradeId, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting finish',
+        status: 'Success',
+      });
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });
@@ -247,8 +265,6 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
       handleOpenWCModal();
     }
   };
-
-
 
   const handleCloseAcceptModal = () => {
     setIsLoading(false);

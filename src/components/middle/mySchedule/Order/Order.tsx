@@ -42,6 +42,7 @@ import OfferWrapper from '../../../left/wallet/OfferWrapper';
 // import QrCodeDialog from '../../../common/QrCodeDialog';
 import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from '../../../common/helpers/walletLoggerService';
 
 type TimeToStart = {
   days: number;
@@ -154,28 +155,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const renderUriAsQr = (givenUri?) => {
-    setOpenModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
-
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
@@ -186,6 +165,10 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   provider.connector.on('display_uri', (err, payload) => {
+    walletLoggerService({
+      description: 'start connecting to wallet',
+      status: 'Waiting',
+    });
     const wcUri = payload.params[0];
     setUri(wcUri);
     setOpenModal(true);
@@ -194,6 +177,10 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   });
 
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'finish connecting to wallet',
+      status: 'Success',
+    });
     setOpenModal(false);
     showNotification({ message: 'Successfully Connected to Wallet !' });
     WalletConnectQRCodeModal.close();
@@ -220,9 +207,17 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
       setLoadAcceptLoading(true);
       setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting to cancel',
+        status: 'Waiting',
+      });
       const answer = await offerWrapper.cancelService(props.offer, props.tradeId, true, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting to cancel',
+        status: 'Success',
+      });
       if (answer?.message?.startsWith('Error')) {
         setIsLoading(false);
         showNotification({ message: answer.message });

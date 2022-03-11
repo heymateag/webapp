@@ -35,6 +35,7 @@ import useLang from '../../../hooks/useLang';
 import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 
 import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from '../../common/helpers/walletLoggerService';
 
 type OwnProps = {
   message: ApiMessage;
@@ -160,6 +161,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     // renderUriAsQr();
   };
   provider.connector.on('display_uri', (err, payload) => {
+    walletLoggerService({
+      description: 'start connecting to wallet',
+      status: 'Waiting',
+    });
     setIsConnected(false);
     const wcUri = payload.params[0];
     setUri(wcUri);
@@ -169,6 +174,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
   });
 
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'connected to wallet',
+      status: 'Success',
+    });
     setOpenQRModal(false);
     WalletConnectQRCodeModal.close();
   });
@@ -346,7 +355,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
         setIsConnected(true);
         setOpenQRModal(false);
       });
-      debugger
+      walletLoggerService({
+        description: 'start accepting start',
+        status: 'Waiting',
+      });
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignoreffer
@@ -361,6 +373,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
       const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
       setLoadAcceptLoading(false);
       setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting start',
+        status: 'Success',
+      });
       if (answer) {
         handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
       } else {

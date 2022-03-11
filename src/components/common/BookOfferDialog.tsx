@@ -1,5 +1,5 @@
 import React, {
-  FC, memo, useCallback, useEffect, useState, useRef, useMemo,
+  FC, memo, useCallback, useEffect, useState, useMemo,
 } from 'teact/teact';
 import { ChangeEvent } from 'react';
 import { withGlobal } from 'teact/teactn';
@@ -7,7 +7,6 @@ import Web3 from 'web3';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { GlobalActions } from 'src/global/types';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
-import QrCreator from 'qr-creator';
 import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import Modal from '../ui/Modal';
 import Radio from '../ui/Radio';
@@ -28,6 +27,7 @@ import OfferPurchase from '../left/wallet/OfferPurchase';
 // import QrCodeDialog from './QrCodeDialog';
 import AcceptTransactionDialog from './AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from './helpers/walletLoggerService';
 
 type OwnProps = {
   offer: IOffer;
@@ -51,13 +51,7 @@ interface ITimeSlotsRender extends ITimeSlotModel{
   maximumReservations?: number; // 0 means unlimited
   date?: string;
 }
-interface IBookOfferModel {
-  offerId: string;
-  serviceProviderId: string;
-  purchasedPlanId?: string;
-  timeSlotId: string;
-  meetingId?: string;
-}
+
 const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   offer,
   openModal = false,
@@ -70,22 +64,12 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [timeSlots, setTimeSlots] = useState<ITimeSlotsRender[]>([]);
   const [timeSlotList, setTimeSlotList] = useState<ITimeSlotsRender[]>([]);
   const [filteredDate, setFilteredDate] = useState<ITimeSlotsRender[]>([]);
-
   const [bookOfferLoading, setBookOfferLoading] = useState(false);
-
   const [selectedDate, setSelectedDate] = useState<string>('All');
-
   const [openQrModal, setOpenQRModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
-  const [loadingBalance, setLoadingBalance] = useState(true);
   const [uri, setUri] = useState<string>('');
-  const [isConnected, setIsConnected] = useState(false);
-  // eslint-disable-next-line no-null/no-null
-  const qrCodeRef = useRef<HTMLDivElement>(null);
-
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
-
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>();
 
   const tabs = [
@@ -112,54 +96,35 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenQRModal(false);
-    setLoadingQr(true);
     provider.isConnecting = false;
   };
 
   useWalletConnectQrModal(uri, openQrModal, handleCLoseWCModal);
-
-  const renderUriAsQr = (givenUri?) => {
-    setOpenQRModal(true);
-    setLoadingQr(true);
-
-    setTimeout(() => {
-      const validUri = givenUri || uri;
-      const container = qrCodeRef.current!;
-      container.innerHTML = '';
-      container.classList.remove('pre-animate');
-
-      QrCreator.render({
-        text: `${validUri}`,
-        radius: 0.5,
-        ecLevel: 'M',
-        fill: '#4E96D4',
-        size: 280,
-      }, container);
-      setLoadingQr(false);
-    }, 100);
-  };
 
   const handleOpenWCModal = async () => {
     if (uri === '') {
       await provider.enable();
     }
     setOpenQRModal(true);
-    setLoadingQr(true);
-    // renderUriAsQr();
   };
 
   /**
    * Get Account Data
   */
   provider.connector.on('display_uri', (err, payload) => {
-    setIsConnected(false);
+    walletLoggerService({
+      description: 'start connecting wallet',
+      status: 'Waiting',
+    });
     const wcUri = payload.params[0];
     setUri(wcUri);
     setOpenQRModal(true);
-    // renderUriAsQr(wcUri);
-    setLoadingQr(false);
   });
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'connected wallet',
+      status: 'Success',
+    });
     setOpenQRModal(false);
     showNotification({ message: 'Successfully Connected to Wallet !' });
     WalletConnectQRCodeModal.close();
@@ -265,9 +230,12 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         .then((res) => {
           // eslint-disable-next-line prefer-destructuring
           address = res[0];
-          setIsConnected(true);
           setOpenQRModal(false);
         });
+      walletLoggerService({
+        description: 'send create contract request',
+        status: 'Waiting',
+      });
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignore

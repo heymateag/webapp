@@ -1,15 +1,14 @@
 import React, {
-  FC, useEffect, useRef, useState, memo, useMemo, useCallback,
+  FC, useEffect, useState, memo, useMemo, useCallback,
 } from 'teact/teact';
 import WalletConnectProvider from '@walletconnect/web3-provider';
-import QrCreator from 'qr-creator';
 import Web3 from 'web3';
 import { newKitFromWeb3, CeloContract } from '@celo/contractkit';
 import { withGlobal } from 'teact/teactn';
-import { newKitBalances, sendcUSD } from './AccountManager/AccountMannager';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
+import { newKitBalances } from './AccountManager/AccountMannager';
 import useLang from '../../../hooks/useLang';
 import Spinner from '../../ui/Spinner';
-import Modal from '../../ui/Modal';
 import './Wallet.scss';
 import Button from '../../ui/Button';
 import TransactionRow from './TransactionRow/TransactionRow';
@@ -18,8 +17,8 @@ import walletIcon from '../../../assets/heymate/color-wallet.svg';
 import { GlobalActions } from '../../../global/types';
 import { pick } from '../../../util/iteratees';
 import Select from '../../ui/Select';
-import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { axiosService } from '../../../api/services/axiosService';
+import walletLoggerService from '../../common/helpers/walletLoggerService';
 
 import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
 
@@ -38,9 +37,6 @@ type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
   const [openModal, setOpenModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
-  // eslint-disable-next-line no-null/no-null
-  const qrCodeRef = useRef<HTMLDivElement>(null);
   const [kit, setKit] = useState<any>();
   const [width, setWidth] = useState<number>(0);
   const [isConnected, setIsConnected] = useState(false);
@@ -66,6 +62,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     });
   }, []);
 
+  // const [wcProvider, setWcProvider] = useState<any>(provider);
   const handleCLoseWCModal = () => {
     setOpenModal(false);
     provider.isConnecting = false;
@@ -91,22 +88,21 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       await provider.enable();
     }
     setOpenModal(true);
-    setLoadingQr(true);
     // renderUriAsQr();
   };
   /**
    * Get Account Balance
    */
   provider.connector.on('display_uri', (err, payload) => {
+    walletLoggerService({
+      description: 'start connecting wallet',
+      status: 'Waiting',
+    });
     setIsConnected(false);
     const wcUri = payload.params[0];
 
     setUri(wcUri);
     setOpenModal(true);
-
-    // renderUriAsQr(wcUri);
-
-    setLoadingQr(false);
   });
 
   const makeKitsFromProvideAndGetBalance = useCallback(async (address?: string) => {
@@ -115,6 +111,7 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
         showNotification({ message: 'connection failed, please check your connection and retry' });
         setLoadingBalance(false);
         provider.disconnect();
+        // setWcProvider(provider);
         window.location.reload();
       }
     }, 60000);
@@ -136,21 +133,24 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     setLoadingBalance(false);
 
     setKit(myKit);
+    // setWcProvider(provider);
   }, [provider]);
-
-  provider.on('accountsChanged', (accounts) => {
-    console.log(accounts);
-  });
 
   provider.on('disconnect', (code: number, reason: string) => {
     showNotification({ message: reason });
     setIsConnected(false);
+    // setWcProvider(provider);
   });
 
   provider.onConnect(() => {
+    walletLoggerService({
+      description: 'connected wallet',
+      status: 'Success',
+    });
     setOpenModal(false);
     setIsConnected(true);
     showNotification({ message: 'Successfully Connected to Wallet !' });
+    // setWcProvider(provider);
     makeKitsFromProvideAndGetBalance();
     WalletConnectQRCodeModal.close();
   });
