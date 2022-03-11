@@ -59,49 +59,55 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
     if (renderItems?.mediaStream && videoCanvasRef.current && renderItems.isVideoDecodeReady && !isSupportGalleryView) {
       const index = renderItems.visibleParticipants.findIndex((user) => user.userId === userId);
       const cellDimension = renderItems.layout[index];
-      console.log(`=== User first render dim `);
+      console.log('=== User first render dim ');
       console.log(cellDimension);
       const {
         width, height, x, y, quality,
       } = cellDimension;
+      videoCanvasRef.current.style.background = bVideoOn ? 'transparent' : 'rgb(26,26,26)';
+      videoCanvasRef.current.style.width = `${width}px`;
+      videoCanvasRef.current.style.height = `${height}px`;
+      videoCanvasRef.current.style.top = `${y}px`;
+      videoCanvasRef.current.style.left = `${x}px`;
       if (bVideoOn && !videoStarted) {
         console.log(`=== User ${userId} started video`);
         setVideoStarted(true);
-        renderItems?.mediaStream.renderVideo(
+        await renderItems?.mediaStream.renderVideo(
           videoCanvasRef.current,
           userId,
           width,
           height,
-          x,
-          y,
+          0,
+          0,
           quality,
         );
       } else if (bVideoOn && videoStarted) {
         setVideoStarted(true);
-        console.log(`=== New Render With`);
+        console.log('=== New Render With');
         console.log(cellDimension);
         await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        renderItems?.mediaStream.renderVideo(
+        await renderItems?.mediaStream.renderVideo(
           videoCanvasRef.current,
           userId,
           width,
           height,
-          x,
-          y,
-          quality,
+          0,
+          0,
         );
       } else if (!bVideoOn && videoStarted) {
         setVideoStarted(false);
         console.log(`=== User ${userId} stoped video`);
         await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        renderItems?.mediaStream.stopRenderVideo(
+        await renderItems?.mediaStream.stopRenderVideo(
           videoCanvasRef.current,
           userId,
         );
       }
     }
   }, [renderItems?.mediaStream,
+    videoStarted,
     renderItems?.isVideoDecodeReady,
+    style,
     renderItems?.visibleParticipants,
     renderItems?.layout, bVideoOn, userId, isSupportGalleryView]);
 
@@ -115,13 +121,6 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
       avatarRef.current.style.top = style?.top || '50px';
       avatarRef.current.style.left = style?.left || '50px';
     }
-    if (videoCanvasRef.current && !isSupportGalleryView) {
-      videoCanvasRef.current.style.background = bVideoOn ? 'transparent' : 'rgb(26,26,26)';
-      videoCanvasRef.current.style.width = style?.width || '50px';
-      videoCanvasRef.current.style.height = style?.height || '50px';
-      videoCanvasRef.current.style.top = style?.top || '50px';
-      videoCanvasRef.current.style.left = style?.left || '50px';
-    }
   }, [bVideoOn, style?.height, style?.left, style?.top, style?.width]);
   return (
     <div
@@ -133,7 +132,6 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
         <div>
           <canvas
             key={userId}
-            className="video-canvas"
             id={`video-canvas-${userId}`}
             ref={videoCanvasRef}
           />

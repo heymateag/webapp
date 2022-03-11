@@ -21,7 +21,6 @@ import { IS_ANDROID } from '../../../../util/environment';
 
 import { isShallowEqual } from '../ZoomSdkService/utils/util';
 import { ZoomDialogProps } from '../../../../api/types';
-import { useGalleryLayout } from '../hooks/useGalleryLayout';
 import { usePagination } from '../hooks/usePagination';
 
 type OwnProps = {
@@ -42,9 +41,6 @@ const VideoSingle: FC<OwnProps> = ({
     return typeof (window as any).OffscreenCanvas === 'function';
   }
 
-  const isUseVideoElementToDrawSelfVideo = IS_ANDROID || isSupportOffscreenCanvas();
-
-  const SELF_VIDEO_ID = 'ZOOM_WEB_SDK_SELF_VIDEO';
 
   const videoRef = useRef<HTMLCanvasElement | null>(null);
   const shareRef = useRef<HTMLCanvasElement | null>(null);
@@ -230,14 +226,6 @@ const VideoSingle: FC<OwnProps> = ({
           height="600"
           ref={videoRef}
         />
-        {isUseVideoElementToDrawSelfVideo && (
-          <video
-            id={SELF_VIDEO_ID}
-            className={buildClassName('self-video',
-              (participants.length === 1) && 'single-self-video',
-              isCurrentUserStartedVideo && 'self-video-show')}
-          />
-        )}
         <ul className="avatar-list">
           {visibleParticipants.map((user, index) => {
             if (index > videoLayout.length - 1) {
