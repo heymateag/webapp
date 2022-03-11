@@ -105,7 +105,14 @@ const ZoomVideoFooter : FC<OwnProps> = ({
         setIsMuted(true);
       }
     } else {
-      await mediaStream?.startAudio();
+      console.log('===start the audio ===');
+      try {
+        await mediaStream.startAudio();
+      } catch (error) {
+        console.log('===start audio err !!! ===');
+        console.error(error);
+      }
+      console.log('===audio started ===');
       setIsStartedAudio(true);
     }
   }, [mediaStream, isStartedAudio, isMuted]);

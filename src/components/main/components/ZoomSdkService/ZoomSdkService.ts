@@ -12,6 +12,7 @@ export class ZoomClient {
     // const audioTrack = ZoomVideo.createLocalAudioTrack();
     // const videoTrack = ZoomVideo.createLocalVideoTrack();
 
+    // this.zmClient.init('en-US', `${window.location.origin}/lib`);
     this.zmClient.init('en-US', `${window.location.origin}/lib`);
     this.userName = userName;
     this.sessionName = sessionTopic;
