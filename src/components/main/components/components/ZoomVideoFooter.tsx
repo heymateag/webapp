@@ -23,6 +23,8 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   mediaStream,
   zmClient,
 }) => {
+  const isAudioEnabled = typeof AudioWorklet === 'function';
+
   const [isStartedScreenShare, setIsStartedScreenShare] = useState(false);
 
   const [isStartedAudio, setIsStartedAudio] = useState(false);
@@ -120,13 +122,15 @@ const ZoomVideoFooter : FC<OwnProps> = ({
   return (
     <div className="meeting-control-layer">
       <div className="meeting-option-buttons">
-        <div className="btn-box" onClick={onMicrophoneClick}>
-          <i
-            className={buildClassName('hm-zoom-mic', !isMuted && 'active')}
-            id="zoom-mic"
-          />
-          <span>Mute</span>
-        </div>
+        {isAudioEnabled && (
+          <div className="btn-box" onClick={onMicrophoneClick}>
+            <i
+              className={buildClassName('hm-zoom-mic', !isMuted && 'active')}
+              id="zoom-mic"
+            />
+            <span>Mute</span>
+          </div>
+        )}
         <div className="btn-box" onClick={onCameraClick}>
           <i
             id="zoom-video"
