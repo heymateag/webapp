@@ -77,9 +77,9 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
           userId,
           width,
           height,
-          0,
-          0,
-          quality,
+          x,
+          y,
+          3,
         );
       } else if (bVideoOn && videoStarted) {
         setVideoStarted(true);
@@ -91,8 +91,9 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
           userId,
           width,
           height,
-          0,
-          0,
+          x,
+          y,
+          3,
         );
       } else if (!bVideoOn && videoStarted) {
         setVideoStarted(false);
