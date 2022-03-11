@@ -11,6 +11,7 @@ import Avatar from '../../../common/Avatar';
 import { selectUser } from '../../../../modules/selectors';
 import { ApiUser } from '../../../../api/types';
 import { IS_ANDROID } from '../../../../util/environment';
+import { useRenderVideo } from '../hooks/useRenderVideo';
 
 type RenderVideoProps = {
   mediaStream?: any;
@@ -18,7 +19,6 @@ type RenderVideoProps = {
   layout?: any;
   subscribedVideos?: any;
   visibleParticipants?: any;
-  zoomClient?: any;
 };
 
 interface AvatarProps {
@@ -34,7 +34,7 @@ interface AvatarProps {
 type StateProps = {
   currentUser?: ApiUser;
 };
-const ZoomAvatar: FC<AvatarProps & StateProps> = ({
+const ZoomAvatar2: FC<AvatarProps & StateProps> = ({
   participant,
   style,
   isActive,
@@ -46,64 +46,21 @@ const ZoomAvatar: FC<AvatarProps & StateProps> = ({
   function isSupportOffscreenCanvas() {
     return typeof (window as any).OffscreenCanvas === 'function';
   }
-
   const {
     displayName, audio, muted, bVideoOn, userId,
   } = participant;
 
   const avatarRef = useRef<HTMLDivElement | null>(null);
   const videoCanvasRef = useRef<HTMLCanvasElement & HTMLVideoElement>(null);
-  const [videoStarted, setVideoStarted] = useState(false);
 
-  useEffect(async () => {
-    if (renderItems?.mediaStream && videoCanvasRef.current && renderItems.isVideoDecodeReady && !isSupportGalleryView) {
-      const index = renderItems.visibleParticipants.findIndex((user) => user.userId === userId);
-      const cellDimension = renderItems.layout[index];
-      console.log(`=== User first render dim `);
-      console.log(cellDimension);
-      const {
-        width, height, x, y, quality,
-      } = cellDimension;
-      if (bVideoOn && !videoStarted) {
-        console.log(`=== User ${userId} started video`);
-        setVideoStarted(true);
-        renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current,
-          userId,
-          width,
-          height,
-          x,
-          y,
-          quality,
-        );
-      } else if (bVideoOn && videoStarted) {
-        setVideoStarted(true);
-        console.log(`=== New Render With`);
-        console.log(cellDimension);
-        await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        renderItems?.mediaStream.renderVideo(
-          videoCanvasRef.current,
-          userId,
-          width,
-          height,
-          x,
-          y,
-          quality,
-        );
-      } else if (!bVideoOn && videoStarted) {
-        setVideoStarted(false);
-        console.log(`=== User ${userId} stoped video`);
-        await renderItems?.mediaStream.clearVideoCanvas(videoCanvasRef.current);
-        renderItems?.mediaStream.stopRenderVideo(
-          videoCanvasRef.current,
-          userId,
-        );
-      }
-    }
-  }, [renderItems?.mediaStream,
+  useRenderVideo(
+    renderItems?.mediaStream,
     renderItems?.isVideoDecodeReady,
+    videoCanvasRef,
+    renderItems?.layout,
+    renderItems?.subscribedVideos,
     renderItems?.visibleParticipants,
-    renderItems?.layout, bVideoOn, userId, isSupportGalleryView]);
+  );
 
   const isUseVideoElementToDrawSelfVideo = IS_ANDROID || isSupportOffscreenCanvas();
 
@@ -176,4 +133,4 @@ export default memo(withGlobal<AvatarProps>(
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
     };
   },
-)(ZoomAvatar));
+)(ZoomAvatar2));

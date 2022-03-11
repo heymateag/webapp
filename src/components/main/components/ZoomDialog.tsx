@@ -1,4 +1,3 @@
-
 import React, {
   FC, memo, useCallback, useEffect, useRef, useState, useMemo,
 } from 'teact/teact';
@@ -18,6 +17,7 @@ import Loading from '../../ui/Loading';
 import Button from '../../ui/Button';
 
 import Video from './components/Video';
+import VideoSingle from './components/VideoSingle';
 import { ReservationStatus } from '../../../types/HeymateTypes/ReservationStatus';
 import { axiosService } from '../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../config';
@@ -55,6 +55,10 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 
   const [isVideoDecodeReady, setIsVideoDecodeReady] = useState(false);
 
+  const [isSupportGalleryView, setIsSupportGalleryView] = useState<boolean>(
+    true,
+  );
+
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
 
@@ -67,6 +71,10 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       setIsVideoDecodeReady(false);
     };
   }, [zoomDialog?.openModal]);
+
+  useEffect(() => {
+    setIsSupportGalleryView(zoomDialog.stream.isSupportMultipleVideos());
+  }, [zoomDialog?.stream]);
 
   const handleCLoseDetailsModal = () => {
     closeZoomDialogModal({
@@ -297,11 +305,21 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
         </div>
       )}
       <div className="viewport">
-        <Video
-          isVideoReady={isVideoDecodeReady}
-          onLeaveSessionClicked={handleOpenConfirmModal}
-          zoomDialog={zoomDialog}
-        />
+        {
+          isSupportGalleryView ? (
+            <Video
+              isVideoReady={isVideoDecodeReady}
+              onLeaveSessionClicked={handleOpenConfirmModal}
+              zoomDialog={zoomDialog}
+            />
+          ) : (
+            <VideoSingle
+              isVideoReady={isVideoDecodeReady}
+              onLeaveSessionClicked={handleOpenConfirmModal}
+              zoomDialog={zoomDialog}
+            />
+          )
+        }
       </div>
       <Modal
         isOpen={confirmModal}
