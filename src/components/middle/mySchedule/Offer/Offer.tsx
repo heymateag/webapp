@@ -378,13 +378,15 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         url: `${HEYMATE_URL}/time-table/${props.selectedSchedule?.id}`,
         method: 'PUT',
         body: {
-          status: 'CANCELED',
+          status: 'CANCELED_BY_SERVICE_PROVIDER',
         },
       });
       if (response?.status === 200) {
         setOfferStatus(ReservationStatus.CANCELED_BY_SERVICE_PROVIDER);
         const msg = 'Your offer has been cancelled !';
         showNotification({ message: msg });
+      } else {
+        showNotification({ message: response.data.message });
       }
     } else {
       const msg = `Sorry, we are not able to cancel as it on ${offerStatus} state!`;

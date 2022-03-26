@@ -49,6 +49,7 @@ export interface IOffer {
       // in min
       duration: number;
       deposit: number;
+      penalty: number;
     };
     cancellation: {
       // in min

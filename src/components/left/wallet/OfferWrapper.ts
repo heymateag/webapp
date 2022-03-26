@@ -73,7 +73,6 @@ class OfferWrapper {
         status: 'Success',
       });
     } catch (error: any) {
-      
       return new Error(error);
     }
 
@@ -100,7 +99,6 @@ class OfferWrapper {
         status: 'Success',
       });
     } catch (error: any) {
-      
       return new Error(error);
     }
 
@@ -175,13 +173,11 @@ class OfferWrapper {
       receipt = await answer.getHash();
       return receipt;
     } catch (error: any) {
-      
       return new Error(error);
     }
   };
 
   cancelService = async (offer: IOffer, tradeId: any, consumerCancelled: boolean, consumerAddress: string) => {
-    
     // const tradeIdHash = `${tradeId.split('-').join('')}`;
     let tradeIdHash;
     if (tradeId.length <= 36) {
