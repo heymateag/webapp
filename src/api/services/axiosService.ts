@@ -24,6 +24,7 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
+    debugger
     const originalConfig = error.config;
     if (
       error.response.status === 500
@@ -39,10 +40,7 @@ axios.interceptors.response.use(
       // ========= Don't redirect to login if we are in landing
       throw error;
     }
-    // if (error.response.status === 403 || error.response.status === 401) {
-    //   // ========= Don't redirect to login if we are in landing
-    //   throw error;
-    // }
+
     if (originalConfig.url !== '/auth/login' && error.response) {
       // Access Token was expired
       // eslint-disable-next-line no-underscore-dangle
