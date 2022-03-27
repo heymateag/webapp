@@ -159,7 +159,7 @@ const OfferFooter: FC<OwnProps> = ({
         {reservationStatus === ReservationStatus.CANCELED_BY_SERVICE_PROVIDER && (
           <div className={ReservationStatus.CANCELED_BY_SERVICE_PROVIDER}>
             <i className="hm-play" />
-            <span>Waiting for your Cancel confirmation</span>
+            <span>Canceled by you</span>
           </div>
         )}
       </div>

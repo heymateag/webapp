@@ -243,8 +243,8 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         break;
       case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
         setTagStatus({
-          color: 'yellow',
-          text: 'Pending',
+          color: 'red',
+          text: 'Canceled',
         });
         break;
     }

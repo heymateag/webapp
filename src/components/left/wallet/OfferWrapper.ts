@@ -207,6 +207,7 @@ class OfferWrapper {
           consumerAddress, amount, new BN(1),
         )).send();
       } catch (error: any) {
+        debugger
         throw new Error(error);
       }
       // this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
@@ -217,6 +218,7 @@ class OfferWrapper {
       receipt = await answer.getHash();
       return receipt;
     } catch (error: any) {
+      debugger
       return new Error(error);
     }
   };
