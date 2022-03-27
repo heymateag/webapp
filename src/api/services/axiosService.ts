@@ -38,6 +38,9 @@ axios.interceptors.response.use(
 
         return await axios(originalConfig);
       } catch (_error) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload();
         return Promise.reject(_error);
       }
     }
@@ -60,7 +63,8 @@ axios.interceptors.response.use(
     //   // ========= Don't redirect to login if we are in landing
     //   throw error;
     // }
-    if (originalConfig.url !== '/auth/login' && error.response) {
+    // eslint-disable-next-line max-len
+    if (!originalConfig.url.includes('/auth/login') && error.response && !originalConfig.url.includes('/users/putPushToken')) {
       // Access Token was expired
       // eslint-disable-next-line no-underscore-dangle
       if (error.response.status === 401 && !originalConfig._retry) {
@@ -77,7 +81,9 @@ axios.interceptors.response.use(
 
           return await axios(originalConfig);
         } catch (_error) {
-          debugger
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.reload();
           return Promise.reject(_error);
         }
       }
