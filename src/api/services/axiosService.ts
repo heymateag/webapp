@@ -24,27 +24,27 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const originalConfig = error.config;
-    if (!error.response && !originalConfig.retry) {
-      originalConfig.retry = true;
-      try {
-        const rs = await axios.post(`${HEYMATE_URL}/auth/refresh`, {
-          refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
-          user: localStorage.getItem('HM_PHONE'),
-        });
-
-        const { token } = rs.data;
-        localStorage.setItem('HM_TOKEN', token);
-
-        return await axios(originalConfig);
-      } catch (_error) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
-        return Promise.reject(_error);
-      }
-    }
     // const originalConfig = error.config;
+    // if (!error.response && !originalConfig.retry) {
+    //   originalConfig.retry = true;
+    //   try {
+    //     const rs = await axios.post(`${HEYMATE_URL}/auth/refresh`, {
+    //       refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
+    //       user: localStorage.getItem('HM_PHONE'),
+    //     });
+
+    //     const { token } = rs.data;
+    //     localStorage.setItem('HM_TOKEN', token);
+
+    //     return await axios(originalConfig);
+    //   } catch (_error) {
+    //     localStorage.clear();
+    //     sessionStorage.clear();
+    //     window.location.reload();
+    //     return Promise.reject(_error);
+    //   }
+    // }
+    const originalConfig = error.config;
     if (
       error.response.status === 500
       && error.response.data.message === 'invalid token'
