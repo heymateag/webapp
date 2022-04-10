@@ -5,7 +5,7 @@ import React, {
 
 import { LangCode } from '../../types';
 import { GlobalActions } from '../../global/types';
-import { ApiMessage, ApiUser } from '../../api/types';
+import { ApiMessage, ApiUser, IHeymateUser } from '../../api/types';
 
 import '../../modules/actions/all';
 import {
@@ -56,6 +56,7 @@ import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
 import './Main.scss';
 import { IAuth } from '../../types/HeymateTypes/Auth.model';
 import { axiosService } from '../../api/services/axiosService';
+import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 
 type StateProps = {
   lastSyncTime?: number;
@@ -81,6 +82,7 @@ type StateProps = {
   showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
   currentUserPhoneNumber?: string;
+  heymateUser?: IHeymateUser;
   currentUser?: ApiUser;
 };
 
@@ -94,7 +96,7 @@ GlobalActions,
 | 'loadEmojiKeywords'
 | 'openStickerSetShortName'
 |
-'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification'
+'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification' | 'setHeymateUser'
 >;
 
 const NOTIFICATION_INTERVAL = 1000;
@@ -136,6 +138,8 @@ const Main: FC<StateProps & DispatchProps> = ({
   checkVersionNotification,
   currentUserId,
   currentUserPhoneNumber,
+  setHeymateUser,
+  heymateUser,
   currentUser,
 }) => {
   if (DEBUG && !DEBUG_isLogged) {
@@ -192,7 +196,7 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   }, [lastSyncTime]);
 
-  const handleHeymateLogin = async (phone_number: any, userId?:string) => {
+  const getHeymateUser = async (phone_number: any, userId?:string) => {
     if (typeof phone_number === 'undefined') {
       phone_number = localStorage.getItem('HM_PHONE');
     }
@@ -215,34 +219,38 @@ const Main: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_PHONE', userPhone);
     }
   };
+  const getMyHeymateUserData = useCallback(async () => {
+    if (typeof heymateUser === 'undefined') {
+      const response: IHttpResponse = await axiosService({
+        url: `${HEYMATE_URL}/users/me`,
+        method: 'GET',
+        body: {},
+      });
+      setHeymateUser(response.data.data);
+    }
+  }, [setHeymateUser, heymateUser]);
 
-  const handleHeymateUpdateUser = async (currentUser) => {
-    if(currentUser?.avatarHash == undefined) {
-      currentUser.avatarHash = "";
-    }
-    if(currentUser?.fullName == undefined) {
-      currentUser.fullName = "";
-    }
-    const response: IAuth = await axiosService({
+  const handleHeymateUpdateUser = useCallback(async () => {
+    const response = await axiosService({
       url: `${HEYMATE_URL}/users/updateUserInfo`,
       method: 'PATCH',
       body: {
-        fullName: currentUser.firstName,
-        userName: currentUser.username,
-        avatarHash: currentUser.avatarHash,
-        telegramId: currentUser.id,
+        fullName: currentUser?.firstName || '',
+        userName: currentUser?.username,
+        avatarHash: currentUser?.avatarHash || '',
+        telegramId: currentUser?.id,
+        phoneNumber: currentUser?.phoneNumber,
       },
     });
-    if (response && response.status === 200) {
-      console.log(response);
-    }
-  };
+  }, [currentUser?.avatarHash, currentUser?.firstName,
+    currentUser?.id, currentUser?.phoneNumber, currentUser?.username]);
 
   useEffect(() => {
     if (typeof currentUserId !== 'undefined') {
-      handleHeymateUpdateUser(currentUser);
+      handleHeymateUpdateUser();
+      getMyHeymateUserData();
     }
-  }, [currentUserId, currentUserPhoneNumber]);
+  }, [currentUserId, currentUserPhoneNumber, getMyHeymateUserData, handleHeymateUpdateUser]);
 
   const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
     !isLeftColumnShown,
@@ -428,6 +436,7 @@ export default memo(withGlobal(
     const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
     const { currentUserId } = global;
     const { currentUserPhoneNumber } = global;
+    const { heymateUser } = global;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
@@ -455,11 +464,12 @@ export default memo(withGlobal(
       currentUserId,
       currentUserPhoneNumber,
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
     'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
     'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList', 'ensureTimeFormat',
-    'checkVersionNotification',
+    'checkVersionNotification', 'setHeymateUser',
   ]),
 )(Main));

@@ -107,7 +107,7 @@ const AuthObBoarding: FC<OwnProps & DispatchProps> = ({returnToAuthPhoneNumber})
         </Transition>
         {renderPhotoTabs()}
         <div id="button-holder">
-          <Button color="hm-primary" ripple onClick={handlealaki}>Keep Messaging</Button>
+          <Button color="hm-primary" ripple onClick={handlealaki}>Start</Button>
           <div id="hm-typo" />
           <a href="http://docs.heymate.works/" target="_blank" rel="noreferrer">Help</a>
         </div>

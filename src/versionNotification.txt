@@ -1,4 +1,4 @@
-**Heymate Web was updated to version alpha 1.0.0**
+**Heymate Web was updated to version alpha 1.0.17**
 
 👏 **Harder**
 · An early version of **Zoom meeting** is available in online sessions.

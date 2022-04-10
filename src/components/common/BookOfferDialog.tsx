@@ -28,6 +28,9 @@ import OfferPurchase from '../left/wallet/OfferPurchase';
 import AcceptTransactionDialog from './AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../left/wallet/hooks/useWalletConnectQrModal';
 import walletLoggerService from './helpers/walletLoggerService';
+import { ApiReportReason, IHeymateUser } from '../../api/types';
+import RadioGroup, { IRadioOption } from '../ui/RadioGroup';
+import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 
 type OwnProps = {
   offer: IOffer;
@@ -35,12 +38,27 @@ type OwnProps = {
   onCloseModal: () => void;
   purchasePlanType?: 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 };
+type StateProps = {
+  heymateUser?: IHeymateUser;
+};
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
 enum BookOfferModalTabs {
   TIME_SLOTS,
   CALENDAR,
+  SetPaymentMethod,
 }
+enum PaymentMethod {
+  'WALLECTCONNECT' = 'WALLECTCONNECT',
+  'PUSH' = 'PUSH',
+  'NOTSET' = 'NOTSET',
+}
+
+type CallToAction = {
+  name: string;
+  value: 'WC' | 'PUSH';
+};
+
 interface ITimeSlotsRender extends ITimeSlotModel{
   fromTs: number;
   toTs: number;
@@ -52,12 +70,13 @@ interface ITimeSlotsRender extends ITimeSlotModel{
   date?: string;
 }
 
-const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
+const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
   offer,
   openModal = false,
   onCloseModal,
   purchasePlanType = 'SINGLE',
   showNotification,
+  heymateUser,
 }) => {
   const lang = useLang();
 
@@ -71,11 +90,27 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<any>();
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(PaymentMethod.NOTSET);
+  const [chooseMethodState, setChooseMethodState] = useState<'PAYMENT_METHOD' | 'SELECT_DEVICE'>('PAYMENT_METHOD');
+  const [selectedDevice, setSelectedDevice] = useState<any>('');
+  const [callToActionName, setCallToActionName] = useState<CallToAction>({
+    name: 'Book Now',
+    value: 'WC',
+  });
 
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
+    { type: BookOfferModalTabs.SetPaymentMethod, title: 'Payment Method' },
   ];
+
+  const PAYMENT_METHODS: IRadioOption[] = [{
+    label: 'Wallet Connect',
+    value: 'WALLECTCONNECT',
+  }, {
+    label: 'By Push',
+    value: 'PUSH',
+  }];
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -172,8 +207,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
           }
           item.fromTs = fromTs;
           item.toTs = toTs;
-          item.fromDateLocal = new Date(fromTs).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-          item.toDateLocal = new Date(toTs).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          item.fromDateLocal = new Date(fromTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          item.toDateLocal = new Date(toTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           item.date = new Date(fromTs).toLocaleDateString('en');
           return item;
         });
@@ -205,23 +240,23 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
     return response.data.data;
   };
 
-  const handleBookOffer = async () => {
+  const setDefaultPaymentMethod = async (method: PaymentMethod) => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/users/payment-method`,
+      method: 'PATCH',
+      body: {
+        paymentMethod: method,
+      },
+    });
+    showNotification({ message: 'Default Payment Method Has Set !' });
+  };
+
+  const bookOfferByWalletConnect = async () => {
     setBookOfferLoading(true);
-    let planId;
-    if (purchasePlanType !== 'SINGLE') {
-      const plan = await purchaseAPlan();
-      if (plan) {
-        planId = plan.id;
-      }
-    }
+
+    await setDefaultPaymentMethod(PaymentMethod.WALLECTCONNECT);
 
     const activeTs = timeSlotList.find((item) => item.id === selectedTimeSlotId);
-    // const provider = new WalletConnectProvider({
-    //   rpc: {
-    //     44787: 'https://alfajores-forno.celo-testnet.org',
-    //     42220: 'https://forno.celo.org',
-    //   },qrcode: false
-    // });
     let kit: ContractKit;
     let address: string;
     let offerPurchase;
@@ -259,19 +294,63 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         handleCLoseDetailsModal();
       } else if (response.status === 406) {
         showNotification({ message: response.data.message });
+        setBookOfferLoading(false);
       } else {
         showNotification({ message: 'Some thing went wrong !' });
+        setBookOfferLoading(false);
       }
     } else {
       handleOpenWCModal();
     }
   };
 
+  const setUserDefaultDevice = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/users/updateTransactionDefaultDevice`,
+      method: 'PATCH',
+      body: selectedDevice,
+    });
+    return response;
+  };
+
+  const bookOfferByPush = async () => {
+    const activeTs = timeSlotList.find((item) => item.id === selectedTimeSlotId);
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'BOOK',
+        offerId: offer.id,
+        timeSlotId: activeTs?.id,
+      },
+    });
+    showNotification({ message: 'Push Send To the device!' });
+    debugger
+    if (response.data.data.failed.length === 0) {
+      const data = {
+        offerId: offer.id,
+        serviceProviderId: offer.userId,
+        purchasedPlanId: undefined,
+        timeSlotId: activeTs?.id,
+        tradeId: '1234',
+        consumer_wallet_address: selectedDevice.walletAddress,
+      };
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/reservation`,
+        method: 'POST',
+        body: data,
+      });
+      handleCLoseDetailsModal();
+      showNotification({ message: 'Offer Booked Successfuly !' });
+    } else {
+      showNotification({ message: 'Failed To send the push !' });
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<BookOfferModalTabs>(BookOfferModalTabs.TIME_SLOTS);
 
   const handleSwitchTab = useCallback((index: number) => {
-    // setActiveTab(index); // Uncomment to calendar tab works
-    setActiveTab(BookOfferModalTabs.TIME_SLOTS);
+    setActiveTab(index); // Uncomment to calendar tab works
   }, []);
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -279,6 +358,62 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
   const handleOpenCalendarModal = () => {
     setIsCalendarOpen(true);
   };
+
+  const handleSelectedMethod = useCallback((value: string) => {
+    setSelectedPaymentMethod(value as PaymentMethod);
+  }, []);
+
+  const handleBookOffer = async () => {
+    let planId;
+    if (purchasePlanType !== 'SINGLE') {
+      const plan = await purchaseAPlan();
+      if (plan) {
+        planId = plan.id;
+      }
+    }
+
+    if (typeof heymateUser?.paymentMethod === 'undefined' ||
+      heymateUser?.paymentMethod === PaymentMethod.NOTSET) {
+      if (callToActionName.value === 'PUSH') {
+        await setDefaultPaymentMethod(PaymentMethod.PUSH);
+        setUserDefaultDevice().then(async (res) => {
+          showNotification({ message: 'Default User Device Has Set !' });
+          await bookOfferByPush();
+        }).catch((err) => {
+          console.log(err);
+          alert('failed to set default device');
+        });
+      } else {
+        handleSwitchTab(2);
+      }
+    } else if (heymateUser?.paymentMethod === PaymentMethod.PUSH) {
+      await bookOfferByPush();
+    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLECTCONNECT) {
+      await bookOfferByWalletConnect();
+    }
+  };
+
+  const handleSelectedDevice = (event: ChangeEvent<HTMLInputElement>, device: any) => {
+    setSelectedDevice(device);
+  };
+
+  useEffect(() => {
+    switch (selectedPaymentMethod) {
+      case PaymentMethod.WALLECTCONNECT:
+        bookOfferByWalletConnect();
+        break;
+      case PaymentMethod.PUSH:
+        setChooseMethodState('SELECT_DEVICE');
+        setCallToActionName({
+          name: 'Send Push',
+          value: 'PUSH',
+        });
+        break;
+      case PaymentMethod.NOTSET:
+        console.log(selectedPaymentMethod);
+        break;
+    }
+  }, [selectedPaymentMethod]);
 
   const handleRescheduleMessage = useCallback((date: Date) => {
     let startDate: any = date;
@@ -304,7 +439,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
         title="Schedule"
       >
         <div className="book-offer-content">
-          <TabList activeTab={activeTab} tabs={tabs} onSwitchTab={handleSwitchTab} />
+          <TabList activeTab={activeTab} tabs={tabs} onSwitchTab={() => {}} />
           <Transition
             className="full-content"
             name={lang.isRtl ? 'slide-reversed' : 'mv-slide'}
@@ -371,6 +506,35 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
                       Calendar Content
                     </div>
                   );
+                case BookOfferModalTabs.SetPaymentMethod:
+                  if (chooseMethodState === 'PAYMENT_METHOD') {
+                    return (
+                      <div>
+                        <RadioGroup
+                          name="paymentMethod"
+                          options={PAYMENT_METHODS}
+                          selected={selectedPaymentMethod}
+                          onChange={handleSelectedMethod}
+                        />
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div>
+                        {heymateUser?.devices.map((device) => (
+                          <Radio
+                            name={device.deviceUUID}
+                            label={device.deviceName}
+                            value={device.deviceUUID}
+                            checked={selectedTimeSlotId === device.deviceUUID}
+                            onChange={(e) => handleSelectedDevice(e, device)}
+                          />
+                        ))}
+
+                      </div>
+                    );
+                  }
+
                 default:
                   return (
                     <div>There’s no available time for the selected date</div>
@@ -393,7 +557,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
               !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
             }
           >
-            Book Now
+            {callToActionName.name}
           </Button>
         </div>
       </Modal>
@@ -423,8 +587,10 @@ const BookOfferDialog: FC<OwnProps & DispatchProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
-  (): any => {
+  (global): StateProps => {
+    const { heymateUser } = global;
     return {
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
