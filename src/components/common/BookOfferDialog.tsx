@@ -325,7 +325,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
       },
     });
     showNotification({ message: 'Push Send To the device!' });
-    debugger
     if (response.data.data.failed.length === 0) {
       const data = {
         offerId: offer.id,
