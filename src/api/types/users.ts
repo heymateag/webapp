@@ -47,3 +47,35 @@ export interface ApiUserStatus {
   wasOnline?: number;
   expires?: number;
 }
+
+export interface IHeymateUser {
+  deviceId: string;
+
+  pushId: string;
+
+  phoneNumber: string;
+  fullName: string;
+  userName: string;
+  avatarHash: string;
+  telegramId: string;
+  walletAddress: string;
+
+  paymentMethod: 'WALLECTCONNECT' | 'PUSH' | 'NOTSET';
+  devices: {
+    deviceUUID: string;
+    deviceName: string;
+    deviceType: string;
+    pushToken: string;
+    walletAddress: string;
+    currency: string;
+  }[];
+
+  transactionDefaultDevice: {
+    deviceUUID: string;
+    deviceName: string;
+    deviceType: string;
+    pushToken: string;
+    walletAddress: string;
+    currency: string;
+  };
+};

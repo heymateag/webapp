@@ -7,7 +7,7 @@ axios.interceptors.request.use(
     // @ts-ignore
     config.headers['Content-Type'] = 'application/json';
     // @ts-ignore
-    if (!config.url.includes('/login')) {
+    if (config && config.url && !config.url.includes('/login')) {
       // @ts-ignore
       config.headers.Authorization = `Bearer ${localStorage.getItem('HM_TOKEN')}`;
     }
@@ -24,6 +24,26 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // const originalConfig = error.config;
+    // if (!error.response && !originalConfig.retry) {
+    //   originalConfig.retry = true;
+    //   try {
+    //     const rs = await axios.post(`${HEYMATE_URL}/auth/refresh`, {
+    //       refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
+    //       user: localStorage.getItem('HM_PHONE'),
+    //     });
+
+    //     const { token } = rs.data;
+    //     localStorage.setItem('HM_TOKEN', token);
+
+    //     return await axios(originalConfig);
+    //   } catch (_error) {
+    //     localStorage.clear();
+    //     sessionStorage.clear();
+    //     window.location.reload();
+    //     return Promise.reject(_error);
+    //   }
+    // }
     const originalConfig = error.config;
     if (
       error.response.status === 500
@@ -39,14 +59,17 @@ axios.interceptors.response.use(
       // ========= Don't redirect to login if we are in landing
       throw error;
     }
-
-    if (originalConfig.url !== '/auth/login' && error.response) {
+    // if (error.response.status === 403 || error.response.status === 401) {
+    //   // ========= Don't redirect to login if we are in landing
+    //   throw error;
+    // }
+    // eslint-disable-next-line max-len
+    if (!originalConfig.url.includes('/auth/login') && error.response && !originalConfig.url.includes('/users/putPushToken')) {
       // Access Token was expired
       // eslint-disable-next-line no-underscore-dangle
       if (error.response.status === 401 && !originalConfig._retry) {
         // eslint-disable-next-line no-underscore-dangle
         originalConfig._retry = true;
-
         try {
           const rs = await axios.post(`${HEYMATE_URL}/auth/refresh`, {
             refToken: localStorage.getItem('HM_REFRESH_TOKEN'),
@@ -58,6 +81,9 @@ axios.interceptors.response.use(
 
           return await axios(originalConfig);
         } catch (_error) {
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.reload();
           return Promise.reject(_error);
         }
       }

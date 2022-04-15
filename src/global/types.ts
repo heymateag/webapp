@@ -23,6 +23,7 @@ import {
   ApiCountry,
   ApiGroupCall,
   ZoomDialogProps,
+  IHeymateUser,
 } from '../api/types';
 import {
   FocusDirection,
@@ -94,6 +95,7 @@ export type GlobalState = {
   connectionState?: ApiUpdateConnectionStateType;
   currentUserId?: string;
   currentUserPhoneNumber?: string;
+  heymateUser?: IHeymateUser;
   lastSyncTime?: number;
   serverTimeOffset: number;
   leftColumnWidth?: number;
@@ -475,6 +477,7 @@ export type ActionTypes = (
 // system
   'init' | 'reset' | 'disconnect' | 'initApi' | 'apiUpdate' | 'sync' | 'saveSession' | 'afterSync' |
   'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' | 'setCurrentUserPhoneNumber' |
+  'setHeymateUser' |
   // ui
   'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
   'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |

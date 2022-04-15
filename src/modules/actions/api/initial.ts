@@ -234,3 +234,11 @@ addReducer('setCurrentUserPhoneNumber', (global, actions, payload) => {
     currentUserPhoneNumber,
   };
 });
+
+addReducer('setHeymateUser', (global, actions, payload) => {
+  const heymateUser = payload!;
+  return {
+    ...global,
+    heymateUser,
+  };
+});

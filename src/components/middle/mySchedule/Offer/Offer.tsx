@@ -1,6 +1,10 @@
 import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import { encode } from 'js-base64';
 import { withGlobal } from 'teact/teactn';
+import WalletConnectProvider from '@walletconnect/web3-provider';
+import Web3 from 'web3';
+import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
+import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import React, {
   FC,
   memo,
@@ -18,7 +22,6 @@ import OfferDetailsDialog from '../../../common/OfferDetailsDialog';
 // @ts-ignore
 import noOfferImg from '../../../../assets/heymate/no-offer-image.svg';
 import TaggedText from '../../../ui/TaggedText';
-
 import MenuItem from '../../../ui/MenuItem';
 import Menu from '../../../ui/Menu';
 import OfferFooter from './components/OfferFooter';
@@ -32,6 +35,10 @@ import { pick } from '../../../../util/iteratees';
 import { axiosService } from '../../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../../config';
 import Avatar from '../../../common/Avatar';
+import { useWalletConnectQrModal } from '../../../left/wallet/hooks/useWalletConnectQrModal';
+import walletLoggerService from '../../../common/helpers/walletLoggerService';
+import OfferWrapper from '../../../left/wallet/OfferWrapper';
+import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
 
 type TimeToStart = {
   days: number;
@@ -51,6 +58,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   currentUser,
   sendDirectMessage,
   openZoomDialogModal,
+  showNotification,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -63,6 +71,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [joinMeetingLoader, setJoinMeetingLoader] = useState(false);
   const [reJoinMeetingLoader, setReJoinMeetingLoader] = useState(false);
+  const [participantsList, setParticipantsList] = useState<any>([]);
   const [openVideoDialog, setOpenVideoDialog] = useState(false);
   const [zoomStream, setZoomStream] = useState();
   const [zmClient, setZmClient] = useState<ClientType>();
@@ -71,6 +80,99 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     text: '',
     color: 'green',
   });
+  // celo action
+  const [uri, setUri] = useState<string>('');
+  const [openModal, setOpenModal] = useState(false);
+  const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
+  const [openAcceptModal, setOpenAcceptModal] = useState(false);
+
+  const provider = useMemo(() => {
+    return new WalletConnectProvider({
+      rpc: {
+        44787: 'https://alfajores-forno.celo-testnet.org',
+        42220: 'https://forno.celo.org',
+      },
+      qrcode: false,
+      bridge: 'https://wc-bridge.heymate.works/',
+      clientMeta: {
+        description: 'Just a test description !',
+        icons: [],
+        url: 'www.ehsan.com',
+        name: 'Heymate App',
+      },
+    });
+  }, []);
+  const handleCLoseWCModal = () => {
+    setOpenModal(false);
+    provider.isConnecting = false;
+  };
+
+  useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
+  const handleOpenWCModal = async () => {
+    if (uri === '') {
+      await provider.enable();
+    }
+    setOpenModal(true);
+    // renderUriAsQr();
+  };
+  provider.connector.on('display_uri', (err, payload) => {
+    walletLoggerService({
+      description: 'start connecting to wallet',
+      status: 'Waiting',
+    });
+    const wcUri = payload.params[0];
+    setUri(wcUri);
+    setOpenModal(true);
+    // renderUriAsQr(wcUri);
+  });
+
+  provider.onConnect(() => {
+    walletLoggerService({
+      description: 'finish connecting to wallet',
+      status: 'Success',
+    });
+    setOpenModal(false);
+    WalletConnectQRCodeModal.close();
+  });
+  const handleCancelInCelo = async (tradeId: string, consumerAddress: string, address: string) => {
+    let kit: ContractKit;
+    if (provider.isWalletConnect) {
+
+      // @ts-ignore
+      const web3 = new Web3(provider);
+      // @ts-ignoreffer
+      kit = newKitFromWeb3(web3);
+      const accounts = await kit.web3.eth.getAccounts();
+      // eslint-disable-next-line prefer-destructuring
+      kit.defaultAccount = accounts[0];
+      const mainNet = provider.chainId !== 44787;
+      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
+      walletLoggerService({
+        description: 'start accepting to cancel',
+        status: 'Waiting',
+      });
+      const answer = await offerWrapper.cancelService(props, tradeId, false, consumerAddress);
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
+      walletLoggerService({
+        description: 'finish accepting to cancel',
+        status: 'Success',
+      });
+      if (answer?.message?.startsWith('Error')) {
+        showNotification({ message: answer.message });
+        return;
+      }
+      if (answer) {
+        // handleCancelReservation();
+      } else {
+        console.log('failed');
+      }
+    } else {
+      handleOpenWCModal();
+    }
+  };
   /**
    * Get Ongoing Offer Time To Start
    */
@@ -104,9 +206,14 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   useEffect(() => {
+    const loadParticipantsList = async (id: string) => {
+      const list = await getParticipants(id);
+      setParticipantsList(list);
+    };
     if (props.selectedSchedule) {
       const hour = GenerateNewDate(props.selectedSchedule?.form_time);
       setOfferHour(hour.toLocaleTimeString());
+      loadParticipantsList(props.selectedSchedule.id);
     }
     switch (props.selectedSchedule?.status) {
       case ReservationStatus.BOOKED:
@@ -136,8 +243,8 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         break;
       case ReservationStatus.CANCELED_BY_SERVICE_PROVIDER:
         setTagStatus({
-          color: 'yellow',
-          text: 'Pending',
+          color: 'red',
+          text: 'Canceled',
         });
         break;
     }
@@ -265,6 +372,77 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   }
 
+  const handleCancelReservation = async () => {
+    if (offerStatus === ReservationStatus.BOOKED) {
+      const response = await axiosService({
+        url: `${HEYMATE_URL}/time-table/${props.selectedSchedule?.id}`,
+        method: 'PUT',
+        body: {
+          status: 'CANCELED_BY_SERVICE_PROVIDER',
+        },
+      });
+      if (response?.status === 200) {
+        setOfferStatus(ReservationStatus.CANCELED_BY_SERVICE_PROVIDER);
+        const msg = 'Your offer has been cancelled !';
+        showNotification({ message: msg });
+      } else {
+        showNotification({ message: response.data.message });
+      }
+    } else {
+      const msg = `Sorry, we are not able to cancel as it on ${offerStatus} state!`;
+      showNotification({ message: msg });
+    }
+  };
+
+  const handleCancel = async () => {
+
+    let address: any = '';
+    await provider.enable().then((res) => {
+      // eslint-disable-next-line prefer-destructuring
+      address = res[0];
+      setOpenModal(false);
+    });
+    setLoadAcceptLoading(true);
+    setOpenAcceptModal(true);
+    let hasError = false;
+    let count = 0;
+    for (const item of participantsList) {
+      count += 1;
+      if (!hasError) {
+        await handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then(() => {
+          showNotification({ message: `successfully cancel ${count} of ${participantsList.length}` });
+        }, (err) => {
+          setLoadAcceptLoading(false);
+          setOpenAcceptModal(false);
+          showNotification({ message: err.message });
+          hasError = true;
+        });
+      }
+    }
+    // participantsList.forEach((item, index) => {
+    //   if (!hasError) {
+    //     handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then((res) => {
+    //       showNotification({ message: `successfully cancel ${index + 1} of ${participantsList.length}` });
+    //     }, (err) => {
+    //       setLoadAcceptLoading(false);
+    //       setOpenAcceptModal(false);
+    //       showNotification({ message: err.message });
+    //       hasError = true;
+    //     });
+    //   }
+    // });
+
+    setLoadAcceptLoading(false);
+    setOpenAcceptModal(false);
+    if (!hasError) {
+      handleCancelReservation();
+    }
+  };
+  const handleCloseAcceptModal = () => {
+    setOpenAcceptModal(false);
+    setLoadAcceptLoading(false);
+  };
+
   return (
     <div className="Offer-middle">
       <div className="offer-content">
@@ -308,7 +486,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
             >
               <MenuItem icon="channel" onClick={() => setOpenDetailsModal(true)}>View Details</MenuItem>
               <MenuItem icon="channel" onClick={simpleJoin}>simple join</MenuItem>
-              <MenuItem icon="user">{lang('Cancel')}</MenuItem>
+              <MenuItem icon="user" onClick={handleCancel}>{lang('Cancel')}</MenuItem>
             </Menu>
           </div>
         </div>
@@ -330,6 +508,11 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
         openModal={openDetailsModal}
         offer={props}
         onCloseModal={() => setOpenDetailsModal(false)}
+      />
+      <AcceptTransactionDialog
+        isOpen={openAcceptModal}
+        onCloseModal={handleCloseAcceptModal}
+        loadAcceptLoading={loadAcceptLoading}
       />
     </div>
   );

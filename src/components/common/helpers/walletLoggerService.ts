@@ -10,7 +10,7 @@ const getData = async () => {
 
 const walletLoggerService = async (data: any) => {
   const browser = detectBrowserName();
-  const ip = await getData();
+  // const ip = await getData();
   const response  = await axiosService({
     url: `${HEYMATE_URL}/wallet-logger`,
     method: 'POST',
@@ -18,7 +18,7 @@ const walletLoggerService = async (data: any) => {
       ...data,
       platform: 'WEB',
       browser,
-      userIp: ip,
+      // userIp: ip,
     },
   });
 };

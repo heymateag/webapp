@@ -253,14 +253,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
         password: '123456',
       },
     });
-    if(response.data['message'] == 'An account with the given phone_number already exists.') {
-      handleHeymateLogin(userPhone);
-      // handleHeymateCreateUser function will be called only one time once for the new user if we use the conditional approach in the webapp
-      handleHeymateCreateUser(userPhone); // Todo: Later stage we will evolve the create user endpoint to check if the user already exists or not in user table.
-    } else {
-      handleHeymateLogin(userPhone);
-      handleHeymateCreateUser(userPhone);
-    }
+    await handleHeymateLogin(userPhone);
   };
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

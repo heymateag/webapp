@@ -4,7 +4,6 @@ import { GlobalState } from 'src/global/types';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 // import { IOffer } from 'src/types/HeymateTypes/Offer.model';
 import Web3 from 'web3';
-import QrCreator from 'qr-creator';
 import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import React, {
@@ -101,13 +100,9 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   // celo action
   const [uri, setUri] = useState<string>('');
-  const qrCodeRef = useRef<HTMLDivElement>(null);
   const [openModal, setOpenModal] = useState(false);
-  const [loadingQr, setLoadingQr] = useState(true);
   const [loadAcceptLoading, setLoadAcceptLoading] = useState(false);
   const [openAcceptModal, setOpenAcceptModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingBalance, setLoadingBalance] = useState(true);
 
   const provider = useMemo(() => {
     return new WalletConnectProvider({
@@ -128,8 +123,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const handleCLoseWCModal = () => {
     setOpenModal(false);
-    setIsLoading(false);
-    setLoadingQr(true);
     provider.isConnecting = false;
   };
 
@@ -160,7 +153,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       await provider.enable();
     }
     setOpenModal(true);
-    setLoadingQr(true);
     // renderUriAsQr();
   };
 
@@ -173,7 +165,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     setUri(wcUri);
     setOpenModal(true);
     // renderUriAsQr(wcUri);
-    setLoadingQr(false);
   });
 
   provider.onConnect(() => {
@@ -187,7 +178,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   });
 
   const handleCancelInCelo = async () => {
-    setIsLoading(true);
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
@@ -219,7 +209,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
         status: 'Success',
       });
       if (answer?.message?.startsWith('Error')) {
-        setIsLoading(false);
         showNotification({ message: answer.message });
         return;
       }
@@ -395,7 +384,6 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const handleCloseAcceptModal = () => {
-    setIsLoading(false);
     setOpenAcceptModal(false);
     setLoadAcceptLoading(false);
   };
