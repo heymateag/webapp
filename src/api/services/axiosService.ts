@@ -24,7 +24,6 @@ axios.interceptors.response.use(
     return response;
   },
   async (error) => {
-    debugger
     const originalConfig = error.config;
     if (
       error.response.status === 500
