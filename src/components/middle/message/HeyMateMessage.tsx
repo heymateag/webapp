@@ -12,7 +12,7 @@ import React, {
 
 import RadioGroup from '../../ui/RadioGroup';
 import Button from '../../ui/Button';
-import { ApiMessage } from '../../../api/types';
+import { ApiMessage, IHeymateUser } from '../../../api/types';
 import { axiosService } from '../../../api/services/axiosService';
 import { HEYMATE_URL } from '../../../config';
 import { IOffer } from '../../../types/HeymateTypes/Offer.model';
@@ -36,6 +36,7 @@ import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 
 import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
 import walletLoggerService from '../../common/helpers/walletLoggerService';
+import { IHttpResponse } from '../../../types/HeymateTypes/HttpResponse.model';
 
 type OwnProps = {
   message: ApiMessage;
@@ -48,9 +49,14 @@ interface IPurchasePlan {
 }
 type PlanType = 'SINGLE' | 'BUNDLE' | 'SUBSCRIPTION';
 
-const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
+type StateProps = {
+  heymateUser?: IHeymateUser;
+};
+
+const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
   message,
   openZoomDialogModal,
+  heymateUser,
 }) => {
   const lang = useLang();
 
@@ -345,45 +351,63 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
     }
   };
 
+  const handleStartByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'START',
+        reservationId: reservationItem.id,
+      },
+    });
+    console.log('===============Start the zoom push Logs =======');
+    console.log(response);
+    return response;
+  };
+
   const handleStartInCelo = async () => {
-    let kit: ContractKit;
-    let address: string = '';
-    if (provider.isWalletConnect) {
-      await provider.enable().then((res) => {
-        // eslint-disable-next-line prefer-destructuring
-        address = res[0];
-        setIsConnected(true);
-        setOpenQRModal(false);
-      });
-      walletLoggerService({
-        description: 'start accepting start',
-        status: 'Waiting',
-      });
-      // @ts-ignore
-      const web3 = new Web3(provider);
-      // @ts-ignoreffer
-      kit = newKitFromWeb3(web3);
-      const accounts = await kit.web3.eth.getAccounts();
-      // eslint-disable-next-line prefer-destructuring
-      kit.defaultAccount = accounts[0];
-      const mainNet = provider.chainId !== 44787;
-      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
-      setLoadAcceptLoading(true);
-      setOpenAcceptModal(true);
-      const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
-      setLoadAcceptLoading(false);
-      setOpenAcceptModal(false);
-      walletLoggerService({
-        description: 'finish accepting start',
-        status: 'Success',
-      });
-      if (answer) {
-        handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
-      } else {
-        console.log('failed');
-      }
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleStartByPush();
     } else {
-      handleOpenWCModal();
+      let kit: ContractKit;
+      let address: string = '';
+      if (provider.isWalletConnect) {
+        await provider.enable().then((res) => {
+          // eslint-disable-next-line prefer-destructuring
+          address = res[0];
+          setIsConnected(true);
+          setOpenQRModal(false);
+        });
+        walletLoggerService({
+          description: 'start accepting start',
+          status: 'Waiting',
+        });
+        // @ts-ignore
+        const web3 = new Web3(provider);
+        // @ts-ignoreffer
+        kit = newKitFromWeb3(web3);
+        const accounts = await kit.web3.eth.getAccounts();
+        // eslint-disable-next-line prefer-destructuring
+        kit.defaultAccount = accounts[0];
+        const mainNet = provider.chainId !== 44787;
+        const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+        setLoadAcceptLoading(true);
+        setOpenAcceptModal(true);
+        const answer = await offerWrapper.startService(offerMsg, reservationItem.tradeId, address);
+        setLoadAcceptLoading(false);
+        setOpenAcceptModal(false);
+        walletLoggerService({
+          description: 'finish accepting start',
+          status: 'Success',
+        });
+        if (answer) {
+          handleChangeReservationStatus(reservationItem.id, ReservationStatus.STARTED);
+        } else {
+          console.log('failed');
+        }
+      } else {
+        handleOpenWCModal();
+      }
     }
   };
 
@@ -514,13 +538,13 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
           </div>
         )
       }
-      {/*<QrCodeDialog*/}
-      {/*  uri={uri}*/}
-      {/*  openModal={openQrModal}*/}
-      {/*  onCloseModal={handleCLoseWCModal}*/}
-      {/*  loadingQr={loadingQr}*/}
-      {/*  qrCodeRef={qrCodeRef}*/}
-      {/*/>*/}
+      {/* <QrCodeDialog */}
+      {/*  uri={uri} */}
+      {/*  openModal={openQrModal} */}
+      {/*  onCloseModal={handleCLoseWCModal} */}
+      {/*  loadingQr={loadingQr} */}
+      {/*  qrCodeRef={qrCodeRef} */}
+      {/* /> */}
       <AcceptTransactionDialog
         isOpen={openAcceptModal}
         onCloseModal={handleCloseAcceptModal}
@@ -532,8 +556,10 @@ const HeyMateMessage: FC<OwnProps & DispatchProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
-  () => {
+  (global): StateProps => {
+    const { heymateUser } = global;
     return {
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

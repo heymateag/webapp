@@ -242,15 +242,15 @@ const Main: FC<StateProps & DispatchProps> = ({
         phoneNumber: currentUser?.phoneNumber,
       },
     });
+    await getMyHeymateUserData();
   }, [currentUser?.avatarHash, currentUser?.firstName,
     currentUser?.id, currentUser?.phoneNumber, currentUser?.username]);
 
   useEffect(() => {
     if (typeof currentUserId !== 'undefined') {
       handleHeymateUpdateUser();
-      getMyHeymateUserData();
     }
-  }, [currentUserId, currentUserPhoneNumber, getMyHeymateUserData, handleHeymateUpdateUser]);
+  }, [currentUserId, currentUserPhoneNumber, handleHeymateUpdateUser]);
 
   const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
     !isLeftColumnShown,

@@ -20,6 +20,8 @@ import { pick } from '../../../../../util/iteratees';
 import AcceptTransactionDialog from '../../../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../../../left/wallet/hooks/useWalletConnectQrModal';
 import walletLoggerService from '../../../../common/helpers/walletLoggerService';
+import { IHttpResponse } from '../../../../../types/HeymateTypes/HttpResponse.model';
+import { IHeymateUser } from '../../../../../api/types';
 
 type TimeToStart = {
   days: number;
@@ -41,9 +43,14 @@ type OwnProps = {
   offer: IOffer;
   tradeId: string;
 };
+
+type StateProps = {
+  heymateUser?: IHeymateUser;
+};
+
 type DispatchProps = Pick<GlobalActions, 'showNotification'>;
 
-const OrderFooter: FC<OwnProps & DispatchProps> = ({
+const OrderFooter: FC<OwnProps & DispatchProps & StateProps> = ({
   timeToStart,
   fromTime,
   toTime,
@@ -57,6 +64,7 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
   offer,
   tradeId,
   showNotification,
+  heymateUser,
 }) => {
   const [reservationStatus, setReservationStatus] = useState(status);
 
@@ -172,51 +180,71 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
     WalletConnectQRCodeModal.close();
   });
 
+  const handleStartByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'START',
+        reservationId,
+      },
+    });
+    console.log('===============Start the zoom push Logs =======');
+    console.log(response);
+    return response;
+  };
+
   const handleStartInCelo = async () => {
     setIsLoading(true);
-    let kit: ContractKit;
-    let address: string = '';
-    if (provider.isWalletConnect) {
-      await provider.enable().then((res) => {
-        // eslint-disable-next-line prefer-destructuring
-        address = res[0];
-        setOpenModal(false);
-      });
-      // @ts-ignore
-      const web3 = new Web3(provider);
-      // @ts-ignoreffer
-      kit = newKitFromWeb3(web3);
-      const accounts = await kit.web3.eth.getAccounts();
-      // eslint-disable-next-line prefer-destructuring
-      kit.defaultAccount = accounts[0];
-      const mainNet = provider.chainId !== 44787;
-      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
-      setLoadAcceptLoading(true);
-      setOpenAcceptModal(true);
-      walletLoggerService({
-        description: 'start accepting start',
-        status: 'Waiting',
-      });
-      const answer = await offerWrapper.startService(offer, tradeId, address);
-      setLoadAcceptLoading(false);
-      setOpenAcceptModal(false);
-      walletLoggerService({
-        description: 'finish accepting start',
-        status: 'Success',
-      });
-      if (answer?.message?.startsWith('Error')) {
-        setIsLoading(false);
-        showNotification({ message: answer.message });
-        return;
-      }
-      if (answer) {
-        handleChangeReservationStatus(ReservationStatus.STARTED);
-      } else {
-        console.log('failed');
-      }
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleStartByPush();
+      setIsLoading(false);
     } else {
-      handleOpenWCModal();
+      let kit: ContractKit;
+      let address: string = '';
+      if (provider.isWalletConnect) {
+        await provider.enable().then((res) => {
+          // eslint-disable-next-line prefer-destructuring
+          address = res[0];
+          setOpenModal(false);
+        });
+        // @ts-ignore
+        const web3 = new Web3(provider);
+        // @ts-ignoreffer
+        kit = newKitFromWeb3(web3);
+        const accounts = await kit.web3.eth.getAccounts();
+        // eslint-disable-next-line prefer-destructuring
+        kit.defaultAccount = accounts[0];
+        const mainNet = provider.chainId !== 44787;
+        const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+        setLoadAcceptLoading(true);
+        setOpenAcceptModal(true);
+        walletLoggerService({
+          description: 'start accepting start',
+          status: 'Waiting',
+        });
+        const answer = await offerWrapper.startService(offer, tradeId, address);
+        setLoadAcceptLoading(false);
+        setOpenAcceptModal(false);
+        walletLoggerService({
+          description: 'finish accepting start',
+          status: 'Success',
+        });
+        if (answer?.message?.startsWith('Error')) {
+          setIsLoading(false);
+          showNotification({ message: answer.message });
+          return;
+        }
+        if (answer) {
+          handleChangeReservationStatus(ReservationStatus.STARTED);
+        } else {
+          console.log('failed');
+        }
+      } else {
+        handleOpenWCModal();
+      }
     }
+
   };
 
   const handleFinishInCelo = async () => {
@@ -419,8 +447,10 @@ const OrderFooter: FC<OwnProps & DispatchProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
-  (): any => {
+  (global): StateProps => {
+    const { heymateUser } = global;
     return {
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

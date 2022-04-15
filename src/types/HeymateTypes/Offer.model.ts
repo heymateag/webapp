@@ -69,6 +69,7 @@ export interface IOffer {
   createdAt: string;
   updated_at: string;
   expiration: string; // Time Stamp
+  provider: any;
 }
 
 /**

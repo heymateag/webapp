@@ -34,7 +34,7 @@ import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkServi
 import OrderFooter from './components/OrderFooter';
 import { pick } from '../../../../util/iteratees';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import { ApiUser } from '../../../../api/types';
+import {ApiUser, IHeymateUser} from '../../../../api/types';
 import { selectUser } from '../../../../modules/selectors';
 import Avatar from '../../../common/Avatar';
 import OfferWrapper from '../../../left/wallet/OfferWrapper';
@@ -42,6 +42,7 @@ import OfferWrapper from '../../../left/wallet/OfferWrapper';
 import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../../left/wallet/hooks/useWalletConnectQrModal';
 import walletLoggerService from '../../../common/helpers/walletLoggerService';
+import {IHttpResponse} from "../../../../types/HeymateTypes/HttpResponse.model";
 
 type TimeToStart = {
   days: number;
@@ -55,6 +56,7 @@ type OwnProps = {
 type StateProps = {
   currentUser?: ApiUser;
   globalState: GlobalState;
+  heymateUser?: IHeymateUser;
 };
 type DispatchProps = Pick<GlobalActions, 'showNotification' | 'openZoomDialogModal'>;
 
@@ -65,6 +67,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
   currentUser,
   globalState,
   openZoomDialogModal,
+  heymateUser,
 }) => {
   const lang = useLang();
   const [reservationStatus, setReservationStatus] = useState<ReservationStatus>(props.status);
@@ -177,48 +180,66 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
     WalletConnectQRCodeModal.close();
   });
 
+  const handleCancelByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'CANCEL_BY_CONSUMER',
+        reservationId: props.id,
+      },
+    });
+    console.log('===============Cancel By Consumer Logs =======');
+    console.log(response);
+    return response;
+  };
+
   const handleCancelInCelo = async () => {
-    let kit: ContractKit;
-    let address: string = '';
-    if (provider.isWalletConnect) {
-      await provider.enable().then((res) => {
-        // eslint-disable-next-line prefer-destructuring
-        address = res[0];
-        setOpenModal(false);
-      });
-      // @ts-ignore
-      const web3 = new Web3(provider);
-      // @ts-ignoreffer
-      kit = newKitFromWeb3(web3);
-      const accounts = await kit.web3.eth.getAccounts();
-      // eslint-disable-next-line prefer-destructuring
-      kit.defaultAccount = accounts[0];
-      const mainNet = provider.chainId !== 44787;
-      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
-      setLoadAcceptLoading(true);
-      setOpenAcceptModal(true);
-      walletLoggerService({
-        description: 'start accepting to cancel',
-        status: 'Waiting',
-      });
-      const answer = await offerWrapper.cancelService(props.offer, props.tradeId, true, address);
-      setLoadAcceptLoading(false);
-      setOpenAcceptModal(false);
-      walletLoggerService({
-        description: 'finish accepting to cancel',
-        status: 'Success',
-      });
-      if (answer?.message?.startsWith('Error')) {
-        showNotification({ message: answer.message });
-        return;
-      }
-      if (answer) {
-        handleCancelReservation();
-      } else {
-        console.log('failed');
-      }
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleCancelByPush();
     } else {
-      handleOpenWCModal();
+      let kit: ContractKit;
+      let address: string = '';
+      if (provider.isWalletConnect) {
+        await provider.enable().then((res) => {
+          // eslint-disable-next-line prefer-destructuring
+          address = res[0];
+          setOpenModal(false);
+        });
+        // @ts-ignore
+        const web3 = new Web3(provider);
+        // @ts-ignoreffer
+        kit = newKitFromWeb3(web3);
+        const accounts = await kit.web3.eth.getAccounts();
+        // eslint-disable-next-line prefer-destructuring
+        kit.defaultAccount = accounts[0];
+        const mainNet = provider.chainId !== 44787;
+        const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+        setLoadAcceptLoading(true);
+        setOpenAcceptModal(true);
+        walletLoggerService({
+          description: 'start accepting to cancel',
+          status: 'Waiting',
+        });
+        const answer = await offerWrapper.cancelService(props.offer, props.tradeId, true, address);
+        setLoadAcceptLoading(false);
+        setOpenAcceptModal(false);
+        walletLoggerService({
+          description: 'finish accepting to cancel',
+          status: 'Success',
+        });
+        if (answer?.message?.startsWith('Error')) {
+          showNotification({ message: answer.message });
+          return;
+        }
+        if (answer) {
+          handleCancelReservation();
+        } else {
+          console.log('failed');
+        }
+      } else {
+        handleOpenWCModal();
+      }
     }
   };
 
@@ -480,9 +501,11 @@ export default memo(withGlobal<OwnProps>(
   // eslint-disable-next-line teactn/mapStateToProps-no-store
   (global): StateProps => {
     const { currentUserId } = global;
+    const { heymateUser } = global;
     return {
       globalState: global,
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

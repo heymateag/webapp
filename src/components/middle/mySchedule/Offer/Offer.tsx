@@ -28,7 +28,7 @@ import OfferFooter from './components/OfferFooter';
 import { ClientType } from '../../../main/components/ZoomSdkService/types';
 import { ZoomClient } from '../../../main/components/ZoomSdkService/ZoomSdkService';
 import GenerateNewDate from '../../helpers/generateDateBasedOnTimeStamp';
-import { ApiUser } from '../../../../api/types';
+import { ApiUser, IHeymateUser } from '../../../../api/types';
 import { GlobalActions } from '../../../../global/types';
 import { selectUser } from '../../../../modules/selectors';
 import { pick } from '../../../../util/iteratees';
@@ -39,6 +39,7 @@ import { useWalletConnectQrModal } from '../../../left/wallet/hooks/useWalletCon
 import walletLoggerService from '../../../common/helpers/walletLoggerService';
 import OfferWrapper from '../../../left/wallet/OfferWrapper';
 import AcceptTransactionDialog from '../../../common/AcceptTransactionDialog';
+import { IHttpResponse } from '../../../../types/HeymateTypes/HttpResponse.model';
 
 type TimeToStart = {
   days: number;
@@ -50,6 +51,7 @@ type OwnProps = {
 };
 type StateProps = {
   currentUser?: ApiUser;
+  heymateUser?: IHeymateUser;
 };
 type DispatchProps = Pick<GlobalActions, 'showNotification' | 'sendDirectMessage' | 'openZoomDialogModal'>;
 
@@ -59,6 +61,7 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   sendDirectMessage,
   openZoomDialogModal,
   showNotification,
+  heymateUser,
 }) => {
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
@@ -134,10 +137,24 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
     setOpenModal(false);
     WalletConnectQRCodeModal.close();
   });
+
+  const handleCancelByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'CANCEL_BY_SERVICE_PROVIDER',
+        timeSlotId: props.selectedSchedule?.id,
+      },
+    });
+    console.log('===============Cancel By Service Provider Push Logs =======');
+    console.log(response);
+    return response;
+  };
+
   const handleCancelInCelo = async (tradeId: string, consumerAddress: string, address: string) => {
     let kit: ContractKit;
     if (provider.isWalletConnect) {
-
       // @ts-ignore
       const web3 = new Web3(provider);
       // @ts-ignoreffer
@@ -395,47 +412,50 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
   };
 
   const handleCancel = async () => {
-
-    let address: any = '';
-    await provider.enable().then((res) => {
-      // eslint-disable-next-line prefer-destructuring
-      address = res[0];
-      setOpenModal(false);
-    });
-    setLoadAcceptLoading(true);
-    setOpenAcceptModal(true);
-    let hasError = false;
-    let count = 0;
-    for (const item of participantsList) {
-      count += 1;
-      if (!hasError) {
-        await handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then(() => {
-          showNotification({ message: `successfully cancel ${count} of ${participantsList.length}` });
-        }, (err) => {
-          setLoadAcceptLoading(false);
-          setOpenAcceptModal(false);
-          showNotification({ message: err.message });
-          hasError = true;
-        });
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleCancelByPush();
+    } else {
+      let address: any = '';
+      await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+        address = res[0];
+        setOpenModal(false);
+      });
+      setLoadAcceptLoading(true);
+      setOpenAcceptModal(true);
+      let hasError = false;
+      let count = 0;
+      for (const item of participantsList) {
+        count += 1;
+        if (!hasError) {
+          await handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then(() => {
+            showNotification({ message: `successfully cancel ${count} of ${participantsList.length}` });
+          }, (err) => {
+            setLoadAcceptLoading(false);
+            setOpenAcceptModal(false);
+            showNotification({ message: err.message });
+            hasError = true;
+          });
+        }
       }
-    }
-    // participantsList.forEach((item, index) => {
-    //   if (!hasError) {
-    //     handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then((res) => {
-    //       showNotification({ message: `successfully cancel ${index + 1} of ${participantsList.length}` });
-    //     }, (err) => {
-    //       setLoadAcceptLoading(false);
-    //       setOpenAcceptModal(false);
-    //       showNotification({ message: err.message });
-    //       hasError = true;
-    //     });
-    //   }
-    // });
+      // participantsList.forEach((item, index) => {
+      //   if (!hasError) {
+      //     handleCancelInCelo(item.tradeId, item.user_wallet_address, address).then((res) => {
+      //       showNotification({ message: `successfully cancel ${index + 1} of ${participantsList.length}` });
+      //     }, (err) => {
+      //       setLoadAcceptLoading(false);
+      //       setOpenAcceptModal(false);
+      //       showNotification({ message: err.message });
+      //       hasError = true;
+      //     });
+      //   }
+      // });
 
-    setLoadAcceptLoading(false);
-    setOpenAcceptModal(false);
-    if (!hasError) {
-      handleCancelReservation();
+      setLoadAcceptLoading(false);
+      setOpenAcceptModal(false);
+      if (!hasError) {
+        handleCancelReservation();
+      }
     }
   };
   const handleCloseAcceptModal = () => {
@@ -521,8 +541,10 @@ const Offer: FC<OwnProps & DispatchProps & StateProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const { currentUserId } = global;
+    const { heymateUser } = global;
     return {
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [

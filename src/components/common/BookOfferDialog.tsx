@@ -47,6 +47,7 @@ enum BookOfferModalTabs {
   TIME_SLOTS,
   CALENDAR,
   SetPaymentMethod,
+  SetDevices,
 }
 enum PaymentMethod {
   'WALLECTCONNECT' = 'WALLECTCONNECT',
@@ -102,6 +103,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
     { type: BookOfferModalTabs.CALENDAR, title: 'Calendar' },
     { type: BookOfferModalTabs.SetPaymentMethod, title: 'Payment Method' },
+    { type: BookOfferModalTabs.SetDevices, title: 'Select Device' },
   ];
 
   const PAYMENT_METHODS: IRadioOption[] = [{
@@ -322,23 +324,16 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
         action: 'BOOK',
         offerId: offer.id,
         timeSlotId: activeTs?.id,
+
+        offerStartTime: activeTs?.fromTs,
+        offerPrice: offer.pricing.price,
+        offerProvider: offer?.provider?.fullName,
+        offerTitle: offer.title,
+
       },
     });
     showNotification({ message: 'Push Send To the device!' });
     if (response.data.data.failed.length === 0) {
-      const data = {
-        offerId: offer.id,
-        serviceProviderId: offer.userId,
-        purchasedPlanId: undefined,
-        timeSlotId: activeTs?.id,
-        tradeId: '1234',
-        consumer_wallet_address: selectedDevice.walletAddress,
-      };
-      const response = await axiosService({
-        url: `${HEYMATE_URL}/reservation`,
-        method: 'POST',
-        body: data,
-      });
       handleCLoseDetailsModal();
       showNotification({ message: 'Offer Booked Successfuly !' });
     } else {
@@ -371,15 +366,18 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
       }
     }
 
-    if (typeof heymateUser?.paymentMethod === 'undefined' ||
-      heymateUser?.paymentMethod === PaymentMethod.NOTSET) {
+    if (typeof heymateUser?.paymentMethod === 'undefined'
+      || heymateUser?.paymentMethod === PaymentMethod.NOTSET) {
       if (callToActionName.value === 'PUSH') {
+        setBookOfferLoading(true);
         await setDefaultPaymentMethod(PaymentMethod.PUSH);
         setUserDefaultDevice().then(async (res) => {
           showNotification({ message: 'Default User Device Has Set !' });
           await bookOfferByPush();
+          setBookOfferLoading(false);
         }).catch((err) => {
           console.log(err);
+          setBookOfferLoading(false);
           alert('failed to set default device');
         });
       } else {
@@ -402,7 +400,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
         bookOfferByWalletConnect();
         break;
       case PaymentMethod.PUSH:
-        setChooseMethodState('SELECT_DEVICE');
+        handleSwitchTab(3);
         setCallToActionName({
           name: 'Send Push',
           value: 'PUSH',
@@ -506,34 +504,31 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                     </div>
                   );
                 case BookOfferModalTabs.SetPaymentMethod:
-                  if (chooseMethodState === 'PAYMENT_METHOD') {
-                    return (
-                      <div>
-                        <RadioGroup
-                          name="paymentMethod"
-                          options={PAYMENT_METHODS}
-                          selected={selectedPaymentMethod}
-                          onChange={handleSelectedMethod}
+                  return (
+                    <div>
+                      <RadioGroup
+                        name="paymentMethod"
+                        options={PAYMENT_METHODS}
+                        selected={selectedPaymentMethod}
+                        onChange={handleSelectedMethod}
+                      />
+                    </div>
+                  );
+                case BookOfferModalTabs.SetDevices:
+                  return (
+                    <div>
+                      {heymateUser?.devices.map((device) => (
+                        <Radio
+                          name={device.deviceUUID}
+                          label={device.deviceName}
+                          value={device.deviceUUID}
+                          checked={selectedTimeSlotId === device.deviceUUID}
+                          onChange={(e) => handleSelectedDevice(e, device)}
                         />
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div>
-                        {heymateUser?.devices.map((device) => (
-                          <Radio
-                            name={device.deviceUUID}
-                            label={device.deviceName}
-                            value={device.deviceUUID}
-                            checked={selectedTimeSlotId === device.deviceUUID}
-                            onChange={(e) => handleSelectedDevice(e, device)}
-                          />
-                        ))}
+                      ))}
 
-                      </div>
-                    );
-                  }
-
+                    </div>
+                  );
                 default:
                   return (
                     <div>There’s no available time for the selected date</div>

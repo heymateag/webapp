@@ -7,7 +7,7 @@ import { ContractKit, newKitFromWeb3 } from '@celo/contractkit';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
 import { pick } from '../../../util/iteratees';
-import { ZoomDialogProps } from '../../../api/types';
+import { IHeymateUser, ZoomDialogProps } from '../../../api/types';
 import { GlobalActions } from '../../../global/types';
 
 import Modal from '../../ui/Modal';
@@ -27,9 +27,11 @@ import OfferWrapper from '../../left/wallet/OfferWrapper';
 import AcceptTransactionDialog from '../../common/AcceptTransactionDialog';
 import { useWalletConnectQrModal } from '../../left/wallet/hooks/useWalletConnectQrModal';
 import walletLoggerService from '../../common/helpers/walletLoggerService';
+import { IHttpResponse } from '../../../types/HeymateTypes/HttpResponse.model';
 
 type StateProps = {
   zoomDialog: ZoomDialogProps;
+  heymateUser?: IHeymateUser;
 };
 type DispatchProps = Pick<GlobalActions, 'closeZoomDialogModal' | 'showNotification'>;
 
@@ -37,6 +39,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   zoomDialog,
   closeZoomDialogModal,
   showNotification,
+  heymateUser,
 }) => {
   const [confirmModal, setConfirmModal] = useState(false);
 
@@ -149,7 +152,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
   };
 
   useWalletConnectQrModal(uri, openModal, handleCLoseWCModal);
-    /**
+  /**
    * Get Account Data
    */
   provider.connector.on('display_uri', (err, payload) => {
@@ -174,11 +177,28 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
     WalletConnectQRCodeModal.close();
   });
 
+  const handleFinishByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'FINISH',
+        reservationId: zoomDialog.reservationId,
+      },
+    });
+    return response;
+  };
   const handleFinishInCelo = async () => {
     if (zoomDialog.userType !== 'CONSUMER') {
-      handleFinishMeeting();
+      await handleFinishMeeting();
       return;
     }
+    // If selected method is push
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleFinishByPush();
+      return;
+    }
+
     let kit: ContractKit;
     let address: string = '';
     if (provider.isWalletConnect) {
@@ -344,6 +364,6 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
 };
 
 export default memo(withGlobal(
-  (global): StateProps => pick(global, ['zoomDialog']),
+  (global): StateProps => pick(global, ['zoomDialog', 'heymateUser']),
   (setGlobal, actions): DispatchProps => pick(actions, ['closeZoomDialogModal', 'showNotification']),
 )(ZoomDialog));
