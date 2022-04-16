@@ -274,7 +274,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       } else { // When the country code is entered implicitly with number
         registerNumber = "+" + phoneNumber;
       }
-      handleHeymateRegister(fullNumber);
+      handleHeymateRegister(registerNumber);
       setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
       setAuthPhoneNumber({ phoneNumber: fullNumber });
     }
