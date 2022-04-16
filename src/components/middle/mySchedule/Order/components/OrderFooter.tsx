@@ -187,6 +187,7 @@ const OrderFooter: FC<OwnProps & DispatchProps & StateProps> = ({
       body: {
         action: 'START',
         reservationId,
+        tradeId,
       },
     });
     console.log('===============Start the zoom push Logs =======');

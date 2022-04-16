@@ -184,6 +184,7 @@ const ZoomDialog : FC<DispatchProps & StateProps> = ({
       body: {
         action: 'FINISH',
         reservationId: zoomDialog.reservationId,
+        tradeId,
       },
     });
     return response;

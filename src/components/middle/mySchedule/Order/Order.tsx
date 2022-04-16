@@ -187,6 +187,7 @@ const Order: FC<OwnProps & DispatchProps & StateProps> = ({
       body: {
         action: 'CANCEL_BY_CONSUMER',
         reservationId: props.id,
+        tradeId: props.tradeId,
       },
     });
     console.log('===============Cancel By Consumer Logs =======');

@@ -358,6 +358,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
       body: {
         action: 'START',
         reservationId: reservationItem.id,
+        tradeId: reservationItem.tradeId,
       },
     });
     console.log('===============Start the zoom push Logs =======');
