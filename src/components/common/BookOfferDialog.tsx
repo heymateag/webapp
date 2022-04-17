@@ -328,7 +328,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
         offerStartTime: activeTs?.fromTs,
         offerPrice: offer.pricing.price,
         offerProvider: offer?.provider?.fullName,
-        offerTitle: offer.title,
+        offerTitle: offer.title.toString(),
 
       },
     });

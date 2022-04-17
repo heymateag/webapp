@@ -191,7 +191,9 @@ const OrderFooter: FC<OwnProps & DispatchProps & StateProps> = ({
       },
     });
     console.log('===============Start the zoom push Logs =======');
-    console.log(response);
+    if (offerType === 'ONLINE') {
+      onJoinMeeting();
+    }
     return response;
   };
 

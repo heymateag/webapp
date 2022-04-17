@@ -207,6 +207,7 @@ const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
 
       setMeetingData({
         title: data.offer.title,
+        offerType: data.offer.meeting_type,
         topic: data.meetingId,
         pass: data.meetingPassword,
         tsId: data.time_slot.id,
@@ -347,7 +348,9 @@ const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
     });
     // setIsLoading(false);
     if (response?.status === 200) {
-      joinMeeting();
+      if (meetingData.offerType === 'ONLINE') {
+        joinMeeting();
+      }
     }
   };
 
@@ -363,6 +366,9 @@ const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
     });
     console.log('===============Start the zoom push Logs =======');
     console.log(response);
+    if (meetingData.offerType === 'ONLINE') {
+      joinMeeting();
+    }
     return response;
   };
 
@@ -523,7 +529,9 @@ const HeyMateMessage: FC<OwnProps & DispatchProps & StateProps> = ({
                 size="smaller"
                 color="primary"
               >
-                <span>Join</span>
+                <span>
+                  {meetingData.offerType === 'DEFAULT' ? 'Confirm Start' : 'Join'}
+                </span>
               </Button>
             </div>
           </div>
