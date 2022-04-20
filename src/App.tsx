@@ -1,4 +1,4 @@
-import { FC, useEffect } from 'teact/teact';
+import { FC, useEffect, useState } from 'teact/teact';
 import React, { withGlobal } from './lib/teact/teactn';
 import { GlobalActions, GlobalState } from './global/types';
 
@@ -14,12 +14,14 @@ import Main from './components/main/Main.async';
 import AppInactive from './components/main/AppInactive';
 import { hasStoredSession } from './util/sessions';
 // import Test from './components/test/TestNoRedundancy';
+import { fetchToken, onMessageListener } from './firebase';
 
 type StateProps = Pick<GlobalState, 'authState'>;
 type DispatchProps = Pick<GlobalActions, 'disconnect'>;
 
 const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
   const [isInactive, markInactive] = useFlag(false);
+  const [isTokenFound, setTokenFound] = useState(false);
 
   useEffect(() => {
     updateSizes();
@@ -30,6 +32,10 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
       markInactive();
     });
   }, [disconnect, markInactive]);
+
+  useEffect(() => {
+    fetchToken(setTokenFound);
+  }, []);
 
   // return <Test />;
 
@@ -55,6 +61,20 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
 
   return hasStoredSession(true) ? renderMain() : <Auth />;
 };
+
+onMessageListener().then(payload => {
+  // setNotification({title: payload.notification.title, body: payload.notification.body})
+  // setShow(true);
+  // console.log(payload);
+  debugger
+}).catch((err) => console.log('failed: ', err));
+
+const onShowNotificationClicked = () => {
+  // setNotification({title: "Notification", body: "This is a test notification"})
+  // setShow(true);
+  debugger
+}
+
 
 function renderMain() {
   return (
