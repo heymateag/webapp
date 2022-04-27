@@ -17,12 +17,11 @@ import { hasStoredSession } from './util/sessions';
 import { fetchToken, onMessageListener } from './firebase';
 
 type StateProps = Pick<GlobalState, 'authState'>;
-type DispatchProps = Pick<GlobalActions, 'disconnect'>;
+type DispatchProps = Pick<GlobalActions, 'disconnect' | 'showNotification'>;
 
-const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
+const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotification}) => {
   const [isInactive, markInactive] = useFlag(false);
   const [isTokenFound, setTokenFound] = useState(false);
-
   useEffect(() => {
     updateSizes();
     addActiveTabChangeListener(() => {
@@ -32,10 +31,12 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
       markInactive();
     });
   }, [disconnect, markInactive]);
-
-  useEffect(() => {
-    fetchToken(setTokenFound);
-  }, []);
+  fetchToken(setTokenFound);
+debugger
+  onMessageListener().then((payload) => {
+    debugger
+  showNotification({message: payload.data.title});
+}).catch((err) => console.log('failed: ', err));
 
   // return <Test />;
 
@@ -62,19 +63,6 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
   return hasStoredSession(true) ? renderMain() : <Auth />;
 };
 
-onMessageListener().then(payload => {
-  // setNotification({title: payload.notification.title, body: payload.notification.body})
-  // setShow(true);
-  // console.log(payload);
-  debugger
-}).catch((err) => console.log('failed: ', err));
-
-const onShowNotificationClicked = () => {
-  // setNotification({title: "Notification", body: "This is a test notification"})
-  // setShow(true);
-  debugger
-}
-
 
 function renderMain() {
   return (
@@ -86,5 +74,5 @@ function renderMain() {
 
 export default withGlobal(
   (global): StateProps => pick(global, ['authState']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['disconnect']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['disconnect', 'showNotification']),
 )(App);

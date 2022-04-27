@@ -237,7 +237,18 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_REFRESH_TOKEN', refreshToken);
       localStorage.setItem('HM_PHONE', phone_number);
       localStorage.setItem('HM_USERID', userId);
+      handleSendWebPushToken();
     }
+  };
+
+  const handleSendWebPushToken = async () => {
+    await axiosService({
+      url: `${HEYMATE_URL}/users/updateWebPushToken`,
+      method: 'PATCH',
+      body: {
+        webPushToken: localStorage.getItem('pushToken'),
+      },
+    });
   };
 
   /**
@@ -266,8 +277,8 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     if (canSubmit) {
       let registerNumber, countryCode = String(country?.countryCode);
       if (phoneNumber?.startsWith("0") && country?.countryCode) { // When the number is entered with prefixed 0
-        registerNumber = phoneNumber
-        registerNumber = registerNumber.replace("0", country.countryCode)
+        registerNumber = phoneNumber;
+        registerNumber = registerNumber.replace("0", country.countryCode);
         registerNumber = "+" + registerNumber;
       } else if (!phoneNumber?.startsWith(countryCode)) { // When the number doesn't contains prefixed 0 and implicit country code
         registerNumber = fullNumber;
