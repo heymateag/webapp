@@ -22,6 +22,7 @@ type DispatchProps = Pick<GlobalActions, 'disconnect' | 'showNotification'>;
 const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotification}) => {
   const [isInactive, markInactive] = useFlag(false);
   const [isTokenFound, setTokenFound] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
   useEffect(() => {
     updateSizes();
     addActiveTabChangeListener(() => {
@@ -31,11 +32,12 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotifi
       markInactive();
     });
   }, [disconnect, markInactive]);
+  
   fetchToken(setTokenFound);
-debugger
   onMessageListener().then((payload) => {
-    debugger
+    setShowNotif(true);
   showNotification({message: payload.data.title});
+  setShowNotif(false);
 }).catch((err) => console.log('failed: ', err));
 
   // return <Test />;

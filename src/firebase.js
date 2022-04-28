@@ -2,13 +2,13 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBtHsgolNepkZmZs0hLJmR5D02AxrAyjYQ",
-  authDomain: "oshop-8dde4.firebaseapp.com",
-  databaseURL: "https://oshop-8dde4.firebaseio.com",
-  projectId: "oshop-8dde4",
-  storageBucket: "oshop-8dde4.appspot.com",
-  messagingSenderId: "913427173444",
-  appId: "1:913427173444:web:4061eeca1a59915c"
+  apiKey: "AIzaSyDWkIIlLSGKRkE-ctg1pD-Nnr-2X1FVgB0",
+  authDomain: "heymate-telegram.firebaseapp.com",
+  projectId: "heymate-telegram",
+  storageBucket: "heymate-telegram.appspot.com",
+  messagingSenderId: "312331163563",
+  appId: "1:312331163563:web:9cd209c922f91781c224ee",
+  measurementId: "G-8T8TYXBFW6"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
@@ -16,7 +16,7 @@ const messaging = getMessaging(firebaseApp);
 
 export const fetchToken = (setTokenFound) => {
   return getToken(messaging,
-    { vapidKey: 'BMKt8Hv3Vk0wYj1R_Cf5sVSTpYujsOqYkYPtyoABh_GLrCXqFGs-7U3Ckl9rYlL0SEvqNXV3r8o1vPDfE9mKoyU'})
+    { vapidKey: 'BJPY050QzdXTdDQDg6ZByNcZIqyrZkmbVpHdYA1mUMgjRk2JDi8tuRmKNAyMkU0VWawVu_QGQzaT1jTAdIJEUWY'})
     .then((currentToken) => {
       if (currentToken) {
         console.log('current token for client: ', currentToken);

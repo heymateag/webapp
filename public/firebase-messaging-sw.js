@@ -4,13 +4,13 @@ importScripts("https://www.gstatic.com/firebasejs/8.2.0/firebase-messaging.js");
 
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBtHsgolNepkZmZs0hLJmR5D02AxrAyjYQ",
-  authDomain: "oshop-8dde4.firebaseapp.com",
-  databaseURL: "https://oshop-8dde4.firebaseio.com",
-  projectId: "oshop-8dde4",
-  storageBucket: "oshop-8dde4.appspot.com",
-  messagingSenderId: "913427173444",
-  appId: "1:913427173444:web:4061eeca1a59915c"
+  apiKey: "AIzaSyDWkIIlLSGKRkE-ctg1pD-Nnr-2X1FVgB0",
+  authDomain: "heymate-telegram.firebaseapp.com",
+  projectId: "heymate-telegram",
+  storageBucket: "heymate-telegram.appspot.com",
+  messagingSenderId: "312331163563",
+  appId: "1:312331163563:web:9cd209c922f91781c224ee",
+  measurementId: "G-8T8TYXBFW6"
 };
 
 firebase.initializeApp(firebaseConfig);
