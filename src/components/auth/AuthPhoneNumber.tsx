@@ -216,6 +216,16 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
   };
 
+  const handleSendWebPushToken = async () => {
+    await axiosService({
+      url: `${HEYMATE_URL}/users/updateWebPushToken`,
+      method: 'PATCH',
+      body: {
+        webPushToken: localStorage.getItem('pushToken'),
+      },
+    });
+  };
+
   /**
    * Sign In To Heymate Back With Phone Number
    * @param phone_number
@@ -239,16 +249,6 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_USERID', userId);
       handleSendWebPushToken();
     }
-  };
-
-  const handleSendWebPushToken = async () => {
-    await axiosService({
-      url: `${HEYMATE_URL}/users/updateWebPushToken`,
-      method: 'PATCH',
-      body: {
-        webPushToken: localStorage.getItem('pushToken'),
-      },
-    });
   };
 
   /**

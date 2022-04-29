@@ -28,17 +28,18 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotifi
     addActiveTabChangeListener(() => {
       disconnect();
       document.title = `${PAGE_TITLE}${INACTIVE_MARKER}`;
-
       markInactive();
     });
   }, [disconnect, markInactive]);
-  
-  fetchToken(setTokenFound);
+
+  useEffect(() => {
+    fetchToken(setTokenFound);
+  }, []);
   onMessageListener().then((payload) => {
     setShowNotif(true);
-  showNotification({message: payload.data.title});
-  setShowNotif(false);
-}).catch((err) => console.log('failed: ', err));
+    showNotification({ message: payload.data.title });
+    setShowNotif(false);
+  }).catch((err) => console.log('failed: ', err));
 
   // return <Test />;
 
@@ -64,7 +65,6 @@ const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotifi
 
   return hasStoredSession(true) ? renderMain() : <Auth />;
 };
-
 
 function renderMain() {
   return (
