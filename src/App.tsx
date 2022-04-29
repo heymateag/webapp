@@ -1,4 +1,4 @@
-import { FC, useEffect } from 'teact/teact';
+import { FC, useEffect, useState } from 'teact/teact';
 import React, { withGlobal } from './lib/teact/teactn';
 import { GlobalActions, GlobalState } from './global/types';
 
@@ -14,22 +14,32 @@ import Main from './components/main/Main.async';
 import AppInactive from './components/main/AppInactive';
 import { hasStoredSession } from './util/sessions';
 // import Test from './components/test/TestNoRedundancy';
+import { fetchToken, onMessageListener } from './firebase';
 
 type StateProps = Pick<GlobalState, 'authState'>;
-type DispatchProps = Pick<GlobalActions, 'disconnect'>;
+type DispatchProps = Pick<GlobalActions, 'disconnect' | 'showNotification'>;
 
-const App: FC<StateProps & DispatchProps> = ({ authState, disconnect }) => {
+const App: FC<StateProps & DispatchProps> = ({ authState, disconnect, showNotification}) => {
   const [isInactive, markInactive] = useFlag(false);
-
+  const [isTokenFound, setTokenFound] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
   useEffect(() => {
     updateSizes();
     addActiveTabChangeListener(() => {
       disconnect();
       document.title = `${PAGE_TITLE}${INACTIVE_MARKER}`;
-
       markInactive();
     });
   }, [disconnect, markInactive]);
+
+  useEffect(() => {
+    fetchToken(setTokenFound);
+  }, []);
+  onMessageListener().then((payload) => {
+    setShowNotif(true);
+    showNotification({ message: payload.data.title });
+    setShowNotif(false);
+  }).catch((err) => console.log('failed: ', err));
 
   // return <Test />;
 
@@ -66,5 +76,5 @@ function renderMain() {
 
 export default withGlobal(
   (global): StateProps => pick(global, ['authState']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['disconnect']),
+  (setGlobal, actions): DispatchProps => pick(actions, ['disconnect', 'showNotification']),
 )(App);
