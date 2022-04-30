@@ -1,4 +1,4 @@
-name: Deploy Production
+name: Deploy QA
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: production
+    environment: qa
     strategy:
       matrix:
         node-version: [14.x]
