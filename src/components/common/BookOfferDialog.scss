@@ -14,18 +14,17 @@
       .TabList {
         z-index: 1;
       }
-      .Transition {
-
         height: calc(100% - 43px);
         height: -webkit-calc(100% - 43px);
-        padding: 1rem 0;
+        padding-bottom: 1rem;
 
         .TimeSlots {
           height: 100%;
           .time-slots-picker {
             display: flex;
+            flex-direction: column;
             justify-content: space-between;
-            padding: 1rem;
+            padding-right: 0.4rem;
             #caption {
               font-size: 16px;
               font-weight: 400;
@@ -40,6 +39,13 @@
             .calendar-wrapper {
               display: flex;
               align-items: center;
+              justify-content: space-between;
+              height: 64px;
+              border: 1px solid var(--color-borders-input);
+              border-radius: var(--border-radius-messages);
+              margin-top: 0.5rem;
+              padding-right: 1rem;
+              padding-left: 1rem;
               .icon-calendar {
                 font-size: 16px;
                 font-weight: 500;
@@ -52,6 +58,7 @@
             height: calc(100% - 56px);
             height: -webkit-calc(100% - 56px);
             overflow-y: scroll;
+            margin-top: 32px;
             .time-slot-row {
               display: flex;
               justify-content: space-between;
@@ -118,15 +125,65 @@
             }
           }
         }
-      }
       .Calendar {
         height: 300px;
+      }
+      .payment-radio {
+        label {
+          margin-bottom: 0;
+        }
+        p {
+          color: #81868A;
+          margin-left: 2rem;
+          font-weight: 400;
+          font-size: 12px;
+          line-height: 16px;
+          margin-top: 8px;
+        }
+        .title {
+          margin-bottom: 18px;
+          display: inline-block;
+        }
+        .push-devices {
+          display: flex;
+          justify-content: space-between;
+          width: 90%;
+          .address-balance {
+            text-align: center;
+            font-size: 14px;
+            width: 72px;
+            height: 24px;
+            background: #5CB050;
+            border-radius: 25px;
+            color: white;
+          }
+        }
+        .default-row{
+        
+          &--title {
+            span {
+              font-weight: 400;
+              font-size: 14px;
+              line-height: 24px;
+              letter-spacing: 0.2px;
+              color: var(--color-text);
+              margin-left: 2rem;
+            }
+            img {
+              cursor: pointer;
+              width: 18px;
+              height: 18px;
+              margin-left: 1rem;
+            }
+          }
+        }
       }
     }
     .btn-group {
       display: flex;
-      justify-content: flex-end;
+      justify-content: center;
       width: 100%;
+      margin-top: 20px;
       .Button {
         width: 128px;
       }
@@ -143,3 +200,8 @@
 .modal-header{
   margin-bottom: 20px;
 }
+// .default-row-devices {
+//     display: flex;
+//     justify-content: space-between;
+//     width: 90%;
+// }

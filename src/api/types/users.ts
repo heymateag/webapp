@@ -68,6 +68,9 @@ export interface IHeymateUser {
     pushToken: string;
     walletAddress: string;
     currency: string;
+    balance?: {
+      cUSD: string;
+    }
   }[];
 
   transactionDefaultDevice: {
@@ -77,5 +80,8 @@ export interface IHeymateUser {
     pushToken: string;
     walletAddress: string;
     currency: string;
+    balance?: {
+      cUSD: string;
+    }
   };
 };

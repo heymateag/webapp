@@ -31,6 +31,8 @@ import walletLoggerService from './helpers/walletLoggerService';
 import { ApiReportReason, IHeymateUser } from '../../api/types';
 import RadioGroup, { IRadioOption } from '../ui/RadioGroup';
 import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
+import getWalletBalanceByAddress from './helpers/walletBalanceHelper';
+import editImage from '../../assets/heymate/edit.svg';
 
 type OwnProps = {
   offer: IOffer;
@@ -98,6 +100,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     name: 'Book Now',
     value: 'WC',
   });
+  const [actionTitle, setActionTitle] = useState('Schedule a time');
+  const [currentStep, setCurrentStep] = useState('time');
+  const [userCurrentPaymentMethod, setUserCurrentPaymentMethod] = useState('');
+  const [userHasDefaultDevice, setUserHasDefaultDevice] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const tabs = [
     { type: BookOfferModalTabs.TIME_SLOTS, title: 'Time Slots' },
@@ -196,6 +203,25 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
   const handleCLoseDetailsModal = () => {
     onCloseModal();
   };
+
+  useEffect(() => {
+    if (currentStep === 'purchase-type') {
+      heymateUser?.devices.forEach(async (device: any) => {
+        const balance = await getWalletBalanceByAddress(device.walletAddress);
+        device.balance = balance;
+      });
+    }
+    if (heymateUser?.paymentMethod === PaymentMethod.PUSH) {
+      setUserCurrentPaymentMethod('PUSH');
+      setSelectedPaymentMethod(PaymentMethod.PUSH);
+    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLECTCONNECT) {
+      setUserCurrentPaymentMethod('WALLETCONECT');
+      setSelectedPaymentMethod(PaymentMethod.WALLECTCONNECT);
+    }
+    if (heymateUser?.transactionDefaultDevice) {
+      setUserHasDefaultDevice(true);
+    }
+  }, [heymateUser, currentStep]);
 
   useEffect(() => {
     if (offer) {
@@ -341,23 +367,18 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     }
   };
 
-  const [activeTab, setActiveTab] = useState<BookOfferModalTabs>(BookOfferModalTabs.TIME_SLOTS);
-
-  const handleSwitchTab = useCallback((index: number) => {
-    setActiveTab(index); // Uncomment to calendar tab works
-  }, []);
-
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const handleOpenCalendarModal = () => {
     setIsCalendarOpen(true);
   };
 
-  const handleSelectedMethod = useCallback((value: string) => {
-    setSelectedPaymentMethod(value as PaymentMethod);
+  const handleSelectedMethod = useCallback((value: any) => {
+    setSelectedPaymentMethod((value.currentTarget.defaultValue) as PaymentMethod);
   }, []);
 
   const handleBookOffer = async () => {
+    debugger
     let planId;
     if (purchasePlanType !== 'SINGLE') {
       const plan = await purchaseAPlan();
@@ -365,10 +386,16 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
         planId = plan.id;
       }
     }
+    if (currentStep === 'time') {
+      setCurrentStep('purchase-type');
+      setActionTitle('Select payment method');
+      return;
+    }
 
     if (typeof heymateUser?.paymentMethod === 'undefined'
-      || heymateUser?.paymentMethod === PaymentMethod.NOTSET) {
-      if (callToActionName.value === 'PUSH') {
+      || heymateUser?.paymentMethod === PaymentMethod.NOTSET || editMode) {
+    // if (true) {
+      if (selectedPaymentMethod === PaymentMethod.PUSH) {
         setBookOfferLoading(true);
         await setDefaultPaymentMethod(PaymentMethod.PUSH);
         setUserDefaultDevice().then(async (res) => {
@@ -381,7 +408,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
           alert('failed to set default device');
         });
       } else {
-        handleSwitchTab(2);
+        await setDefaultPaymentMethod(PaymentMethod.WALLECTCONNECT);
+        bookOfferByWalletConnect();
       }
     } else if (heymateUser?.paymentMethod === PaymentMethod.PUSH) {
       await bookOfferByPush();
@@ -394,23 +422,23 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     setSelectedDevice(device);
   };
 
-  useEffect(() => {
-    switch (selectedPaymentMethod) {
-      case PaymentMethod.WALLECTCONNECT:
-        bookOfferByWalletConnect();
-        break;
-      case PaymentMethod.PUSH:
-        handleSwitchTab(3);
-        setCallToActionName({
-          name: 'Send Push',
-          value: 'PUSH',
-        });
-        break;
-      case PaymentMethod.NOTSET:
-        console.log(selectedPaymentMethod);
-        break;
-    }
-  }, [selectedPaymentMethod]);
+  // useEffect(() => {
+  //   switch (selectedPaymentMethod) {
+  //     case PaymentMethod.WALLECTCONNECT:
+  //       bookOfferByWalletConnect();
+  //       break;
+  //     case PaymentMethod.PUSH:
+  //       handleSwitchTab(3);
+  //       setCallToActionName({
+  //         name: 'Send Push',
+  //         value: 'PUSH',
+  //       });
+  //       break;
+  //     case PaymentMethod.NOTSET:
+  //       console.log(selectedPaymentMethod);
+  //       break;
+  //   }
+  // }, [selectedPaymentMethod]);
 
   const handleRescheduleMessage = useCallback((date: Date) => {
     let startDate: any = date;
@@ -425,6 +453,16 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     setFilteredDate(filterDates);
   }, [timeSlots]);
 
+  const handleEditBtn = (type: string) => {
+    setEditMode(true);
+    if (type === 'method') {
+      setUserCurrentPaymentMethod('');
+      setSelectedPaymentMethod(PaymentMethod.NOTSET);
+    } else if (type === 'device') {
+      setUserHasDefaultDevice(false);
+    }
+  };
+
   return (
     <div>
       <Modal
@@ -433,9 +471,136 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
         onClose={handleCLoseDetailsModal}
         onEnter={openModal ? handleCLoseDetailsModal : undefined}
         className="BookOfferModal"
-        title="Schedule"
+        title={actionTitle}
       >
         <div className="book-offer-content">
+          {currentStep === 'time'
+            ? (
+              <div className="TimeSlots">
+                <div className="time-slots-picker">
+                  <span id="caption">Date</span>
+                  <div className="calendar-wrapper" onClick={handleOpenCalendarModal}>
+                    <span
+                      id="time-picker"
+
+                    >{selectedDate}
+                    </span>
+                    <i className="icon-calendar" />
+                  </div>
+                </div>
+                <div className="time-slots-rows custom-scroll">
+                  <span id="caption">Hours</span>
+                  {filteredDate.length > 0 ? filteredDate.map((item) => (
+                    <div
+                      className={buildClassName('time-slot-row',
+                        (selectedTimeSlotId === item.id) && 'active')}
+                    >
+                      <div>
+                        <Radio
+                          name={item.id}
+                          label={`${selectedDate === 'All' ? `${item.date} - ` : ''}
+                           ${item.fromDateLocal} - ${item.toDateLocal}`}
+                          value={item.id}
+                          checked={selectedTimeSlotId === item.id}
+                          onChange={(e) => handleChange(e, item)}
+                        />
+                      </div>
+                      {item.completedReservations && item.completedReservations > 10000 ? (
+                        <div className="remaining-of-total">
+                          <span id="remaining">{item.completedReservations}</span>
+                          <span id="total">  of {item.maximumReservations}</span>
+                        </div>
+                      ) : (
+                        <div className="remaining-of-total">
+                          unlimited
+                        </div>
+                      )}
+                    </div>
+                  )) : (
+                    <div className="no-time-slot-founds">
+                      <i className="hm-calendar" />
+                      <div className="content-for-no-ts">
+                        <p>There’s no available time for the selected date.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+            : (
+              <div className="payment-radio">
+                <span className="title">Payment Method</span>
+                {
+                  userCurrentPaymentMethod === 'WALLETCONECT' ? (
+                    <div className="default-row">
+                      <div className="default-row--title">
+                        <span>Wallet Connect</span>
+                        <img src={editImage} alt="" onClick={() => handleEditBtn('method')} />
+                      </div>
+                      <p>Scan QR code to complete payment</p>
+                    </div>
+                  ) : userCurrentPaymentMethod === 'PUSH' ? (
+                    <div className="default-row">
+                      <div className="default-row--title">
+                        <span>Heymate Wallet (by push)</span>
+                        <img src={editImage} alt="" onClick={() => handleEditBtn('method')} />
+                      </div>
+                      <p>Send payment request to your phone to complete payment</p>
+                    </div>
+                  ) : (
+                    <><Radio
+                      name="paymentMethod"
+                      label="Wallet Connect"
+                      value="WALLECTCONNECT"
+                      checked={selectedPaymentMethod === PaymentMethod.WALLECTCONNECT}
+                      onChange={handleSelectedMethod}
+                    /><p>Scan QR code to complete payment</p><Radio
+                      name="paymentMethod"
+                      label="Heymate Wallet (by push)"
+                      value="PUSH"
+                      checked={selectedPaymentMethod === PaymentMethod.PUSH}
+                      onChange={handleSelectedMethod}
+                    /><p>Send payment request to your phone to complete payment</p>
+                    </>
+                  )
+                }
+
+                {selectedPaymentMethod === PaymentMethod.PUSH && (
+                  <div>
+                    <span className="title">Device Type</span>
+                    {
+                      userHasDefaultDevice && (
+                        <div className="default-row">
+                          <div className="default-row--title">
+                            <span>{heymateUser?.transactionDefaultDevice.deviceName}</span>
+                            <img src={editImage} alt="" onClick={() => handleEditBtn('device')} />
+                          </div>
+                          <div className="address-balance">
+                            {heymateUser?.transactionDefaultDevice?.balance?.cUSD}
+                          </div>
+                        </div>
+                      )
+                    }
+                    {!userHasDefaultDevice && heymateUser?.devices.map((device) => (
+                      <div className="push-devices">
+                        <Radio
+                          name={device.deviceUUID}
+                          label={device.deviceName}
+                          value={device.deviceUUID}
+                          checked={selectedTimeSlotId === device.deviceUUID}
+                          onChange={(e) => handleSelectedDevice(e, device)}
+                        />
+                        <div className="address-balance">
+                          {device.balance?.cUSD}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+        </div>
+        {/* <div className="book-offer-content">
           <TabList activeTab={activeTab} tabs={tabs} onSwitchTab={() => {}} />
           <Transition
             className="full-content"
@@ -536,11 +701,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
               }
             }}
           </Transition>
-        </div>
+        </div> */}
         <div className="btn-group">
-          <Button className="book-offer" size="smaller" color="translucent" onClick={handleCLoseDetailsModal}>
+          {/* <Button className="book-offer" size="smaller" color="translucent" onClick={handleCLoseDetailsModal}>
             <span>Cancel</span>
-          </Button>
+          </Button> */}
           <Button
             isLoading={bookOfferLoading}
             onClick={handleBookOffer}
@@ -551,7 +716,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
               !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
             }
           >
-            {callToActionName.name}
+            {/* {callToActionName.name} */}
+            {currentStep === 'time' ? 'Next' : currentStep === 'purchase-type' ? 'Make Payment' : ''}
           </Button>
         </div>
       </Modal>

@@ -1,4 +1,5 @@
 import React, { FC } from 'teact/teact';
+import Web3 from 'web3';
 
 import './TransactionRow.scss';
 
@@ -9,7 +10,7 @@ interface Props {
   value: string;
   address: string;
   tokenSymbol: string;
-  weiEther: any;
+  weiEther?: any;
 }
 const TransactionRow: FC = ({
   timeStamp,
@@ -18,8 +19,7 @@ const TransactionRow: FC = ({
   value,
   address,
   tokenSymbol,
-  weiEther,
-
+  weiEther = new Web3().utils.toWei('1', 'ether'),
 }) => {
   return (
     <div className="TransitionRow">

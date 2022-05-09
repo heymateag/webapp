@@ -190,3 +190,196 @@
   width: 150px;
   margin-top: 15px;
 }
+
+.BookOfferModal {
+  .modal-dialog {
+    max-height: 520px;
+    width: 480px;
+    .modal-header {
+      flex-direction: row-reverse;
+      .modal-title {
+        text-align: center;
+      }
+    }
+    .book-offer-content {
+      height: 350px;
+      overflow-y: hidden;
+      .TabList {
+        z-index: 1;
+      }
+        height: calc(100% - 43px);
+        height: -webkit-calc(100% - 43px);
+        padding-bottom: 1rem;
+
+        .TimeSlots {
+          height: 100%;
+          .time-slots-picker {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding-right: 0.4rem;
+            #caption {
+              font-size: 16px;
+              font-weight: 400;
+              color: var(--color-text);
+            }
+            #time-picker {
+              cursor: pointer;
+              font-size: 16px;
+              font-weight: 500;
+              color: var(--color-primary);
+            }
+            .calendar-wrapper {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              height: 64px;
+              border: 1px solid var(--color-borders-input);
+              border-radius: var(--border-radius-messages);
+              margin-top: 0.5rem;
+              padding-right: 1rem;
+              padding-left: 1rem;
+              .icon-calendar {
+                font-size: 16px;
+                font-weight: 500;
+                color: var(--color-primary);
+              }
+            }
+
+          }
+          .time-slots-rows {
+            height: calc(100% - 56px);
+            height: -webkit-calc(100% - 56px);
+            overflow-y: scroll;
+            margin-top: 32px;
+            .time-slot-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              height: 64px;
+              border: 1px solid var(--color-borders-input);
+              border-radius: var(--border-radius-messages);
+              margin-top: 0.5rem;
+              padding-right: 1rem;
+              &.active {
+                border-color: var(--color-primary);
+                label {
+                  color: var(--color-primary);
+                }
+              }
+
+              .remaining-of-total {
+                font-size: 14px;
+                min-width: 54px;
+                display: flex;
+                justify-content: space-around;
+                #remaining {
+                  font-weight: bold;
+                }
+                #total{
+                  color: var(--color-gray);
+                }
+              }
+
+              .Radio {
+                margin-bottom: 0;
+                line-height: 0;
+              }
+              label {
+                margin-bottom: 0;
+              }
+            }
+            .no-time-slot-founds {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-flow: row wrap;
+              align-content: center;
+              i {
+                font-size: 35px;
+                color: var(--color-gray);
+              }
+              .content-for-no-ts {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+
+                p {
+                  width: 50%;
+                  color: var(--color-gray);
+                  font-size: 14px;
+                  font-weight: normal;
+                  text-align: center;
+                  margin-top: 0.5rem;
+                }
+              }
+            }
+          }
+        }
+      .Calendar {
+        height: 300px;
+      }
+      .payment-radio {
+        label {
+          margin-bottom: 0;
+        }
+        p {
+          color: #81868A;
+          margin-left: 2rem;
+          font-weight: 400;
+          font-size: 12px;
+          line-height: 16px;
+          margin-top: 8px;
+        }
+        .title {
+          margin-bottom: 18px;
+          display: inline-block;
+        }
+        .push-devices {
+          display: flex;
+          justify-content: space-between;
+          width: 90%;
+          .address-balance {
+            text-align: center;
+            font-size: 14px;
+            width: 72px;
+            height: 24px;
+            background: #5CB050;
+            border-radius: 25px;
+            color: white;
+          }
+        }
+        .default-row{
+          &--title {
+            span {
+              font-weight: 400;
+              font-size: 14px;
+              line-height: 24px;
+              letter-spacing: 0.2px;
+              color: #292929;
+              margin-left: 2rem;
+            }
+            img {
+              cursor: pointer;
+              width: 18px;
+              height: 18px;
+              margin-left: 1rem;
+            }
+          }
+        }
+      }
+    }
+    .btn-group {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-top: 20px;
+      .Button {
+        width: 128px;
+      }
+    }
+  }
+
+}

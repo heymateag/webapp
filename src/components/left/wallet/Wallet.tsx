@@ -20,6 +20,9 @@ import Select from '../../ui/Select';
 import { axiosService } from '../../../api/services/axiosService';
 import walletLoggerService from '../../common/helpers/walletLoggerService';
 import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
+import Modal from '../../ui/Modal';
+import Radio from '../../ui/Radio';
+import { ChangeEvent } from 'react';
 
 export type OwnProps = {
   onReset: () => void;
@@ -32,10 +35,19 @@ interface IBalance {
   cREAL: string;
 }
 
-type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+enum PaymentMethod {
+  'WALLECTCONNECT' = 'WALLECTCONNECT',
+  'PUSH' = 'PUSH',
+  'NOTSET' = 'NOTSET',
+}
 
-const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) => {
-  const [openModal, setOpenModal] = useState(false);
+type DispatchProps = Pick<GlobalActions, 'showNotification'>;
+type StateProps = {
+  heymateUser?: IHeymateUser;
+};
+
+const Wallet: FC <OwnProps & DispatchProps & StateProps> = ({ onReset, showNotification, heymateUser }) => {
+  const [openModal, setOpenModal] = useState(true);
   const [kit, setKit] = useState<any>();
   const [width, setWidth] = useState<number>(0);
   const [isConnected, setIsConnected] = useState(false);
@@ -50,6 +62,9 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     cEUR: '0',
     cREAL: '0',
   });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(PaymentMethod.NOTSET);
+  const [selectedDevice, setSelectedDevice] = useState<any>('');
+
   const connect = async () => {
     const providerItem = new WalletConnectProvider({
       rpc: {
@@ -94,12 +109,16 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
 
   useEffect(() => {
     setWidth(window.innerWidth);
-    connect();
+    // connect();
+    // if (heymateUser) {
+    //   if (heymateUser?.paymentMethod === 'PUSH' && heymateUser?.transactionDefaultDevice) {
+    //     getBalances(heymateUser?.transactionDefaultDevice.walletAddress);
+    //     getTransactionsByAddress(heymateUser?.transactionDefaultDevice.walletAddress);
+    //   }
+    // }
   }, []);
 
-
   const lang = useLang();
-
 
   const getTransactions = async () => {
     const baseURL = provider.chainId !== 44787
@@ -115,6 +134,40 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
     const filter = response.data.result.filter((row) => (row.value / weiEther) > 0.01);
     setTransactionList(filter);
   };
+  const getTransactionsByAddress = async (address: string) => {
+    const baseURL = 'https://alfajores-blockscout.celo-testnet.org/';
+    // ? 'https://explorer.celo.org/'
+    // : 'https://alfajores-blockscout.celo-testnet.org/';
+    const url = `${baseURL}api?module=account&action=tokentx&page=0&offset=50&address=${address}`;
+    const response = await axiosService({
+      url,
+      method: 'GET',
+      body: {},
+    });
+    const weiEther = new Web3().utils.toWei('1', 'ether');
+    const filter = response.data.result.filter((row) => (row.value / weiEther) > 0.01);
+    setTransactionList(filter);
+  };
+  const getBalances = async (address: string) => {
+    setLoadingBalance(true);
+    const baseURL = false
+      ? 'https://explorer.celo.org/'
+      : 'https://alfajores-blockscout.celo-testnet.org/';
+    const url = `${baseURL}api?module=account&action=tokenlist&address=${address}`;
+    const response = await axiosService({
+      url,
+      method: 'GET',
+      body: {},
+    });
+    const data: any = {};
+    response.data.result.forEach((item) => {
+      const balance = (item.balance / (Math.pow(10, item.decimals)));
+      data[item.symbol] = balance;
+    });
+    setLoadingBalance(false);
+    setIsConnected(true);
+    setBalance(data);
+  };
 
   useEffect(() => {
     if (kit) {
@@ -125,6 +178,25 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
   const handleChangeCurrency = (e: any) => {
     const filter = e.target.value;
     setBalanceType(filter);
+  };
+
+  const handleCLoseDetailsModal = () => {
+    setOpenModal(false);
+  };
+  const handleSelectedMethod = useCallback((value: any) => {
+    setSelectedPaymentMethod((value.currentTarget.defaultValue) as PaymentMethod);
+  }, []);
+  const handleSelectedDevice = (event: ChangeEvent<HTMLInputElement>, device: any) => {
+    setSelectedDevice(device);
+  };
+  const getBalanceBasedOnUserChoice = () => {
+    setOpenModal(false);
+    if (selectedPaymentMethod === PaymentMethod.WALLECTCONNECT) {
+      connect();
+    } else {
+      getBalances(selectedDevice.walletAddress);
+      getTransactionsByAddress(selectedDevice.walletAddress);
+    }
   };
 
   return (
@@ -207,12 +279,11 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
               <TransactionRow
                 key={name.timeStamp}
                 value={name.value}
-                weiEther={kit?.web3?.utils?.toWei('1', 'ether')}
                 from={name.from}
                 to={name.to}
                 timeStamp={name.timeStamp}
                 tokenSymbol={name.tokenSymbol}
-                address={provider.accounts[0]}
+                address={provider?.accounts[0] || heymateUser?.transactionDefaultDevice.walletAddress}
               />
             );
           })
@@ -225,14 +296,72 @@ const Wallet: FC <OwnProps & DispatchProps> = ({ onReset, showNotification }) =>
       {/*  loadingQr={loadingQr} */}
       {/*  qrCodeRef={qrCodeRef} */}
       {/* /> */}
+      <Modal
+        hasCloseButton
+        isOpen={openModal}
+        onClose={handleCLoseDetailsModal}
+        onEnter={openModal ? handleCLoseDetailsModal : undefined}
+        className="BookOfferModal"
+        title="choose method"
+      >
+        <div className="payment-radio">
+          <span className="title">Payment Method</span>
 
+          <><Radio
+            name="paymentMethod"
+            label="Wallet Connect"
+            value="WALLECTCONNECT"
+            checked={selectedPaymentMethod === PaymentMethod.WALLECTCONNECT}
+            onChange={handleSelectedMethod}
+          /><p>Scan QR code to complete payment</p><Radio
+            name="paymentMethod"
+            label="Heymate Wallet (by push)"
+            value="PUSH"
+            checked={selectedPaymentMethod === PaymentMethod.PUSH}
+            onChange={handleSelectedMethod}
+          /><p>Send payment request to your phone to complete payment</p>
+          </>
+
+          {selectedPaymentMethod === PaymentMethod.PUSH && (
+            <div>
+              <span className="title">Device Type</span>
+              {heymateUser?.devices.map((device) => (
+                <div className="push-devices">
+                  <Radio
+                    name={device.deviceUUID}
+                    label={device.deviceName}
+                    value={device.deviceUUID}
+                    checked={selectedDevice === device.deviceUUID}
+                    onChange={(e) => handleSelectedDevice(e, device)}
+                  />
+                  <div className="address-balance">
+                    {device.balance?.cUSD}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="btn-group">
+          <Button
+            onClick={getBalanceBasedOnUserChoice}
+            className="see-details"
+            size="smaller"
+            color="primary"
+          >
+            get balance
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default memo(withGlobal<OwnProps>(
-  (): any => {
+  (global): StateProps => {
+    const { heymateUser } = global;
     return {
+      heymateUser,
     };
   },
   (setGlobal, actions): DispatchProps => pick(actions, [
