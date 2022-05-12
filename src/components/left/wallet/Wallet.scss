@@ -352,13 +352,14 @@
           }
         }
         .default-row{
+        
           &--title {
             span {
               font-weight: 400;
               font-size: 14px;
               line-height: 24px;
               letter-spacing: 0.2px;
-              color: #292929;
+              color: var(--color-text);
               margin-left: 2rem;
             }
             img {
@@ -383,3 +384,17 @@
   }
 
 }
+// .spinner-holder {
+//   padding-top: 0.45rem;
+//   width: 100%;
+//   display: flex;
+//   justify-content: center;
+// }
+.modal-header{
+  margin-bottom: 20px;
+}
+// .default-row-devices {
+//     display: flex;
+//     justify-content: space-between;
+//     width: 90%;
+// }

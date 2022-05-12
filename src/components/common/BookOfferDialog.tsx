@@ -33,6 +33,7 @@ import RadioGroup, { IRadioOption } from '../ui/RadioGroup';
 import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 import getWalletBalanceByAddress from './helpers/walletBalanceHelper';
 import editImage from '../../assets/heymate/edit.svg';
+import hmlogo from '../../assets/heymate/heymate-logro-ounded.png';
 
 type OwnProps = {
   offer: IOffer;
@@ -359,9 +360,11 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
       },
     });
     showNotification({ message: 'Push Send To the device!' });
-    if (response.data.data.failed.length === 0) {
-      handleCLoseDetailsModal();
-      showNotification({ message: 'Offer Booked Successfuly !' });
+    if (response.status === 200 || response.status === 201) {
+      setCurrentStep('accept');
+      setActionTitle('Payment Request sent to your phone');
+      // handleCLoseDetailsModal();
+      // showNotification({ message: 'Please Accept request on your device!' });
     } else {
       showNotification({ message: 'Failed To send the push !' });
     }
@@ -378,7 +381,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
   }, []);
 
   const handleBookOffer = async () => {
-    debugger
+    debugger;
     let planId;
     if (purchasePlanType !== 'SINGLE') {
       const plan = await purchaseAPlan();
@@ -389,6 +392,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     if (currentStep === 'time') {
       setCurrentStep('purchase-type');
       setActionTitle('Select payment method');
+      setCurrentStep('purchase-type');
       return;
     }
 
@@ -527,7 +531,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                 </div>
               </div>
             )
-            : (
+            : currentStep === 'purchase-type' ? (
               <div className="payment-radio">
                 <span className="title">Payment Method</span>
                 {
@@ -570,7 +574,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                     <span className="title">Device Type</span>
                     {
                       userHasDefaultDevice && (
-                        <div className="default-row">
+                        <div className="default-row devices-edit">
                           <div className="default-row--title">
                             <span>{heymateUser?.transactionDefaultDevice.deviceName}</span>
                             <img src={editImage} alt="" onClick={() => handleEditBtn('device')} />
@@ -598,128 +602,37 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            )
+              : (
+                <div className='accept-part'>
+                  <img src={hmlogo} alt="heymate-logo" />
+                  <div className='accept-part--desc'>
+                    <span className='accept-part--desc--title'>Perform the following steps to complete your order</span>
+                    <span className='accept-part--desc--body'> >  Open the App, accept the payment request</span>
+                    <span className='accept-part--desc--body'> > Enter your pin and wait confirmation</span>
+                    <span className='accept-part--desc--body'> > Please do not close the application</span>
+                  </div>
+                </div>
+              )}
         </div>
-        {/* <div className="book-offer-content">
-          <TabList activeTab={activeTab} tabs={tabs} onSwitchTab={() => {}} />
-          <Transition
-            className="full-content"
-            name={lang.isRtl ? 'slide-reversed' : 'mv-slide'}
-            renderCount={tabs.length}
-            activeKey={activeTab}
-          >
-            {() => {
-              switch (activeTab) {
-                case BookOfferModalTabs.TIME_SLOTS:
-                  return (
-                    <div className="TimeSlots">
-                      <div className="time-slots-picker">
-                        <span id="caption">Available times for</span>
-                        <div className="calendar-wrapper">
-                          <i className="icon-calendar" />
-                          <span
-                            id="time-picker"
-                            onClick={handleOpenCalendarModal}
-                          >{selectedDate}
-                          </span>
-                        </div>
-
-                      </div>
-                      <div className="time-slots-rows custom-scroll">
-                        {filteredDate.length > 0 ? filteredDate.map((item) => (
-                          <div
-                            className={buildClassName('time-slot-row',
-                              (selectedTimeSlotId === item.id) && 'active')}
-                          >
-                            <div>
-                              <Radio
-                                name={item.id}
-                                label={`${item.date} - ${item.fromDateLocal} - ${item.toDateLocal}`}
-                                value={item.id}
-                                checked={selectedTimeSlotId === item.id}
-                                onChange={(e) => handleChange(e, item)}
-                              />
-                            </div>
-                            {item.completedReservations && item.completedReservations > 10000 ? (
-                              <div className="remaining-of-total">
-                                <span id="remaining">{item.completedReservations}</span>
-                                <span id="total">  of {item.maximumReservations}</span>
-                              </div>
-                            ) : (
-                              <div className="remaining-of-total">
-                                unlimited
-                              </div>
-                            )}
-                          </div>
-                        )) : (
-                          <div className="no-time-slot-founds">
-                            <i className="hm-calendar" />
-                            <div className="content-for-no-ts">
-                              <p>There’s no available time for the selected date.</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                case BookOfferModalTabs.CALENDAR:
-                  return (
-                    <div className="Calendar">
-                      Calendar Content
-                    </div>
-                  );
-                case BookOfferModalTabs.SetPaymentMethod:
-                  return (
-                    <div>
-                      <RadioGroup
-                        name="paymentMethod"
-                        options={PAYMENT_METHODS}
-                        selected={selectedPaymentMethod}
-                        onChange={handleSelectedMethod}
-                      />
-                    </div>
-                  );
-                case BookOfferModalTabs.SetDevices:
-                  return (
-                    <div>
-                      {heymateUser?.devices.map((device) => (
-                        <Radio
-                          name={device.deviceUUID}
-                          label={device.deviceName}
-                          value={device.deviceUUID}
-                          checked={selectedTimeSlotId === device.deviceUUID}
-                          onChange={(e) => handleSelectedDevice(e, device)}
-                        />
-                      ))}
-
-                    </div>
-                  );
-                default:
-                  return (
-                    <div>There’s no available time for the selected date</div>
-                  );
+       
+        {currentStep !== 'accept' && (
+          <div className="btn-group">
+            <Button
+              isLoading={bookOfferLoading}
+              onClick={handleBookOffer}
+              className="see-details"
+              size="smaller"
+              color="primary"
+              disabled={
+                !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
               }
-            }}
-          </Transition>
-        </div> */}
-        <div className="btn-group">
-          {/* <Button className="book-offer" size="smaller" color="translucent" onClick={handleCLoseDetailsModal}>
-            <span>Cancel</span>
-          </Button> */}
-          <Button
-            isLoading={bookOfferLoading}
-            onClick={handleBookOffer}
-            className="see-details"
-            size="smaller"
-            color="primary"
-            disabled={
-              !selectedTimeSlotId || (selectedTimeSlot.completedReservations >= selectedTimeSlot.maximumReservations)
-            }
-          >
-            {/* {callToActionName.name} */}
-            {currentStep === 'time' ? 'Next' : currentStep === 'purchase-type' ? 'Make Payment' : ''}
-          </Button>
-        </div>
+            >
+              {/* {callToActionName.name} */}
+              {currentStep === 'time' ? 'Next' : currentStep === 'purchase-type' ? 'Make Payment' : ''}
+            </Button>
+          </div>
+        )}
       </Modal>
       <CalendarModal
         isOpen={isCalendarOpen}

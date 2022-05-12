@@ -160,13 +160,24 @@ const Wallet: FC <OwnProps & DispatchProps & StateProps> = ({ onReset, showNotif
       body: {},
     });
     const data: any = {};
-    response.data.result.forEach((item) => {
-      const balance = (item.balance / (Math.pow(10, item.decimals)));
-      data[item.symbol] = balance;
-    });
-    setLoadingBalance(false);
-    setIsConnected(true);
-    setBalance(data);
+    if (response.data.result.length === 0) {
+      setBalance({
+        cUSD: '0',
+        CELO: '0',
+        cEUR: '0',
+        cREAL: '0',
+      });
+      setLoadingBalance(false);
+      setIsConnected(true);
+    } else {
+      response.data.result.forEach((item) => {
+        const balance = (item.balance / (Math.pow(10, item.decimals)));
+        data[item.symbol] = balance;
+      });
+      setLoadingBalance(false);
+      setIsConnected(true);
+      setBalance(data);
+    };
   };
 
   useEffect(() => {

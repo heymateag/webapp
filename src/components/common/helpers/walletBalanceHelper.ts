@@ -10,13 +10,22 @@ const getWalletBalanceByAddress = async (address: string, currency?: string) => 
     method: 'GET',
     body: {},
   });
-  const data: any = {};
-  response.data.result.forEach((item) => {
-    const balance = (item.balance / (Math.pow(10, item.decimals))).toFixed(2);
-    data[item.symbol] = balance;
-  });
+  let data: any = {};
+  if (response.data.result.length === 0) {
+    data = {
+      cUSD: '0',
+      CELO: '0',
+      cEUR: '0',
+      cREAL: '0',
+    }
+  }  else {
+    response.data.result.forEach((item) => {
+      const balance = (item.balance / (Math.pow(10, item.decimals))).toFixed(2);
+      data[item.symbol] = balance;
+    });
+  }
   if (currency) {
-    if (currency === 'USD') {
+    if (currency.toLowerCase() === 'usd') {
       return data['cUSD'];
     }
   } else {
