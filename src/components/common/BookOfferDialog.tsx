@@ -53,7 +53,7 @@ enum BookOfferModalTabs {
   SetDevices,
 }
 enum PaymentMethod {
-  'WALLECTCONNECT' = 'WALLECTCONNECT',
+  'WALLETCONNECT' = 'WALLETCONNECT',
   'PUSH' = 'PUSH',
   'NOTSET' = 'NOTSET',
 }
@@ -116,7 +116,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
 
   const PAYMENT_METHODS: IRadioOption[] = [{
     label: 'Wallet Connect',
-    value: 'WALLECTCONNECT',
+    value: 'WALLETCONNECT',
   }, {
     label: 'By Push',
     value: 'PUSH',
@@ -215,9 +215,9 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
     if (heymateUser?.paymentMethod === PaymentMethod.PUSH) {
       setUserCurrentPaymentMethod('PUSH');
       setSelectedPaymentMethod(PaymentMethod.PUSH);
-    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLECTCONNECT) {
+    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLETCONNECT) {
       setUserCurrentPaymentMethod('WALLETCONECT');
-      setSelectedPaymentMethod(PaymentMethod.WALLECTCONNECT);
+      setSelectedPaymentMethod(PaymentMethod.WALLETCONNECT);
     }
     if (heymateUser?.transactionDefaultDevice) {
       setUserHasDefaultDevice(true);
@@ -283,7 +283,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
   const bookOfferByWalletConnect = async () => {
     setBookOfferLoading(true);
 
-    await setDefaultPaymentMethod(PaymentMethod.WALLECTCONNECT);
+    await setDefaultPaymentMethod(PaymentMethod.WALLETCONNECT);
 
     const activeTs = timeSlotList.find((item) => item.id === selectedTimeSlotId);
     let kit: ContractKit;
@@ -381,7 +381,6 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
   }, []);
 
   const handleBookOffer = async () => {
-    debugger;
     let planId;
     if (purchasePlanType !== 'SINGLE') {
       const plan = await purchaseAPlan();
@@ -412,12 +411,12 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
           alert('failed to set default device');
         });
       } else {
-        await setDefaultPaymentMethod(PaymentMethod.WALLECTCONNECT);
+        await setDefaultPaymentMethod(PaymentMethod.WALLETCONNECT);
         bookOfferByWalletConnect();
       }
     } else if (heymateUser?.paymentMethod === PaymentMethod.PUSH) {
       await bookOfferByPush();
-    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLECTCONNECT) {
+    } else if (heymateUser?.paymentMethod === PaymentMethod.WALLETCONNECT) {
       await bookOfferByWalletConnect();
     }
   };
@@ -428,7 +427,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
 
   // useEffect(() => {
   //   switch (selectedPaymentMethod) {
-  //     case PaymentMethod.WALLECTCONNECT:
+  //     case PaymentMethod.WALLETCONNECT:
   //       bookOfferByWalletConnect();
   //       break;
   //     case PaymentMethod.PUSH:
@@ -555,8 +554,8 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                     <><Radio
                       name="paymentMethod"
                       label="Wallet Connect"
-                      value="WALLECTCONNECT"
-                      checked={selectedPaymentMethod === PaymentMethod.WALLECTCONNECT}
+                      value="WALLETCONNECT"
+                      checked={selectedPaymentMethod === PaymentMethod.WALLETCONNECT}
                       onChange={handleSelectedMethod}
                     /><p>Scan QR code to complete payment</p><Radio
                       name="paymentMethod"
@@ -588,7 +587,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                     {!userHasDefaultDevice && heymateUser?.devices.map((device) => (
                       <div className="push-devices">
                         <Radio
-                          name={device.deviceUUID}
+                          name="push-devices"
                           label={device.deviceName}
                           value={device.deviceUUID}
                           checked={selectedTimeSlotId === device.deviceUUID}
@@ -615,7 +614,7 @@ const BookOfferDialog: FC<OwnProps & DispatchProps & StateProps> = ({
                 </div>
               )}
         </div>
-       
+
         {currentStep !== 'accept' && (
           <div className="btn-group">
             <Button

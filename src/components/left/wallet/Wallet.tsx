@@ -6,6 +6,7 @@ import Web3 from 'web3';
 import { newKitFromWeb3, CeloContract } from '@celo/contractkit';
 import { withGlobal } from 'teact/teactn';
 import WalletConnectQRCodeModal from '@walletconnect/qrcode-modal';
+import { ChangeEvent } from 'react';
 import { newKitBalances } from './AccountManager/AccountMannager';
 import useLang from '../../../hooks/useLang';
 import Spinner from '../../ui/Spinner';
@@ -22,7 +23,6 @@ import walletLoggerService from '../../common/helpers/walletLoggerService';
 import { useWalletConnectQrModal } from './hooks/useWalletConnectQrModal';
 import Modal from '../../ui/Modal';
 import Radio from '../../ui/Radio';
-import { ChangeEvent } from 'react';
 
 export type OwnProps = {
   onReset: () => void;
@@ -177,7 +177,7 @@ const Wallet: FC <OwnProps & DispatchProps & StateProps> = ({ onReset, showNotif
       setLoadingBalance(false);
       setIsConnected(true);
       setBalance(data);
-    };
+    }
   };
 
   useEffect(() => {
@@ -316,7 +316,7 @@ const Wallet: FC <OwnProps & DispatchProps & StateProps> = ({ onReset, showNotif
         title="choose method"
       >
         <div className="payment-radio">
-          <span className="title">Payment Method</span>
+          {/* <span className="title">Payment Method</span> */}
 
           <><Radio
             name="paymentMethod"
@@ -339,15 +339,17 @@ const Wallet: FC <OwnProps & DispatchProps & StateProps> = ({ onReset, showNotif
               {heymateUser?.devices.map((device) => (
                 <div className="push-devices">
                   <Radio
-                    name={device.deviceUUID}
+                    name="push-devices"
                     label={device.deviceName}
                     value={device.deviceUUID}
                     checked={selectedDevice === device.deviceUUID}
                     onChange={(e) => handleSelectedDevice(e, device)}
                   />
-                  <div className="address-balance">
-                    {device.balance?.cUSD}
-                  </div>
+                  {device.balance?.cUSD && (
+                    <div className="address-balance">
+                      {device.balance?.cUSD}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
