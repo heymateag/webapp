@@ -45,6 +45,18 @@
     }
   }
 
+  .invalidNumber {
+    color: red;
+    font-size: 0.875rem !important;
+    line-height: 1.35;
+    margin-bottom: 1rem !important;
+
+    @media (min-width: 600px) {
+      font-size: 1rem;
+      margin-bottom: 3rem;
+    }
+  }
+  
   .note {
     font-size: 0.875rem;
     line-height: 1.35;
@@ -115,6 +127,18 @@
       height: 7.5rem;
       margin-bottom: 1.75rem;
       background: url('../../assets/heymate/heymate-logo1x.png') center no-repeat;
+    }
+
+    .invalidNumber {
+      color: red;
+      font-size: 0.875rem !important;
+      line-height: 1.35;
+      margin-bottom: 1rem !important;
+  
+      @media (min-width: 600px) {
+        font-size: 1rem;
+        margin-bottom: 3rem;
+      }
     }
 
     .note {

@@ -86,6 +86,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
 
   const fullNumber = country ? `+${country.countryCode} ${phoneNumber || ''}` : phoneNumber;
   const canSubmit = fullNumber && fullNumber.replace(/[^\d]+/g, '').length >= MIN_NUMBER_LENGTH;
+  const [isInvalidNumber, setIsInvalidNumber] = useState<boolean>(false);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV) {
@@ -230,16 +231,18 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
    * Sign In To Heymate Back With Phone Number
    * @param phone_number
    */
-  const handleHeymateLogin = async (phone_number: any) => {
+  const handleHeymateLogin = async (phone_number: any, country: any) => {
     const response: IAuth = await axiosService({
       url: `${HEYMATE_URL}/auth/login`,
       method: 'POST',
       body: {
         phone_number,
         password: '123456',
+        country: country
       },
     });
     if (response.status === 201) {
+      setIsInvalidNumber(false);
       const token = response.data.idToken.jwtToken;
       const userId = response.data.idToken.payload.sub;
       const refreshToken = response.data.refreshToken.token;
@@ -248,13 +251,16 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_PHONE', phone_number);
       localStorage.setItem('HM_USERID', userId);
       handleSendWebPushToken();
+    } else {
+      setIsInvalidNumber(true);
     }
   };
 
   /**
    *Handle To Sign Up the User
    */
-  const handleHeymateRegister = async (phone_number: any) => {
+  const handleHeymateRegister = async (phone_number: any, country: any) => {
+    localStorage.setItem("country", country);
     const userPhone = phone_number.replace(/ /g, '');
     const response: IAuth = await axiosService({
       url: `${HEYMATE_URL}/auth/register`,
@@ -262,12 +268,13 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       body: {
         phone_number: userPhone,
         password: '123456',
+        country: country
       },
     });
-    await handleHeymateLogin(userPhone);
+    await handleHeymateLogin(userPhone, localStorage.getItem("country"));
   };
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (authIsLoading) {
@@ -275,19 +282,11 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
 
     if (canSubmit) {
-      let registerNumber, countryCode = String(country?.countryCode);
-      if (phoneNumber?.startsWith("0") && country?.countryCode) { // When the number is entered with prefixed 0
-        registerNumber = phoneNumber;
-        registerNumber = registerNumber.replace("0", country.countryCode);
-        registerNumber = "+" + registerNumber;
-      } else if (!phoneNumber?.startsWith(countryCode)) { // When the number doesn't contains prefixed 0 and implicit country code
-        registerNumber = fullNumber;
-      } else { // When the country code is entered implicitly with number
-        registerNumber = "+" + phoneNumber;
+      await handleHeymateRegister(fullNumber, country?.iso2);
+      if (isInvalidNumber) {
+        setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
+        setAuthPhoneNumber({ phoneNumber: fullNumber });
       }
-      handleHeymateRegister(registerNumber);
-      setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
-      setAuthPhoneNumber({ phoneNumber: fullNumber });
     }
   }
 
@@ -319,6 +318,9 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
             onChange={handlePhoneNumberChange}
             onPaste={IS_SAFARI ? handlePaste : undefined}
           />
+          {isInvalidNumber ? (
+          <p className="invalidNumber">Invalid phone number.</p>
+          ): ""}
           <Checkbox
             id="sign-in-keep-session"
             label="Keep me signed in"
