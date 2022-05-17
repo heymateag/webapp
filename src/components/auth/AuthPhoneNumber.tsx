@@ -86,7 +86,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
 
   const fullNumber = country ? `+${country.countryCode} ${phoneNumber || ''}` : phoneNumber;
   const canSubmit = fullNumber && fullNumber.replace(/[^\d]+/g, '').length >= MIN_NUMBER_LENGTH;
-  const [isInvalidNumber, setIsInvalidNumber] = useState<boolean>(false);
+  const [isInvalidNumber, setIsInvalidNumber] = useState(false);
 
   useEffect(() => {
     if (!IS_TOUCH_ENV) {
@@ -251,6 +251,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
       localStorage.setItem('HM_PHONE', phone_number);
       localStorage.setItem('HM_USERID', userId);
       handleSendWebPushToken();
+      return true;
     } else {
       setIsInvalidNumber(true);
     }
@@ -271,7 +272,7 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
         country: country
       },
     });
-    await handleHeymateLogin(userPhone, localStorage.getItem("country"));
+    return await handleHeymateLogin(userPhone, localStorage.getItem("country"));
   };
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -282,8 +283,8 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
 
     if (canSubmit) {
-      await handleHeymateRegister(fullNumber, country?.iso2);
-      if (isInvalidNumber) {
+      let result = await handleHeymateRegister(fullNumber, country?.iso2);
+      if (result) {
         setCurrentUserPhoneNumber({ currentUserPhoneNumber: fullNumber });
         setAuthPhoneNumber({ phoneNumber: fullNumber });
       }
