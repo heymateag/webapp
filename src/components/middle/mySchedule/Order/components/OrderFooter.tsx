@@ -197,6 +197,23 @@ const OrderFooter: FC<OwnProps & DispatchProps & StateProps> = ({
     return response;
   };
 
+  const handleFinishByPush = async () => {
+    const response: IHttpResponse = await axiosService({
+      url: `${HEYMATE_URL}/notification-services/offer/transaction`,
+      method: 'POST',
+      body: {
+        action: 'FINISH',
+        reservationId,
+        tradeId,
+      },
+    });
+    console.log('===============Start the zoom push Logs =======');
+    if (offerType === 'ONLINE') {
+      onJoinMeeting();
+    }
+    return response;
+  };
+
   const handleStartInCelo = async () => {
     setIsLoading(true);
     if (heymateUser?.paymentMethod === 'PUSH') {
@@ -247,53 +264,57 @@ const OrderFooter: FC<OwnProps & DispatchProps & StateProps> = ({
         handleOpenWCModal();
       }
     }
-
   };
 
   const handleFinishInCelo = async () => {
     setIsLoading(true);
-    let kit: ContractKit;
-    let address: string = '';
-    if (provider.isWalletConnect) {
-      await provider.enable().then((res) => {
-        // eslint-disable-next-line prefer-destructuring
-        address = res[0];
-        setOpenModal(false);
-      });
-      // @ts-ignore
-      const web3 = new Web3(provider);
-      // @ts-ignoreffer
-      kit = newKitFromWeb3(web3);
-      const accounts = await kit.web3.eth.getAccounts();
-      // eslint-disable-next-line prefer-destructuring
-      kit.defaultAccount = accounts[0];
-      const mainNet = provider.chainId !== 44787;
-      const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
-      setLoadAcceptLoading(true);
-      setOpenAcceptModal(true);
-      walletLoggerService({
-        description: 'start accepting finish',
-        status: 'Waiting',
-      });
-      const answer = await offerWrapper.finishService(offer, tradeId, address);
-      setLoadAcceptLoading(false);
-      setOpenAcceptModal(false);
-      walletLoggerService({
-        description: 'finish accepting finish',
-        status: 'Success',
-      });
-      if (answer?.message?.startsWith('Error')) {
-        setIsLoading(false);
-        showNotification({ message: answer.message });
-        return;
-      }
-      if (answer) {
-        handleChangeReservationStatus(ReservationStatus.FINISHED);
-      } else {
-        console.log('failed');
-      }
+    if (heymateUser?.paymentMethod === 'PUSH') {
+      await handleFinishByPush();
+      setIsLoading(false);
     } else {
-      handleOpenWCModal();
+      let kit: ContractKit;
+      let address: string = '';
+      if (provider.isWalletConnect) {
+        await provider.enable().then((res) => {
+        // eslint-disable-next-line prefer-destructuring
+          address = res[0];
+          setOpenModal(false);
+        });
+        // @ts-ignore
+        const web3 = new Web3(provider);
+        // @ts-ignoreffer
+        kit = newKitFromWeb3(web3);
+        const accounts = await kit.web3.eth.getAccounts();
+        // eslint-disable-next-line prefer-destructuring
+        kit.defaultAccount = accounts[0];
+        const mainNet = provider.chainId !== 44787;
+        const offerWrapper = new OfferWrapper(address, kit, mainNet, provider);
+        setLoadAcceptLoading(true);
+        setOpenAcceptModal(true);
+        walletLoggerService({
+          description: 'start accepting finish',
+          status: 'Waiting',
+        });
+        const answer = await offerWrapper.finishService(offer, tradeId, address);
+        setLoadAcceptLoading(false);
+        setOpenAcceptModal(false);
+        walletLoggerService({
+          description: 'finish accepting finish',
+          status: 'Success',
+        });
+        if (answer?.message?.startsWith('Error')) {
+          setIsLoading(false);
+          showNotification({ message: answer.message });
+          return;
+        }
+        if (answer) {
+          handleChangeReservationStatus(ReservationStatus.FINISHED);
+        } else {
+          console.log('failed');
+        }
+      } else {
+        handleOpenWCModal();
+      }
     }
   };
 
