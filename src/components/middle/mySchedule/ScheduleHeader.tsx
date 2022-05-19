@@ -1,5 +1,7 @@
 // eslint-disable-next-line import/no-unresolved
-import React, { FC, memo, useCallback, useState } from 'teact/teact';
+import React, {
+  FC, memo, useCallback, useState,
+} from 'teact/teact';
 import { GlobalActions, GlobalState } from 'src/global/types';
 import { withGlobal } from 'teact/teactn';
 import useLang from '../../../hooks/useLang';
@@ -13,6 +15,7 @@ type DispatchProps = Pick<GlobalActions, 'setShowHeymateScheduleMiddle'>;
 
 export type OwnProps = {
   onReset: () => void;
+  activeTab?: number;
   handleSwitchTab: (index: number) => void;
 };
 enum ManageOffer {
@@ -28,6 +31,7 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   onReset,
   handleSwitchTab,
   setShowHeymateScheduleMiddle,
+  activeTab = 0,
 }) => {
   const lang = useLang();
   const tabs: IManageOfferTab[] = [
@@ -35,12 +39,12 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     { type: ManageOffer.MY_ORDERS, title: 'My Orders' },
     // { type: ManageOffer.MY_SUBSCRIPTIONS, title: 'Subscriptions' },
   ];
-  const [activeTab, setActiveTab] = useState<ManageOffer>(
-    ManageOffer.MY_ORDERS,
+  const [currentActiveTab, setCurrentActiveTabb] = useState<ManageOffer>(
+    activeTab,
   );
   const handleSwitchTab2 = useCallback((index: number) => {
     handleSwitchTab(index);
-    setActiveTab(index);
+    setCurrentActiveTabb(index);
   }, []);
 
   return (
@@ -59,7 +63,7 @@ const ScheduleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
       <div className="tab-wrapper">
         <TabList
-          activeTab={activeTab}
+          activeTab={currentActiveTab}
           tabs={tabs}
           onSwitchTab={handleSwitchTab2}
         />
