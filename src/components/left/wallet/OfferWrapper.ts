@@ -142,6 +142,7 @@ class OfferWrapper {
   };
 
   startService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
+    
     let tradeIdHash;
     if (tradeId.length <= 36) {
       tradeIdHash = `${tradeId.split('-').join('')}`;
@@ -207,7 +208,7 @@ class OfferWrapper {
           consumerAddress, amount, new BN(1),
         )).send();
       } catch (error: any) {
-        debugger
+        
         throw new Error(error);
       }
       // this.mContract.methods.serviceProviderCancel(tradeIdHash, this.address,
@@ -218,15 +219,19 @@ class OfferWrapper {
       receipt = await answer.getHash();
       return receipt;
     } catch (error: any) {
-      debugger
+      
       return new Error(error);
     }
   };
 
   finishService = async (offer: IOffer, tradeId: string, consumerAddress: string) => {
+    
     let tradeIdHash;
     if (tradeId.length <= 36) {
-      tradeIdHash = `0x${tradeId.split('-').join('')}`;
+      tradeIdHash = `${tradeId.split('-').join('')}`;
+      if (!tradeId.startsWith('0x')) {
+        tradeIdHash = `0x${tradeId.split('-').join('')}`;
+      }
     } else {
       tradeIdHash = `${tradeId.split('-').join('')}`;
     }
@@ -243,6 +248,7 @@ class OfferWrapper {
       )).send();
       // eslint-disable-next-line max-len
     } catch (error: any) {
+      
       throw new Error(error);
     }
     let receipt;
