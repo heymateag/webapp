@@ -1,10 +1,11 @@
-import { GroupCallParticipant } from '../../../lib/secret-sauce';
+import type { GroupCallParticipant } from '../../../lib/secret-sauce';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useMemo, useState,
+  memo, useCallback, useMemo, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { withGlobal } from '../../../global';
 import GroupCallParticipantVideo from './GroupCallParticipantVideo';
-import { selectActiveGroupCall } from '../../../modules/selectors/calls';
+import { selectActiveGroupCall } from '../../../global/selectors/calls';
 import buildClassName from '../../../util/buildClassName';
 
 type OwnProps = {
@@ -61,7 +62,6 @@ const GroupCallParticipantStreams: FC<OwnProps & StateProps> = ({
           'videos',
           shouldSpanLastVideo && 'span-last-video',
         )}
-        // @ts-ignore teact feature
         style={`--column-count: ${selectedVideo ? 1 : columnCount}`}
       >
         {selectedVideo && (

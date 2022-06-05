@@ -1,7 +1,6 @@
-import { ChangeEvent } from 'react';
-import React, {
-  FC, useCallback, useMemo, memo,
-} from '../../lib/teact/teact';
+import type { ChangeEvent } from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback, useMemo, memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
@@ -15,8 +14,10 @@ type OwnProps = {
   step?: number;
   label?: string;
   value: number;
-  renderValue?: (value: number) => string;
   disabled?: boolean;
+  bold?: boolean;
+  className?: string;
+  renderValue?: (value: number) => string;
   onChange: (value: number) => void;
 };
 
@@ -27,8 +28,10 @@ const RangeSlider: FC<OwnProps> = ({
   step = 1,
   label,
   value,
-  renderValue,
   disabled,
+  bold,
+  className,
+  renderValue,
   onChange,
 }) => {
   const lang = useLang();
@@ -36,9 +39,11 @@ const RangeSlider: FC<OwnProps> = ({
     onChange(Number(event.currentTarget.value));
   }, [onChange]);
 
-  const className = buildClassName(
+  const mainClassName = buildClassName(
+    className,
     'RangeSlider',
     disabled && 'disabled',
+    bold && 'bold',
   );
 
   const trackWidth = useMemo(() => {
@@ -51,7 +56,7 @@ const RangeSlider: FC<OwnProps> = ({
   }, [options, value, max, min, step]);
 
   return (
-    <div className={className}>
+    <div className={mainClassName}>
       {label && (
         <div className="slider-top-row" dir={lang.isRtl ? 'rtl' : undefined}>
           <span className="label" dir="auto">{label}</span>
@@ -63,7 +68,6 @@ const RangeSlider: FC<OwnProps> = ({
       <div className="slider-main">
         <div
           className="slider-fill-track"
-          // @ts-ignore
           style={`width: ${trackWidth}%`}
         />
         <input
@@ -72,6 +76,7 @@ const RangeSlider: FC<OwnProps> = ({
           value={value}
           step={step}
           type="range"
+          className="RangeSlider__input"
           onChange={handleChange}
         />
         {options && (

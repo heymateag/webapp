@@ -1,9 +1,7 @@
-import React, { FC, memo, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo, useCallback } from '../../lib/teact/teact';
+import { getActions } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-
-import { pick } from '../../util/iteratees';
 import { ensureProtocol } from '../../util/ensureProtocol';
 import renderText from '../common/helpers/renderText';
 import useLang from '../../hooks/useLang';
@@ -15,9 +13,9 @@ export type OwnProps = {
   url?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, 'toggleSafeLinkModal'>;
+const SafeLinkModal: FC<OwnProps> = ({ url }) => {
+  const { toggleSafeLinkModal } = getActions();
 
-const SafeLinkModal: FC<OwnProps & DispatchProps> = ({ url, toggleSafeLinkModal }) => {
   const lang = useLang();
 
   const handleOpen = useCallback(() => {
@@ -43,7 +41,4 @@ const SafeLinkModal: FC<OwnProps & DispatchProps> = ({ url, toggleSafeLinkModal 
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['toggleSafeLinkModal']),
-)(SafeLinkModal));
+export default memo(SafeLinkModal);

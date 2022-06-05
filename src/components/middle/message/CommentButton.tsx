@@ -1,18 +1,14 @@
-import React, {
-  FC, memo, useCallback,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useMemo } from '../../../lib/teact/teact';
+import { getActions, getGlobal } from '../../../global';
 
-import {
-  ApiChat, ApiMessage, ApiThreadInfo, ApiUser,
+import type {
+  ApiChat, ApiThreadInfo, ApiUser,
 } from '../../../api/types';
-import { GlobalActions } from '../../../global/types';
 
-import { pick } from '../../../util/iteratees';
-import { isUserId } from '../../../modules/helpers';
+import { isUserId } from '../../../global/helpers';
 import { formatIntegerCompact } from '../../../util/textFormat';
 import buildClassName from '../../../util/buildClassName';
-import { selectThreadInfo } from '../../../modules/selectors';
 import useLang from '../../../hooks/useLang';
 
 import Avatar from '../../common/Avatar';
@@ -20,25 +16,16 @@ import Avatar from '../../common/Avatar';
 import './CommentButton.scss';
 
 type OwnProps = {
-  message: ApiMessage;
+  threadInfo: ApiThreadInfo;
   disabled?: boolean;
 };
 
-type StateProps = {
-  threadInfo: ApiThreadInfo;
-  usersById?: Record<string, ApiUser>;
-  chatsById?: Record<string, ApiChat>;
-};
-
-type DispatchProps = Pick<GlobalActions, 'openChat'>;
-
-const CommentButton: FC<OwnProps & StateProps & DispatchProps> = ({
-  disabled,
+const CommentButton: FC<OwnProps> = ({
   threadInfo,
-  usersById,
-  chatsById,
-  openChat,
+  disabled,
 }) => {
+  const { openChat } = getActions();
+
   const lang = useLang();
   const {
     threadId, chatId, messagesCount, lastMessageId, lastReadInboxMessageId, recentReplierIds,
@@ -48,13 +35,22 @@ const CommentButton: FC<OwnProps & StateProps & DispatchProps> = ({
     openChat({ id: chatId, threadId });
   }, [openChat, chatId, threadId]);
 
+  const recentRepliers = useMemo(() => {
+    if (!recentReplierIds?.length) {
+      return undefined;
+    }
+
+    // No need for expensive global updates on chats and users, so we avoid them
+    const { users: { byId: usersById }, chats: { byId: chatsById } } = getGlobal();
+
+    return recentReplierIds.map((peerId) => {
+      return isUserId(peerId) ? usersById[peerId] : chatsById[peerId];
+    }).filter(Boolean);
+  }, [recentReplierIds]);
+
   if (messagesCount === undefined) {
     return undefined;
   }
-
-  const recentRepliers = recentReplierIds && recentReplierIds.map((peerId) => {
-    return isUserId(peerId) ? usersById![peerId] : chatsById![peerId];
-  }).filter(Boolean);
 
   function renderRecentRepliers() {
     return (
@@ -93,21 +89,4 @@ const CommentButton: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  (global, { message }) => {
-    const { threadId, chatId } = message.threadInfo!;
-
-    const threadInfo = selectThreadInfo(global, chatId, threadId) || message.threadInfo!;
-    const { byId: usersById } = global.users;
-    const { byId: chatsById } = global.chats;
-
-    return {
-      threadInfo,
-      usersById,
-      chatsById,
-    };
-  },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openChat',
-  ]),
-)(CommentButton));
+export default memo(CommentButton);

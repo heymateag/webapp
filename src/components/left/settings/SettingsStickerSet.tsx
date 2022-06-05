@@ -1,10 +1,9 @@
-import React, {
-  FC, memo,
-} from '../../../lib/teact/teact';
-import { ApiSticker, ApiStickerSet } from '../../../api/types';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo } from '../../../lib/teact/teact';
+import type { ApiSticker, ApiStickerSet } from '../../../api/types';
 
 import { STICKER_SIZE_GENERAL_SETTINGS } from '../../../config';
-import { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
 import useLang from '../../../hooks/useLang';
 
 import ListItem from '../../ui/ListItem';
@@ -40,6 +39,7 @@ const SettingsStickerSet: FC<OwnProps> = ({
         narrow
         className="SettingsStickerSet"
         inactive={!firstSticker}
+        // eslint-disable-next-line react/jsx-no-bind
         onClick={() => firstSticker && onClick(firstSticker)}
       >
         <Button
@@ -47,7 +47,7 @@ const SettingsStickerSet: FC<OwnProps> = ({
           color="translucent"
           isRtl={lang.isRtl}
         >
-          {stickerSet.isAnimated ? (
+          {stickerSet.isLottie ? (
             <StickerSetCoverAnimated
               size={STICKER_SIZE_GENERAL_SETTINGS}
               stickerSet={stickerSet}
@@ -71,6 +71,7 @@ const SettingsStickerSet: FC<OwnProps> = ({
       <ListItem
         narrow
         className="SettingsStickerSet"
+        // eslint-disable-next-line react/jsx-no-bind
         onClick={() => onClick(firstSticker)}
       >
         <StickerButton
@@ -78,6 +79,8 @@ const SettingsStickerSet: FC<OwnProps> = ({
           size={STICKER_SIZE_GENERAL_SETTINGS}
           title={stickerSet.title}
           observeIntersection={observeIntersection}
+          clickArg={undefined}
+          noContextMenu
         />
         <div className="multiline-menu-item">
           <div className="title">{stickerSet.title}</div>

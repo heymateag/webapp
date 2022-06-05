@@ -1,4 +1,4 @@
-import { ApiMessage, ApiDimensions } from '../../../api/types';
+import type { ApiMessage, ApiDimensions } from '../../../api/types';
 
 import { MediaViewerOrigin } from '../../../types';
 
@@ -10,6 +10,10 @@ import {
   REM,
 } from '../../common/helpers/mediaDimensions';
 import windowSize from '../../../util/windowSize';
+import stopEvent from '../../../util/stopEvent';
+import { IS_TOUCH_ENV } from '../../../util/environment';
+import { getMessageHtmlId } from '../../../global/helpers';
+import { isElementInViewport } from '../../../util/isElementInViewport';
 
 const ANIMATION_DURATION = 200;
 
@@ -96,7 +100,7 @@ export function animateClosing(origin: MediaViewerOrigin, bestImageData: string,
   }
 
   const fromImage = document.getElementById('MediaViewer')!.querySelector<HTMLImageElement>(
-    '.active .media-viewer-content img, .active .media-viewer-content video',
+    '.MediaViewerSlide--active img, .MediaViewerSlide--active video',
   );
   if (!fromImage || !toImage) {
     return;
@@ -208,6 +212,8 @@ function createGhost(source: string | HTMLImageElement | HTMLVideoElement, origi
   ghost.classList.add('ghost');
 
   const img = new Image();
+  img.draggable = false;
+  img.oncontextmenu = stopEvent;
 
   if (typeof source === 'string') {
     img.src = source;
@@ -259,19 +265,8 @@ function uncover(realWidth: number, realHeight: number, top: number, left: numbe
   };
 }
 
-function isElementInViewport(el: HTMLElement) {
-  if (el.style.display === 'none') {
-    return false;
-  }
-
-  const rect = el.getBoundingClientRect();
-  const { height: windowHeight } = windowSize.get();
-
-  return (rect.top <= windowHeight) && ((rect.top + rect.height) >= 0);
-}
-
 function isMessageImageFullyVisible(container: HTMLElement, imageEl: HTMLElement) {
-  const messageListElement = document.querySelector<HTMLDivElement>('.active > .MessageList')!;
+  const messageListElement = document.querySelector<HTMLDivElement>('.Transition__slide--active > .MessageList')!;
   let imgOffsetTop = container.offsetTop + imageEl.closest<HTMLDivElement>('.content-inner, .WebPage')!.offsetTop;
   if (container.id.includes('album-media-')) {
     imgOffsetTop += container.parentElement!.offsetTop + container.closest<HTMLDivElement>('.Message')!.offsetTop;
@@ -284,8 +279,8 @@ function isMessageImageFullyVisible(container: HTMLElement, imageEl: HTMLElement
 function getTopOffset(hasFooter: boolean) {
   const mql = window.matchMedia(MEDIA_VIEWER_MEDIA_QUERY);
   let topOffsetRem = 4.125;
-  if (hasFooter) {
-    topOffsetRem += mql.matches ? 0.875 : 3.375;
+  if (hasFooter && !IS_TOUCH_ENV) {
+    topOffsetRem += mql.matches ? 0.875 : 2.125;
   }
 
   return topOffsetRem * REM;
@@ -302,39 +297,39 @@ function getNodes(origin: MediaViewerOrigin, message?: ApiMessage) {
   switch (origin) {
     case MediaViewerOrigin.Album:
     case MediaViewerOrigin.ScheduledAlbum:
-      containerSelector = `.active > .MessageList #album-media-${message!.id}`;
+      containerSelector = `.Transition__slide--active > .MessageList #album-media-${getMessageHtmlId(message!.id)}`;
       mediaSelector = '.full-media';
       break;
 
     case MediaViewerOrigin.SharedMedia:
-      containerSelector = `#shared-media${message!.id}`;
+      containerSelector = `#shared-media${getMessageHtmlId(message!.id)}`;
       mediaSelector = 'img';
       break;
 
     case MediaViewerOrigin.SearchResult:
-      containerSelector = `#search-media${message!.id}`;
+      containerSelector = `#search-media${getMessageHtmlId(message!.id)}`;
       mediaSelector = 'img';
       break;
 
     case MediaViewerOrigin.MiddleHeaderAvatar:
-      containerSelector = '.MiddleHeader .ChatInfo .Avatar';
-      mediaSelector = 'img.avatar-media';
+      containerSelector = '.MiddleHeader .Transition__slide--active .ChatInfo .Avatar';
+      mediaSelector = '.avatar-media';
       break;
 
     case MediaViewerOrigin.SettingsAvatar:
-      containerSelector = '#Settings .ProfileInfo .active .ProfilePhoto';
-      mediaSelector = 'img.avatar-media';
+      containerSelector = '#Settings .ProfileInfo .Transition__slide--active .ProfilePhoto';
+      mediaSelector = '.avatar-media';
       break;
 
     case MediaViewerOrigin.ProfileAvatar:
-      containerSelector = '#RightColumn .ProfileInfo .active .ProfilePhoto';
-      mediaSelector = 'img.avatar-media';
+      containerSelector = '#RightColumn .ProfileInfo .Transition__slide--active .ProfilePhoto';
+      mediaSelector = '.avatar-media';
       break;
 
     case MediaViewerOrigin.ScheduledInline:
     case MediaViewerOrigin.Inline:
     default:
-      containerSelector = `.active > .MessageList #message${message!.id}`;
+      containerSelector = `.Transition__slide--active > .MessageList #${getMessageHtmlId(message!.id)}`;
       mediaSelector = '.message-content .full-media, .message-content .thumbnail';
   }
 

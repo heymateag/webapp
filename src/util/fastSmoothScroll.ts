@@ -1,4 +1,4 @@
-import { getGlobal } from '../lib/teact/teactn';
+import { getGlobal } from '../global';
 
 import { FocusDirection } from '../types';
 
@@ -7,8 +7,10 @@ import {
   FAST_SMOOTH_MAX_DISTANCE, FAST_SMOOTH_MAX_DURATION, FAST_SMOOTH_MIN_DURATION,
   FAST_SMOOTH_SHORT_TRANSITION_MAX_DISTANCE,
 } from '../config';
+import { IS_ANDROID } from './environment';
 import { dispatchHeavyAnimationEvent } from '../hooks/useHeavyAnimationCheck';
 import { animateSingle } from './animation';
+import { fastRaf } from './schedulers';
 
 let isAnimating = false;
 
@@ -89,7 +91,7 @@ function scrollWithJs(
 
   switch (position) {
     case 'start':
-      path = (elementTop - margin) - scrollFrom;
+      path = (elementTop - margin) - scrollFrom + (IS_ANDROID ? 1 : 0);
       break;
     case 'end':
       path = (elementTop + elementHeight + margin) - (scrollFrom + targetContainerHeight);
@@ -134,19 +136,21 @@ function scrollWithJs(
   const startAt = Date.now();
   const onHeavyAnimationStop = dispatchHeavyAnimationEvent();
 
-  animateSingle(() => {
-    const t = Math.min((Date.now() - startAt) / duration, 1);
-    const currentPath = path * (1 - transition(t));
+  fastRaf(() => {
+    animateSingle(() => {
+      const t = Math.min((Date.now() - startAt) / duration, 1);
+      const currentPath = path * (1 - transition(t));
 
-    container.scrollTop = Math.round(target - currentPath);
+      container.scrollTop = Math.round(target - currentPath);
 
-    isAnimating = t < 1;
+      isAnimating = t < 1;
 
-    if (!isAnimating) {
-      onHeavyAnimationStop();
-    }
+      if (!isAnimating) {
+        onHeavyAnimationStop();
+      }
 
-    return isAnimating;
+      return isAnimating;
+    });
   });
 }
 

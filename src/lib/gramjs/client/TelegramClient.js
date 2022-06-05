@@ -11,8 +11,11 @@ const {
     constructors,
     requests,
 } = require('../tl');
-const MTProtoSender = require('../network/MTProtoSender');
-const { ConnectionTCPObfuscated } = require('../network/connection/TCPObfuscated');
+const {
+    ConnectionTCPObfuscated,
+    MTProtoSender,
+    UpdateConnectionState,
+} = require('../network');
 const {
     authFlow,
     checkAuthorization,
@@ -33,6 +36,14 @@ const PING_INTERVAL = 3000; // 3 sec
 const PING_TIMEOUT = 5000; // 5 sec
 const PING_FAIL_ATTEMPTS = 3;
 const PING_FAIL_INTERVAL = 100; // ms
+
+// An unusually long interval is a sign of returning from background mode...
+const PING_INTERVAL_TO_WAKE_UP = 5000; // 5 sec
+// ... so we send a quick "wake-up" ping to confirm than connection was dropped ASAP
+const PING_WAKE_UP_TIMEOUT = 3000; // 3 sec
+// We also send a warning to the user even a bit more quickly
+const PING_WAKE_UP_WARNING_TIMEOUT = 1000; // 1 sec
+
 const PING_DISCONNECT_DELAY = 60000; // 1 min
 
 // All types
@@ -144,7 +155,7 @@ class TelegramClient {
         this._exportedSenderReleaseTimeouts = {};
         this._additionalDcsDisabled = args.additionalDcsDisabled;
         this._loopStarted = false;
-        this._reconnecting = false;
+        this._isSwitchingDc = false;
         this._destroyed = false;
     }
 
@@ -176,7 +187,7 @@ class TelegramClient {
         // set defaults vars
         this._sender.userDisconnected = false;
         this._sender._user_connected = false;
-        this._sender._reconnecting = false;
+        this._sender.isReconnecting = false;
         this._sender._disconnected = true;
 
         const connection = new this._connection(
@@ -202,7 +213,7 @@ class TelegramClient {
             this._updateLoop();
             this._loopStarted = true;
         }
-        this._reconnecting = false;
+        this._isSwitchingDc = false;
     }
 
     async _initSession() {
@@ -215,23 +226,52 @@ class TelegramClient {
     }
 
     async _updateLoop() {
+        let lastPongAt;
+
         while (!this._destroyed) {
             await Helpers.sleep(PING_INTERVAL);
-            if (this._reconnecting) {
+            if (this._sender.isReconnecting || this._isSwitchingDc) {
+                lastPongAt = undefined;
                 continue;
             }
 
             try {
-                await attempts(() => {
-                    return timeout(this._sender.send(new requests.PingDelayDisconnect({
+                const ping = () => {
+                    return this._sender.send(new requests.PingDelayDisconnect({
                         pingId: Helpers.getRandomInt(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
                         disconnectDelay: PING_DISCONNECT_DELAY,
-                    })), PING_TIMEOUT);
-                }, PING_FAIL_ATTEMPTS, PING_FAIL_INTERVAL);
+                    }));
+                };
+
+                const pingAt = Date.now();
+                const lastInterval = lastPongAt ? pingAt - lastPongAt : undefined;
+
+                if (!lastInterval || lastInterval < PING_INTERVAL_TO_WAKE_UP) {
+                    await attempts(() => timeout(ping, PING_TIMEOUT), PING_FAIL_ATTEMPTS, PING_FAIL_INTERVAL);
+                } else {
+                    let wakeUpWarningTimeout = setTimeout(() => {
+                        this._handleUpdate(new UpdateConnectionState(UpdateConnectionState.disconnected));
+                        wakeUpWarningTimeout = undefined;
+                    }, PING_WAKE_UP_WARNING_TIMEOUT);
+
+                    await timeout(ping, PING_WAKE_UP_TIMEOUT);
+
+                    if (wakeUpWarningTimeout) {
+                        clearTimeout(wakeUpWarningTimeout);
+                        wakeUpWarningTimeout = undefined;
+                    }
+
+                    this._handleUpdate(new UpdateConnectionState(UpdateConnectionState.connected));
+                }
+
+                lastPongAt = Date.now();
             } catch (err) {
                 // eslint-disable-next-line no-console
                 console.warn(err);
-                if (this._reconnecting) {
+
+                lastPongAt = undefined;
+
+                if (this._sender.isReconnecting || this._isSwitchingDc) {
                     continue;
                 }
 
@@ -250,6 +290,8 @@ class TelegramClient {
                 } catch (e) {
                     // we don't care about errors here
                 }
+
+                lastPongAt = undefined;
             }
         }
         await this.disconnect();
@@ -304,7 +346,7 @@ class TelegramClient {
         // so it's not valid anymore. Set to None to force recreating it.
         await this._sender.authKey.setKey(undefined);
         this.session.setAuthKey(undefined);
-        this._reconnecting = true;
+        this._isSwitchingDc = true;
         await this.disconnect();
         return this.connect();
     }
@@ -327,8 +369,9 @@ class TelegramClient {
 
     async _connectSender(sender, dcId) {
         // if we don't already have an auth key we want to use normal DCs not -1
-        const dc = utils.getDC(dcId, !!sender.authKey.getKey());
+        const dc = utils.getDC(dcId, Boolean(sender.authKey.getKey()));
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
             try {
                 await sender.connect(new this._connection(
@@ -636,11 +679,11 @@ class TelegramClient {
         throw new Error('not implemented');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async _downloadWebDocument(media) {
         try {
             const buff = [];
             let offset = 0;
+            // eslint-disable-next-line no-constant-condition
             while (true) {
                 const downloaded = new requests.upload.GetWebFile({
                     location: new constructors.InputWebFileLocation({
@@ -673,24 +716,78 @@ class TelegramClient {
         }
     }
 
+    async downloadStaticMap(accessHash, long, lat, w, h, zoom, scale, accuracyRadius) {
+        try {
+            const buff = [];
+            let offset = 0;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                try {
+                    const downloaded = new requests.upload.GetWebFile({
+                        location: new constructors.InputWebFileGeoPointLocation({
+                            geoPoint: new constructors.InputGeoPoint({
+                                lat,
+                                long,
+                                accuracyRadius,
+                            }),
+                            accessHash,
+                            w,
+                            h,
+                            zoom,
+                            scale,
+                        }),
+                        offset,
+                        limit: WEBDOCUMENT_REQUEST_PART_SIZE,
+                    });
+                    const sender = await this._borrowExportedSender(WEBDOCUMENT_DC_ID);
+                    const res = await sender.send(downloaded);
+                    offset += 131072;
+                    if (res.bytes.length) {
+                        buff.push(res.bytes);
+                        if (res.bytes.length < WEBDOCUMENT_REQUEST_PART_SIZE) {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                } catch (err) {
+                    if (err instanceof errors.FloodWaitError) {
+                        // eslint-disable-next-line no-console
+                        console.warn(`getWebFile: sleeping for ${err.seconds}s on flood wait`);
+                        await sleep(err.seconds * 1000);
+                        continue;
+                    }
+                }
+            }
+            return Buffer.concat(buff);
+        } catch (e) {
+            // the file is no longer saved in telegram's cache.
+            if (e.message === 'WEBFILE_NOT_AVAILABLE') {
+                return Buffer.alloc(0);
+            } else {
+                throw e;
+            }
+        }
+    }
+
     // region Invoking Telegram request
     /**
      * Invokes a MTProtoRequest (sends and receives it) and returns its result
      * @param request
+     * @param dcId Optional dcId to use when sending the request
      * @returns {Promise}
      */
 
-    async invoke(request) {
+    async invoke(request, dcId) {
         if (request.classType !== 'request') {
             throw new Error('You can only invoke MTProtoRequests');
         }
-        // This causes issues for now because not enough utils
-        // await request.resolve(this, utils)
 
+        const sender = dcId === undefined ? this._sender : await this.getSender(dcId);
         this._lastRequest = new Date().getTime();
         let attempt = 0;
         for (attempt = 0; attempt < this._requestRetries; attempt++) {
-            const promise = this._sender.sendWithInvokeSupport(request);
+            const promise = sender.sendWithInvokeSupport(request);
             try {
                 const result = await promise.promise;
                 return result;
@@ -742,7 +839,7 @@ class TelegramClient {
             await this.connect();
         }
 
-        if (await checkAuthorization(this)) {
+        if (await checkAuthorization(this, authParams.shouldThrowIfUnauthorized)) {
             return;
         }
 
@@ -1051,19 +1148,22 @@ class TelegramClient {
     }
 }
 
-function timeout(promise, ms) {
+function timeout(cb, ms) {
+    let isResolved = false;
+
     return Promise.race([
-        promise,
-        Helpers.sleep(ms)
-            .then(() => Promise.reject(new Error('TIMEOUT'))),
-    ]);
+        cb(),
+        Helpers.sleep(ms).then(() => isResolved ? undefined : Promise.reject(new Error('TIMEOUT'))),
+    ]).finally(() => {
+        isResolved = true;
+    });
 }
 
 async function attempts(cb, times, pause) {
     for (let i = 0; i < times; i++) {
         try {
             // We need to `return await` here so it can be caught locally
-            // eslint-disable-next-line no-return-await
+            // eslint-disable-next-line @typescript-eslint/return-await
             return await cb();
         } catch (err) {
             if (i === times - 1) {

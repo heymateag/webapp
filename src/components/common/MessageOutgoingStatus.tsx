@@ -1,6 +1,7 @@
-import React, { FC, memo } from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
-import { ApiMessageOutgoingStatus } from '../../api/types';
+import type { ApiMessageOutgoingStatus } from '../../api/types';
 
 import Transition from '../ui/Transition';
 
@@ -18,9 +19,7 @@ const MessageOutgoingStatus: FC<OwnProps> = ({ status }) => {
   return (
     <div className="MessageOutgoingStatus">
       <Transition name="reveal" activeKey={Keys[status]}>
-        {() => (
-          <i className={`icon-message-${status}`} />
-        )}
+        <i className={`icon-message-${status}`} />
       </Transition>
     </div>
   );

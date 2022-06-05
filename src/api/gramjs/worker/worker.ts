@@ -1,5 +1,5 @@
-import { ApiOnProgress, ApiUpdate } from '../../types';
-import { OriginMessageEvent, WorkerMessageData } from './types';
+import type { ApiOnProgress, ApiUpdate } from '../../types';
+import type { OriginMessageEvent, WorkerMessageData } from './types';
 
 import { DEBUG } from '../../../config';
 import { initApi, callApi, cancelApiProgress } from '../provider';
@@ -7,8 +7,6 @@ import { initApi, callApi, cancelApiProgress } from '../provider';
 declare const self: WorkerGlobalScope;
 
 handleErrors();
-
-// TODO Re-use `util/createWorkerInterface.ts`
 
 const callbackState = new Map<string, ApiOnProgress>();
 
@@ -45,6 +43,12 @@ onmessage = async (message: OriginMessageEvent) => {
         }
 
         const response = await callApi(name, ...args);
+
+        if (DEBUG && typeof response === 'object' && 'CONSTRUCTOR_ID' in response) {
+          // eslint-disable-next-line no-console
+          console.error(`[GramJs/worker] \`${name}\`: Unexpected response \`${(response as any).className}\``);
+        }
+
         const { arrayBuffer } = (typeof response === 'object' && 'arrayBuffer' in response && response) || {};
 
         if (messageId) {
@@ -54,7 +58,7 @@ onmessage = async (message: OriginMessageEvent) => {
             response,
           }, arrayBuffer);
         }
-      } catch (error) {
+      } catch (error: any) {
         if (DEBUG) {
           // eslint-disable-next-line no-console
           console.error(error);

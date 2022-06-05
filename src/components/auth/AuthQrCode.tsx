@@ -1,65 +1,110 @@
-import QrCreator from 'qr-creator';
+import QrCodeStyling from 'qr-code-styling';
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useEffect, useRef, memo, useCallback,
+  useEffect, useRef, memo, useCallback,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalState, GlobalActions } from '../../global/types';
-import { LangCode } from '../../types';
+import type { GlobalState } from '../../global/types';
+import type { LangCode } from '../../types';
 
-import { pick } from '../../util/iteratees';
+import { DEFAULT_LANG_CODE } from '../../config';
+import { LOCAL_TGS_URLS } from '../common/helpers/animatedAssets';
 import { setLanguage } from '../../util/langProvider';
+import buildClassName from '../../util/buildClassName';
 import renderText from '../common/helpers/renderText';
+import { getSuggestedLanguage } from './helpers/getSuggestedLanguage';
+
 import useLangString from '../../hooks/useLangString';
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
-import { getSuggestedLanguage } from './helpers/getSuggestedLanguage';
+import useMediaTransition from '../../hooks/useMediaTransition';
 
 import Loading from '../ui/Loading';
 import Button from '../ui/Button';
+import blankUrl from '../../assets/blank.png';
+import AnimatedIcon from '../common/AnimatedIcon';
 
-type StateProps = Pick<GlobalState, 'connectionState' | 'authState' | 'authQrCode'> & {
-  language?: LangCode;
-};
-type DispatchProps = Pick<GlobalActions, (
-  'returnToAuthPhoneNumber' | 'setSettingOption'
-)>;
+type StateProps =
+  Pick<GlobalState, 'connectionState' | 'authState' | 'authQrCode'>
+  & { language?: LangCode };
 
 const DATA_PREFIX = 'tg://login?token=';
+const QR_SIZE = 280;
+const QR_PLANE_SIZE = 54;
 
-const AuthCode: FC<StateProps & DispatchProps> = ({
+const QR_CODE = new QrCodeStyling({
+  width: QR_SIZE,
+  height: QR_SIZE,
+  image: blankUrl,
+  margin: 10,
+  type: 'svg',
+  dotsOptions: {
+    type: 'rounded',
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+  },
+  imageOptions: {
+    imageSize: 0.4,
+    margin: 8,
+  },
+  qrOptions: {
+    errorCorrectionLevel: 'M',
+  },
+});
+
+const AuthCode: FC<StateProps> = ({
   connectionState,
   authState,
   authQrCode,
   language,
-  returnToAuthPhoneNumber,
-  setSettingOption,
 }) => {
+  const {
+    returnToAuthPhoneNumber,
+    setSettingOption,
+  } = getActions();
+
   const suggestedLanguage = getSuggestedLanguage();
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const continueText = useLangString(suggestedLanguage, 'ContinueOnThisLanguage');
   const [isLoading, markIsLoading, unmarkIsLoading] = useFlag();
+  const [isQrMounted, markQrMounted, unmarkQrMounted] = useFlag();
+
+  const transitionClassNames = useMediaTransition(isQrMounted);
 
   useEffect(() => {
-    if (!authQrCode || connectionState !== 'connectionStateReady') {
-      return;
+    if (!authQrCode) {
+      return () => {
+        unmarkQrMounted();
+      };
+    }
+
+    if (connectionState !== 'connectionStateReady') {
+      return undefined;
     }
 
     const container = qrCodeRef.current!;
+    const data = `${DATA_PREFIX}${authQrCode.token}`;
 
-    container.innerHTML = '';
-    container.classList.remove('pre-animate');
+    QR_CODE.update({
+      data,
+    });
 
-    QrCreator.render({
-      text: `${DATA_PREFIX}${authQrCode.token}`,
-      radius: 0.5,
-      ecLevel: 'M',
-      fill: '#4E96D4',
-      size: 280,
-    }, container);
-  }, [connectionState, authQrCode]);
+    if (!isQrMounted) {
+      QR_CODE.append(container);
+      markQrMounted();
+    }
+    return undefined;
+  }, [connectionState, authQrCode, isQrMounted, markQrMounted, unmarkQrMounted]);
+
+  useEffect(() => {
+    if (connectionState === 'connectionStateReady') {
+      void setLanguage(DEFAULT_LANG_CODE);
+    }
+  }, [connectionState]);
 
   const handleLangChange = useCallback(() => {
     markIsLoading();
@@ -76,15 +121,31 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
   return (
     <div id="auth-qr-form" className="custom-scroll">
       <div className="auth-form qr">
-        {authQrCode ? (
-          <div key="qr-container" className="qr-container pre-animate" ref={qrCodeRef} />
-        ) : (
-          <div key="qr-loading" className="qr-loading"><Loading /></div>
-        )}
+        <div className="qr-outer">
+          <div
+            className={buildClassName('qr-inner', transitionClassNames)}
+            key="qr-inner"
+          >
+            <div
+              key="qr-container"
+              className="qr-container"
+              ref={qrCodeRef}
+              style={`width: ${QR_SIZE}px; height: ${QR_SIZE}px`}
+            />
+            <AnimatedIcon
+              tgsUrl={LOCAL_TGS_URLS.QrPlane}
+              size={QR_PLANE_SIZE}
+              className="qr-plane"
+              nonInteractive
+              noLoop={false}
+            />
+          </div>
+          {!isQrMounted && <div className="qr-loading"><Loading /></div>}
+        </div>
         <h3>{lang('Login.QR.Title')}</h3>
         <ol>
           <li><span>{lang('Login.QR.Help1')}</span></li>
-          <li><span>{renderText(lang('Login.QR.Help2'), ['simple_markdown'])}</span></li>
+          <li><span>{renderText(lang('Login.QR2.Help2'), ['simple_markdown'])}</span></li>
           <li><span>{lang('Login.QR.Help3')}</span></li>
         </ol>
         {isAuthReady && (
@@ -111,7 +172,4 @@ export default memo(withGlobal(
       language,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'returnToAuthPhoneNumber', 'setSettingOption',
-  ]),
 )(AuthCode));

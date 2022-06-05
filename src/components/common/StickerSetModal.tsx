@@ -1,20 +1,26 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useRef,
+  memo, useCallback, useEffect, useRef,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiSticker, ApiStickerSet } from '../../api/types';
-import { GlobalActions } from '../../global/types';
+import type { ApiSticker, ApiStickerSet } from '../../api/types';
 
 import { STICKER_SIZE_MODAL } from '../../config';
-import { pick } from '../../util/iteratees';
 import {
-  selectChat, selectCurrentMessageList, selectStickerSet, selectStickerSetByShortName,
-} from '../../modules/selectors';
+  selectCanScheduleUntilOnline,
+  selectChat,
+  selectCurrentMessageList,
+  selectIsChatWithSelf,
+  selectShouldSchedule,
+  selectStickerSet,
+  selectStickerSetByShortName,
+} from '../../global/selectors';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import useLang from '../../hooks/useLang';
 import renderText from './helpers/renderText';
-import { getAllowedAttachmentOptions, getCanPostInChat } from '../../modules/helpers';
+import { getAllowedAttachmentOptions, getCanPostInChat } from '../../global/helpers';
+import useSchedule from '../../hooks/useSchedule';
 
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -33,26 +39,35 @@ export type OwnProps = {
 type StateProps = {
   canSendStickers?: boolean;
   stickerSet?: ApiStickerSet;
+  canScheduleUntilOnline?: boolean;
+  shouldSchedule?: boolean;
+  isSavedMessages?: boolean;
 };
-
-type DispatchProps = Pick<GlobalActions, 'loadStickers' | 'toggleStickerSet' | 'sendMessage'>;
 
 const INTERSECTION_THROTTLE = 200;
 
-const StickerSetModal: FC<OwnProps & StateProps & DispatchProps> = ({
+const StickerSetModal: FC<OwnProps & StateProps> = ({
   isOpen,
   fromSticker,
   stickerSetShortName,
   stickerSet,
   canSendStickers,
+  canScheduleUntilOnline,
+  shouldSchedule,
+  isSavedMessages,
   onClose,
-  loadStickers,
-  toggleStickerSet,
-  sendMessage,
 }) => {
+  const {
+    loadStickers,
+    toggleStickerSet,
+    sendMessage,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
   const lang = useLang();
+
+  const [requestCalendar, calendar] = useSchedule(canScheduleUntilOnline);
 
   const {
     observe: observeIntersection,
@@ -74,14 +89,22 @@ const StickerSetModal: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [isOpen, fromSticker, loadStickers, stickerSetShortName]);
 
-  const handleSelect = useCallback((sticker: ApiSticker) => {
+  const handleSelect = useCallback((sticker: ApiSticker, isSilent?: boolean, isScheduleRequested?: boolean) => {
     sticker = {
       ...sticker,
       isPreloadedGlobally: true,
     };
-    sendMessage({ sticker });
-    onClose();
-  }, [onClose, sendMessage]);
+
+    if (shouldSchedule || isScheduleRequested) {
+      requestCalendar((scheduledAt) => {
+        sendMessage({ sticker, isSilent, scheduledAt });
+        onClose();
+      });
+    } else {
+      sendMessage({ sticker, isSilent });
+      onClose();
+    }
+  }, [onClose, requestCalendar, sendMessage, shouldSchedule]);
 
   const handleButtonClick = useCallback(() => {
     if (stickerSet) {
@@ -108,6 +131,7 @@ const StickerSetModal: FC<OwnProps & StateProps & DispatchProps> = ({
                 observeIntersection={observeIntersection}
                 onClick={canSendStickers ? handleSelect : undefined}
                 clickArg={sticker}
+                isSavedMessages={isSavedMessages}
               />
             ))}
           </div>
@@ -129,6 +153,7 @@ const StickerSetModal: FC<OwnProps & StateProps & DispatchProps> = ({
       ) : (
         <Loading />
       )}
+      {calendar}
     </Modal>
   );
 };
@@ -142,9 +167,13 @@ export default memo(withGlobal<OwnProps>(
     const canSendStickers = Boolean(
       chat && threadId && getCanPostInChat(chat, threadId) && sendOptions?.canSendStickers,
     );
+    const isSavedMessages = Boolean(chatId) && selectIsChatWithSelf(global, chatId);
 
     return {
+      canScheduleUntilOnline: Boolean(chatId) && selectCanScheduleUntilOnline(global, chatId),
       canSendStickers,
+      isSavedMessages,
+      shouldSchedule: selectShouldSchedule(global),
       stickerSet: fromSticker
         ? selectStickerSet(global, fromSticker.stickerSetId)
         : stickerSetShortName
@@ -152,9 +181,4 @@ export default memo(withGlobal<OwnProps>(
           : undefined,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadStickers',
-    'toggleStickerSet',
-    'sendMessage',
-  ]),
 )(StickerSetModal));

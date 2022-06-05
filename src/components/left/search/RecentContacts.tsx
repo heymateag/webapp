@@ -1,15 +1,14 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useEffect, useCallback, useRef, memo,
+  useEffect, useCallback, useRef, memo,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiUser } from '../../../api/types';
+import type { ApiUser } from '../../../api/types';
 
-import { getUserFirstOrLastName } from '../../../modules/helpers';
+import { getUserFirstOrLastName } from '../../../global/helpers';
 import renderText from '../../common/helpers/renderText';
 import { throttle } from '../../../util/schedulers';
-import { pick } from '../../../util/iteratees';
 import useHorizontalScroll from '../../../hooks/useHorizontalScroll';
 import useLang from '../../../hooks/useLang';
 
@@ -29,20 +28,20 @@ type StateProps = {
   recentlyFoundChatIds?: string[];
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'loadTopUsers' | 'loadContactList' | 'openChat' | 'addRecentlyFoundChatId' | 'clearRecentlyFoundChats'
-)>;
-
 const SEARCH_CLOSE_TIMEOUT_MS = 250;
 const NBSP = '\u00A0';
 
 const runThrottled = throttle((cb) => cb(), 60000, true);
 
-const RecentContacts: FC<OwnProps & StateProps & DispatchProps> = ({
+const RecentContacts: FC<OwnProps & StateProps> = ({
   topUserIds, usersById, recentlyFoundChatIds,
-  onReset, loadTopUsers, loadContactList, openChat,
-  addRecentlyFoundChatId, clearRecentlyFoundChats,
+  onReset,
 }) => {
+  const {
+    loadTopUsers, openChat,
+    addRecentlyFoundChatId, clearRecentlyFoundChats,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const topUsersRef = useRef<HTMLDivElement>(null);
 
@@ -51,10 +50,8 @@ const RecentContacts: FC<OwnProps & StateProps & DispatchProps> = ({
   useEffect(() => {
     runThrottled(() => {
       loadTopUsers();
-      // Loading full contact list for quick local search before user enters the query
-      loadContactList();
     });
-  }, [loadTopUsers, loadContactList]);
+  }, [loadTopUsers]);
 
   useHorizontalScroll(topUsersRef.current, !topUserIds);
 
@@ -122,11 +119,4 @@ export default memo(withGlobal<OwnProps>(
       recentlyFoundChatIds,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadTopUsers',
-    'loadContactList',
-    'openChat',
-    'addRecentlyFoundChatId',
-    'clearRecentlyFoundChats',
-  ]),
 )(RecentContacts));

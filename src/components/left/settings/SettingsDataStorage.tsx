@@ -1,8 +1,8 @@
-import React, { FC, memo, useCallback } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { SettingsScreens, ISettings } from '../../../types';
+import type { ISettings } from '../../../types';
 
 import { AUTODOWNLOAD_FILESIZE_MB_LIMITS } from '../../../config';
 import { pick } from '../../../util/iteratees';
@@ -14,7 +14,6 @@ import RangeSlider from '../../ui/RangeSlider';
 
 type OwnProps = {
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
@@ -36,13 +35,8 @@ type StateProps = Pick<ISettings, (
   'autoLoadFileMaxSizeMb'
 )>;
 
-type DispatchProps = Pick<GlobalActions, (
-  'setSettingOption'
-)>;
-
-const SettingsDataStorage: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsDataStorage: FC<OwnProps & StateProps> = ({
   isActive,
-  onScreenSelect,
   onReset,
   canAutoLoadPhotoFromContacts,
   canAutoLoadPhotoInPrivateChats,
@@ -59,11 +53,15 @@ const SettingsDataStorage: FC<OwnProps & StateProps & DispatchProps> = ({
   canAutoPlayGifs,
   canAutoPlayVideos,
   autoLoadFileMaxSizeMb,
-  setSettingOption,
 }) => {
+  const { setSettingOption } = getActions();
+
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.General);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   const renderFileSizeCallback = useCallback((value: number) => {
     return lang('AutodownloadSizeLimitUpTo', lang('FileSize.MB', String(AUTODOWNLOAD_FILESIZE_MB_LIMITS[value]), 'i'));
@@ -71,6 +69,14 @@ const SettingsDataStorage: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const handleFileSizeChange = useCallback((value: number) => {
     setSettingOption({ autoLoadFileMaxSizeMb: AUTODOWNLOAD_FILESIZE_MB_LIMITS[value] });
+  }, [setSettingOption]);
+
+  const handleCanAutoPlayGifsChange = useCallback((value: boolean) => {
+    setSettingOption({ canAutoPlayGifs: value });
+  }, [setSettingOption]);
+
+  const handleCanAutoPlayVideosChange = useCallback((value: boolean) => {
+    setSettingOption({ canAutoPlayVideos: value });
   }, [setSettingOption]);
 
   function renderContentSizeSlider() {
@@ -105,21 +111,26 @@ const SettingsDataStorage: FC<OwnProps & StateProps & DispatchProps> = ({
         <Checkbox
           label={lang('AutoDownloadSettings.Contacts')}
           checked={canAutoLoadFromContacts}
+          // TODO rewrite to support `useCallback`
+          // eslint-disable-next-line react/jsx-no-bind
           onCheck={(isChecked) => setSettingOption({ [`canAutoLoad${key}FromContacts`]: isChecked })}
         />
         <Checkbox
           label={lang('AutoDownloadSettings.PrivateChats')}
           checked={canAutoLoadInPrivateChats}
+          // eslint-disable-next-line react/jsx-no-bind
           onCheck={(isChecked) => setSettingOption({ [`canAutoLoad${key}InPrivateChats`]: isChecked })}
         />
         <Checkbox
           label={lang('AutoDownloadSettings.GroupChats')}
           checked={canAutoLoadInGroups}
+          // eslint-disable-next-line react/jsx-no-bind
           onCheck={(isChecked) => setSettingOption({ [`canAutoLoad${key}InGroups`]: isChecked })}
         />
         <Checkbox
           label={lang('AutoDownloadSettings.Channels')}
           checked={canAutoLoadInChannels}
+          // eslint-disable-next-line react/jsx-no-bind
           onCheck={(isChecked) => setSettingOption({ [`canAutoLoad${key}InChannels`]: isChecked })}
         />
 
@@ -161,12 +172,12 @@ const SettingsDataStorage: FC<OwnProps & StateProps & DispatchProps> = ({
         <Checkbox
           label={lang('GifsTab2')}
           checked={canAutoPlayGifs}
-          onCheck={(isChecked) => setSettingOption({ canAutoPlayGifs: isChecked })}
+          onCheck={handleCanAutoPlayGifsChange}
         />
         <Checkbox
           label={lang('DataAndStorage.Autoplay.Videos')}
           checked={canAutoPlayVideos}
-          onCheck={(isChecked) => setSettingOption({ canAutoPlayVideos: isChecked })}
+          onCheck={handleCanAutoPlayVideosChange}
         />
       </div>
     </div>
@@ -193,7 +204,4 @@ export default memo(withGlobal<OwnProps>(
       'autoLoadFileMaxSizeMb',
     ]);
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'setSettingOption',
-  ]),
 )(SettingsDataStorage));

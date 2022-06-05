@@ -1,12 +1,13 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useState, memo, useCallback, useRef,
+  useState, memo, useCallback, useRef,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { withGlobal } from '../../global';
 
-import { ApiCountryCode } from '../../api/types';
+import type { ApiCountryCode } from '../../api/types';
 
 import { ANIMATION_END_DELAY } from '../../config';
-import searchWords from '../../util/searchWords';
+import { prepareSearchWordsForNeedle } from '../../util/searchWords';
 import buildClassName from '../../util/buildClassName';
 import renderText from '../common/helpers/renderText';
 import useLang from '../../hooks/useLang';
@@ -81,7 +82,7 @@ const CountryCodeInput: FC<OwnProps & StateProps> = ({
     updateFilter(target.value);
   }, [filter, updateFilter, value]);
 
-  const CodeInput: FC<{ onTrigger: () => void; isOpen?: boolean }> = ({ onTrigger, isOpen }) => {
+  const CodeInput: FC<{ onTrigger: () => void; isOpen?: boolean }> = useCallback(({ onTrigger, isOpen }) => {
     const handleTrigger = () => {
       if (isOpen) {
         return;
@@ -126,7 +127,7 @@ const CountryCodeInput: FC<OwnProps & StateProps> = ({
         )}
       </div>
     );
-  };
+  }, [filter, handleInput, handleInputKeyDown, id, isLoading, lang, value]);
 
   return (
     <DropdownMenu
@@ -136,13 +137,14 @@ const CountryCodeInput: FC<OwnProps & StateProps> = ({
       {filteredList
         .map((country: ApiCountryCode) => (
           <MenuItem
-            key={country.iso2}
+            key={`${country.iso2}-${country.countryCode}`}
             className={value && country.iso2 === value.iso2 ? 'selected' : ''}
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={() => handleChange(country)}
           >
             <span className="country-flag">{renderText(isoToEmoji(country.iso2), ['hq_emoji'])}</span>
             <span className="country-name">{country.name || country.defaultName}</span>
-            <span className="country-code">{country.countryCode}</span>
+            <span className="country-code">+{country.countryCode}</span>
           </MenuItem>
         ))}
       {!filteredList.length && (
@@ -159,11 +161,15 @@ const CountryCodeInput: FC<OwnProps & StateProps> = ({
 };
 
 function getFilteredList(countryList: ApiCountryCode[], filter = ''): ApiCountryCode[] {
-  const filtered = filter.length
-    ? countryList.filter((country) => (
-      searchWords(country.defaultName, filter) || (country.name && searchWords(country.name, filter))
-    )) : countryList;
-  return filtered;
+  if (!filter.length) {
+    return countryList;
+  }
+
+  const searchWords = prepareSearchWordsForNeedle(filter);
+
+  return countryList.filter((country) => (
+    searchWords(country.defaultName) || (country.name && searchWords(country.name))
+  ));
 }
 
 export default memo(withGlobal<OwnProps>(

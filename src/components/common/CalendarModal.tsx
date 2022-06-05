@@ -1,10 +1,12 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useState, useEffect, useMemo, useCallback,
+  memo, useState, useEffect, useMemo, useCallback,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
-import { formatTime, formatDateToString } from '../../util/dateFormat';
-import useLang, { LangFn } from '../../hooks/useLang';
+import { formatTime, formatDateToString, getDayStart } from '../../util/dateFormat';
+import type { LangFn } from '../../hooks/useLang';
+import useLang from '../../hooks/useLang';
 import usePrevious from '../../hooks/usePrevious';
 import useFlag from '../../hooks/useFlag';
 
@@ -13,8 +15,12 @@ import Button from '../ui/Button';
 
 import './CalendarModal.scss';
 
+const MAX_SAFE_DATE = 2147483647 * 1000; // API has int for dates
+const MIN_SAFE_DATE = 0;
+
 export type OwnProps = {
   selectedAt?: number;
+  minAt?: number;
   maxAt?: number;
   isFutureMode?: boolean;
   isPastMode?: boolean;
@@ -39,6 +45,7 @@ const WEEKDAY_LETTERS = [
 
 export const CalendarModal: FC<OwnProps> = ({
   selectedAt,
+  minAt,
   maxAt,
   isFutureMode,
   isPastMode,
@@ -52,20 +59,29 @@ export const CalendarModal: FC<OwnProps> = ({
 }) => {
   const lang = useLang();
   const now = new Date();
-  const defaultSelectedDate = useMemo(() => (selectedAt ? new Date(selectedAt) : new Date()), [selectedAt]);
-  const maxDate = maxAt ? new Date(maxAt) : undefined;
+
+  const minDate = useMemo(() => {
+    if (isFutureMode && !minAt) return new Date();
+    return new Date(Math.max(minAt || MIN_SAFE_DATE, MIN_SAFE_DATE));
+  }, [isFutureMode, minAt]);
+  const maxDate = useMemo(() => {
+    if (isPastMode && !maxAt) return new Date();
+    return new Date(Math.min(maxAt || MAX_SAFE_DATE, MAX_SAFE_DATE));
+  }, [isPastMode, maxAt]);
+
+  const passedSelectedDate = useMemo(() => (selectedAt ? new Date(selectedAt) : new Date()), [selectedAt]);
   const prevIsOpen = usePrevious(isOpen);
   const [isTimeInputFocused, markTimeInputAsFocused, unmarkTimeInputAsFocused] = useFlag(false);
 
-  const [selectedDate, setSelectedDate] = useState<Date>(defaultSelectedDate);
+  const [selectedDate, setSelectedDate] = useState<Date>(passedSelectedDate);
   const [currentMonthAndYear, setCurrentMonthAndYear] = useState<Date>(
     new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
   );
   const [selectedHours, setSelectedHours] = useState<string>(
-    formatInputTime(defaultSelectedDate.getHours()),
+    formatInputTime(passedSelectedDate.getHours()),
   );
   const [selectedMinutes, setSelectedMinutes] = useState<string>(
-    formatInputTime(defaultSelectedDate.getMinutes()),
+    formatInputTime(passedSelectedDate.getMinutes()),
   );
 
   const selectedDay = formatDay(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
@@ -74,18 +90,39 @@ export const CalendarModal: FC<OwnProps> = ({
 
   useEffect(() => {
     if (!prevIsOpen && isOpen) {
-      setSelectedDate(defaultSelectedDate);
-      setCurrentMonthAndYear(new Date(defaultSelectedDate.getFullYear(), defaultSelectedDate.getMonth(), 1));
+      setSelectedDate(passedSelectedDate);
+      setCurrentMonthAndYear(new Date(passedSelectedDate.getFullYear(), passedSelectedDate.getMonth(), 1));
+      if (withTimePicker) {
+        setSelectedHours(formatInputTime(passedSelectedDate.getHours()));
+        setSelectedMinutes(formatInputTime(passedSelectedDate.getMinutes()));
+      }
     }
-  }, [defaultSelectedDate, isOpen, prevIsOpen]);
+  }, [passedSelectedDate, isOpen, prevIsOpen, withTimePicker]);
 
   useEffect(() => {
-    if (isFutureMode && !isTimeInputFocused && selectedDate.getTime() < defaultSelectedDate.getTime()) {
-      setSelectedDate(defaultSelectedDate);
-      setSelectedHours(formatInputTime(defaultSelectedDate.getHours()));
-      setSelectedMinutes(formatInputTime(defaultSelectedDate.getMinutes()));
+    if (isFutureMode && !isTimeInputFocused && selectedDate.getTime() < minDate.getTime()) {
+      setSelectedDate(minDate);
+      setSelectedHours(formatInputTime(minDate.getHours()));
+      setSelectedMinutes(formatInputTime(minDate.getMinutes()));
     }
-  }, [defaultSelectedDate, isTimeInputFocused, isFutureMode, selectedDate]);
+  }, [isFutureMode, isTimeInputFocused, minDate, selectedDate]);
+
+  useEffect(() => {
+    if (isPastMode && !isTimeInputFocused && selectedDate.getTime() > maxDate.getTime()) {
+      setSelectedDate(maxDate);
+      setSelectedHours(formatInputTime(maxDate.getHours()));
+      setSelectedMinutes(formatInputTime(maxDate.getMinutes()));
+    }
+  }, [isFutureMode, isPastMode, isTimeInputFocused, maxDate, minDate, selectedDate]);
+
+  useEffect(() => {
+    if (selectedAt) {
+      const newSelectedDate = new Date(selectedAt);
+      setSelectedDate(newSelectedDate);
+      setSelectedHours(formatInputTime(newSelectedDate.getHours()));
+      setSelectedMinutes(formatInputTime(newSelectedDate.getMinutes()));
+    }
+  }, [selectedAt]);
 
   const shouldDisableNextMonth = (isPastMode && currentYear >= now.getFullYear() && currentMonth >= now.getMonth())
     || (maxDate && currentYear >= maxDate.getFullYear() && currentMonth >= maxDate.getMonth());
@@ -94,6 +131,10 @@ export const CalendarModal: FC<OwnProps> = ({
   const { prevMonthGrid, currentMonthGrid, nextMonthGrid } = useMemo(() => (
     buildCalendarGrid(currentYear, currentMonth)
   ), [currentMonth, currentYear]);
+
+  const submitLabel = useMemo(() => {
+    return submitButtonLabel || formatSubmitLabel(lang, selectedDate);
+  }, [lang, selectedDate, submitButtonLabel]);
 
   function handlePrevMonth() {
     setCurrentMonthAndYear((d) => {
@@ -124,9 +165,9 @@ export const CalendarModal: FC<OwnProps> = ({
     });
   }
 
-  function handleSubmit() {
+  const handleSubmit = useCallback(() => {
     onSubmit(selectedDate);
-  }
+  }, [onSubmit, selectedDate]);
 
   const handleChangeHours = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^\d]+/g, '');
@@ -255,14 +296,14 @@ export const CalendarModal: FC<OwnProps> = ({
               className={buildClassName(
                 'day-button',
                 isDisabledDay(
-                  currentYear, currentMonth, gridDate, isFutureMode ? now : undefined, isPastMode ? now : maxDate,
+                  currentYear, currentMonth, gridDate, minDate, maxDate,
                 )
                   ? 'disabled'
                   : `${gridDate ? 'clickable' : ''}`,
                 selectedDay === formatDay(currentYear, currentMonth, gridDate) && 'selected',
               )}
             >
-              {!!gridDate && (
+              {Boolean(gridDate) && (
                 <span>{gridDate}</span>
               )}
             </div>
@@ -277,7 +318,7 @@ export const CalendarModal: FC<OwnProps> = ({
 
       <div className="footer">
         <Button onClick={handleSubmit}>
-          {withTimePicker ? formatSubmitLabel(lang, selectedDate) : submitButtonLabel}
+          {submitLabel}
         </Button>
         {secondButtonLabel && (
           <Button onClick={onSecondButtonClick} isText>
@@ -298,7 +339,7 @@ function buildCalendarGrid(year: number, month: number) {
   date.setDate(1);
   date.setMonth(month);
   date.setFullYear(year);
-  const firstDay = date.getDay();
+  const firstDay = date.getDay() || 7;
   const totalDaysInPrevMonth = new Date(year, month, 0).getDate();
 
   for (let i = 1; i < firstDay; i++) {
@@ -322,9 +363,9 @@ function buildCalendarGrid(year: number, month: number) {
 }
 
 function isDisabledDay(year: number, month: number, day: number, minDate?: Date, maxDate?: Date) {
-  const selectedDay = new Date(year, month, day, 0, 0, 0, 0);
-  const fixedMinDate = minDate && new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate(), 0, 0, 0, 0);
-  const fixedMaxDate = maxDate && new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate(), 0, 0, 0, 0);
+  const selectedDay = new Date(year, month, day);
+  const fixedMinDate = minDate && getDayStart(minDate);
+  const fixedMaxDate = maxDate && getDayStart(maxDate);
 
   if (fixedMaxDate && selectedDay > fixedMaxDate) {
     return true;
@@ -348,10 +389,10 @@ function formatSubmitLabel(lang: LangFn, date: Date) {
   const today = formatDateToString(new Date(), lang.code);
 
   if (day === today) {
-    return lang('Conversation.ScheduleMessage.SendToday', formatTime(date, lang));
+    return lang('Conversation.ScheduleMessage.SendToday', formatTime(lang, date));
   }
 
-  return lang('Conversation.ScheduleMessage.SendOn', [day, formatTime(date, lang)]);
+  return lang('Conversation.ScheduleMessage.SendOn', [day, formatTime(lang, date)]);
 }
 
 export default memo(CalendarModal);

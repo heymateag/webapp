@@ -1,28 +1,26 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef,
-} from 'teact/teact';
-import { withGlobal } from 'teact/teactn';
+  memo, useCallback, useEffect, useMemo, useRef,
+} from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { ApiChat, ApiChatFolder, ApiUser } from '../../../api/types';
-import { GlobalActions } from '../../../global/types';
-import { NotifyException, NotifySettings, SettingsScreens } from '../../../types';
-import { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
+import type { ApiChatFolder } from '../../../api/types';
+import type { SettingsScreens } from '../../../types';
+import type { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
 
+import { ALL_FOLDER_ID } from '../../../config';
 import { IS_TOUCH_ENV } from '../../../util/environment';
-import { buildCollectionByKey, pick } from '../../../util/iteratees';
 import { captureEvents, SwipeDirection } from '../../../util/captureEvents';
-import { getFolderUnreadDialogs } from '../../../modules/helpers';
-import { selectNotifyExceptions, selectNotifySettings } from '../../../modules/selectors';
-import useShowTransition from '../../../hooks/useShowTransition';
 import buildClassName from '../../../util/buildClassName';
-import useThrottledMemo from '../../../hooks/useThrottledMemo';
+import captureEscKeyListener from '../../../util/captureEscKeyListener';
+import useShowTransition from '../../../hooks/useShowTransition';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
-import captureEscKeyListener from '../../../util/captureEscKeyListener';
 
 import Transition from '../../ui/Transition';
 import TabList from '../../ui/TabList';
 import ChatList from './ChatList';
+import { useFolderManagerForUnreadCounters } from '../../../hooks/useFolderManager';
 
 type OwnProps = {
   onScreenSelect: (screen: SettingsScreens) => void;
@@ -30,11 +28,7 @@ type OwnProps = {
 };
 
 type StateProps = {
-  chatsById: Record<string, ApiChat>;
-  usersById: Record<string, ApiUser>;
   chatFoldersById: Record<number, ApiChatFolder>;
-  notifySettings: NotifySettings;
-  notifyExceptions?: Record<number, NotifyException>;
   orderedFolderIds?: number[];
   activeChatFolder: number;
   currentUserId?: string;
@@ -42,28 +36,24 @@ type StateProps = {
   shouldSkipHistoryAnimations?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadChatFolders' | 'setActiveChatFolder' | 'openChat'>;
-
-const INFO_THROTTLE = 3000;
 const SAVED_MESSAGES_HOTKEY = '0';
 
-const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
-  chatsById,
-  usersById,
+const ChatFolders: FC<OwnProps & StateProps> = ({
+  foldersDispatch,
+  onScreenSelect,
   chatFoldersById,
-  notifySettings,
-  notifyExceptions,
   orderedFolderIds,
   activeChatFolder,
   currentUserId,
   lastSyncTime,
   shouldSkipHistoryAnimations,
-  foldersDispatch,
-  onScreenSelect,
-  loadChatFolders,
-  setActiveChatFolder,
-  openChat,
 }) => {
+  const {
+    loadChatFolders,
+    setActiveChatFolder,
+    openChat,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const transitionRef = useRef<HTMLDivElement>(null);
 
@@ -81,43 +71,28 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
       : undefined;
   }, [chatFoldersById, orderedFolderIds]);
 
-  const folderCountersById = useThrottledMemo(() => {
-    if (!displayedFolders || !displayedFolders.length) {
-      return undefined;
-    }
-
-    const chatIds = Object.keys(chatsById);
-    const counters = displayedFolders.map((folder) => {
-      const {
-        unreadDialogsCount, hasActiveDialogs,
-      } = getFolderUnreadDialogs(chatsById, usersById, folder, chatIds, notifySettings, notifyExceptions) || {};
-
-      return {
-        id: folder.id,
-        badgeCount: unreadDialogsCount,
-        isBadgeActive: hasActiveDialogs,
-      };
-    });
-
-    return buildCollectionByKey(counters, 'id');
-  }, INFO_THROTTLE, [displayedFolders, chatsById, usersById, notifySettings, notifyExceptions]);
-
+  const folderCountersById = useFolderManagerForUnreadCounters();
   const folderTabs = useMemo(() => {
     if (!displayedFolders || !displayedFolders.length) {
       return undefined;
     }
 
     return [
-      { title: lang.code === 'en' ? 'All' : lang('FilterAllChats') },
-      ...displayedFolders.map((folder) => ({
-        title: folder.title,
-        ...(folderCountersById?.[folder.id]),
+      {
+        id: ALL_FOLDER_ID,
+        title: lang.code === 'en' ? 'All' : lang('FilterAllChats'),
+      },
+      ...displayedFolders.map(({ id, title }) => ({
+        id,
+        title,
+        badgeCount: folderCountersById[id]?.chatsCount,
+        isBadgeActive: Boolean(folderCountersById[id]?.notificationsCount),
       })),
     ];
   }, [displayedFolders, folderCountersById, lang]);
 
   const handleSwitchTab = useCallback((index: number) => {
-    setActiveChatFolder(index);
+    setActiveChatFolder(index, { forceOnHeavyAnimation: true });
   }, [setActiveChatFolder]);
 
   // Prevent `activeTab` pointing at non-existing folder after update
@@ -140,10 +115,10 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
       selectorToPreventScroll: '.chat-list',
       onSwipe: ((e, direction) => {
         if (direction === SwipeDirection.Left) {
-          setActiveChatFolder(Math.min(activeChatFolder + 1, folderTabs.length - 1));
+          setActiveChatFolder(Math.min(activeChatFolder + 1, folderTabs.length - 1), { forceOnHeavyAnimation: true });
           return true;
         } else if (direction === SwipeDirection.Right) {
-          setActiveChatFolder(Math.max(0, activeChatFolder - 1));
+          setActiveChatFolder(Math.max(0, activeChatFolder - 1), { forceOnHeavyAnimation: true });
           return true;
         }
 
@@ -160,7 +135,10 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }) : undefined), [activeChatFolder, setActiveChatFolder]);
 
-  useHistoryBack(activeChatFolder !== 0, () => setActiveChatFolder(0));
+  useHistoryBack({
+    isActive: activeChatFolder !== 0,
+    onBack: () => setActiveChatFolder(0, { forceOnHeavyAnimation: true }),
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -176,7 +154,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
         const folder = Number(digit) - 1;
         if (folder > folderTabs.length - 1) return;
 
-        setActiveChatFolder(folder);
+        setActiveChatFolder(folder, { forceOnHeavyAnimation: true });
         e.preventDefault();
       }
     };
@@ -186,7 +164,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
     };
-  });
+  }, [currentUserId, folderTabs, openChat, setActiveChatFolder]);
 
   const {
     shouldRender: shouldRenderPlaceholder, transitionClassNames,
@@ -194,13 +172,14 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
 
   function renderCurrentTab(isActive: boolean) {
     const activeFolder = Object.values(chatFoldersById)
-      .find(({ title }) => title === folderTabs![activeChatFolder].title);
+      .find(({ id }) => id === folderTabs![activeChatFolder].id);
 
     if (!activeFolder || activeChatFolder === 0) {
       return (
         <ChatList
           folderType="all"
           isActive={isActive}
+          lastSyncTime={lastSyncTime}
           foldersDispatch={foldersDispatch}
           onScreenSelect={onScreenSelect}
         />
@@ -212,6 +191,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
         folderType="folder"
         folderId={activeFolder.id}
         isActive={isActive}
+        lastSyncTime={lastSyncTime}
         onScreenSelect={onScreenSelect}
         foldersDispatch={foldersDispatch}
       />
@@ -227,7 +207,7 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
       ) : undefined}
       <Transition
         ref={transitionRef}
-        name={shouldSkipHistoryAnimations ? 'none' : lang.isRtl ? 'slide-reversed' : 'slide'}
+        name={shouldSkipHistoryAnimations ? 'none' : lang.isRtl ? 'slide-optimized-rtl' : 'slide-optimized'}
         activeKey={activeChatFolder}
         renderCount={folderTabs ? folderTabs.length : undefined}
       >
@@ -240,8 +220,6 @@ const ChatFolders: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const {
-      chats: { byId: chatsById },
-      users: { byId: usersById },
       chatFolders: {
         byId: chatFoldersById,
         orderedIds: orderedFolderIds,
@@ -253,21 +231,12 @@ export default memo(withGlobal<OwnProps>(
     } = global;
 
     return {
-      chatsById,
-      usersById,
       chatFoldersById,
       orderedFolderIds,
-      lastSyncTime,
-      notifySettings: selectNotifySettings(global),
-      notifyExceptions: selectNotifyExceptions(global),
       activeChatFolder,
       currentUserId,
+      lastSyncTime,
       shouldSkipHistoryAnimations,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadChatFolders',
-    'setActiveChatFolder',
-    'openChat',
-  ]),
 )(ChatFolders));

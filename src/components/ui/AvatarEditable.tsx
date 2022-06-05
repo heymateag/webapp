@@ -1,6 +1,7 @@
-import { ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useState, useEffect, memo,
+  useState, useEffect, memo, useCallback,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
@@ -40,7 +41,7 @@ const AvatarEditable: FC<OwnProps> = ({
     target.value = '';
   }
 
-  function handleAvatarCrop(croppedImg: File) {
+  const handleAvatarCrop = useCallback((croppedImg: File) => {
     setSelectedFile(undefined);
     onChange(croppedImg);
 
@@ -48,11 +49,11 @@ const AvatarEditable: FC<OwnProps> = ({
       URL.revokeObjectURL(croppedBlobUrl);
     }
     setCroppedBlobUrl(URL.createObjectURL(croppedImg));
-  }
+  }, [croppedBlobUrl, onChange]);
 
-  function handleModalClose() {
+  const handleModalClose = useCallback(() => {
     setSelectedFile(undefined);
-  }
+  }, []);
 
   const labelClassName = buildClassName(
     croppedBlobUrl && 'filled',

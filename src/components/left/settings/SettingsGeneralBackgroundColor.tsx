@@ -1,18 +1,19 @@
-import { ChangeEvent, MutableRefObject, RefObject } from 'react';
+import type { ChangeEvent, MutableRefObject, RefObject } from 'react';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useRef, useState,
+  memo, useCallback, useEffect, useRef, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { SettingsScreens, ThemeKey } from '../../../types';
+import type { ThemeKey } from '../../../types';
 
 import { pick } from '../../../util/iteratees';
 import {
   getPatternColor, hex2rgb, hsb2rgb, rgb2hex, rgb2hsb,
 } from '../../../util/colors';
-import { captureEvents, RealTouchEvent } from '../../../util/captureEvents';
-import { selectTheme } from '../../../modules/selectors';
+import type { RealTouchEvent } from '../../../util/captureEvents';
+import { captureEvents } from '../../../util/captureEvents';
+import { selectTheme } from '../../../global/selectors';
 import useFlag from '../../../hooks/useFlag';
 import buildClassName from '../../../util/buildClassName';
 import useHistoryBack from '../../../hooks/useHistoryBack';
@@ -23,7 +24,6 @@ import './SettingsGeneralBackgroundColor.scss';
 
 type OwnProps = {
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
@@ -31,8 +31,6 @@ type StateProps = {
   backgroundColor?: string;
   theme: ThemeKey;
 };
-
-type DispatchProps = Pick<GlobalActions, 'setThemeSettings'>;
 
 interface CanvasRects {
   colorRect: {
@@ -53,14 +51,14 @@ const PREDEFINED_COLORS = [
   '#ccd0af', '#a6a997', '#7a7072', '#fdd7af', '#fdb76e', '#dd8851',
 ];
 
-const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsGeneralBackground: FC<OwnProps & StateProps> = ({
   isActive,
-  onScreenSelect,
   onReset,
   theme,
   backgroundColor,
-  setThemeSettings,
 }) => {
+  const { setThemeSettings } = getActions();
+
   const themeRef = useRef<string>();
   themeRef.current = theme;
   // eslint-disable-next-line no-null/no-null
@@ -207,7 +205,10 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
     isDragging && 'is-dragging',
   );
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.GeneralChatBackgroundColor);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   return (
     <div ref={containerRef} className={className}>
@@ -216,7 +217,6 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
           <canvas />
           <div
             className="handle"
-            // @ts-ignore
             style={`transform: translate(${colorPosition[0]}px, ${colorPosition[1]}px); background-color: #${hex};`}
           />
         </div>
@@ -224,7 +224,6 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
           <canvas />
           <div
             className="handle"
-            // @ts-ignore
             style={`transform: translateX(${huePosition}px); background-color: #${hueHex};`}
           />
         </div>
@@ -238,7 +237,6 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
           <div
             className={color === `#${hex}` ? 'active' : undefined}
             data-color={color}
-            // @ts-ignore
             style={`background-color: ${color};`}
             onClick={handlePredefinedColorClick}
           />
@@ -358,5 +356,4 @@ export default memo(withGlobal<OwnProps>(
       theme,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['setThemeSettings']),
 )(SettingsGeneralBackground));

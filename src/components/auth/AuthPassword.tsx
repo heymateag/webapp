@@ -1,9 +1,8 @@
-import React, {
-  FC, memo, useCallback, useState,
-} from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo, useCallback, useState } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalState, GlobalActions } from '../../global/types';
+import type { GlobalState } from '../../global/types';
 
 import { pick } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
@@ -12,11 +11,12 @@ import MonkeyPassword from '../common/PasswordMonkey';
 import PasswordForm from '../common/PasswordForm';
 
 type StateProps = Pick<GlobalState, 'authIsLoading' | 'authError' | 'authHint'>;
-type DispatchProps = Pick<GlobalActions, 'setAuthPassword' | 'clearAuthError'>;
 
-const AuthPassword: FC<StateProps & DispatchProps> = ({
-  authIsLoading, authError, authHint, setAuthPassword, clearAuthError,
+const AuthPassword: FC<StateProps> = ({
+  authIsLoading, authError, authHint,
 }) => {
+  const { setAuthPassword, clearAuthError } = getActions();
+
   const lang = useLang();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -50,5 +50,4 @@ const AuthPassword: FC<StateProps & DispatchProps> = ({
 
 export default memo(withGlobal(
   (global): StateProps => pick(global, ['authIsLoading', 'authError', 'authHint']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['setAuthPassword', 'clearAuthError']),
 )(AuthPassword));

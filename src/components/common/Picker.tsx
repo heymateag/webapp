@@ -1,8 +1,9 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useCallback, useRef, useEffect, memo,
+  useCallback, useRef, useEffect, memo,
 } from '../../lib/teact/teact';
 
-import { isUserId } from '../../modules/helpers';
+import { isUserId } from '../../global/helpers';
 
 import InfiniteScroll from '../ui/InfiniteScroll';
 import Checkbox from '../ui/Checkbox';
@@ -115,6 +116,7 @@ const Picker: FC<OwnProps> = ({
             <ListItem
               key={id}
               className="chat-item-clickable picker-list-item"
+              // eslint-disable-next-line react/jsx-no-bind
               onClick={() => handleItemClick(id)}
               ripple
             >

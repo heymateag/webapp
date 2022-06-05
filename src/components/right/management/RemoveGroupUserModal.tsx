@@ -1,14 +1,12 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useMemo, useState, memo, useRef, useCallback,
+  useMemo, useState, memo, useRef, useCallback,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiUser } from '../../../api/types';
+import type { ApiChat } from '../../../api/types';
 
-import { getUserFullName } from '../../../modules/helpers';
-import searchWords from '../../../util/searchWords';
-import { pick } from '../../../util/iteratees';
+import { filterUsersByName } from '../../../global/helpers';
 import useLang from '../../../hooks/useLang';
 
 import ChatOrUserPicker from '../../common/ChatOrUserPicker';
@@ -20,43 +18,39 @@ export type OwnProps = {
 };
 
 type StateProps = {
-  usersById: Record<string, ApiUser>;
   currentUserId?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadMoreMembers' | 'deleteChatMember'>;
-
-const RemoveGroupUserModal: FC<OwnProps & StateProps & DispatchProps> = ({
+const RemoveGroupUserModal: FC<OwnProps & StateProps> = ({
   chat,
-  usersById,
   currentUserId,
   isOpen,
   onClose,
-  loadMoreMembers,
-  deleteChatMember,
 }) => {
+  const {
+    loadMoreMembers,
+    deleteChatMember,
+  } = getActions();
+
   const lang = useLang();
   const [filter, setFilter] = useState('');
   // eslint-disable-next-line no-null/no-null
   const filterRef = useRef<HTMLInputElement>(null);
 
   const usersId = useMemo(() => {
-    const availableMembers = (chat.fullInfo?.members || []).filter((member) => {
-      return !member.isAdmin && !member.isOwner && member.userId !== currentUserId;
-    });
+    const availableMemberIds = (chat.fullInfo?.members || [])
+      .reduce((acc: string[], member) => {
+        if (!member.isAdmin && !member.isOwner && member.userId !== currentUserId) {
+          acc.push(member.userId);
+        }
+        return acc;
+      }, []);
 
-    return availableMembers.reduce<string[]>((acc, member) => {
-      if (
-        !filter
-        || !usersById[member.userId]
-        || searchWords(getUserFullName(usersById[member.userId]) || '', filter)
-      ) {
-        acc.push(member.userId);
-      }
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
 
-      return acc;
-    }, []);
-  }, [chat.fullInfo?.members, currentUserId, filter, usersById]);
+    return filterUsersByName(availableMemberIds, usersById, filter);
+  }, [chat.fullInfo?.members, currentUserId, filter]);
 
   const handleRemoveUser = useCallback((userId: string) => {
     deleteChatMember({ chatId: chat.id, userId });
@@ -80,14 +74,8 @@ const RemoveGroupUserModal: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
-    const {
-      users: {
-        byId: usersById,
-      },
-      currentUserId,
-    } = global;
+    const { currentUserId } = global;
 
-    return { usersById, currentUserId };
+    return { currentUserId };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadMoreMembers', 'deleteChatMember']),
 )(RemoveGroupUserModal));

@@ -1,4 +1,5 @@
-import React, { FC } from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
 
 import Button from '../ui/Button';
 
@@ -6,9 +7,9 @@ import appInactivePath from '../../assets/app-inactive.png';
 import './AppInactive.scss';
 
 const AppInactive: FC = () => {
-  const handleReload = () => {
+  const handleReload = useCallback(() => {
     window.location.reload();
-  };
+  }, []);
 
   return (
     <div id="AppInactive">
@@ -21,7 +22,9 @@ const AppInactive: FC = () => {
           Please reload this page to continue using this tab or close it.
         </div>
         <div className="actions">
-          <Button isText ripple onClick={handleReload}>Reload app</Button>
+          <Button isText ripple onClick={handleReload}>
+            Reload app
+          </Button>
         </div>
       </div>
     </div>

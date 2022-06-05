@@ -1,12 +1,15 @@
-import React, { FC, memo } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
+import { withGlobal } from '../../global';
 
-import { ApiUser, ApiTypingStatus } from '../../api/types';
+import type { ApiUser, ApiTypingStatus } from '../../api/types';
 
-import { selectUser } from '../../modules/selectors';
-import { getUserFirstOrLastName } from '../../modules/helpers';
+import { selectUser } from '../../global/selectors';
+import { getUserFirstOrLastName } from '../../global/helpers';
 import renderText from './helpers/renderText';
 import useLang from '../../hooks/useLang';
+
+import DotAnimation from './DotAnimation';
 
 import './TypingStatus.scss';
 
@@ -21,15 +24,17 @@ type StateProps = {
 const TypingStatus: FC<OwnProps & StateProps> = ({ typingStatus, typingUser }) => {
   const lang = useLang();
   const typingUserName = typingUser && !typingUser.isSelf && getUserFirstOrLastName(typingUser);
+  const content = lang(typingStatus.action)
+    // Fix for translation "{user} is typing"
+    .replace('{user}', '')
+    .replace('{emoji}', typingStatus.emoji).trim();
 
   return (
     <p className="typing-status" dir={lang.isRtl ? 'rtl' : 'auto'}>
       {typingUserName && (
         <span className="sender-name" dir="auto">{renderText(typingUserName)}</span>
       )}
-      {/* fix for translation "username _is_ typing" */}
-      {lang(typingStatus.action).replace('{user}', '').trim()}
-      <span className="ellipsis" />
+      <DotAnimation content={content} />
     </p>
   );
 };

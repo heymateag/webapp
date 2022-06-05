@@ -1,12 +1,11 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useState, useCallback, useEffect, memo,
+  useState, useCallback, useEffect, memo,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
 import { ChatCreationProgress } from '../../../types';
 
-import { pick } from '../../../util/iteratees';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
@@ -30,24 +29,28 @@ type StateProps = {
   creationError?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, 'createGroupChat' | 'createChannel'>;
-
 // TODO @implement
 const MAX_USERS_FOR_LEGACY_CHAT = 199; // Accounting for current user
 
-const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
+const NewChatStep2: FC<OwnProps & StateProps > = ({
   isChannel,
   isActive,
   memberIds,
   onReset,
   creationProgress,
   creationError,
-  createGroupChat,
-  createChannel,
 }) => {
+  const {
+    createGroupChat,
+    createChannel,
+  } = getActions();
+
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   const [title, setTitle] = useState('');
   const [about, setAbout] = useState('');
@@ -126,6 +129,7 @@ const NewChatStep2: FC<OwnProps & StateProps & DispatchProps> = ({
           round
           size="smaller"
           color="translucent"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onReset()}
           ariaLabel="Return to member selection"
         >
@@ -202,7 +206,4 @@ export default memo(withGlobal<OwnProps>(
       creationError,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'createGroupChat', 'createChannel',
-  ]),
 )(NewChatStep2));

@@ -1,7 +1,10 @@
-import React, { FC, memo } from '../../lib/teact/teact';
+import type { FC, TeactNode } from '../../lib/teact/teact';
+import React, { memo, useCallback, useRef } from '../../lib/teact/teact';
+
+import type { TextPart } from '../../types';
 
 import useLang from '../../hooks/useLang';
-import { TextPart } from '../common/helpers/renderMessageText';
+import useKeyboardListNavigation from '../../hooks/useKeyboardListNavigation';
 
 import Modal from './Modal';
 import Button from './Button';
@@ -11,14 +14,14 @@ type OwnProps = {
   onClose: () => void;
   onCloseAnimationEnd?: () => void;
   title?: string;
-  header?: FC;
+  header?: TeactNode;
   textParts?: TextPart[];
   text?: string;
   confirmLabel?: string;
   confirmHandler: () => void;
   confirmIsDestructive?: boolean;
   isButtonsInOneRow?: boolean;
-  children?: any;
+  children?: React.ReactNode;
 };
 
 const ConfirmDialog: FC<OwnProps> = ({
@@ -37,21 +40,29 @@ const ConfirmDialog: FC<OwnProps> = ({
 }) => {
   const lang = useLang();
 
+  // eslint-disable-next-line no-null/no-null
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectWithEnter = useCallback((index: number) => {
+    if (index === -1) confirmHandler();
+  }, [confirmHandler]);
+
+  const handleKeyDown = useKeyboardListNavigation(containerRef, isOpen, handleSelectWithEnter, '.Button');
+
   return (
     <Modal
       className="confirm"
-      title={title}
+      title={title || lang('Telegram')}
       header={header}
       isOpen={isOpen}
       onClose={onClose}
       onCloseAnimationEnd={onCloseAnimationEnd}
-      onEnter={confirmHandler}
     >
       {text && text.split('\\n').map((textPart) => (
         <p>{textPart}</p>
       ))}
       {textParts || children}
-      <div className={isButtonsInOneRow ? 'dialog-buttons mt-2' : ''}>
+      <div className={isButtonsInOneRow ? 'dialog-buttons mt-2' : ''} ref={containerRef} onKeyDown={handleKeyDown}>
         <Button
           className="confirm-dialog-button"
           isText

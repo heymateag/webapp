@@ -25,7 +25,7 @@ import Modal from '../../ui/Modal';
 import Radio from '../../ui/Radio';
 
 export type OwnProps = {
-  onReset: () => void;
+  onReset?: () => void;
 };
 
 interface IBalance {

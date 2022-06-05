@@ -1,17 +1,17 @@
 import { useEffect, useMemo } from '../lib/teact/teact';
-import { getDispatch } from '../lib/teact/teactn';
+import { getActions } from '../global';
 
-import { ApiMessage } from '../api/types';
+import type { ApiMessage } from '../api/types';
 
 import { throttle } from '../util/schedulers';
 
-export default (
+const useEnsureMessage = (
   chatId: string,
   messageId?: number,
   message?: ApiMessage,
   replyOriginForId?: number,
 ) => {
-  const { loadMessage } = getDispatch();
+  const { loadMessage } = getActions();
   const loadMessageThrottled = useMemo(() => {
     const throttled = throttle(loadMessage, 500, true);
     return () => {
@@ -25,3 +25,5 @@ export default (
     }
   });
 };
+
+export default useEnsureMessage;

@@ -1,13 +1,12 @@
-import React, {
-  FC, memo, useCallback, useMemo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useMemo } from '../../../lib/teact/teact';
+import { withGlobal } from '../../../global';
 
-import { ApiChatMember, ApiUser } from '../../../api/types';
+import type { ApiChatMember, ApiUser, ApiUserStatus } from '../../../api/types';
 import { ManagementScreens } from '../../../types';
 
-import { selectChat } from '../../../modules/selectors';
-import { sortUserIds, isChatChannel } from '../../../modules/helpers';
+import { selectChat } from '../../../global/selectors';
+import { sortUserIds, isChatChannel } from '../../../global/helpers';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import PrivateChatInfo from '../../common/PrivateChatInfo';
@@ -24,6 +23,7 @@ type OwnProps = {
 
 type StateProps = {
   usersById: Record<string, ApiUser>;
+  userStatusesById: Record<string, ApiUserStatus>;
   members?: ApiChatMember[];
   isChannel?: boolean;
   serverTimeOffset: number;
@@ -31,6 +31,7 @@ type StateProps = {
 
 const ManageGroupUserPermissionsCreate: FC<OwnProps & StateProps> = ({
   usersById,
+  userStatusesById,
   members,
   isChannel,
   onScreenSelect,
@@ -39,7 +40,10 @@ const ManageGroupUserPermissionsCreate: FC<OwnProps & StateProps> = ({
   isActive,
   serverTimeOffset,
 }) => {
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   const memberIds = useMemo(() => {
     if (!members || !usersById) {
@@ -48,9 +52,12 @@ const ManageGroupUserPermissionsCreate: FC<OwnProps & StateProps> = ({
 
     return sortUserIds(
       members.filter((member) => !member.isOwner).map(({ userId }) => userId),
-      usersById, undefined, serverTimeOffset,
+      usersById,
+      userStatusesById,
+      undefined,
+      serverTimeOffset,
     );
-  }, [members, serverTimeOffset, usersById]);
+  }, [members, serverTimeOffset, usersById, userStatusesById]);
 
   const handleExceptionMemberClick = useCallback((memberId: string) => {
     onChatMemberSelect(memberId);
@@ -67,6 +74,7 @@ const ManageGroupUserPermissionsCreate: FC<OwnProps & StateProps> = ({
                 key={id}
                 teactOrderKey={i}
                 className="chat-item-clickable scroll-item"
+                // eslint-disable-next-line react/jsx-no-bind
                 onClick={() => handleExceptionMemberClick(id)}
               >
                 <PrivateChatInfo userId={id} forceShowSelf />
@@ -88,13 +96,14 @@ const ManageGroupUserPermissionsCreate: FC<OwnProps & StateProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global, { chatId }): StateProps => {
     const chat = selectChat(global, chatId);
-    const { byId: usersById } = global.users;
+    const { byId: usersById, statusesById: userStatusesById } = global.users;
     const members = chat?.fullInfo?.members;
     const isChannel = chat && isChatChannel(chat);
 
     return {
       members,
       usersById,
+      userStatusesById,
       isChannel,
       serverTimeOffset: global.serverTimeOffset,
     };

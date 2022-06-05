@@ -1,16 +1,15 @@
-import { GroupCallConnectionState } from '../../../lib/secret-sauce';
+import type { GroupCallConnectionState } from '../../../lib/secret-sauce';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useEffect, useMemo, useRef, useState,
+  memo, useEffect, useMemo, useRef, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-
+import { LOCAL_TGS_URLS } from '../../common/helpers/animatedAssets';
 import buildClassName from '../../../util/buildClassName';
 import { vibrateShort } from '../../../util/vibrate';
-import { pick } from '../../../util/iteratees';
 import usePrevious from '../../../hooks/usePrevious';
-import { selectActiveGroupCall, selectGroupCallParticipant } from '../../../modules/selectors/calls';
+import { selectActiveGroupCall, selectGroupCallParticipant } from '../../../global/selectors/calls';
 import useLang from '../../../hooks/useLang';
 
 import AnimatedIcon from '../../common/AnimatedIcon';
@@ -27,22 +26,23 @@ type StateProps = {
   noAudioStream: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'toggleGroupCallMute' | 'requestToSpeak' | 'playGroupCallSound'>;
-
 const REQUEST_TO_SPEAK_THROTTLE = 3000;
 const HOLD_TO_SPEAK_TIME = 200;
 const ICON_SIZE = 48;
 
-const MicrophoneButton: FC<StateProps & DispatchProps> = ({
+const MicrophoneButton: FC<StateProps> = ({
   noAudioStream,
   canSelfUnmute,
   isMuted,
   hasRequestedToSpeak,
   connectionState,
-  toggleGroupCallMute,
-  requestToSpeak,
-  playGroupCallSound,
 }) => {
+  const {
+    toggleGroupCallMute,
+    requestToSpeak,
+    playGroupCallSound,
+  } = getActions();
+
   const lang = useLang();
   const muteMouseDownState = useRef('up');
 
@@ -53,7 +53,7 @@ const MicrophoneButton: FC<StateProps & DispatchProps> = ({
 
   useEffect(() => {
     if (prevShouldRaiseHand && !shouldRaiseHand) {
-      playGroupCallSound('allowTalk');
+      playGroupCallSound({ sound: 'allowTalk' });
     }
   }, [playGroupCallSound, prevShouldRaiseHand, shouldRaiseHand]);
 
@@ -148,7 +148,7 @@ const MicrophoneButton: FC<StateProps & DispatchProps> = ({
         onMouseUp={handleMouseUpMute}
       >
         <AnimatedIcon
-          name={animatedIconName}
+          tgsUrl={LOCAL_TGS_URLS[animatedIconName]}
           size={ICON_SIZE}
           playSegment={playSegment}
         />
@@ -179,9 +179,4 @@ export default memo(withGlobal(
       isMuted,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'toggleGroupCallMute',
-    'requestToSpeak',
-    'playGroupCallSound',
-  ]),
 )(MicrophoneButton));

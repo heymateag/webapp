@@ -1,9 +1,7 @@
-import React, { FC, memo, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo, useCallback } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-
-import { pick } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
 
 import CalendarModal from '../common/CalendarModal';
@@ -16,11 +14,11 @@ type StateProps = {
   selectedAt?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'searchMessagesByDate' | 'closeHistoryCalendar'>;
-
-const HistoryCalendar: FC<OwnProps & StateProps & DispatchProps> = ({
-  isOpen, selectedAt, searchMessagesByDate, closeHistoryCalendar,
+const HistoryCalendar: FC<OwnProps & StateProps> = ({
+  isOpen, selectedAt,
 }) => {
+  const { searchMessagesByDate, closeHistoryCalendar } = getActions();
+
   const handleJumpToDate = useCallback((date: Date) => {
     searchMessagesByDate({ timestamp: date.valueOf() / 1000 });
     closeHistoryCalendar();
@@ -44,7 +42,4 @@ export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     return { selectedAt: global.historyCalendarSelectedAt };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'searchMessagesByDate', 'closeHistoryCalendar',
-  ]),
 )(HistoryCalendar));

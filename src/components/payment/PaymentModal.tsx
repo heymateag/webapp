@@ -1,15 +1,18 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions, GlobalState } from '../../global/types';
-import { PaymentStep, ShippingOption, Price } from '../../types';
+import type { GlobalState } from '../../global/types';
+import type { ApiCountry } from '../../api/types';
+import type { ShippingOption, Price } from '../../types';
+import { PaymentStep } from '../../types';
 
-import { pick } from '../../util/iteratees';
 import { formatCurrency } from '../../util/formatCurrency';
 import { detectCardTypeText } from '../common/helpers/detectCardType';
-import usePaymentReducer, { FormState } from '../../hooks/reducers/usePaymentReducer';
+import type { FormState } from '../../hooks/reducers/usePaymentReducer';
+import usePaymentReducer from '../../hooks/reducers/usePaymentReducer';
 import useLang from '../../hooks/useLang';
 
 import ShippingInfo from './ShippingInfo';
@@ -20,10 +23,13 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Transition from '../ui/Transition';
 import Spinner from '../ui/Spinner';
+import ConfirmPayment from './ConfirmPayment';
 
 import './PaymentModal.scss';
 
 const DEFAULT_PROVIDER = 'stripe';
+const DONATE_PROVIDER = 'smartglocal';
+const SUPPORTED_PROVIDERS = new Set([DEFAULT_PROVIDER, DONATE_PROVIDER]);
 
 export type OwnProps = {
   isOpen: boolean;
@@ -44,16 +50,17 @@ type StateProps = {
   needCardholderName?: boolean;
   needCountry?: boolean;
   needZip?: boolean;
+  confirmPaymentUrl?: string;
+  countryList: ApiCountry[];
 };
 
-type GlobalStateProps = Pick<GlobalState['payment'], 'step' | 'shippingOptions' |
-'savedInfo' | 'canSaveCredentials' | 'nativeProvider' | 'passwordMissing' | 'invoiceContent' |
-'error'>;
+type GlobalStateProps = Pick<GlobalState['payment'], (
+  'step' | 'shippingOptions' |
+  'savedInfo' | 'canSaveCredentials' | 'nativeProvider' | 'passwordMissing' | 'invoiceContent' |
+  'error'
+)>;
 
-type DispatchProps = Pick<GlobalActions, 'validateRequestedInfo' | 'sendPaymentForm' | 'setPaymentStep'
-| 'sendCredentialsInfo' | 'clearPaymentError' >;
-
-const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
+const Invoice: FC<OwnProps & StateProps & GlobalStateProps> = ({
   isOpen,
   onClose,
   step,
@@ -75,16 +82,22 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
   needCardholderName,
   needCountry,
   needZip,
+  confirmPaymentUrl,
   error,
-  validateRequestedInfo,
-  sendPaymentForm,
-  setPaymentStep,
-  sendCredentialsInfo,
-  clearPaymentError,
+  countryList,
 }) => {
+  const {
+    validateRequestedInfo,
+    sendPaymentForm,
+    setPaymentStep,
+    sendCredentialsInfo,
+    clearPaymentError,
+  } = getActions();
+
   const [paymentState, paymentDispatch] = usePaymentReducer();
   const [isLoading, setIsLoading] = useState(false);
   const lang = useLang();
+  const canRenderFooter = step !== PaymentStep.ConfirmPayment;
 
   useEffect(() => {
     if (step || error) {
@@ -108,6 +121,10 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
       const {
         name: fullName, phone, email, shippingAddress,
       } = savedInfo;
+      const {
+        countryIso2, ...shippingAddressRest
+      } = shippingAddress || {};
+      const shippingCountry = countryIso2 && countryList.find(({ iso2 }) => iso2 === countryIso2)!.defaultName;
       paymentDispatch({
         type: 'updateUserInfo',
         payload: {
@@ -116,11 +133,14 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
             ? `+${phone}`
             : phone,
           email,
-          ...(shippingAddress || {}),
+          ...(shippingCountry && {
+            country: shippingCountry,
+            ...shippingAddressRest,
+          }),
         },
       });
     }
-  }, [savedInfo, paymentDispatch]);
+  }, [savedInfo, paymentDispatch, countryList]);
 
   const handleErrorModalClose = useCallback(() => {
     clearPaymentError();
@@ -174,6 +194,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
             needEmail={Boolean(emailRequested || emailToProvider)}
             needPhone={Boolean(phoneRequested || phoneToProvider)}
             needName={Boolean(nameRequested)}
+            countryList={countryList}
           />
         );
       case PaymentStep.Shipping:
@@ -194,6 +215,7 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
             needCardholderName={needCardholderName}
             needCountry={needCountry}
             needZip={needZip}
+            countryList={countryList}
           />
         );
       case PaymentStep.Checkout:
@@ -207,6 +229,12 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
             invoiceContent={invoiceContent}
             checkoutInfo={checkoutInfo}
             currency={currency}
+          />
+        );
+      case PaymentStep.ConfirmPayment:
+        return (
+          <ConfirmPayment
+            url={confirmPaymentUrl!}
           />
         );
       default:
@@ -250,7 +278,8 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
       case PaymentStep.Checkout:
         return sendForm();
       default:
-        return () => {};
+        return () => {
+        };
     }
   }, [step, validateRequest, setStep, sendCredentials, sendForm]);
 
@@ -264,6 +293,8 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
         return lang('PaymentCardInfo');
       case PaymentStep.Checkout:
         return lang('PaymentCheckout');
+      case PaymentStep.ConfirmPayment:
+        return lang('Checkout.WebConfirmation.Title');
       default:
         return '';
     }
@@ -320,27 +351,27 @@ const Invoice: FC<OwnProps & StateProps & GlobalStateProps & DispatchProps> = ({
       </div>
       {step !== undefined ? (
         <Transition name="slide" activeKey={step}>
-          {() => (
-            <div className="content custom-scroll">
-              {renderModalContent(step)}
-            </div>
-          )}
+          <div className="content custom-scroll">
+            {renderModalContent(step)}
+          </div>
         </Transition>
       ) : (
         <div className="empty-content">
           <Spinner color="gray" />
         </div>
       )}
-      <div className="footer">
-        <Button
-          type="submit"
-          onClick={handleButtonClick}
-          disabled={isLoading}
-          isLoading={isLoading}
-        >
-          {buttonText}
-        </Button>
-      </div>
+      {canRenderFooter && (
+        <div className="footer">
+          <Button
+            type="submit"
+            onClick={handleButtonClick}
+            disabled={isLoading}
+            isLoading={isLoading}
+          >
+            {buttonText}
+          </Button>
+        </div>
+      )}
       {error && !error.field && renderError()}
     </Modal>
   );
@@ -359,9 +390,10 @@ export default memo(withGlobal<OwnProps>(
       nativeParams,
       passwordMissing,
       error,
+      confirmPaymentUrl,
     } = global.payment;
 
-    const isProviderError = Boolean(invoice && (!nativeProvider || nativeProvider !== DEFAULT_PROVIDER));
+    const isProviderError = Boolean(invoice && (!nativeProvider || !SUPPORTED_PROVIDERS.has(nativeProvider)));
     const { needCardholderName, needCountry, needZip } = (nativeParams || {});
     const {
       nameRequested,
@@ -397,16 +429,9 @@ export default memo(withGlobal<OwnProps>(
       needCountry,
       needZip,
       error,
+      confirmPaymentUrl,
+      countryList: global.countryList.general,
     };
-  },
-  (setGlobal, actions): DispatchProps => {
-    return pick(actions, [
-      'validateRequestedInfo',
-      'sendPaymentForm',
-      'setPaymentStep',
-      'sendCredentialsInfo',
-      'clearPaymentError',
-    ]);
   },
 )(Invoice));
 

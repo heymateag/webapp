@@ -1,8 +1,8 @@
-import React, { FC, memo } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiNotification } from '../../api/types';
+import type { ApiNotification } from '../../api/types';
 
 import { pick } from '../../util/iteratees';
 import renderText from '../common/helpers/renderText';
@@ -13,9 +13,9 @@ type StateProps = {
   notifications: ApiNotification[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'dismissNotification'>;
+const Notifications: FC<StateProps> = ({ notifications }) => {
+  const { dismissNotification } = getActions();
 
-const Notifications: FC<StateProps & DispatchProps> = ({ notifications, dismissNotification }) => {
   if (!notifications.length) {
     return undefined;
   }
@@ -25,6 +25,7 @@ const Notifications: FC<StateProps & DispatchProps> = ({ notifications, dismissN
       {notifications.map(({ message, localId }) => (
         <Notification
           message={renderText(message, ['emoji', 'br', 'links', 'simple_markdown'])}
+          // eslint-disable-next-line react/jsx-no-bind
           onDismiss={() => dismissNotification({ localId })}
         />
       ))}
@@ -34,5 +35,4 @@ const Notifications: FC<StateProps & DispatchProps> = ({ notifications, dismissN
 
 export default memo(withGlobal(
   (global): StateProps => pick(global, ['notifications']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['dismissNotification']),
 )(Notifications));

@@ -1,42 +1,39 @@
-import { MouseEvent as ReactMouseEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { FC } from '../../../../lib/teact/teact';
 import React, {
-  FC,
   useCallback,
   useMemo,
   memo,
 } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../../global';
 
-import { OwnProps as PhotoProps } from '../Photo';
-import { OwnProps as VideoProps } from '../Video';
+import type { OwnProps as PhotoProps } from '../Photo';
+import type { OwnProps as VideoProps } from '../Video';
 
 import buildClassName from '../../../../util/buildClassName';
-import { GlobalActions } from '../../../../global/types';
 import {
   selectIsInSelectMode,
   selectIsMessageSelected,
-} from '../../../../modules/selectors';
+} from '../../../../global/selectors';
 
-import { pick } from '../../../../util/iteratees';
-
-type OwnProps = PhotoProps & VideoProps;
+type OwnProps =
+  PhotoProps
+  & VideoProps;
 
 type StateProps = {
   isInSelectMode?: boolean;
   isSelected?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, ('toggleMessageSelection')>;
-
 export default function withSelectControl(WrappedComponent: FC) {
-  const ComponentWithSelectControl: FC<OwnProps & StateProps & DispatchProps> = (props) => {
+  const ComponentWithSelectControl: FC<OwnProps & StateProps> = (props) => {
     const {
       isInSelectMode,
       isSelected,
       message,
-      toggleMessageSelection,
       dimensions,
     } = props;
+    const { toggleMessageSelection } = getActions();
 
     const handleMessageSelect = useCallback((e: ReactMouseEvent<HTMLDivElement, MouseEvent>) => {
       e.stopPropagation();
@@ -44,28 +41,23 @@ export default function withSelectControl(WrappedComponent: FC) {
     }, [toggleMessageSelection, message]);
 
     const newProps = useMemo(() => {
+      const { dimensions: dims, onClick } = props;
       return {
         ...props,
         isInSelectMode,
         isSelected,
         dimensions: {
-          ...props.dimensions,
+          ...dims,
           x: 0,
           y: 0,
         },
-        onClick: isInSelectMode ? undefined : props.onClick,
+        onClick: isInSelectMode ? undefined : onClick,
       };
     }, [props, isInSelectMode, isSelected]);
 
     return (
       <div
-        className={
-          buildClassName(
-            'album-item-select-wrapper',
-            isSelected && 'is-selected',
-          )
-        }
-        // @ts-ignore
+        className={buildClassName('album-item-select-wrapper', isSelected && 'is-selected')}
         style={dimensions ? `left: ${dimensions.x}px; top: ${dimensions.y}px;` : ''}
         onClick={isInSelectMode ? handleMessageSelect : undefined}
       >
@@ -90,8 +82,5 @@ export default function withSelectControl(WrappedComponent: FC) {
         isSelected: selectIsMessageSelected(global, message.id),
       };
     },
-    (setGlobal, actions) => pick(actions, [
-      'toggleMessageSelection',
-    ]),
   )(ComponentWithSelectControl));
 }

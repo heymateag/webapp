@@ -1,10 +1,11 @@
-import React, { FC, memo } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
+import { withGlobal } from '../../global';
 
-import { ApiMessage, ApiChat } from '../../api/types';
-import { selectChat, selectChatMessage } from '../../modules/selectors';
+import type { ApiMessage, ApiChat } from '../../api/types';
+import { selectChat, selectChatMessage } from '../../global/selectors';
 import { buildCollectionByKey } from '../../util/iteratees';
-import { getMessagePoll } from '../../modules/helpers';
+import { getMessagePoll } from '../../global/helpers';
 import renderText from '../common/helpers/renderText';
 import useLang from '../../hooks/useLang';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -33,7 +34,10 @@ const PollResults: FC<OwnProps & StateProps> = ({
   lastSyncTime,
 }) => {
   const lang = useLang();
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   if (!message || !chat) {
     return <Loading />;

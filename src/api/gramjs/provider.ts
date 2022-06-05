@@ -1,10 +1,10 @@
-import {
+import type {
   OnApiUpdate,
   ApiInitialArgs,
   ApiUpdate,
   ApiOnProgress,
 } from '../types';
-import { Methods, MethodArgs, MethodResponse } from './methods/types';
+import type { Methods, MethodArgs, MethodResponse } from './methods/types';
 
 import { API_THROTTLE_RESET_UPDATES, API_UPDATE_THROTTLE } from '../../config';
 import { throttle, throttleWithTickEnd } from '../../util/schedulers';
@@ -18,6 +18,7 @@ import { init as initStickers } from './methods/symbols';
 import { init as initManagement } from './methods/management';
 import { init as initTwoFaSettings } from './methods/twoFaSettings';
 import { init as initCalls } from './methods/calls';
+import { init as initPayments } from './methods/payments';
 import * as methods from './methods';
 
 let onUpdate: OnApiUpdate;
@@ -34,6 +35,7 @@ export async function initApi(_onUpdate: OnApiUpdate, initialArgs: ApiInitialArg
   initManagement(handleUpdate);
   initTwoFaSettings(handleUpdate);
   initCalls(handleUpdate);
+  initPayments(handleUpdate);
 
   await initClient(handleUpdate, initialArgs);
 }

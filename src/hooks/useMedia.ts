@@ -5,15 +5,14 @@ import { ApiMediaFormat } from '../api/types';
 import * as mediaLoader from '../util/mediaLoader';
 import useForceUpdate from './useForceUpdate';
 
-export default <T extends ApiMediaFormat = ApiMediaFormat.BlobUrl>(
+const useMedia = (
   mediaHash: string | false | undefined,
   noLoad = false,
-  // @ts-ignore (workaround for "could be instantiated with a different subtype" issue)
-  mediaFormat: T = ApiMediaFormat.BlobUrl,
+  mediaFormat = ApiMediaFormat.BlobUrl,
   cacheBuster?: number,
   delay?: number | false,
 ) => {
-  const mediaData = mediaHash ? mediaLoader.getFromMemory<T>(mediaHash) : undefined;
+  const mediaData = mediaHash ? mediaLoader.getFromMemory(mediaHash) : undefined;
   const forceUpdate = useForceUpdate();
 
   useEffect(() => {
@@ -33,3 +32,5 @@ export default <T extends ApiMediaFormat = ApiMediaFormat.BlobUrl>(
 
   return mediaData;
 };
+
+export default useMedia;

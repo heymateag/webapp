@@ -39,9 +39,11 @@ export const IS_MAC_OS = PLATFORM_ENV === 'macOS';
 export const IS_IOS = PLATFORM_ENV === 'iOS';
 export const IS_ANDROID = PLATFORM_ENV === 'Android';
 export const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-export const IS_PWA = window.matchMedia('(display-mode: standalone)').matches
-|| (window.navigator as any).standalone
-|| document.referrer.includes('android-app://');
+export const IS_PWA = (
+  window.matchMedia('(display-mode: standalone)').matches
+  || (window.navigator as any).standalone
+  || document.referrer.includes('android-app://')
+);
 
 export const IS_TOUCH_ENV = window.matchMedia('(pointer: coarse)').matches;
 // Keep in mind the landscape orientation
@@ -53,12 +55,12 @@ export const IS_TABLET_COLUMN_LAYOUT = !IS_SINGLE_COLUMN_LAYOUT && (
   window.innerWidth <= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN
 );
 export const IS_VOICE_RECORDING_SUPPORTED = Boolean(
-  navigator.mediaDevices && 'getUserMedia' in navigator.mediaDevices && (
+  window.navigator.mediaDevices && 'getUserMedia' in window.navigator.mediaDevices && (
     window.AudioContext || (window as any).webkitAudioContext
   ),
 );
 export const IS_SMOOTH_SCROLL_SUPPORTED = 'scrollBehavior' in document.documentElement.style;
-export const IS_EMOJI_SUPPORTED = PLATFORM_ENV && (IS_MAC_OS || IS_IOS);
+export const IS_EMOJI_SUPPORTED = PLATFORM_ENV && (IS_MAC_OS || IS_IOS) && isLastEmojiVersionSupported();
 export const IS_SERVICE_WORKER_SUPPORTED = 'serviceWorker' in navigator;
 // TODO Consider failed service worker
 export const IS_PROGRESSIVE_SUPPORTED = IS_SERVICE_WORKER_SUPPORTED;
@@ -72,13 +74,40 @@ export const ARE_CALLS_SUPPORTED = !navigator.userAgent.includes('Firefox');
 export const LAYERS_ANIMATION_NAME = IS_ANDROID ? 'slide-fade' : IS_IOS ? 'slide-layers' : 'push-slide';
 
 const TEST_VIDEO = document.createElement('video');
-export const IS_MOV_SUPPORTED = Boolean(
-  TEST_VIDEO.canPlayType(VIDEO_MOV_TYPE).replace('no', '')
-  || IS_IOS, // IOS reports '', but still plays .mov files
-);
+// `canPlayType(VIDEO_MOV_TYPE)` returns false negative at least for macOS Chrome and iOS Safari
+export const IS_MOV_SUPPORTED = true;
 
 if (IS_MOV_SUPPORTED) SUPPORTED_VIDEO_CONTENT_TYPES.add(VIDEO_MOV_TYPE);
+
+export const IS_WEBM_SUPPORTED = Boolean(TEST_VIDEO.canPlayType('video/webm; codecs="vp9"').replace('no', ''))
+  && !(IS_MAC_OS && IS_SAFARI); // Safari on MacOS has some issues with WebM
 
 export const DPR = window.devicePixelRatio || 1;
 
 export const MASK_IMAGE_DISABLED = true;
+
+export const IS_BACKDROP_BLUR_SUPPORTED = !IS_TEST && (
+  CSS.supports('backdrop-filter: blur()') || CSS.supports('-webkit-backdrop-filter: blur()')
+);
+export const IS_COMPACT_MENU = !IS_TOUCH_ENV;
+export const IS_SCROLL_PATCH_NEEDED = !IS_MAC_OS && !IS_IOS && !IS_ANDROID;
+export const IS_INSTALL_PROMPT_SUPPORTED = 'onbeforeinstallprompt' in window;
+
+// Smaller area reduces scroll jumps caused by `patchChromiumScroll`
+export const MESSAGE_LIST_SENSITIVE_AREA = IS_SCROLL_PATCH_NEEDED ? 300 : 750;
+
+function isLastEmojiVersionSupported() {
+  const ALLOWABLE_CALCULATION_ERROR_SIZE = 5;
+  const inlineEl = document.createElement('span');
+  inlineEl.classList.add('emoji-test-element');
+  document.body.appendChild(inlineEl);
+
+  inlineEl.innerText = '🫱🏻'; // Emoji from 14.0 version
+  const newEmojiWidth = inlineEl.offsetWidth;
+  inlineEl.innerText = '❤️'; // Emoji from 1.0 version
+  const legacyEmojiWidth = inlineEl.offsetWidth;
+
+  document.body.removeChild(inlineEl);
+
+  return Math.abs(newEmojiWidth - legacyEmojiWidth) < ALLOWABLE_CALCULATION_ERROR_SIZE;
+}

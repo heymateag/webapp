@@ -1,10 +1,11 @@
-import { FC, useRef, useLayoutEffect } from '../../lib/teact/teact';
+import type { FC, VirtualElement } from '../../lib/teact/teact';
+import { useRef, useLayoutEffect } from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
 type OwnProps = {
   containerId?: string;
   className?: string;
-  children: any;
+  children: VirtualElement;
 };
 
 const Portal: FC<OwnProps> = ({ containerId, className, children }) => {

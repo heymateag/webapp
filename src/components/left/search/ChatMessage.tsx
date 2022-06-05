@@ -1,10 +1,8 @@
-import React, {
-  FC, memo, useCallback,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import {
+import type {
   ApiChat, ApiUser, ApiMessage, ApiMessageOutgoingStatus,
 } from '../../../api/types';
 
@@ -13,23 +11,26 @@ import {
   getChatTitle,
   getPrivateChatUserId,
   getMessageMediaHash,
-  getMessageSummaryText,
   getMessageMediaThumbDataUri,
   getMessageVideo,
   getMessageRoundVideo,
-} from '../../../modules/helpers';
-import { selectChat, selectUser } from '../../../modules/selectors';
+} from '../../../global/helpers';
+import { selectChat, selectUser } from '../../../global/selectors';
+import buildClassName from '../../../util/buildClassName';
 import renderText from '../../common/helpers/renderText';
-import { pick } from '../../../util/iteratees';
-import useMedia from '../../../hooks/useMedia';
 import { formatPastTimeShort } from '../../../util/dateFormat';
-import useLang, { LangFn } from '../../../hooks/useLang';
+import { renderMessageSummary } from '../../common/helpers/renderMessageText';
+
+import useMedia from '../../../hooks/useMedia';
+import type { LangFn } from '../../../hooks/useLang';
+import useLang from '../../../hooks/useLang';
 import useSelectWithEnter from '../../../hooks/useSelectWithEnter';
 
 import Avatar from '../../common/Avatar';
 import VerifiedIcon from '../../common/VerifiedIcon';
 import ListItem from '../../ui/ListItem';
 import Link from '../../ui/Link';
+import FakeIcon from '../../common/FakeIcon';
 
 import './ChatMessage.scss';
 
@@ -46,23 +47,22 @@ type StateProps = {
   lastSyncTime?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'focusMessage'>;
-
-const ChatMessage: FC<OwnProps & StateProps & DispatchProps> = ({
+const ChatMessage: FC<OwnProps & StateProps> = ({
   message,
   searchQuery,
   chatId,
   chat,
   privateChatUser,
-  focusMessage,
   lastSyncTime,
 }) => {
+  const { focusMessage } = getActions();
+
   const mediaThumbnail = getMessageMediaThumbDataUri(message);
   const mediaBlobUrl = useMedia(getMessageMediaHash(message, 'micro'));
   const isRoundVideo = Boolean(getMessageRoundVideo(message));
 
   const handleClick = useCallback(() => {
-    focusMessage({ chatId, messageId: message.id });
+    focusMessage({ chatId, messageId: message.id, shouldReplaceHistory: true });
   }, [chatId, focusMessage, message.id]);
 
   const lang = useLang();
@@ -83,7 +83,6 @@ const ChatMessage: FC<OwnProps & StateProps & DispatchProps> = ({
       <Avatar
         chat={chat}
         user={privateChatUser}
-        withOnlineStatus
         isSavedMessages={privateChatUser?.isSelf}
         lastSyncTime={lastSyncTime}
       />
@@ -92,6 +91,7 @@ const ChatMessage: FC<OwnProps & StateProps & DispatchProps> = ({
           <div className="title">
             <h3 dir="auto">{renderText(getChatTitle(lang, chat, privateChatUser))}</h3>
             {chat.isVerified && <VerifiedIcon />}
+            {chat.fakeType && <FakeIcon fakeType={chat.fakeType} />}
           </div>
           <div className="message-date">
             <Link className="date">
@@ -102,7 +102,7 @@ const ChatMessage: FC<OwnProps & StateProps & DispatchProps> = ({
         </div>
         <div className="subtitle">
           <div className="message" dir="auto">
-            {renderMessageSummary(lang, message, mediaBlobUrl || mediaThumbnail, searchQuery, isRoundVideo)}
+            {renderSummary(lang, message, mediaBlobUrl || mediaThumbnail, searchQuery, isRoundVideo)}
           </div>
         </div>
       </div>
@@ -110,18 +110,18 @@ const ChatMessage: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 };
 
-function renderMessageSummary(
+function renderSummary(
   lang: LangFn, message: ApiMessage, blobUrl?: string, searchQuery?: string, isRoundVideo?: boolean,
 ) {
   if (!blobUrl) {
-    return renderText(getMessageSummaryText(lang, message));
+    return renderMessageSummary(lang, message, undefined, searchQuery);
   }
 
   return (
     <span className="media-preview">
-      <img src={blobUrl} alt="" className={isRoundVideo ? 'round' : undefined} />
+      <img src={blobUrl} alt="" className={buildClassName('media-preview--image', isRoundVideo && 'round')} />
       {getMessageVideo(message) && <i className="icon-play" />}
-      {renderText(getMessageSummaryText(lang, message, true), ['emoji', 'highlight'], { highlight: searchQuery })}
+      {renderMessageSummary(lang, message, true, searchQuery)}
     </span>
   );
 }
@@ -141,7 +141,4 @@ export default memo(withGlobal<OwnProps>(
       ...(privateChatUserId && { privateChatUser: selectUser(global, privateChatUserId) }),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'focusMessage',
-  ]),
 )(ChatMessage));

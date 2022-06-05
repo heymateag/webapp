@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 
-import { ApiLangPack } from '../api/types';
+import type { ApiLangPack } from '../api/types';
 
 export default {
   Search: {
@@ -1771,7 +1771,11 @@ export default {
   },
   'Login.QR.Help2': {
     key: 'Login.QR.Help2',
-    value: 'Go to **Settings** > **Devices** > **Scan QR**',
+    value: 'Go to **Settings** > **Devices** > **Link Desktop Device**',
+  },
+  'Login.QR2.Help2': {
+    key: 'Login.QR.Help2',
+    value: 'Go to **Settings** → **Devices** → **Link Desktop Device**',
   },
   'Login.QR.Help3': {
     key: 'Login.QR.Help3',
@@ -1856,5 +1860,33 @@ export default {
   AutoDownloadFilesTitle: {
     key: 'AutoDownloadFilesTitle',
     value: 'Auto-download files and music',
+  },
+  'ChannelVisibility.Forwarding.ChannelTitle': {
+    key: 'ChannelVisibility.Forwarding.ChannelTitle',
+    value: 'Forwarding From This Channel',
+  },
+  'ChannelVisibility.Forwarding.GroupTitle': {
+    key: 'ChannelVisibility.Forwarding.GroupTitle',
+    value: 'Forwarding From This Group',
+  },
+  'ChannelVisibility.Forwarding.ChannelInfo': {
+    key: 'ChannelVisibility.Forwarding.ChannelInfo',
+    value: 'Subscribers can forward messages from this channel and save media files.',
+  },
+  'ChannelVisibility.Forwarding.GroupInfo': {
+    key: 'ChannelVisibility.Forwarding.GroupInfo',
+    value: 'Members can forward messages from this group and save media files.',
+  },
+  'ChannelVisibility.Forwarding.Enabled': {
+    key: 'ChannelVisibility.Forwarding.Enabled',
+    value: 'Allow Forwarding',
+  },
+  'ChannelVisibility.Forwarding.Disabled': {
+    key: 'ChannelVisibility.Forwarding.Disabled',
+    value: 'Restrict Forwarding',
+  },
+  'Settings.TipsUsername': {
+    key: 'Settings.TipsUsername',
+    value: 'TelegramTips',
   },
 } as ApiLangPack;

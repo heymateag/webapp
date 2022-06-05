@@ -3,11 +3,10 @@
 
 export enum ApiMediaFormat {
   BlobUrl,
-  Lottie,
   Progressive,
   Stream,
+  Text,
 }
 
-export type ApiParsedMedia = string | Blob | AnyLiteral | ArrayBuffer;
-export type ApiPreparedMedia = string | AnyLiteral;
-export type ApiMediaFormatToPrepared<T> = T extends ApiMediaFormat.Lottie ? AnyLiteral : string;
+export type ApiParsedMedia = string | Blob | ArrayBuffer;
+export type ApiPreparedMedia = string;

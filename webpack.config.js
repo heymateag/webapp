@@ -1,17 +1,20 @@
 const path = require('path');
-
 const dotenv = require('dotenv');
 
 const {
+  DefinePlugin,
   EnvironmentPlugin,
   ProvidePlugin,
+  ContextReplacementPlugin,
+  NormalModuleReplacementPlugin,
 } = require('webpack');
 const CopyPlugin = require("copy-webpack-plugin");
-const HtmlPlugin = require('html-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-const TerserJSPlugin = require('terser-webpack-plugin');
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const { GitRevisionPlugin } = require('git-revision-webpack-plugin');
+const StatoscopeWebpackPlugin = require('@statoscope/webpack-plugin').default;
+const WebpackContextExtension = require('./dev/webpackContextExtension');
+const appVersion = require('./package.json').version;
 
 dotenv.config();
 
@@ -21,24 +24,35 @@ module.exports = (env = {}, argv = {}) => {
     entry: './src/index.tsx',
     target: 'web',
     devServer: {
-      contentBase: [
-        path.resolve(__dirname, 'public'),
-        path.resolve(__dirname, 'public/lib'),
-        path.resolve(__dirname, 'node_modules/emoji-data-ios'),
-        path.resolve(__dirname, 'node_modules/opus-recorder/dist'),
-        path.resolve(__dirname, 'src/lib/webp'),
-        path.resolve(__dirname, 'src/lib/rlottie'),
-        path.resolve(__dirname, 'src/lib/secret-sauce'),
+      port: 1234,
+      host: '0.0.0.0',
+      allowedHosts: "all",
+      hot: false,
+      static: [
+        {
+          directory: path.resolve(__dirname, 'public'),
+        },
+        {
+          directory: path.resolve(__dirname, 'node_modules/emoji-data-ios'),
+        },
+        {
+          directory: path.resolve(__dirname, 'node_modules/opus-recorder/dist'),
+        },
+        {
+          directory: path.resolve(__dirname, 'src/lib/webp'),
+        },
+        {
+          directory: path.resolve(__dirname, 'src/lib/rlottie'),
+        },
+        {
+          directory: path.resolve(__dirname, 'src/lib/secret-sauce'),
+        },
       ],
-      headers: {
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-        'Cross-Origin-Opener-Policy': 'same-origin',
+      devMiddleware: {
+        stats: 'minimal',
       },
-      port: 4200,
-      host: 'localhost',
-      disableHostCheck: true,
-      stats: 'minimal',
     },
+
     output: {
       filename: '[name].[contenthash].js',
       chunkFilename: '[id].[chunkhash].js',
@@ -69,7 +83,16 @@ module.exports = (env = {}, argv = {}) => {
           test: /\.scss$/,
           use: [
             MiniCssExtractPlugin.loader,
-            'css-loader',
+            {
+              loader: 'css-loader',
+              options: {
+                modules: {
+                  exportLocalsConvention: 'camelCase',
+                  auto: true,
+                  localIdentName: argv['optimize-minimize'] ? '[hash:base64]' : '[path][name]__[local]'
+                }
+              }
+            },
             'postcss-loader',
             'sass-loader',
           ],
@@ -79,24 +102,12 @@ module.exports = (env = {}, argv = {}) => {
           type: 'asset/resource',
         },
         {
-          test: /-extra\.json$/,
-          loader: 'file-loader',
-          type: 'javascript/auto',
-          options: {
-            name: '[name].[contenthash].[ext]',
-          },
-        },
-        {
           test: /\.wasm$/,
-          loader: 'file-loader',
-          type: 'javascript/auto',
-          options: {
-            name: '[name].[contenthash].[ext]',
-          },
+          type: 'asset/resource',
         },
         {
           test: /\.(txt|tl)$/i,
-          loader: 'raw-loader',
+          type: 'asset/source',
         },
       ],
     },
@@ -123,7 +134,18 @@ module.exports = (env = {}, argv = {}) => {
       },
     },
     plugins: [
-      new HtmlPlugin({
+      // Clearing of the unused files for code highlight for smaller chunk count
+      new ContextReplacementPlugin(
+        /highlight\.js\/lib\/languages/,
+        /^((?!\.js\.js).)*$/
+      ),
+      ...(process.env.APP_MOCKED_CLIENT === '1' ? [new NormalModuleReplacementPlugin(
+        /src\/lib\/gramjs\/client\/TelegramClient\.js/,
+        './MockClient.ts'
+      )] : []),
+      new HtmlWebpackPlugin({
+        appName: process.env.APP_ENV === 'production' ? 'Telegram Web' : 'Telegram Web Beta',
+        appleIcon: process.env.APP_ENV === 'production' ? 'apple-touch-icon' : './apple-touch-icon-dev',
         template: 'src/index.html',
       }),
       new MiniCssExtractPlugin({
@@ -159,26 +181,33 @@ module.exports = (env = {}, argv = {}) => {
           to: path.resolve(__dirname, 'public', 'lib'),
         }, ]
       }),
-      ...(argv.mode === 'production' ? [
-        new BundleAnalyzerPlugin({
-          analyzerMode: 'static',
-          openAnalyzer: false,
-        }),
-      ] : []),
+      new StatoscopeWebpackPlugin({
+        statsOptions: {
+          context: __dirname,
+        },
+        saveReportTo: path.resolve('./public/statoscope-report.html'),
+        saveStatsTo: path.resolve('./public/build-stats.json'),
+        normalizeStats: true,
+        open: 'file',
+        extensions: [new WebpackContextExtension()],
+      }),
     ],
 
     ...(!env.noSourceMap && {
       devtool: 'source-map',
     }),
 
-    ...(argv['optimize-minimize'] && {
+    ...(process.env.APP_ENV !== 'production' && {
       optimization: {
-        minimize: !env.noMinify,
-        minimizer: [
-          new TerserJSPlugin({ sourceMap: true }),
-          new CssMinimizerPlugin(),
-        ],
-      },
+        chunkIds: 'named',
+      }
     }),
   };
 };
+
+function getGitMetadata() {
+  const gitRevisionPlugin = new GitRevisionPlugin();
+  const branch = process.env.HEAD || gitRevisionPlugin.branch();
+  const commit = gitRevisionPlugin.commithash().substring(0, 7);
+  return { branch, commit };
+}

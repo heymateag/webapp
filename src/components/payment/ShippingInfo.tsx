@@ -1,11 +1,13 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useRef, useCallback, useEffect, memo,
+  useRef, useCallback, useEffect, memo,
 } from '../../lib/teact/teact';
 
-import { FormState, FormEditDispatch } from '../../hooks/reducers/usePaymentReducer';
+import type { ApiCountry } from '../../api/types';
+
+import type { FormState, FormEditDispatch } from '../../hooks/reducers/usePaymentReducer';
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useLang from '../../hooks/useLang';
-import countryList from '../../util/countries';
 
 import InputText from '../ui/InputText';
 import Select from '../ui/Select';
@@ -19,6 +21,7 @@ export type OwnProps = {
   needPhone: boolean;
   needName: boolean;
   needAddress: boolean;
+  countryList: ApiCountry[];
   dispatch: FormEditDispatch;
 };
 
@@ -28,6 +31,7 @@ const ShippingInfo: FC<OwnProps> = ({
   needPhone,
   needName,
   needAddress,
+  countryList,
   dispatch,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -65,8 +69,8 @@ const ShippingInfo: FC<OwnProps> = ({
   }, [dispatch]);
 
   const handleCountryChange = useCallback((e) => {
-    dispatch({ type: 'changeCountry', payload: e.target.value });
-  }, [dispatch]);
+    dispatch({ type: 'changeCountry', payload: countryList.find((country) => country.iso2 === e.target.value) });
+  }, [countryList, dispatch]);
 
   const handlePostCodeChange = useCallback((e) => {
     dispatch({ type: 'changePostCode', payload: e.target.value });
@@ -102,36 +106,36 @@ const ShippingInfo: FC<OwnProps> = ({
             <h5>{lang('PaymentShippingAddress')}</h5>
             <InputText
               ref={inputRef}
-              label="Address1 (Street)"
+              label={lang('PaymentShippingAddress1Placeholder')}
               onChange={handleAddress1Change}
               value={state.streetLine1}
               inputMode="text"
               error={formErrors.streetLine1}
             />
             <InputText
-              label="Address2 (Street)"
+              label={lang('PaymentShippingAddress2Placeholder')}
               onChange={handleAddress2Change}
               value={state.streetLine2}
               inputMode="text"
               error={formErrors.streetLine2}
             />
             <InputText
-              label="City"
+              label={lang('PaymentShippingCityPlaceholder')}
               onChange={handleCityChange}
               value={state.city}
               inputMode="text"
               error={formErrors.city}
             />
             <InputText
-              label="State"
+              label={lang('PaymentShippingStatePlaceholder')}
               onChange={handleStateChange}
               value={state.state}
               inputMode="text"
               error={formErrors.state}
             />
             <Select
-              label="Country"
-              placeholder="Country"
+              label={lang('PaymentShippingCountry')}
+              placeholder={lang('PaymentShippingCountry')}
               onChange={handleCountryChange}
               value={state.countryIso2}
               hasArrow={Boolean(true)}
@@ -139,18 +143,18 @@ const ShippingInfo: FC<OwnProps> = ({
               error={formErrors.countryIso2}
               ref={selectCountryRef}
             >
-              {countryList.map(({ name, id }) => (
+              {countryList.map(({ defaultName, name, iso2 }) => (
                 <option
-                  value={id}
+                  value={iso2}
                   className="county-item"
                 >
-                  {name}
+                  {defaultName || name}
                 </option>
               ))}
             </Select>
 
             <InputText
-              label="Post Code"
+              label={lang('PaymentShippingZipPlaceholder')}
               onChange={handlePostCodeChange}
               value={state.postCode}
               inputMode="text"
@@ -163,7 +167,7 @@ const ShippingInfo: FC<OwnProps> = ({
         ) : undefined }
         { needName && (
           <InputText
-            label="Full name"
+            label={lang('PaymentShippingName')}
             onChange={handleFullNameChange}
             value={state.fullName}
             inputMode="text"
@@ -172,7 +176,7 @@ const ShippingInfo: FC<OwnProps> = ({
         ) }
         { needEmail && (
           <InputText
-            label="Email"
+            label={lang('PaymentShippingEmailPlaceholder')}
             onChange={handleEmailChange}
             value={state.email}
             inputMode="email"
@@ -181,7 +185,7 @@ const ShippingInfo: FC<OwnProps> = ({
         ) }
         { needPhone && (
           <InputText
-            label="Phone number"
+            label={lang('PaymentShippingPhoneNumber')}
             onChange={handlePhoneChange}
             value={state.phone}
             inputMode="tel"

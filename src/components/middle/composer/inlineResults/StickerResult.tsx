@@ -1,19 +1,26 @@
-import React, { FC, memo } from '../../../../lib/teact/teact';
+import type { FC } from '../../../../lib/teact/teact';
+import React, { memo } from '../../../../lib/teact/teact';
 
-import { ApiBotInlineMediaResult, ApiBotInlineResult } from '../../../../api/types';
+import type { ApiBotInlineMediaResult, ApiBotInlineResult } from '../../../../api/types';
 
 import { STICKER_SIZE_INLINE_BOT_RESULT } from '../../../../config';
-import { ObserveFn } from '../../../../hooks/useIntersectionObserver';
+import type { ObserveFn } from '../../../../hooks/useIntersectionObserver';
 
 import StickerButton from '../../../common/StickerButton';
 
 type OwnProps = {
   inlineResult: ApiBotInlineMediaResult;
+  isSavedMessages?: boolean;
   observeIntersection: ObserveFn;
-  onClick: (result: ApiBotInlineResult) => void;
+  onClick: (result: ApiBotInlineResult, isSilent?: boolean, shouldSchedule?: boolean) => void;
 };
 
-const StickerResult: FC<OwnProps> = ({ inlineResult, observeIntersection, onClick }) => {
+const StickerResult: FC<OwnProps> = ({
+  inlineResult,
+  isSavedMessages,
+  observeIntersection,
+  onClick,
+}) => {
   const { sticker } = inlineResult;
 
   if (!sticker) {
@@ -29,6 +36,8 @@ const StickerResult: FC<OwnProps> = ({ inlineResult, observeIntersection, onClic
       className="chat-item-clickable"
       onClick={onClick}
       clickArg={inlineResult}
+      isSavedMessages={isSavedMessages}
+      canViewSet
     />
   );
 };

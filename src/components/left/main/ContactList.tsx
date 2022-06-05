@@ -1,23 +1,20 @@
-import React, {
-  FC, useEffect, useCallback, useMemo, memo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { useCallback, useMemo, memo } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiUser } from '../../../api/types';
+import type { ApiUser, ApiUserStatus } from '../../../api/types';
 
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
-import { throttle } from '../../../util/schedulers';
-import searchWords from '../../../util/searchWords';
-import { pick } from '../../../util/iteratees';
-import { getUserFullName, sortUserIds } from '../../../modules/helpers';
+import { filterUsersByName, sortUserIds } from '../../../global/helpers';
 import useInfiniteScroll from '../../../hooks/useInfiniteScroll';
 import useHistoryBack from '../../../hooks/useHistoryBack';
+import useLang from '../../../hooks/useLang';
 
 import PrivateChatInfo from '../../common/PrivateChatInfo';
 import InfiniteScroll from '../../ui/InfiniteScroll';
 import ListItem from '../../ui/ListItem';
 import Loading from '../../ui/Loading';
+import FloatingActionButton from '../../ui/FloatingActionButton';
 
 export type OwnProps = {
   filter: string;
@@ -27,27 +24,31 @@ export type OwnProps = {
 
 type StateProps = {
   usersById: Record<string, ApiUser>;
+  userStatusesById: Record<string, ApiUserStatus>;
   contactIds?: string[];
   serverTimeOffset: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadContactList' | 'openChat'>;
-
-const runThrottled = throttle((cb) => cb(), 60000, true);
-
-const ContactList: FC<OwnProps & StateProps & DispatchProps> = ({
-  isActive, onReset,
-  filter, usersById, contactIds, loadContactList, openChat, serverTimeOffset,
+const ContactList: FC<OwnProps & StateProps> = ({
+  isActive,
+  filter,
+  usersById,
+  userStatusesById,
+  contactIds,
+  serverTimeOffset,
+  onReset,
 }) => {
-  // Due to the parent Transition, this component never gets unmounted,
-  // that's why we use throttled API call on every update.
-  useEffect(() => {
-    runThrottled(() => {
-      loadContactList();
-    });
-  });
+  const {
+    openChat,
+    openNewContactDialog,
+  } = getActions();
 
-  useHistoryBack(isActive, onReset);
+  const lang = useLang();
+
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   const handleClick = useCallback((id: string) => {
     openChat({ id, shouldReplaceHistory: true });
@@ -58,17 +59,10 @@ const ContactList: FC<OwnProps & StateProps & DispatchProps> = ({
       return undefined;
     }
 
-    const resultIds = filter ? contactIds.filter((id) => {
-      const user = usersById[id];
-      if (!user) {
-        return false;
-      }
-      const fullName = getUserFullName(user);
-      return fullName && searchWords(fullName, filter);
-    }) : contactIds;
+    const filteredIds = filterUsersByName(contactIds, usersById, filter);
 
-    return sortUserIds(resultIds, usersById, undefined, serverTimeOffset);
-  }, [contactIds, filter, usersById, serverTimeOffset]);
+    return sortUserIds(filteredIds, usersById, userStatusesById, undefined, serverTimeOffset);
+  }, [contactIds, filter, usersById, userStatusesById, serverTimeOffset]);
 
   const [viewportIds, getMore] = useInfiniteScroll(undefined, listIds, Boolean(filter));
 
@@ -79,6 +73,7 @@ const ContactList: FC<OwnProps & StateProps & DispatchProps> = ({
           <ListItem
             key={id}
             className="chat-item-clickable"
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={() => handleClick(id)}
             ripple={!IS_SINGLE_COLUMN_LAYOUT}
           >
@@ -92,6 +87,13 @@ const ContactList: FC<OwnProps & StateProps & DispatchProps> = ({
       ) : (
         <Loading key="loading" />
       )}
+      <FloatingActionButton
+        isShown
+        onClick={openNewContactDialog}
+        ariaLabel={lang('CreateNewContact')}
+      >
+        <i className="icon-add-user-filled" />
+      </FloatingActionButton>
     </InfiniteScroll>
   );
 };
@@ -99,13 +101,13 @@ const ContactList: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const { userIds: contactIds } = global.contactList || {};
-    const { byId: usersById } = global.users;
+    const { byId: usersById, statusesById: userStatusesById } = global.users;
 
     return {
       usersById,
+      userStatusesById,
       contactIds,
       serverTimeOffset: global.serverTimeOffset,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadContactList', 'openChat']),
 )(ContactList));

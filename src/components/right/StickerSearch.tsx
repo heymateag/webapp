@@ -1,13 +1,11 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useEffect, useRef, useState,
+  memo, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-
-import { pick } from '../../util/iteratees';
 import { throttle } from '../../util/schedulers';
-import { selectCurrentStickerSearch } from '../../modules/selectors';
+import { selectCurrentStickerSearch } from '../../global/selectors';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import useLang from '../../hooks/useLang';
 import useHistoryBack from '../../hooks/useHistoryBack';
@@ -28,20 +26,19 @@ type StateProps = {
   resultIds?: string[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadFeaturedStickers'>;
-
 const INTERSECTION_THROTTLE = 200;
 
 const runThrottled = throttle((cb) => cb(), 60000, true);
 
-const StickerSearch: FC<OwnProps & StateProps & DispatchProps> = ({
+const StickerSearch: FC<OwnProps & StateProps> = ({
   onClose,
   isActive,
   query,
   featuredIds,
   resultIds,
-  loadFeaturedStickers,
 }) => {
+  const { loadFeaturedStickers } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +58,10 @@ const StickerSearch: FC<OwnProps & StateProps & DispatchProps> = ({
     });
   });
 
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   function renderContent() {
     if (query === undefined) {
@@ -118,5 +118,4 @@ export default memo(withGlobal(
       resultIds,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadFeaturedStickers']),
 )(StickerSearch));

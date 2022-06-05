@@ -1,5 +1,6 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useEffect, useState, memo,
+  useEffect, useState, memo, useCallback,
 } from '../../lib/teact/teact';
 
 import { DEBUG } from '../../config';
@@ -18,6 +19,7 @@ const cropperResultOptions: Croppie.ResultOptions & { type: 'blob' } = {
   quality: 1,
   format: 'jpeg',
   circle: false,
+  size: { width: 1024, height: 1024 },
 };
 
 type ICroppie = typeof import('croppie');
@@ -92,7 +94,7 @@ const CropModal: FC<OwnProps> = ({ file, onChange, onClose }: OwnProps) => {
 
   const lang = useLang();
 
-  async function handleCropClick() {
+  const handleCropClick = useCallback(async () => {
     if (!cropper) {
       return;
     }
@@ -101,7 +103,7 @@ const CropModal: FC<OwnProps> = ({ file, onChange, onClose }: OwnProps) => {
     const croppedImg = typeof result === 'string' ? result : blobToFile(result, 'avatar.jpg');
 
     onChange(croppedImg);
-  }
+  }, [onChange]);
 
   return (
     <Modal

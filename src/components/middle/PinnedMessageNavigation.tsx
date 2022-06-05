@@ -1,5 +1,5 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC,
   useRef,
   useEffect,
   useMemo,
@@ -84,7 +84,6 @@ const PinnedMessageNavigation: FC<OwnProps> = ({
       <div
         className="pinned-message-border-wrapper"
         ref={containerRef}
-        // @ts-ignore
         style={
           `clip-path: url("#${clipPathId}"); width: 2px;
           height: ${trackHeight}px; transform: translateY(-${trackTranslateY}px);`
@@ -93,7 +92,6 @@ const PinnedMessageNavigation: FC<OwnProps> = ({
         <span />
         <div
           className="pinned-message-border-mark"
-          // @ts-ignore
           style={`height: ${markHeight}px; transform: translateY(${markTranslateY}px);`}
         />
       </div>

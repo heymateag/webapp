@@ -1,12 +1,11 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useState, useMemo, useRef,
+  memo, useCallback, useState, useMemo, useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
 import { GlobalSearchContent } from '../../../types';
 
-import { pick } from '../../../util/iteratees';
 import { parseDateString } from '../../../util/dateFormat';
 import useKeyboardListNavigation from '../../../hooks/useKeyboardListNavigation';
 import useLang from '../../../hooks/useLang';
@@ -35,8 +34,6 @@ type StateProps = {
   chatId?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, ('setGlobalSearchContent' | 'setGlobalSearchDate')>;
-
 const TABS = [
   { type: GlobalSearchContent.ChatList, title: 'SearchAllChatsShort' },
   { type: GlobalSearchContent.Media, title: 'SharedMediaTab2' },
@@ -53,16 +50,19 @@ const CHAT_TABS = [
 
 const TRANSITION_RENDER_COUNT = Object.keys(GlobalSearchContent).length / 2;
 
-const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
+const LeftSearch: FC<OwnProps & StateProps> = ({
   searchQuery,
   searchDate,
   isActive,
   currentContent = GlobalSearchContent.ChatList,
   chatId,
-  setGlobalSearchContent,
-  setGlobalSearchDate,
   onReset,
 }) => {
+  const {
+    setGlobalSearchContent,
+    setGlobalSearchDate,
+  } = getActions();
+
   const lang = useLang();
   const [activeTab, setActiveTab] = useState(currentContent);
   const dateSearchQuery = useMemo(() => parseDateString(searchQuery), [searchQuery]);
@@ -77,7 +77,10 @@ const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
     setGlobalSearchDate({ date: value.getTime() / 1000 });
   }, [setGlobalSearchDate]);
 
-  useHistoryBack(isActive, onReset, undefined, undefined, true);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,11 +90,11 @@ const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
     <div className="LeftSearch" ref={containerRef} onKeyDown={handleKeyDown}>
       <TabList activeTab={activeTab} tabs={chatId ? CHAT_TABS : TABS} onSwitchTab={handleSwitchTab} />
       <Transition
-        name={lang.isRtl ? 'slide-reversed' : 'slide'}
+        name={lang.isRtl ? 'slide-optimized-rtl' : 'slide-optimized'}
         renderCount={TRANSITION_RENDER_COUNT}
         activeKey={currentContent}
       >
-        {() => {
+        {(() => {
           switch (currentContent) {
             case GlobalSearchContent.ChatList:
               if (chatId) {
@@ -137,7 +140,7 @@ const LeftSearch: FC<OwnProps & StateProps & DispatchProps> = ({
             default:
               return undefined;
           }
-        }}
+        })()}
       </Transition>
     </div>
   );
@@ -149,5 +152,4 @@ export default memo(withGlobal<OwnProps>(
 
     return { currentContent, chatId };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['setGlobalSearchContent', 'setGlobalSearchDate']),
 )(LeftSearch));

@@ -29,6 +29,15 @@ type NotificationData = {
   title: string;
   body: string;
   icon?: string;
+  reaction?: string;
+  shouldReplaceHistory?: boolean;
+};
+
+type FocusMessageData = {
+  chatId?: string;
+  messageId?: number;
+  reaction?: string;
+  shouldReplaceHistory?: boolean;
 };
 
 type CloseNotificationData = {
@@ -103,6 +112,8 @@ function showNotification({
   body,
   title,
   icon,
+  reaction,
+  shouldReplaceHistory,
 }: NotificationData) {
   const isFirstBatch = new Date().valueOf() - lastSyncAt < 1000;
   const tag = String(isFirstBatch ? 0 : chatId || 0);
@@ -111,7 +122,9 @@ function showNotification({
     data: {
       chatId,
       messageId,
+      reaction,
       count: 1,
+      shouldReplaceHistory,
     },
     icon: icon || 'icon-192x192.png',
     badge: 'icon-192x192.png',
@@ -120,7 +133,8 @@ function showNotification({
   };
 
   return Promise.all([
-    playNotificationSound(String(messageId) || chatId || ''),
+    // TODO Remove condition when reaction badges are implemented
+    !reaction ? playNotificationSound(String(messageId) || chatId || '') : undefined,
     self.registration.showNotification(title, options),
   ]);
 }
@@ -158,7 +172,7 @@ export function handlePush(e: PushEvent) {
 
   const notification = getNotificationData(data);
 
-  // Dont show already triggered notification
+  // Don't show already triggered notification
   if (shownNotifications.has(notification.messageId)) {
     shownNotifications.delete(notification.messageId);
     return;
@@ -167,18 +181,11 @@ export function handlePush(e: PushEvent) {
   e.waitUntil(showNotification(notification));
 }
 
-async function focusChatMessage(client: WindowClient, data: { chatId?: string; messageId?: number }) {
-  const {
-    chatId,
-    messageId,
-  } = data;
-  if (!chatId) return;
+async function focusChatMessage(client: WindowClient, data: FocusMessageData) {
+  if (!data.chatId) return;
   client.postMessage({
     type: 'focusMessage',
-    payload: {
-      chatId,
-      messageId,
-    },
+    payload: data,
   });
   if (!client.focused) {
     // Catch "focus not allowed" DOM Exceptions
@@ -240,12 +247,19 @@ export function handleClientMessage(e: ExtendableMessageEvent) {
       e.waitUntil(focusChatMessage(source, data));
     }
   }
-  if (e.data.type === 'newMessageNotification') {
+  if (e.data.type === 'showMessageNotification') {
     // store messageId for already shown notification
     const notification: NotificationData = e.data.payload;
-    // mark this notification as shown if it was handled locally
-    shownNotifications.add(notification.messageId);
-    e.waitUntil(showNotification(notification));
+    e.waitUntil((async () => {
+      // Close existing notification if it is already shown
+      if (notification.chatId) {
+        const notifications = await self.registration.getNotifications({ tag: notification.chatId });
+        notifications.forEach((n) => n.close());
+      }
+      // Mark this notification as shown if it was handled locally
+      shownNotifications.add(notification.messageId);
+      return showNotification(notification);
+    })());
   }
 
   if (e.data.type === 'closeMessageNotifications') {
@@ -253,6 +267,6 @@ export function handleClientMessage(e: ExtendableMessageEvent) {
   }
 }
 
-self.onsync = () => {
-  lastSyncAt = new Date().valueOf();
-};
+self.addEventListener('sync', () => {
+  lastSyncAt = Date.now();
+});

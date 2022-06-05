@@ -1,9 +1,7 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
+import { getActions } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 
 import Link from '../ui/Link';
@@ -11,14 +9,14 @@ import Link from '../ui/Link';
 type OwnProps = {
   className?: string;
   chatId?: string;
-  children: any;
+  children: React.ReactNode;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openChat'>;
-
-const ChatLink: FC<OwnProps & DispatchProps> = ({
-  className, chatId, openChat, children,
+const ChatLink: FC<OwnProps> = ({
+  className, chatId, children,
 }) => {
+  const { openChat } = getActions();
+
   const handleClick = useCallback(() => {
     if (chatId) {
       openChat({ id: chatId });
@@ -34,7 +32,4 @@ const ChatLink: FC<OwnProps & DispatchProps> = ({
   );
 };
 
-export default withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['openChat']),
-)(ChatLink);
+export default ChatLink;

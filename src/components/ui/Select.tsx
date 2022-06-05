@@ -1,5 +1,6 @@
-import { ChangeEvent, RefObject } from 'react';
-import React, { FC, memo } from '../../lib/teact/teact';
+import type { ChangeEvent, RefObject } from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 
@@ -12,7 +13,7 @@ type OwnProps = {
   hasArrow?: boolean;
   placeholder?: string;
   onChange?: (e: ChangeEvent<HTMLSelectElement>) => void;
-  children: any;
+  children: React.ReactNode;
 };
 
 const Select: FC<OwnProps> = (props) => {

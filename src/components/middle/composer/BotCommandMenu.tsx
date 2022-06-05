@@ -1,17 +1,16 @@
-import React, { FC, memo, useCallback } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiBotCommand } from '../../../api/types';
+import type { ApiBotCommand } from '../../../api/types';
 
 import { IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../../util/environment';
-import { pick } from '../../../util/iteratees';
 import useMouseInside from '../../../hooks/useMouseInside';
 
 import Menu from '../../ui/Menu';
 import BotCommand from './BotCommand';
 
 import './BotCommandMenu.scss';
+import { getActions } from '../../../global';
 
 export type OwnProps = {
   isOpen: boolean;
@@ -19,11 +18,11 @@ export type OwnProps = {
   onClose: NoneToVoidFunction;
 };
 
-type DispatchProps = Pick<GlobalActions, 'sendBotCommand'>;
-
-const BotCommandMenu: FC<OwnProps & DispatchProps> = ({
-  isOpen, botCommands, onClose, sendBotCommand,
+const BotCommandMenu: FC<OwnProps> = ({
+  isOpen, botCommands, onClose,
 }) => {
+  const { sendBotCommand } = getActions();
+
   const [handleMouseEnter, handleMouseLeave] = useMouseInside(isOpen, onClose, undefined, IS_SINGLE_COLUMN_LAYOUT);
 
   const handleClick = useCallback((botCommand: ApiBotCommand) => {
@@ -45,6 +44,7 @@ const BotCommandMenu: FC<OwnProps & DispatchProps> = ({
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
       onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
       noCloseOnBackdrop={!IS_TOUCH_ENV}
+      noCompact
     >
       {botCommands.map((botCommand) => (
         <BotCommand
@@ -57,7 +57,4 @@ const BotCommandMenu: FC<OwnProps & DispatchProps> = ({
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['sendBotCommand']),
-)(BotCommandMenu));
+export default memo(BotCommandMenu);

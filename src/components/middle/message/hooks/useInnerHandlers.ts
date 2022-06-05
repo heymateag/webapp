@@ -1,12 +1,12 @@
-import React, { useCallback } from '../../../../lib/teact/teact';
-import { getDispatch } from '../../../../lib/teact/teactn';
+import type React from '../../../../lib/teact/teact';
+import { useCallback } from '../../../../lib/teact/teact';
+import { getActions } from '../../../../global';
 
-import { isUserId } from '../../../../modules/helpers';
-import { IAlbum, MediaViewerOrigin } from '../../../../types';
-import {
-  ApiChat, ApiMessage, ApiUser, MAIN_THREAD_ID,
-} from '../../../../api/types';
-import { LangFn } from '../../../../hooks/useLang';
+import type { IAlbum } from '../../../../types';
+import { MediaViewerOrigin } from '../../../../types';
+import type { ApiChat, ApiMessage, ApiUser } from '../../../../api/types';
+import { MAIN_THREAD_ID } from '../../../../api/types';
+import type { LangFn } from '../../../../hooks/useLang';
 
 export default function useInnerHandlers(
   lang: LangFn,
@@ -15,6 +15,7 @@ export default function useInnerHandlers(
   chatId: string,
   threadId: number,
   isInDocumentGroup: boolean,
+  asForwarded?: boolean,
   isScheduled?: boolean,
   isChatWithRepliesBot?: boolean,
   album?: IAlbum,
@@ -23,9 +24,9 @@ export default function useInnerHandlers(
   botSender?: ApiUser,
 ) {
   const {
-    openUserInfo, openChat, showNotification, focusMessage, openMediaViewer, openAudioPlayer,
+    openChat, showNotification, focusMessage, openMediaViewer, openAudioPlayer,
     markMessagesRead, cancelSendingMessage, sendPollVote, openForwardMenu, focusMessageInComments,
-  } = getDispatch();
+  } = getActions();
 
   const {
     id: messageId, forwardInfo, replyToMessageId, replyToChatId, replyToTopMessageId, groupedId,
@@ -36,12 +37,8 @@ export default function useInnerHandlers(
       return;
     }
 
-    if (isUserId(avatarPeer.id)) {
-      openUserInfo({ id: avatarPeer.id });
-    } else {
-      openChat({ id: avatarPeer.id });
-    }
-  }, [avatarPeer, openUserInfo, openChat]);
+    openChat({ id: avatarPeer.id });
+  }, [avatarPeer, openChat]);
 
   const handleSenderClick = useCallback(() => {
     if (!senderPeer) {
@@ -50,20 +47,22 @@ export default function useInnerHandlers(
       return;
     }
 
-    if (isUserId(senderPeer.id)) {
-      openUserInfo({ id: senderPeer.id });
+    if (asForwarded && forwardInfo?.channelPostId) {
+      focusMessage({ chatId: senderPeer.id, messageId: forwardInfo.channelPostId });
     } else {
       openChat({ id: senderPeer.id });
     }
-  }, [senderPeer, showNotification, lang, openUserInfo, openChat]);
+  }, [
+    asForwarded, focusMessage, forwardInfo, lang, openChat, senderPeer, showNotification,
+  ]);
 
   const handleViaBotClick = useCallback(() => {
     if (!botSender) {
       return;
     }
 
-    openUserInfo({ id: botSender.id });
-  }, [botSender, openUserInfo]);
+    openChat({ id: botSender.id });
+  }, [botSender, openChat]);
 
   const handleReplyClick = useCallback((): void => {
     focusMessage({

@@ -1,4 +1,4 @@
-import { ApiMessage } from '../../../../api/types';
+import type { ApiMessage } from '../../../../api/types';
 import { calculateInlineImageDimensions, calculateVideoDimensions } from '../../../common/helpers/mediaDimensions';
 import {
   getMessageText,
@@ -7,7 +7,7 @@ import {
   isForwardedMessage,
   isOwnMessage,
   getMessageVideo,
-} from '../../../../modules/helpers';
+} from '../../../../global/helpers';
 
 const MIN_MEDIA_WIDTH = 100;
 const MIN_MEDIA_WIDTH_WITH_COMMENTS = 238;

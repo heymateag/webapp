@@ -1,8 +1,9 @@
-import {
+import type {
   ApiChat,
   ApiMessage,
   ApiThreadInfo,
   ApiUser,
+  ApiUserStatus,
   ApiUpdateAuthorizationStateType,
   ApiUpdateConnectionStateType,
   ApiStickerSet,
@@ -24,8 +25,22 @@ import {
   ApiGroupCall,
   ZoomDialogProps,
   IHeymateUser,
+  ApiAvailableReaction,
+  ApiAppConfig,
+  ApiSponsoredMessage,
+  ApiChannelStatistics,
+  ApiGroupStatistics,
+  ApiMessageStatistics,
+  ApiPaymentFormNativeParams,
+  ApiUpdate,
+  ApiReportReason,
+  ApiPhoto,
+  ApiKeyboardButton,
+  ApiThemeParameters,
+  ApiAttachMenuBot,
+  ApiPhoneCall,
 } from '../api/types';
-import {
+import type {
   FocusDirection,
   ISettings,
   MediaViewerOrigin,
@@ -48,7 +63,11 @@ import {
   InlineBotSettings,
   NewChatMembersProgress,
   AudioOrigin,
+  ManagementState,
+  SettingsScreens,
 } from '../types';
+import { typify } from '../lib/teact/teactn';
+import type { P2pMessage } from '../lib/secret-sauce';
 
 export type MessageListType =
   'thread'
@@ -61,6 +80,21 @@ export interface MessageList {
   type: MessageListType;
 }
 
+export interface ActiveEmojiInteraction {
+  id: number;
+  x: number;
+  y: number;
+  messageId?: number;
+  startSize?: number;
+  animatedEffect?: string;
+  isReversed?: boolean;
+}
+
+export interface ActiveReaction {
+  messageId?: number;
+  reaction?: string;
+}
+
 export interface Thread {
   listedIds?: number[];
   outlyingIds?: number[];
@@ -71,6 +105,8 @@ export interface Thread {
   replyingToId?: number;
   editingId?: number;
   editingScheduledId?: number;
+  editingDraft?: ApiFormattedText;
+  editingScheduledDraft?: ApiFormattedText;
   draft?: ApiFormattedText;
   noWebPage?: boolean;
   threadInfo?: ApiThreadInfo;
@@ -86,14 +122,17 @@ export interface ServiceNotification {
 }
 
 export type GlobalState = {
+  appConfig?: ApiAppConfig;
+  canInstall?: boolean;
   isChatInfoShown: boolean;
+  isStatisticsShown?: boolean;
   isLeftColumnShown: boolean;
-  isPollModalOpen?: boolean;
   newChatMembersProgress?: NewChatMembersProgress;
   uiReadyState: 0 | 1 | 2;
   shouldSkipHistoryAnimations?: boolean;
   connectionState?: ApiUpdateConnectionStateType;
   currentUserId?: string;
+  isSyncing?: boolean;
   currentUserPhoneNumber?: string;
   heymateUser?: IHeymateUser;
   lastSyncTime?: number;
@@ -133,8 +172,7 @@ export type GlobalState = {
 
   users: {
     byId: Record<string, ApiUser>;
-    // TODO Remove
-    selectedId?: string;
+    statusesById: Record<string, ApiUserStatus>;
   };
 
   chats: {
@@ -171,16 +209,17 @@ export type GlobalState = {
       poll?: ApiNewPoll;
       isSilent?: boolean;
     };
+    sponsoredByChatId: Record<string, ApiSponsoredMessage>;
   };
 
   groupCalls: {
     byId: Record<string, ApiGroupCall>;
     activeGroupCallId?: string;
-    isGroupCallPanelHidden?: boolean;
-    isFallbackConfirmOpen?: boolean;
-    fallbackChatId?: string;
-    fallbackUserIdsToRemove?: string[];
   };
+
+  isCallPanelVisible?: boolean;
+  phoneCall?: ApiPhoneCall;
+  ratingPhoneCall?: ApiPhoneCall;
 
   scheduledMessages: {
     byChatId: Record<string, {
@@ -207,6 +246,16 @@ export type GlobalState = {
   selectedMessages?: {
     chatId: string;
     messageIds: number[];
+  };
+
+  seenByModal?: {
+    chatId: string;
+    messageId: number;
+  };
+
+  reactorModal?: {
+    chatId: string;
+    messageId: number;
   };
 
   fileUploads: {
@@ -251,6 +300,7 @@ export type GlobalState = {
   };
 
   animatedEmojis?: ApiStickerSet;
+  animatedEmojiEffects?: ApiStickerSet;
   emojiKeywords: Partial<Record<LangCode, EmojiKeywords>>;
 
   gifs: {
@@ -302,6 +352,10 @@ export type GlobalState = {
     globalUserIds?: string[];
   };
 
+  availableReactions?: ApiAvailableReaction[];
+  activeEmojiInteractions?: ActiveEmojiInteraction[];
+  activeReactions: Record<number, ActiveReaction>;
+
   localTextSearch: {
     byChatThreadKey: Record<string, {
       isActive: boolean;
@@ -327,11 +381,7 @@ export type GlobalState = {
 
   management: {
     progress?: ManagementProgress;
-    byChatId: Record<string, {
-      isActive: boolean;
-      isUsernameAvailable?: boolean;
-      error?: string;
-    }>;
+    byChatId: Record<string, ManagementState>;
   };
 
   mediaViewer: {
@@ -341,6 +391,9 @@ export type GlobalState = {
     avatarOwnerId?: string;
     profilePhotoIndex?: number;
     origin?: MediaViewerOrigin;
+    volume: number;
+    playbackRate: number;
+    isMuted: boolean;
   };
 
   audioPlayer: {
@@ -370,6 +423,7 @@ export type GlobalState = {
     fromChatId?: string;
     messageIds?: number[];
     toChatId?: string;
+    withMyScore?: boolean;
   };
 
   pollResults: {
@@ -399,15 +453,14 @@ export type GlobalState = {
     };
     nativeProvider?: string;
     providerId?: string;
-    nativeParams?: {
-      needCardholderName: boolean;
-      needCountry: boolean;
-      needZip: boolean;
-      publishableKey: string;
-    };
+    nativeParams?: ApiPaymentFormNativeParams;
     stripeCredentials?: {
       type: string;
       id: string;
+    };
+    smartGlocalCredentials?: {
+      type: string;
+      token: string;
     };
     passwordMissing?: boolean;
     savedCredentials?: {
@@ -421,6 +474,7 @@ export type GlobalState = {
       description: string;
     };
     isPaymentModalOpen?: boolean;
+    confirmPaymentUrl?: string;
   };
 
   chatCreation?: {
@@ -437,8 +491,11 @@ export type GlobalState = {
   dialogs: (ApiError | ApiInviteInfo)[];
   zoomDialog: ZoomDialogProps;
 
-  // TODO Move to settings
-  activeSessions: ApiSession[];
+  activeSessions: {
+    byHash: Record<string, ApiSession>;
+    orderedHashes: string[];
+    ttlDays?: number;
+  };
 
   settings: {
     byKey: ISettings;
@@ -446,6 +503,7 @@ export type GlobalState = {
     themes: Partial<Record<ThemeKey, IThemeSettings>>;
     privacy: Partial<Record<ApiPrivacyKey, ApiPrivacySettings>>;
     notifyExceptions?: Record<number, NotifyException>;
+    nextScreen?: SettingsScreens;
   };
 
   twoFaSettings: {
@@ -453,6 +511,14 @@ export type GlobalState = {
     isLoading?: boolean;
     error?: string;
     waitingEmailCodeLength?: number;
+  };
+
+  passcode: {
+    isScreenLocked?: boolean;
+    hasPasscode?: boolean;
+    error?: string;
+    invalidAttemptsCount?: number;
+    isLoading?: boolean;
   };
 
   push?: {
@@ -471,42 +537,406 @@ export type GlobalState = {
   shouldShowContextMenuHint?: boolean;
 
   serviceNotifications: ServiceNotification[];
+
+  statistics: {
+    byChatId: Record<string, ApiChannelStatistics | ApiGroupStatistics>;
+    currentMessage?: ApiMessageStatistics;
+    currentMessageId?: number;
+  };
+
+  newContact?: {
+    userId?: string;
+    isByPhoneNumber?: boolean;
+  };
+
+  openedGame?: {
+    url: string;
+    chatId: string;
+    messageId: number;
+  };
+
+  switchBotInline?: {
+    query: string;
+    botUsername: string;
+  };
+
+  openChatWithText?: {
+    chatId: string;
+    text: string;
+  };
+
+  pollModal: {
+    isOpen: boolean;
+    isQuiz?: boolean;
+  };
+
+  webApp?: {
+    url: string;
+    bot: ApiUser;
+    buttonText: string;
+    queryId?: string;
+  };
+
+  trustedBotIds: string[];
+  botTrustRequest?: {
+    bot: ApiUser;
+    type: 'game' | 'webApp';
+    onConfirm?: {
+      action: keyof GlobalActions;
+      payload: any; // TODO add TS support
+    };
+  };
+  botAttachRequest?: {
+    bot: ApiUser;
+    chatId: string;
+    startParam?: string;
+  };
+
+  attachMenu: {
+    hash?: string;
+    bots: Record<string, ApiAttachMenuBot>;
+  };
 };
 
-export type ActionTypes = (
+export type CallSound = (
+  'join' | 'allowTalk' | 'leave' | 'connecting' | 'incoming' | 'end' | 'connect' | 'busy' | 'ringing'
+);
+
+export interface ActionPayloads {
+  // Initial
+  signOut: { forceInitApi?: boolean } | undefined;
+  apiUpdate: ApiUpdate;
+
+  // Misc
+  setInstallPrompt: { canInstall: boolean };
+
+  // Accounts
+  reportPeer: {
+    chatId?: string;
+    reason: ApiReportReason;
+    description: string;
+  };
+  reportProfilePhoto: {
+    chatId?: string;
+    reason: ApiReportReason;
+    description: string;
+    photo?: ApiPhoto;
+  };
+  changeSessionSettings: {
+    hash: string;
+    areCallsEnabled?: boolean;
+    areSecretChatsEnabled?: boolean;
+  };
+  changeSessionTtl: {
+    days: number;
+  };
+
+  // Chats
+  openChat: {
+    id: string | undefined;
+    threadId?: number;
+    type?: MessageListType;
+    shouldReplaceHistory?: boolean;
+  };
+
+  openChatWithText: {
+    chatId: string;
+    text: string;
+  };
+
+  resetOpenChatWithText: {};
+
+  // Messages
+  setEditingDraft: {
+    text?: ApiFormattedText;
+    chatId: string;
+    threadId: number;
+    type: MessageListType;
+  };
+  fetchUnreadMentions: {
+    chatId: string;
+    offsetId?: number;
+  };
+  fetchUnreadReactions: {
+    chatId: string;
+    offsetId?: number;
+  };
+  animateUnreadReaction: {
+    messageIds: number[];
+  };
+  focusNextReaction: {};
+  focusNextMention: {};
+  readAllReactions: {};
+  readAllMentions: {};
+  markMentionsRead: {
+    messageIds: number[];
+  };
+
+  // Media Viewer & Audio Player
+  openMediaViewer: {
+    chatId?: string;
+    threadId?: number;
+    messageId?: number;
+    avatarOwnerId?: string;
+    profilePhotoIndex?: number;
+    origin?: MediaViewerOrigin;
+    volume?: number;
+    playbackRate?: number;
+    isMuted?: boolean;
+  };
+  closeMediaViewer: {};
+  setMediaViewerVolume: {
+    volume: number;
+  };
+  setMediaViewerPlaybackRate: {
+    playbackRate: number;
+  };
+  setMediaViewerMuted: {
+    isMuted: boolean;
+  };
+
+  openAudioPlayer: {
+    chatId: string;
+    threadId?: number;
+    messageId: number;
+    origin?: AudioOrigin;
+    volume?: number;
+    playbackRate?: number;
+    isMuted?: boolean;
+  };
+  closeAudioPlayer: {};
+  setAudioPlayerVolume: {
+    volume: number;
+  };
+  setAudioPlayerPlaybackRate: {
+    playbackRate: number;
+  };
+  setAudioPlayerMuted: {
+    isMuted: boolean;
+  };
+  setAudioPlayerOrigin: {
+    origin: AudioOrigin;
+  };
+
+  // Downloads
+  downloadSelectedMessages: {};
+  downloadMessageMedia: {
+    message: ApiMessage;
+  };
+  cancelMessageMediaDownload: {
+    message: ApiMessage;
+  };
+  cancelMessagesMediaDownload: {
+    messages: ApiMessage[];
+  };
+
+  // Users
+  openAddContactDialog: {
+    userId?: string;
+  };
+  openNewContactDialog: undefined;
+  closeNewContactDialog: undefined;
+  importContact: {
+    phoneNumber: string;
+    firstName: string;
+    lastName?: string;
+  };
+  updateContact: {
+    userId: string;
+    firstName: string;
+    lastName?: string;
+    isMuted?: boolean;
+    shouldSharePhoneNumber?: boolean;
+  };
+
+  // Stickers
+  addRecentSticker: {
+    sticker: ApiSticker;
+  };
+
+  removeRecentSticker: {
+    sticker: ApiSticker;
+  };
+
+  clearRecentStickers: {};
+
+  loadStickerSets: {};
+  loadAddedStickers: {};
+  loadRecentStickers: {};
+  loadFavoriteStickers: {};
+  loadFeaturedStickers: {};
+
+  reorderStickerSets: {
+    order: string[];
+  };
+
+  addNewStickerSet: {
+    stickerSet: ApiStickerSet;
+  };
+
+  openStickerSetShortName: {
+    stickerSetShortName?: string;
+  };
+
+  openStickerSet: {
+    sticker: ApiSticker;
+  };
+
+  // Bots
+  clickBotInlineButton: {
+    messageId: number;
+    button: ApiKeyboardButton;
+  };
+
+  switchBotInline: {
+    messageId: number;
+    query: string;
+    isSamePeer?: boolean;
+  };
+
+  resetSwitchBotInline: {};
+
+  openGame: {
+    url: string;
+    chatId: string;
+    messageId: number;
+  };
+  closeGame: {};
+
+  requestWebView: {
+    url?: string;
+    bot: ApiUser;
+    peer: ApiChat | ApiUser;
+    theme?: ApiThemeParameters;
+    isSilent?: boolean;
+    buttonText: string;
+    isFromBotMenu?: boolean;
+    startParam?: string;
+  };
+  prolongWebView: {
+    bot: ApiUser;
+    peer: ApiChat | ApiUser;
+    queryId: string;
+    isSilent?: boolean;
+    replyToMessageId?: number;
+  };
+  requestSimpleWebView: {
+    url: string;
+    bot: ApiUser;
+    buttonText: string;
+    theme?: ApiThemeParameters;
+  };
+  closeWebApp: {};
+
+  cancelBotTrustRequest: {};
+  markBotTrusted: {
+    botId: string;
+  };
+
+  closeBotAttachRequestModal: never;
+  confirmBotAttachRequest: never;
+
+  sendWebViewData: {
+    bot: ApiUser;
+    data: string;
+    buttonText: string;
+  };
+
+  loadAttachMenuBots: {
+    hash?: string;
+  };
+
+  toggleBotInAttachMenu: {
+    botId: string;
+    isEnabled: boolean;
+  };
+
+  callAttachMenuBot: {
+    chatId: string;
+    botId: string;
+    isFromBotMenu?: boolean;
+    url?: string;
+    startParam?: string;
+  };
+
+  // Misc
+  openPollModal: {
+    isQuiz?: boolean;
+  };
+  closePollModal: {};
+
+  // Calls
+  requestCall: {
+    userId: string;
+    isVideo?: boolean;
+  };
+  sendSignalingData: P2pMessage;
+  hangUp: {};
+  acceptCall: {};
+  setCallRating: {
+    rating: number;
+    comment: string;
+  };
+  closeCallRatingModal: {};
+  playGroupCallSound: {
+    sound: CallSound;
+  };
+  connectToActivePhoneCall: {};
+
+  // Passcode
+  setPasscode: { passcode: string };
+  clearPasscode: never;
+  lockScreen: never;
+  unlockScreen: { sessionJson: string; globalJson: string };
+  softSignIn: never;
+  logInvalidUnlockAttempt: never;
+  resetInvalidUnlockAttempts: never;
+  setPasscodeError: { error: string };
+  clearPasscodeError: never;
+  skipLockOnUnload: never;
+
+  // Settings
+  requestNextSettingsScreen: SettingsScreens;
+}
+
+export type NonTypedActionNames = (
 // system
-  'init' | 'reset' | 'disconnect' | 'initApi' | 'apiUpdate' | 'sync' | 'saveSession' | 'afterSync' |
+  'init' | 'reset' | 'disconnect' | 'initApi' | 'sync' | 'saveSession' |
   'showNotification' | 'dismissNotification' | 'showDialog' | 'dismissDialog' | 'setCurrentUserPhoneNumber' |
   'setHeymateUser' |
   // ui
-  'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'addRecentSticker' | 'toggleLeftColumn' |
+  'toggleChatInfo' | 'setIsUiReady' | 'addRecentEmoji' | 'toggleLeftColumn' |
   'toggleSafeLinkModal' | 'openHistoryCalendar' | 'closeHistoryCalendar' | 'disableContextMenuHint' |
   'setNewChatMembersDialogState' | 'disableHistoryAnimations' | 'setLeftColumnWidth' | 'resetLeftColumnWidth' |
+  'openSeenByModal' | 'closeSeenByModal' | 'closeReactorListModal' | 'openReactorListModal' |
+  'toggleStatistics' | 'toggleMessageStatistics' |
   'openZoomDialogModal' | 'closeZoomDialogModal' |
   // auth
-  'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' | 'signOut' |
+  'setAuthPhoneNumber' | 'setAuthCode' | 'setAuthPassword' | 'signUp' | 'returnToAuthPhoneNumber' |
   'setAuthRememberMe' | 'clearAuthError' | 'uploadProfilePhoto' | 'goToAuthQrCode' | 'clearCache' |
   // chats
-  'preloadTopChatMessages' | 'preloadArchivedChats' | 'loadChats' | 'loadMoreChats' | 'openChat' |
-  'openChatWithInfo' | 'openLinkedChat' |
-  'openSupportChat' | 'openTipsChat' | 'focusMessageInComments' |
-  'loadFullChat' | 'loadTopChats' | 'requestChatUpdate' | 'updateChatMutedState' |
+  'preloadTopChatMessages' | 'loadAllChats' | 'openChatWithInfo' | 'openLinkedChat' |
+  'openSupportChat' | 'focusMessageInComments' | 'openChatByPhoneNumber' |
+  'loadChatSettings' | 'loadFullChat' | 'loadTopChats' | 'requestChatUpdate' | 'updateChatMutedState' |
   'joinChannel' | 'leaveChannel' | 'deleteChannel' | 'toggleChatPinned' | 'toggleChatArchived' | 'toggleChatUnread' |
   'loadChatFolders' | 'loadRecommendedChatFolders' | 'editChatFolder' | 'addChatFolder' | 'deleteChatFolder' |
   'updateChat' | 'toggleSignatures' | 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup' |
-  'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' |
-  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' | 'editChatFolders' |
+  'loadProfilePhotos' | 'loadMoreMembers' | 'setActiveChatFolder' | 'openNextChat' | 'setChatEnabledReactions' |
+  'addChatMembers' | 'deleteChatMember' | 'openPreviousChat' | 'editChatFolders' | 'toggleIsProtected' |
   // messages
   'loadViewportMessages' | 'selectMessage' | 'sendMessage' | 'sendDirectMessage' |
   'cancelSendingMessage' | 'pinMessage' | 'deleteMessages' |
   'markMessageListRead' | 'markMessagesRead' | 'loadMessage' | 'focusMessage' | 'focusLastMessage' | 'sendPollVote' |
   'editMessage' | 'deleteHistory' | 'enterMessageSelectMode' | 'toggleMessageSelection' | 'exitMessageSelectMode' |
   'openTelegramLink' | 'openChatByUsername' | 'requestThreadInfoUpdate' | 'setScrollOffset' | 'unpinAllMessages' |
-  'setReplyingToId' | 'setEditingId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
-  'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' |
-  'reportMessages' | 'focusNextReply' | 'openChatByInvite' |
-  // downloads
-  'downloadSelectedMessages' | 'downloadMessageMedia' | 'cancelMessageMediaDownload' |
+  'setReplyingToId' | 'editLastMessage' | 'saveDraft' | 'clearDraft' | 'loadPinnedMessages' |
+  'toggleMessageWebPage' | 'replyToNextMessage' | 'deleteChatUser' | 'deleteChat' | 'sendReaction' |
+  'reportMessages' | 'sendMessageAction' | 'focusNextReply' | 'openChatByInvite' | 'loadSeenBy' |
+  'loadSponsoredMessages' | 'viewSponsoredMessage' | 'loadSendAs' | 'saveDefaultSendAs' | 'loadAvailableReactions' |
+  'stopActiveEmojiInteraction' | 'interactWithAnimatedEmoji' | 'loadReactors' | 'setDefaultReaction' |
+  'sendDefaultReaction' | 'sendEmojiInteraction' | 'sendWatchingEmojiInteraction' | 'loadMessageReactions' |
+  'stopActiveReaction' | 'copySelectedMessages' | 'copyMessagesByIds' |
+  'setEditingId' |
   // scheduled messages
   'loadScheduledHistory' | 'sendScheduledMessages' | 'rescheduleMessage' | 'deleteScheduledMessages' |
   // poll result
@@ -522,13 +952,17 @@ export type ActionTypes = (
   'searchTextMessagesLocal' | 'searchMediaMessagesLocal' | 'searchMessagesByDate' |
   // management
   'toggleManagement' | 'closeManagement' | 'checkPublicLink' | 'updatePublicLink' | 'updatePrivateLink' |
+  'setEditingExportedInvite' | 'loadExportedChatInvites' | 'editExportedChatInvite' | 'exportChatInvite' |
+  'deleteExportedChatInvite' | 'deleteRevokedExportedChatInvites' | 'setOpenedInviteInfo' | 'loadChatInviteImporters' |
+  'loadChatJoinRequests' | 'hideChatJoinRequest' | 'hideAllChatJoinRequests' | 'requestNextManagementScreen' |
+  'loadChatInviteRequesters' | 'hideChatReportPanel' |
   // groups
   'togglePreHistoryHidden' | 'updateChatDefaultBannedRights' | 'updateChatMemberBannedRights' | 'updateChatAdmin' |
   'acceptInviteConfirmation' |
   // users
-  'loadFullUser' | 'openUserInfo' | 'loadNearestCountry' | 'loadTopUsers' | 'loadContactList' |
-  'loadCurrentUser' | 'updateProfile' | 'checkUsername' | 'addContact' | 'updateContact' |
-  'deleteUser' | 'loadUser' | 'setUserSearchQuery' | 'loadCommonChats' |
+  'loadFullUser' | 'loadNearestCountry' | 'loadTopUsers' | 'loadContactList' |
+  'loadCurrentUser' | 'updateProfile' | 'checkUsername' |
+  'deleteContact' | 'loadUser' | 'setUserSearchQuery' | 'loadCommonChats' | 'reportSpam' |
   // chat creation
   'createChannel' | 'createGroupChat' | 'resetChatCreation' |
   // settings
@@ -540,22 +974,15 @@ export type ActionTypes = (
   'updateWebNotificationSettings' | 'loadLanguages' | 'loadPrivacySettings' | 'setPrivacyVisibility' |
   'setPrivacySettings' | 'loadNotificationExceptions' | 'setThemeSettings' | 'updateIsOnline' |
   'loadContentSettings' | 'updateContentSettings' |
-  'loadCountryList' | 'ensureTimeFormat' |
+  'loadCountryList' | 'ensureTimeFormat' | 'loadAppConfig' |
   // stickers & GIFs
-  'loadStickerSets' | 'loadAddedStickers' | 'loadRecentStickers' | 'loadFavoriteStickers' | 'loadFeaturedStickers' |
-  'loadStickers' | 'setStickerSearchQuery' | 'loadSavedGifs' | 'setGifSearchQuery' | 'searchMoreGifs' |
-  'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' |
+  'setStickerSearchQuery' | 'loadSavedGifs' | 'saveGif' | 'setGifSearchQuery' | 'searchMoreGifs' |
+  'faveSticker' | 'unfaveSticker' | 'toggleStickerSet' | 'loadAnimatedEmojis' | 'loadStickers' |
   'loadStickersForEmoji' | 'clearStickersForEmoji' | 'loadEmojiKeywords' | 'loadGreetingStickers' |
-  'openStickerSetShortName' |
   // bots
-  'clickInlineButton' | 'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
+  'sendBotCommand' | 'loadTopInlineBots' | 'queryInlineBot' | 'sendInlineBotResult' |
   'resetInlineBot' | 'restartBot' | 'startBot' |
-  // media viewer & audio player
-  'openMediaViewer' | 'closeMediaViewer' |
-  'openAudioPlayer' | 'setAudioPlayerVolume' | 'setAudioPlayerPlaybackRate' |
-  'setAudioPlayerMuted' | 'setAudioPlayerOrigin' | 'closeAudioPlayer' |
   // misc
-  'openPollModal' | 'closePollModal' |
   'loadWebPagePreview' | 'clearWebPagePreview' | 'loadWallpapers' | 'uploadWallpaper' |
   'setDeviceToken' | 'deleteDeviceToken' |
   'checkVersionNotification' | 'createServiceNotification' |
@@ -567,10 +994,12 @@ export type ActionTypes = (
   'joinGroupCall' | 'toggleGroupCallMute' | 'toggleGroupCallPresentation' | 'leaveGroupCall' |
   'toggleGroupCallVideo' | 'requestToSpeak' | 'setGroupCallParticipantVolume' | 'toggleGroupCallPanel' |
   'createGroupCall' | 'joinVoiceChatByLink' | 'subscribeToGroupCallUpdates' | 'createGroupCallInviteLink' |
-  'loadMoreGroupCallParticipants' | 'connectToActiveGroupCall' | 'playGroupCallSound' |
-  'openCallFallbackConfirm' | 'closeCallFallbackConfirm' | 'inviteToCallFallback' |
+  'loadMoreGroupCallParticipants' | 'connectToActiveGroupCall' |
+  // stats
+  'loadStatistics' | 'loadMessageStatistics' | 'loadStatisticsAsyncGraph' |
   // heymate
   'setShowHeymateScheduleMiddle' | 'setShowHeymateWalletMiddle' | 'setShowHeymateManageOfferMiddle'
 );
 
-export type GlobalActions = Record<ActionTypes, (...args: any[]) => void>;
+const typed = typify<GlobalState, ActionPayloads, NonTypedActionNames>();
+export type GlobalActions = ReturnType<typeof typed.getActions>;

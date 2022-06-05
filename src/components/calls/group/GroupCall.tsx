@@ -1,15 +1,17 @@
-import {
+import type {
   GroupCallConnectionState, GroupCallParticipant as TypeGroupCallParticipant,
+} from '../../../lib/secret-sauce';
+import {
   IS_SCREENSHARE_SUPPORTED, switchCameraInput, toggleSpeaker,
 } from '../../../lib/secret-sauce';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
-import '../../../modules/actions/calls';
+import { getActions, withGlobal } from '../../../global';
+import '../../../global/actions/calls';
 
-import { GlobalActions } from '../../../global/types';
-import { IAnchorPosition } from '../../../types';
+import type { IAnchorPosition } from '../../../types';
 
 import {
   IS_ANDROID,
@@ -17,13 +19,13 @@ import {
   IS_REQUEST_FULLSCREEN_SUPPORTED,
   IS_SINGLE_COLUMN_LAYOUT,
 } from '../../../util/environment';
-import { pick } from '../../../util/iteratees';
+import { LOCAL_TGS_URLS } from '../../common/helpers/animatedAssets';
 import buildClassName from '../../../util/buildClassName';
 import {
   selectGroupCall,
   selectGroupCallParticipant,
   selectIsAdminInActiveGroupCall,
-} from '../../../modules/selectors/calls';
+} from '../../../global/selectors/calls';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
 
@@ -49,7 +51,7 @@ export type OwnProps = {
 };
 
 type StateProps = {
-  isGroupCallPanelHidden: boolean;
+  isCallPanelVisible: boolean;
   connectionState: GroupCallConnectionState;
   title?: string;
   meParticipant?: TypeGroupCallParticipant;
@@ -59,14 +61,9 @@ type StateProps = {
   participants: Record<string, TypeGroupCallParticipant>;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'toggleGroupCallVideo' | 'leaveGroupCall' | 'toggleGroupCallPresentation' | 'toggleGroupCallPanel' |
-  'connectToActiveGroupCall' | 'playGroupCallSound'
-)>;
-
-const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
+const GroupCall: FC<OwnProps & StateProps> = ({
   groupCallId,
-  isGroupCallPanelHidden,
+  isCallPanelVisible,
   connectionState,
   isSpeakerEnabled,
   title,
@@ -74,13 +71,16 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
   isAdmin,
   participants,
 
-  toggleGroupCallVideo,
-  toggleGroupCallPresentation,
-  leaveGroupCall,
-  toggleGroupCallPanel,
-  connectToActiveGroupCall,
-  playGroupCallSound,
 }) => {
+  const {
+    toggleGroupCallVideo,
+    toggleGroupCallPresentation,
+    leaveGroupCall,
+    toggleGroupCallPanel,
+    connectToActiveGroupCall,
+    playGroupCallSound,
+  } = getActions();
+
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,10 +127,10 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [connectionState, playGroupCallSound]);
 
-  const handleCloseConfirmLeaveModal = () => {
+  const handleCloseConfirmLeaveModal = useCallback(() => {
     closeConfirmLeaveModal();
     setIsEndGroupCallModal(false);
-  };
+  }, [closeConfirmLeaveModal]);
 
   const MainButton: FC<{ onTrigger: () => void; isOpen?: boolean }> = useMemo(() => {
     return ({ onTrigger, isOpen }) => (
@@ -157,13 +157,13 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [closeFullscreen, isFullscreen, openFullscreen]);
 
-  const handleToggleSidebar = () => {
+  const handleToggleSidebar = useCallback(() => {
     if (isSidebarOpen) {
       closeSidebar();
     } else {
       openSidebar();
     }
-  };
+  }, [closeSidebar, isSidebarOpen, openSidebar]);
 
   const handleStreamsDoubleClick = useCallback(() => {
     if (!IS_REQUEST_FULLSCREEN_SUPPORTED) return;
@@ -184,12 +184,12 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [closeFullscreen, isFullscreen, openFullscreen]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     toggleGroupCallPanel();
     if (isFullscreen) {
       closeFullscreen();
     }
-  };
+  }, [closeFullscreen, isFullscreen, toggleGroupCallPanel]);
 
   useEffect(() => {
     if (!IS_REQUEST_FULLSCREEN_SUPPORTED) return undefined;
@@ -215,16 +215,16 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
     connectToActiveGroupCall();
   }, [connectToActiveGroupCall, groupCallId]);
 
-  const endGroupCall = () => {
+  const endGroupCall = useCallback(() => {
     setIsEndGroupCallModal(true);
     setShouldEndGroupCall(true);
     openConfirmLeaveModal();
     if (isFullscreen) {
       handleToggleFullscreen();
     }
-  };
+  }, [handleToggleFullscreen, isFullscreen, openConfirmLeaveModal]);
 
-  const handleLeaveGroupCall = () => {
+  const handleLeaveGroupCall = useCallback(() => {
     if (isAdmin && !isConfirmLeaveModalOpen) {
       openConfirmLeaveModal();
       if (isFullscreen) {
@@ -235,19 +235,22 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
     playGroupCallSound({ sound: 'leave' });
     setIsLeaving(true);
     closeConfirmLeaveModal();
-  };
+  }, [
+    closeConfirmLeaveModal, handleToggleFullscreen, isAdmin, isConfirmLeaveModalOpen, isFullscreen,
+    openConfirmLeaveModal, playGroupCallSound,
+  ]);
 
-  const handleCloseAnimationEnd = () => {
+  const handleCloseAnimationEnd = useCallback(() => {
     if (isLeaving) {
       leaveGroupCall({
         shouldDiscard: shouldEndGroupCall,
       });
     }
-  };
+  }, [isLeaving, leaveGroupCall, shouldEndGroupCall]);
 
   return (
     <Modal
-      isOpen={!isGroupCallPanelHidden && !isLeaving}
+      isOpen={!isCallPanelVisible && !isLeaving}
       onClose={toggleGroupCallPanel}
       className={buildClassName(
         'GroupCall',
@@ -288,7 +291,7 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
           >
             {IS_SCREENSHARE_SUPPORTED && !shouldRaiseHand && (
               <MenuItem
-                icon="share-screen"
+                icon="share-screen-outlined"
                 onClick={toggleGroupCallPresentation}
               >
                 {lang(hasPresentation ? 'VoipChatStopScreenCapture' : 'VoipChatStartScreenCapture')}
@@ -336,7 +339,11 @@ const GroupCall: FC<OwnProps & StateProps & DispatchProps> = ({
           <div className="video-buttons">
             {hasVideo && (IS_ANDROID || IS_IOS) && (
               <button className="smaller-button" onClick={switchCameraInput}>
-                <AnimatedIcon name="CameraFlip" playSegment={CAMERA_FLIP_PLAY_SEGMENT} size={24} />
+                <AnimatedIcon
+                  tgsUrl={LOCAL_TGS_URLS.CameraFlip}
+                  playSegment={CAMERA_FLIP_PLAY_SEGMENT}
+                  size={24}
+                />
               </button>
             )}
             <button
@@ -406,17 +413,9 @@ export default memo(withGlobal<OwnProps>(
       isSpeakerEnabled: !isSpeakerDisabled,
       participantsCount,
       meParticipant: selectGroupCallParticipant(global, groupCallId, global.currentUserId!),
-      isGroupCallPanelHidden: !!global.groupCalls.isGroupCallPanelHidden,
+      isCallPanelVisible: Boolean(global.isCallPanelVisible),
       isAdmin: selectIsAdminInActiveGroupCall(global),
       participants,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'toggleGroupCallVideo',
-    'leaveGroupCall',
-    'toggleGroupCallPresentation',
-    'toggleGroupCallPanel',
-    'connectToActiveGroupCall',
-    'playGroupCallSound',
-  ]),
 )(GroupCall));

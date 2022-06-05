@@ -1,4 +1,5 @@
-import React, { FC, memo, useCallback } from '../../../lib/teact/teact';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
 
 import useLang from '../../../hooks/useLang';
 
@@ -37,6 +38,7 @@ const SymbolMenuFooter: FC<OwnProps> = ({
     return (
       <Button
         className={`symbol-tab-button ${activeTab === tab ? 'activated' : ''}`}
+        // eslint-disable-next-line react/jsx-no-bind
         onClick={() => onSwitchTab(tab)}
         ariaLabel={SYMBOL_MENU_TAB_TITLES[tab]}
         round

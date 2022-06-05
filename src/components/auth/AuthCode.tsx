@@ -1,9 +1,10 @@
-import { FormEvent } from 'react';
+import type { FormEvent } from 'react';
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useState, useEffect, useCallback, memo, useRef,
+  useState, useEffect, useCallback, memo, useRef,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
-import { GlobalState, GlobalActions } from '../../global/types';
+import { getActions, withGlobal } from '../../global';
+import type { GlobalState } from '../../global/types';
 
 import { IS_TOUCH_ENV } from '../../util/environment';
 import { pick } from '../../util/iteratees';
@@ -16,21 +17,21 @@ import Loading from '../ui/Loading';
 import TrackingMonkey from '../common/TrackingMonkey';
 
 type StateProps = Pick<GlobalState, 'authPhoneNumber' | 'authIsCodeViaApp' | 'authIsLoading' | 'authError'>;
-type DispatchProps = Pick<GlobalActions, (
-  'setAuthCode' | 'returnToAuthPhoneNumber' | 'clearAuthError'
-)>;
 
 const CODE_LENGTH = 5;
 
-const AuthCode: FC<StateProps & DispatchProps> = ({
+const AuthCode: FC<StateProps> = ({
   authPhoneNumber,
   authIsCodeViaApp,
   authIsLoading,
   authError,
-  setAuthCode,
-  returnToAuthPhoneNumber,
-  clearAuthError,
 }) => {
+  const {
+    setAuthCode,
+    returnToAuthPhoneNumber,
+    clearAuthError,
+  } = getActions();
+
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +46,10 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
     }
   }, []);
 
-  useHistoryBack(true, returnToAuthPhoneNumber);
+  useHistoryBack({
+    isActive: true,
+    onBack: returnToAuthPhoneNumber,
+  });
 
   const onCodeChange = useCallback((e: FormEvent<HTMLInputElement>) => {
     if (authError) {
@@ -109,7 +113,7 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
           onInput={onCodeChange}
           value={code}
           error={authError && lang(authError)}
-          autoComplete="one-time-code"
+          autoComplete="off"
           inputMode="numeric"
         />
         {authIsLoading && <Loading />}
@@ -120,9 +124,4 @@ const AuthCode: FC<StateProps & DispatchProps> = ({
 
 export default memo(withGlobal(
   (global): StateProps => pick(global, ['authPhoneNumber', 'authIsCodeViaApp', 'authIsLoading', 'authError']),
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'setAuthCode',
-    'returnToAuthPhoneNumber',
-    'clearAuthError',
-  ]),
 )(AuthCode));

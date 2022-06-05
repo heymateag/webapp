@@ -1,54 +1,49 @@
-import { GroupCallParticipant } from '../../lib/secret-sauce';
-import React, {
-  FC, memo, useEffect,
-} from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo, useEffect } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiGroupCall } from '../../api/types';
+import type { ApiGroupCall, ApiUser } from '../../api/types';
 
-import { selectActiveGroupCall, selectGroupCallParticipant } from '../../modules/selectors/calls';
-import { pick } from '../../util/iteratees';
+import { selectActiveGroupCall, selectPhoneCallUser } from '../../global/selectors/calls';
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
 
 import './ActiveCallHeader.scss';
 
 type StateProps = {
-  isGroupCallPanelHidden?: boolean;
-  meParticipant: GroupCallParticipant;
+  isCallPanelVisible?: boolean;
   groupCall?: ApiGroupCall;
+  phoneCallUser?: ApiUser;
 };
 
-type DispatchProps = Pick<GlobalActions, 'toggleGroupCallPanel'>;
-
-const ActiveCallHeader: FC<StateProps & DispatchProps> = ({
+const ActiveCallHeader: FC<StateProps> = ({
   groupCall,
-  meParticipant,
-  isGroupCallPanelHidden,
-  toggleGroupCallPanel,
+  phoneCallUser,
+  isCallPanelVisible,
 }) => {
+  const { toggleGroupCallPanel } = getActions();
+
   const lang = useLang();
 
   useEffect(() => {
-    document.body.classList.toggle('has-group-call-header', isGroupCallPanelHidden);
+    document.body.classList.toggle('has-call-header', Boolean(isCallPanelVisible));
 
     return () => {
-      document.body.classList.toggle('has-group-call-header', false);
+      document.body.classList.toggle('has-call-header', false);
     };
-  }, [isGroupCallPanelHidden]);
+  }, [isCallPanelVisible]);
 
-  if (!groupCall || !meParticipant) return undefined;
+  if (!groupCall && !phoneCallUser) return undefined;
 
   return (
     <div
       className={buildClassName(
         'ActiveCallHeader',
-        isGroupCallPanelHidden && 'open',
+        isCallPanelVisible && 'open',
       )}
       onClick={toggleGroupCallPanel}
     >
-      <span className="title">{groupCall.title || lang('VoipGroupVoiceChat')}</span>
+      <span className="title">{phoneCallUser?.firstName || groupCall?.title || lang('VoipGroupVoiceChat')}</span>
     </div>
   );
 };
@@ -57,11 +52,8 @@ export default memo(withGlobal(
   (global): StateProps => {
     return {
       groupCall: selectActiveGroupCall(global),
-      isGroupCallPanelHidden: global.groupCalls.isGroupCallPanelHidden,
-      meParticipant: selectGroupCallParticipant(global, global.groupCalls.activeGroupCallId!, global.currentUserId!),
+      isCallPanelVisible: global.isCallPanelVisible,
+      phoneCallUser: selectPhoneCallUser(global),
     };
   },
-  (setGlobal, actions) => pick(actions, [
-    'toggleGroupCallPanel',
-  ]),
 )(ActiveCallHeader));

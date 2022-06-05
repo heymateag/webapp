@@ -1,1 +1,1 @@
-$((`cat .patch-version` + 1))  
+$((`cat .patch-version` + 1))

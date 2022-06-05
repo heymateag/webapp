@@ -1,18 +1,18 @@
-import React, {
-  FC, memo, useCallback, useMemo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useMemo } from '../../../lib/teact/teact';
+import { getGlobal, withGlobal } from '../../../global';
 
 import { ManagementScreens } from '../../../types';
-import { ApiChat, ApiChatMember, ApiUser } from '../../../api/types';
+import type { ApiChat, ApiChatMember } from '../../../api/types';
 
-import { getUserFullName, isChatChannel } from '../../../modules/helpers';
-import { selectChat } from '../../../modules/selectors';
+import { getUserFullName, isChatChannel } from '../../../global/helpers';
+import { selectChat } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import PrivateChatInfo from '../../common/PrivateChatInfo';
+import FloatingActionButton from '../../ui/FloatingActionButton';
 
 type OwnProps = {
   chatId: string;
@@ -26,14 +26,12 @@ type StateProps = {
   chat: ApiChat;
   currentUserId?: string;
   isChannel: boolean;
-  usersById: Record<string, ApiUser>;
 };
 
 const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
   chat,
   isChannel,
   currentUserId,
-  usersById,
   onScreenSelect,
   onChatMemberSelect,
   onClose,
@@ -41,11 +39,14 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
 }) => {
   const lang = useLang();
 
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
-  function handleRecentActionsClick() {
+  const handleRecentActionsClick = useCallback(() => {
     onScreenSelect(ManagementScreens.GroupRecentActions);
-  }
+  }, [onScreenSelect]);
 
   const adminMembers = useMemo(() => {
     if (!chat.fullInfo || !chat.fullInfo.adminMembers) {
@@ -68,11 +69,17 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
     onScreenSelect(ManagementScreens.ChatAdminRights);
   }, [currentUserId, onChatMemberSelect, onScreenSelect]);
 
+  const handleAddAdminClick = useCallback(() => {
+    onScreenSelect(ManagementScreens.GroupAddAdmins);
+  }, [onScreenSelect]);
+
   const getMemberStatus = useCallback((member: ApiChatMember) => {
     if (member.isOwner) {
       return lang('ChannelCreator');
     }
 
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
     const promotedByUser = member.promotedByUserId ? usersById[member.promotedByUserId] : undefined;
 
     if (promotedByUser) {
@@ -80,7 +87,7 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
     }
 
     return lang('ChannelAdmin');
-  }, [lang, usersById]);
+  }, [lang]);
 
   return (
     <div className="Management">
@@ -107,6 +114,7 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
             <ListItem
               key={member.userId}
               className="chat-item-clickable"
+              // eslint-disable-next-line react/jsx-no-bind
               onClick={() => handleAdminMemberClick(member)}
             >
               <PrivateChatInfo
@@ -116,6 +124,14 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
               />
             </ListItem>
           ))}
+
+          <FloatingActionButton
+            isShown
+            onClick={handleAddAdminClick}
+            ariaLabel={lang('Channel.Management.AddModerator')}
+          >
+            <i className="icon-add-user-filled" />
+          </FloatingActionButton>
         </div>
       </div>
     </div>
@@ -125,14 +141,11 @@ const ManageChatAdministrators: FC<OwnProps & StateProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global, { chatId }): StateProps => {
     const chat = selectChat(global, chatId)!;
-    const { byId: usersById } = global.users;
 
     return {
       chat,
       currentUserId: global.currentUserId,
       isChannel: isChatChannel(chat),
-      usersById,
     };
   },
-  // (setGlobal, actions): DispatchProps => pick(actions, ['togglePreHistoryHidden', 'updateChat']),
 )(ManageChatAdministrators));

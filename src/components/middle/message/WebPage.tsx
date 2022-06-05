@@ -1,10 +1,11 @@
-import React, { FC, memo, useCallback } from '../../../lib/teact/teact';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
 
-import { ApiMessage } from '../../../api/types';
-import { ObserveFn } from '../../../hooks/useIntersectionObserver';
-import { ISettings } from '../../../types';
+import type { ApiMessage } from '../../../api/types';
+import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import type { ISettings } from '../../../types';
 
-import { getMessageWebPage } from '../../../modules/helpers';
+import { getMessageWebPage } from '../../../global/helpers';
 import { calculateMediaDimensions } from './helpers/mediaDimensions';
 import renderText from '../../common/helpers/renderText';
 import trimText from '../../../util/trimText';
@@ -27,6 +28,7 @@ type OwnProps = {
   inPreview?: boolean;
   lastSyncTime?: number;
   isDownloading?: boolean;
+  isProtected?: boolean;
   theme: ISettings['theme'];
   onMediaClick?: () => void;
   onCancelMediaTransfer?: () => void;
@@ -41,6 +43,7 @@ const WebPage: FC<OwnProps> = ({
   inPreview,
   lastSyncTime,
   isDownloading = false,
+  isProtected,
   theme,
   onMediaClick,
   onCancelMediaTransfer,
@@ -75,6 +78,7 @@ const WebPage: FC<OwnProps> = ({
 
   const className = buildClassName(
     'WebPage',
+    inPreview && 'in-preview',
     isSquarePhoto && 'with-square-photo',
     !photo && !video && !inPreview && 'without-media',
     video && 'with-video',
@@ -97,6 +101,8 @@ const WebPage: FC<OwnProps> = ({
           onClick={isMediaInteractive ? handleMediaClick : undefined}
           onCancelUpload={onCancelMediaTransfer}
           isDownloading={isDownloading}
+          isProtected={isProtected}
+          withAspectRatio
           theme={theme}
         />
       )}
@@ -120,6 +126,8 @@ const WebPage: FC<OwnProps> = ({
           onClick={isMediaInteractive ? handleMediaClick : undefined}
           onCancelUpload={onCancelMediaTransfer}
           isDownloading={isDownloading}
+          isProtected={isProtected}
+          withAspectRatio
         />
       )}
     </div>

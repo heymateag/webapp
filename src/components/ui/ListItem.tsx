@@ -1,5 +1,6 @@
-import { RefObject } from 'react';
-import React, { FC, useRef, useCallback } from '../../lib/teact/teact';
+import type { RefObject } from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { useRef, useCallback } from '../../lib/teact/teact';
 
 import { IS_TOUCH_ENV } from '../../util/environment';
 import { fastRaf } from '../../util/schedulers';
@@ -12,6 +13,7 @@ import useLang from '../../hooks/useLang';
 import RippleEffect from './RippleEffect';
 import Menu from './Menu';
 import MenuItem from './MenuItem';
+import Button from './Button';
 
 import './ListItem.scss';
 
@@ -26,9 +28,10 @@ interface OwnProps {
   ref?: RefObject<HTMLDivElement>;
   buttonRef?: RefObject<HTMLDivElement>;
   icon?: string;
+  secondaryIcon?: string;
   className?: string;
   style?: string;
-  children: any;
+  children: React.ReactNode;
   disabled?: boolean;
   ripple?: boolean;
   narrow?: boolean;
@@ -40,29 +43,30 @@ interface OwnProps {
   contextActions?: MenuItemContextAction[];
   onMouseDown?: (e: React.MouseEvent<HTMLDivElement>) => void;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onSecondaryIconClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-const ListItem: FC<OwnProps> = (props) => {
-  const {
-    ref,
-    buttonRef,
-    icon,
-    className,
-    style,
-    children,
-    disabled,
-    ripple,
-    narrow,
-    inactive,
-    focus,
-    destructive,
-    multiline,
-    isStatic,
-    contextActions,
-    onMouseDown,
-    onClick,
-  } = props;
-
+const ListItem: FC<OwnProps> = ({
+  ref,
+  buttonRef,
+  icon,
+  secondaryIcon,
+  className,
+  style,
+  children,
+  disabled,
+  ripple,
+  narrow,
+  inactive,
+  focus,
+  destructive,
+  multiline,
+  isStatic,
+  contextActions,
+  onMouseDown,
+  onClick,
+  onSecondaryIconClick,
+}) => {
   // eslint-disable-next-line no-null/no-null
   let containerRef = useRef<HTMLDivElement>(null);
   if (ref) {
@@ -88,7 +92,9 @@ const ListItem: FC<OwnProps> = (props) => {
     [],
   );
 
-  const { positionX, positionY, style: menuStyle } = useContextMenuPosition(
+  const {
+    positionX, positionY, transformOriginX, transformOriginY, style: menuStyle,
+  } = useContextMenuPosition(
     contextMenuPosition,
     getTriggerElement,
     getRootElement,
@@ -106,6 +112,16 @@ const ListItem: FC<OwnProps> = (props) => {
       fastRaf(unmarkIsTouched);
     }
   }, [disabled, markIsTouched, onClick, ripple, unmarkIsTouched]);
+
+  const handleSecondaryIconClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    if (disabled || e.button !== 0 || (!onSecondaryIconClick && !contextActions)) return;
+    e.stopPropagation();
+    if (onSecondaryIconClick) {
+      onSecondaryIconClick(e);
+    } else {
+      handleContextMenu(e);
+    }
+  };
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (inactive || IS_TOUCH_ENV) {
@@ -145,18 +161,17 @@ const ListItem: FC<OwnProps> = (props) => {
       ref={containerRef}
       className={fullClassName}
       dir={lang.isRtl ? 'rtl' : undefined}
-      // @ts-ignore
       style={style}
       onMouseDown={onMouseDown}
     >
       <div
         className={buildClassName('ListItem-button', isTouched && 'active')}
-        role="button"
+        role={!isStatic ? 'button' : undefined}
         ref={buttonRef}
-        tabIndex={0}
-        onClick={!inactive && IS_TOUCH_ENV ? handleClick : undefined}
+        tabIndex={!isStatic ? 0 : undefined}
+        onClick={(!inactive && IS_TOUCH_ENV) ? handleClick : undefined}
         onMouseDown={handleMouseDown}
-        onContextMenu={!inactive && contextActions ? handleContextMenu : undefined}
+        onContextMenu={(!inactive && contextActions) ? handleContextMenu : undefined}
       >
         {icon && (
           <i className={`icon-${icon}`} />
@@ -166,10 +181,24 @@ const ListItem: FC<OwnProps> = (props) => {
         {!disabled && !inactive && ripple && (
           <RippleEffect />
         )}
+        {secondaryIcon && (
+          <Button
+            className="secondary-icon"
+            round
+            color="translucent"
+            size="smaller"
+            onClick={IS_TOUCH_ENV ? handleSecondaryIconClick : undefined}
+            onMouseDown={!IS_TOUCH_ENV ? handleSecondaryIconClick : undefined}
+          >
+            <i className={`icon-${secondaryIcon}`} />
+          </Button>
+        )}
       </div>
       {contextActions && contextMenuPosition !== undefined && (
         <Menu
           isOpen={isContextMenuOpen}
+          transformOriginX={transformOriginX}
+          transformOriginY={transformOriginY}
           positionX={positionX}
           positionY={positionY}
           style={menuStyle}

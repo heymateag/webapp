@@ -1,77 +1,61 @@
-import { getGlobal, withGlobal } from 'teact/teactn';
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC,
-  useCallback,
-  useMemo,
-  memo,
-  useEffect,
-  useRef,
-  useState,
+  memo, useCallback, useEffect, useRef, useState,
 } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 import cycleRestrict from '../../util/cycleRestrict';
 
-import { GlobalActions, MessageListType, GlobalState } from '../../global/types';
-import {
-  ApiMessage,
-  ApiChat,
-  ApiUser,
-  ApiTypingStatus,
-  MAIN_THREAD_ID,
-  ApiUpdateConnectionStateType,
+import type { GlobalState, MessageListType } from '../../global/types';
+import type {
+  ApiChat, ApiMessage, ApiTypingStatus, ApiUser,
 } from '../../api/types';
+import { MAIN_THREAD_ID } from '../../api/types';
 
 import {
+  EDITABLE_INPUT_CSS_SELECTOR,
   MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN,
-  MOBILE_SCREEN_MAX_WIDTH,
-  EDITABLE_INPUT_ID,
   MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
-  SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
+  MOBILE_SCREEN_MAX_WIDTH,
   SAFE_SCREEN_WIDTH_FOR_CHAT_INFO,
+  SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
 } from '../../config';
+import { IS_SINGLE_COLUMN_LAYOUT, IS_TABLET_COLUMN_LAYOUT } from '../../util/environment';
 import {
-  IS_SINGLE_COLUMN_LAYOUT,
-  IS_TABLET_COLUMN_LAYOUT,
-} from '../../util/environment';
+  getChatTitle, getMessageKey, getSenderTitle, isUserId,
+} from '../../global/helpers';
 import {
-  isUserId,
-  getMessageKey,
-  getChatTitle,
-  getSenderTitle,
-} from '../../modules/helpers';
-import {
+  selectAllowedMessageActions,
   selectChat,
   selectChatMessage,
-  selectAllowedMessageActions,
-  selectIsRightColumnShown,
-  selectThreadTopMessageId,
-  selectThreadInfo,
   selectChatMessages,
-  selectPinnedIds,
-  selectIsChatWithSelf,
   selectForwardedSender,
-  selectScheduledIds,
-  selectIsInSelectMode,
   selectIsChatWithBot,
-  selectCountNotMutedUnread,
-} from '../../modules/selectors';
+  selectIsChatWithSelf,
+  selectIsInSelectMode,
+  selectIsRightColumnShown,
+  selectPinnedIds,
+  selectScheduledIds,
+  selectThreadInfo,
+  selectThreadTopMessageId,
+} from '../../global/selectors';
 import useEnsureMessage from '../../hooks/useEnsureMessage';
 import useWindowSize from '../../hooks/useWindowSize';
 import useShowTransition from '../../hooks/useShowTransition';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
-import { pick } from '../../util/iteratees';
-import { formatIntegerCompact } from '../../util/textFormat';
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
-import useBrowserOnline from '../../hooks/useBrowserOnline';
+import useConnectionStatus from '../../hooks/useConnectionStatus';
 
 import PrivateChatInfo from '../common/PrivateChatInfo';
 import GroupChatInfo from '../common/GroupChatInfo';
+import UnreadCounter from '../common/UnreadCounter';
 import Transition from '../ui/Transition';
 import Button from '../ui/Button';
 import HeaderActions from './HeaderActions';
 import HeaderPinnedMessage from './HeaderPinnedMessage';
 import AudioPlayer from './AudioPlayer';
 import GroupCallTopPane from '../calls/group/GroupCallTopPane';
+import ChatReportPanel from './ChatReportPanel';
 
 import './MiddleHeader.scss';
 import ScheduleHeader from './mySchedule/ScheduleHeader';
@@ -101,31 +85,18 @@ type StateProps = {
   isLeftColumnShown?: boolean;
   isRightColumnShown?: boolean;
   audioMessage?: ApiMessage;
-  chatsById?: Record<string, ApiChat>;
   messagesCount?: number;
   isChatWithSelf?: boolean;
   isChatWithBot?: boolean;
   lastSyncTime?: number;
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
-  connectionState?: ApiUpdateConnectionStateType;
+  connectionState?: GlobalState['connectionState'];
+  isSyncing?: GlobalState['isSyncing'];
 } & Pick<GlobalState, 'showHeymateScheduleMiddle' | 'showHeymateWalletMiddle' | 'showHeymateManageOfferMiddle'>;
 
-type DispatchProps = Pick<
-GlobalActions,
-| 'openChatWithInfo'
-| 'pinMessage'
-| 'focusMessage'
-| 'openChat'
-| 'openPreviousChat'
-| 'loadPinnedMessages'
-| 'toggleLeftColumn'
-| 'exitMessageSelectMode'
->;
-
-const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
+const MiddleHeader: FC<OwnProps & StateProps> = ({
   chatId,
-  activeTab,
   threadId,
   messageListType,
   isReady,
@@ -139,7 +110,6 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   isRightColumnShown,
   audioMessage,
   chat,
-  chatsById,
   messagesCount,
   isChatWithSelf,
   isChatWithBot,
@@ -147,36 +117,34 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   shouldSkipHistoryAnimations,
   currentTransitionKey,
   connectionState,
+  isSyncing,
   showHeymateScheduleMiddle,
   showHeymateWalletMiddle,
   showHeymateManageOfferMiddle,
-  openChatWithInfo,
-  pinMessage,
-  focusMessage,
-  openChat,
-  openPreviousChat,
-  loadPinnedMessages,
-  toggleLeftColumn,
-  exitMessageSelectMode,
   handleSwitchTab,
 }) => {
+  const {
+    openChatWithInfo,
+    pinMessage,
+    focusMessage,
+    openChat,
+    openPreviousChat,
+    loadPinnedMessages,
+    toggleLeftColumn,
+    exitMessageSelectMode,
+  } = getActions();
+
   const lang = useLang();
   const isBackButtonActive = useRef(true);
 
   const [pinnedMessageIndex, setPinnedMessageIndex] = useState(0);
-  const pinnedMessageId = Array.isArray(pinnedMessageIds)
-    ? pinnedMessageIds[pinnedMessageIndex]
-    : pinnedMessageIds;
+  const pinnedMessageId = Array.isArray(pinnedMessageIds) ? pinnedMessageIds[pinnedMessageIndex] : pinnedMessageIds;
   const pinnedMessage = messagesById && pinnedMessageId ? messagesById[pinnedMessageId] : undefined;
   const pinnedMessagesCount = Array.isArray(pinnedMessageIds)
-    ? pinnedMessageIds.length
-    : pinnedMessageIds
-      ? 1
-      : undefined;
+    ? pinnedMessageIds.length : (pinnedMessageIds ? 1 : undefined);
   const chatTitleLength = chat && getChatTitle(lang, chat).length;
-  const topMessageTitle = topMessageSender
-    ? getSenderTitle(lang, topMessageSender)
-    : undefined;
+  const topMessageTitle = topMessageSender ? getSenderTitle(lang, topMessageSender) : undefined;
+  const { settings } = chat || {};
 
   useEffect(() => {
     if (threadId === MAIN_THREAD_ID && lastSyncTime && isReady) {
@@ -250,11 +218,10 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       // Workaround for missing UI when quickly clicking the Back button
       isBackButtonActive.current = false;
       if (IS_SINGLE_COLUMN_LAYOUT) {
-        const messageInput = document.getElementById(EDITABLE_INPUT_ID);
-        if (messageInput) {
-          messageInput.blur();
+        const messageInput = document.querySelector<HTMLDivElement>(EDITABLE_INPUT_CSS_SELECTOR);
+          messageInput?.blur();
         }
-      }
+
 
       if (isSelectModeActive) {
         exitMessageSelectMode();
@@ -262,47 +229,25 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         return;
       }
 
-      if (
-        threadId === MAIN_THREAD_ID
-        && messageListType === 'thread'
-        && currentTransitionKey === 0
-      ) {
-        if (IS_SINGLE_COLUMN_LAYOUT || shouldShowCloseButton) {
-          e.stopPropagation(); // Stop propagation to prevent chat re-opening on tablets
-          openChat({ id: undefined });
-        } else {
-          toggleLeftColumn();
-        }
-
-        setBackButtonActive();
-
-        return;
+    if (threadId === MAIN_THREAD_ID && messageListType === 'thread' && currentTransitionKey === 0) {
+      if (IS_SINGLE_COLUMN_LAYOUT || shouldShowCloseButton) {
+        e.stopPropagation(); // Stop propagation to prevent chat re-opening on tablets
+        openChat({ id: undefined });
+      } else {
+        toggleLeftColumn();
       }
 
-      openPreviousChat();
       setBackButtonActive();
-    },
-    [
-      threadId,
-      messageListType,
-      currentTransitionKey,
-      isSelectModeActive,
-      openPreviousChat,
-      shouldShowCloseButton,
-      openChat,
-      toggleLeftColumn,
-      exitMessageSelectMode,
-      setBackButtonActive,
-    ],
-  );
 
-  const unreadCount = useMemo(() => {
-    if (!isLeftColumnHideable || !chatsById) {
-      return undefined;
+      return;
     }
 
-    return selectCountNotMutedUnread(getGlobal()) || undefined;
-  }, [isLeftColumnHideable, chatsById]);
+    openPreviousChat();
+    setBackButtonActive();
+  }, [
+    threadId, messageListType, currentTransitionKey, isSelectModeActive, openPreviousChat, shouldShowCloseButton,
+    openChat, toggleLeftColumn, exitMessageSelectMode, setBackButtonActive,
+  ]);
 
   const canToolsCollideWithChatInfo = (windowWidth >= MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN
       && windowWidth < SAFE_SCREEN_WIDTH_FOR_CHAT_INFO)
@@ -313,12 +258,19 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     || (windowWidth > MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN
       && windowWidth < SAFE_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN);
 
+  const hasChatSettings = Boolean(settings?.canAddContact || settings?.canBlockContact || settings?.canReportSpam);
+  const {
+    shouldRender: shouldShowChatReportPanel,
+    transitionClassNames: chatReportPanelClassNames,
+  } = useShowTransition(hasChatSettings);
+  const renderingChatSettings = useCurrentOrPrev(hasChatSettings ? settings : undefined, true);
+
   const {
     shouldRender: shouldRenderAudioPlayer,
     transitionClassNames: audioPlayerClassNames,
   } = useShowTransition(Boolean(audioMessage));
 
-  const renderingAudioMessage = useCurrentOrPrev(audioMessage);
+  const renderingAudioMessage = useCurrentOrPrev(audioMessage, true);
 
   const {
     shouldRender: shouldRenderPinnedMessage,
@@ -326,10 +278,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   } = useShowTransition(Boolean(pinnedMessage));
 
   const renderingPinnedMessage = useCurrentOrPrev(pinnedMessage, true);
-  const renderingPinnedMessagesCount = useCurrentOrPrev(
-    pinnedMessagesCount,
-    true,
-  );
+  const renderingPinnedMessagesCount = useCurrentOrPrev(pinnedMessagesCount, true);
   const renderingCanUnpin = useCurrentOrPrev(canUnpin, true);
   const renderingPinnedMessageTitle = useCurrentOrPrev(topMessageTitle);
 
@@ -363,27 +312,11 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       componentEl.classList.remove('tools-stacked');
       shouldAnimateTools.current = true;
     }
-  }, [
-    shouldUseStackedToolsClass,
-    canRevealTools,
-    canToolsCollideWithChatInfo,
-    isRightColumnShown,
-  ]);
+  }, [shouldUseStackedToolsClass, canRevealTools, canToolsCollideWithChatInfo, isRightColumnShown]);
 
-  const isBrowserOnline = useBrowserOnline();
-  const isConnecting = (!isBrowserOnline || connectionState === 'connectionStateConnecting')
-    && (IS_SINGLE_COLUMN_LAYOUT
-      || (IS_TABLET_COLUMN_LAYOUT && !shouldShowCloseButton));
+  const { connectionStatusText } = useConnectionStatus(lang, connectionState, isSyncing, true);
 
   function renderInfo() {
-    if (isConnecting) {
-      return (
-        <>
-          {renderBackButton()}
-          <h3>{lang('WaitingForNetwork')}</h3>
-        </>
-      );
-    }
     return messageListType === 'thread' && threadId === MAIN_THREAD_ID ? (
       renderMainThreadInfo()
     ) : messageListType === 'thread' ? (
@@ -418,6 +351,8 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             <PrivateChatInfo
               userId={chatId}
               typingStatus={typingStatus}
+              status={connectionStatusText}
+              withDots={Boolean(connectionStatusText)}
               withFullInfo={isChatWithBot}
               withMediaViewer
               withUpdatingStatus
@@ -427,10 +362,12 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             <GroupChatInfo
               chatId={chatId}
               typingStatus={typingStatus}
-              noRtl
+              status={connectionStatusText}
+              withDots={Boolean(connectionStatusText)}
               withMediaViewer
               withFullInfo
               withUpdatingStatus
+              noRtl
             />
           )}
         </div>
@@ -438,7 +375,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     );
   }
 
-  function renderBackButton(asClose = false, withUnreadCount = false) {
+  function renderBackButton(asClose = false, withUnreadCounter = false) {
     return (
       <div className="back-button">
         <Button
@@ -448,18 +385,9 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           onClick={handleBackClick}
           ariaLabel={lang(asClose ? 'Close' : 'Back')}
         >
-          <div
-            className={buildClassName(
-              'animated-close-icon',
-              !asClose && 'state-back',
-            )}
-          />
+          <div className={buildClassName('animated-close-icon', !asClose && 'state-back')} />
         </Button>
-        {withUnreadCount && unreadCount && (
-          <div className="unread-count active">
-            {formatIntegerCompact(unreadCount)}
-          </div>
-        )}
+        {withUnreadCounter && <UnreadCounter />}
       </div>
     );
   }
@@ -483,53 +411,58 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
       <div className="MiddleHeader" ref={componentRef}>
         <Transition
           name={shouldSkipHistoryAnimations ? 'none' : 'slide-fade'}
-          activeKey={isConnecting ? Infinity : currentTransitionKey}
+          activeKey={currentTransitionKey}
         >
-          {renderInfo}
+          {renderInfo()}
         </Transition>
 
-        <GroupCallTopPane
-          hasPinnedOffset={
-            (shouldRenderPinnedMessage
-            && !!renderingPinnedMessage
-            )
-          || (shouldRenderAudioPlayer && !!renderingAudioMessage)
-          }
-          chatId={chatId}
-        />
+      <GroupCallTopPane
+        hasPinnedOffset={
+          (shouldRenderPinnedMessage && Boolean(renderingPinnedMessage))
+          || (shouldRenderAudioPlayer && Boolean(renderingAudioMessage))
+        }
+        chatId={chatId}
+      />
 
-        {shouldRenderPinnedMessage && renderingPinnedMessage && (
-          <HeaderPinnedMessage
-            key={chatId}
-            message={renderingPinnedMessage}
-            count={renderingPinnedMessagesCount || 0}
-            index={pinnedMessageIndex}
-            customTitle={renderingPinnedMessageTitle}
-            className={buildClassName(pinnedMessageClassNames, isAudioPlayerRendered && 'full-width')}
-            onUnpinMessage={
-              renderingCanUnpin ? handleUnpinMessage : undefined
-            }
-            onClick={handlePinnedMessageClick}
-            onAllPinnedClick={handleAllPinnedClick}
+      {shouldRenderPinnedMessage && renderingPinnedMessage && (
+        <HeaderPinnedMessage
+          key={chatId}
+          message={renderingPinnedMessage}
+          count={renderingPinnedMessagesCount || 0}
+          index={pinnedMessageIndex}
+          customTitle={renderingPinnedMessageTitle}
+          className={buildClassName(pinnedMessageClassNames, isAudioPlayerRendered && 'full-width')}
+          onUnpinMessage={renderingCanUnpin ? handleUnpinMessage : undefined}
+          onClick={handlePinnedMessageClick}
+          onAllPinnedClick={handleAllPinnedClick}
+        />
+      )}
+
+      {shouldShowChatReportPanel && (
+        <ChatReportPanel
+          key={chatId}
+          chatId={chatId}
+          settings={renderingChatSettings}
+          className={chatReportPanelClassNames}
+        />
+      )}
+
+      <div className="header-tools">
+        {isAudioPlayerRendered && (
+          <AudioPlayer
+            key={getMessageKey(renderingAudioMessage!)}
+            message={renderingAudioMessage!}
+            className={audioPlayerClassNames}
           />
         )}
-        <div className="header-tools">
-          {isAudioPlayerRendered && (
-            <AudioPlayer
-              key={getMessageKey(renderingAudioMessage!)}
-              message={renderingAudioMessage!}
-              className={audioPlayerClassNames}
-            />
-          )}
-          <HeaderActions
-            chatId={chatId}
-            threadId={threadId}
-            messageListType={messageListType}
-            canExpandActions={!isAudioPlayerRendered}
-          />
-        </div>
+        <HeaderActions
+          chatId={chatId}
+          threadId={threadId}
+          messageListType={messageListType}
+          canExpandActions={!isAudioPlayerRendered}
+        />
       </div>
-    )
+    </div>
   );
 };
 
@@ -537,29 +470,28 @@ export default memo(
   withGlobal<OwnProps>(
     (global, { chatId, threadId, messageListType }): StateProps => {
       const { isLeftColumnShown, lastSyncTime, shouldSkipHistoryAnimations } = global;
-      const { byId: chatsById } = global.chats;
-      const chat = selectChat(global, chatId);
+      const  chat = selectChat(global, chatId);
       const { showHeymateScheduleMiddle } = global;
       const { showHeymateWalletMiddle } = global;
       const { showHeymateManageOfferMiddle } = global;
       const { typingStatus } = chat || {};
 
-      const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
-      const audioMessage = audioChatId && audioMessageId
-        ? selectChatMessage(global, audioChatId, audioMessageId)
-        : undefined;
+    const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
+    const audioMessage = audioChatId && audioMessageId
+      ? selectChatMessage(global, audioChatId, audioMessageId)
+      : undefined;
 
-      let messagesCount: number | undefined;
-      if (messageListType === 'pinned') {
-        const pinnedIds = selectPinnedIds(global, chatId);
-        messagesCount = pinnedIds?.length;
-      } else if (messageListType === 'scheduled') {
-        const scheduledIds = selectScheduledIds(global, chatId);
-        messagesCount = scheduledIds?.length;
-      } else if (messageListType === 'thread' && threadId !== MAIN_THREAD_ID) {
-        const threadInfo = selectThreadInfo(global, chatId, threadId);
-        messagesCount = threadInfo?.messagesCount || 0;
-      }
+    let messagesCount: number | undefined;
+    if (messageListType === 'pinned') {
+      const pinnedIds = selectPinnedIds(global, chatId);
+      messagesCount = pinnedIds?.length;
+    } else if (messageListType === 'scheduled') {
+      const scheduledIds = selectScheduledIds(global, chatId);
+      messagesCount = scheduledIds?.length;
+    } else if (messageListType === 'thread' && threadId !== MAIN_THREAD_ID) {
+      const threadInfo = selectThreadInfo(global, chatId, threadId);
+      messagesCount = threadInfo?.messagesCount || 0;
+    }
 
       const state: StateProps = {
         typingStatus,
@@ -571,7 +503,7 @@ export default memo(
         isSelectModeActive: selectIsInSelectMode(global),
         audioMessage,
         chat,
-        chatsById,
+
         messagesCount,
         isChatWithSelf: selectIsChatWithSelf(global, chatId),
         isChatWithBot: chat && selectIsChatWithBot(global, chat),
@@ -582,65 +514,45 @@ export default memo(
           global.messages.messageLists.length - 1,
         ),
         connectionState: global.connectionState,
+      isSyncing: global.isSyncing,
+    };
+
+    const messagesById = selectChatMessages(global, chatId);
+    if (messageListType !== 'thread' || !messagesById) {
+      return state;
+    }
+
+    Object.assign(state, { messagesById });
+
+    if (threadId !== MAIN_THREAD_ID) {
+      const pinnedMessageId = selectThreadTopMessageId(global, chatId, threadId);
+      const message = pinnedMessageId ? selectChatMessage(global, chatId, pinnedMessageId) : undefined;
+      const topMessageSender = message ? selectForwardedSender(global, message) : undefined;
+
+      return {
+        ...state,
+        pinnedMessageIds: pinnedMessageId,
+        canUnpin: false,
+        topMessageSender,
       };
+    }
 
-      const messagesById = selectChatMessages(global, chatId);
-      if (messageListType !== 'thread' || !messagesById) {
-        return state;
-      }
+    const pinnedMessageIds = selectPinnedIds(global, chatId);
+    if (pinnedMessageIds?.length) {
+      const firstPinnedMessage = messagesById[pinnedMessageIds[0]];
+      const {
+        canUnpin,
+      } = (firstPinnedMessage && selectAllowedMessageActions(global, firstPinnedMessage, threadId)) || {};
 
-      Object.assign(state, { messagesById });
-
-      if (threadId !== MAIN_THREAD_ID) {
-        const pinnedMessageId = selectThreadTopMessageId(
-          global,
-          chatId,
-          threadId,
-        );
-        const message = pinnedMessageId
-          ? selectChatMessage(global, chatId, pinnedMessageId)
-          : undefined;
-        const topMessageSender = message
-          ? selectForwardedSender(global, message)
-          : undefined;
-
-        return {
-          ...state,
-          pinnedMessageIds: pinnedMessageId,
-          canUnpin: false,
-          topMessageSender,
-        };
-      }
-
-      const pinnedMessageIds = selectPinnedIds(global, chatId);
-      if (pinnedMessageIds?.length) {
-        const firstPinnedMessage = messagesById[pinnedMessageIds[0]];
-        const { canUnpin } = (firstPinnedMessage
-            && selectAllowedMessageActions(
-              global,
-              firstPinnedMessage,
-              threadId,
-            ))
-          || {};
-
-        return {
-          ...state,
-          pinnedMessageIds,
-          canUnpin,
-        };
-      }
+      return {
+        ...state,
+        pinnedMessageIds,
+        canUnpin,
+      };
+    }
 
       return state;
     },
-    (setGlobal, actions): DispatchProps => pick(actions, [
-      'openChatWithInfo',
-      'pinMessage',
-      'focusMessage',
-      'openChat',
-      'openPreviousChat',
-      'loadPinnedMessages',
-      'toggleLeftColumn',
-      'exitMessageSelectMode',
-    ]),
+
   )(MiddleHeader),
 );

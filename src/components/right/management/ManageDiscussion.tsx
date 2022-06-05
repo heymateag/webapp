@@ -1,28 +1,27 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  memo, useCallback, useEffect, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat } from '../../../api/types';
+import type { ApiChat } from '../../../api/types';
 import { ManagementScreens } from '../../../types';
 
 import { STICKER_SIZE_DISCUSSION_GROUPS } from '../../../config';
-import { selectChat } from '../../../modules/selectors';
-import { pick } from '../../../util/iteratees';
-import getAnimationData from '../../common/helpers/animatedAssets';
+import { LOCAL_TGS_URLS } from '../../common/helpers/animatedAssets';
+import { selectChat } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
 import NothingFound from '../../common/NothingFound';
 import GroupChatInfo from '../../common/GroupChatInfo';
-import AnimatedSticker from '../../common/AnimatedSticker';
 import ConfirmDialog from '../../ui/ConfirmDialog';
 import useFlag from '../../../hooks/useFlag';
 import renderText from '../../common/helpers/renderText';
 import Avatar from '../../common/Avatar';
-import { isChatChannel } from '../../../modules/helpers';
+import { isChatChannel } from '../../../global/helpers';
+import AnimatedIcon from '../../common/AnimatedIcon';
 
 type OwnProps = {
   chatId: string;
@@ -39,9 +38,7 @@ type StateProps = {
   isChannel?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadGroupsForDiscussion' | 'linkDiscussionGroup' | 'unlinkDiscussionGroup'>;
-
-const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
+const ManageDiscussion: FC<OwnProps & StateProps> = ({
   chat,
   onClose,
   isActive,
@@ -51,30 +48,27 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
   forDiscussionIds,
   isChannel,
   onScreenSelect,
-  loadGroupsForDiscussion,
-  linkDiscussionGroup,
-  unlinkDiscussionGroup,
 }) => {
+  const {
+    loadGroupsForDiscussion,
+    linkDiscussionGroup,
+    unlinkDiscussionGroup,
+  } = getActions();
+
   const [linkedGroupId, setLinkedGroupId] = useState<string>();
-  const [animationData, setAnimationData] = useState<Record<string, any>>();
-  const [isAnimationLoaded, setIsAnimationLoaded] = useState(false);
-  const handleAnimationLoad = useCallback(() => setIsAnimationLoaded(true), []);
   const [isConfirmUnlinkGroupDialogOpen, openConfirmUnlinkGroupDialog, closeConfirmUnlinkGroupDialog] = useFlag();
   const [isConfirmLinkGroupDialogOpen, openConfirmLinkGroupDialog, closeConfirmLinkGroupDialog] = useFlag();
   const lang = useLang();
   const linkedChatId = linkedChat?.id;
 
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   useEffect(() => {
     loadGroupsForDiscussion();
   }, [loadGroupsForDiscussion]);
-
-  useEffect(() => {
-    if (!animationData) {
-      getAnimationData('DiscussionGroups').then(setAnimationData);
-    }
-  }, [animationData]);
 
   const handleUnlinkGroupSessions = useCallback(() => {
     closeConfirmUnlinkGroupDialog();
@@ -107,6 +101,7 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
     );
   }
+
   function renderLinkGroupHeader() {
     const linkedGroup = chatsByIds[linkedGroupId];
 
@@ -139,10 +134,6 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
         `Do you want to make **${linkedGroup.title}** the discussion board for **${chat!.title}**?`,
         ['br', 'simple_markdown'],
       );
-      // return renderText(
-      //   lang('DiscussionLinkGroupPublicAlert', linkedChat.title, chat!.title),
-      //   ['br', 'simple_markdown'],
-      // );
     }
 
     return renderText(
@@ -150,10 +141,6 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
       `Do you want to make **${linkedGroup.title}** the discussion board for **${chat!.title}**?\n\nAnyone from the channel will be able to see messages in this group.`,
       ['br', 'simple_markdown'],
     );
-    // return renderText(
-    //   lang('DiscussionLinkGroupPrivateAlert', linkedChat.title, chat!.title),
-    //   ['br', 'simple_markdown'],
-    // );
   }
 
   function renderLinkedGroup() {
@@ -210,7 +197,10 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
                 key={id}
                 teactOrderKey={i + 1}
                 className="chat-item-clickable scroll-item"
-                onClick={() => { onDiscussionClick(id); }}
+                // eslint-disable-next-line react/jsx-no-bind
+                onClick={() => {
+                  onDiscussionClick(id);
+                }}
               >
                 <GroupChatInfo chatId={id} />
               </ListItem>
@@ -237,18 +227,11 @@ const ManageDiscussion: FC<OwnProps & StateProps & DispatchProps> = ({
     <div className="Management">
       <div className="custom-scroll">
         <div className="section">
-          <div className="section-icon">
-            {animationData && (
-              <AnimatedSticker
-                id="discussionGroupsDucks"
-                size={STICKER_SIZE_DISCUSSION_GROUPS}
-                animationData={animationData}
-                play={isAnimationLoaded}
-                noLoop
-                onLoad={handleAnimationLoad}
-              />
-            )}
-          </div>
+          <AnimatedIcon
+            tgsUrl={LOCAL_TGS_URLS.DiscussionGroups}
+            size={STICKER_SIZE_DISCUSSION_GROUPS}
+            className="section-icon"
+          />
           {linkedChat && renderLinkedGroup()}
           {!linkedChat && renderDiscussionGroups()}
         </div>
@@ -273,7 +256,4 @@ export default memo(withGlobal<OwnProps>(
       isChannel: chat && isChatChannel(chat),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadGroupsForDiscussion', 'linkDiscussionGroup', 'unlinkDiscussionGroup',
-  ]),
 )(ManageDiscussion));

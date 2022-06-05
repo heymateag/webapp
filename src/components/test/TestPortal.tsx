@@ -1,4 +1,5 @@
-import React, { FC, useState } from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { useState } from '../../lib/teact/teact';
 
 import Portal from '../ui/Portal';
 
@@ -26,7 +27,6 @@ const TestPortal: FC = () => {
       </div>
       <Portal>
         <div
-          // @ts-ignore
           style={`position: absolute; top: ${position}px; left: ${position}px; width: 250px;`}
         >
           <h2>

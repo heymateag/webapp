@@ -1,14 +1,17 @@
-import { getDispatch, getGlobal } from '../lib/teact/teactn';
+import { getActions, getGlobal } from '../global';
 
 import { DEBUG } from '../config';
 
+// eslint-disable-next-line import/no-cycle
 export { default as Main } from '../components/main/Main';
+export { default as LockScreen } from '../components/main/LockScreen';
 
 if (DEBUG) {
   // eslint-disable-next-line no-console
   console.log('>>> FINISH LOAD MAIN BUNDLE');
 }
 
-if (!getGlobal().connectionState) {
-  getDispatch().initApi();
+const { connectionState, passcode: { isScreenLocked } } = getGlobal();
+if (!connectionState && !isScreenLocked) {
+  getActions().initApi();
 }

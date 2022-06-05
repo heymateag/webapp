@@ -1,18 +1,25 @@
-import { StateHookSetter, useEffect } from '../../../../lib/teact/teact';
-import { ApiAttachment, ApiMessage } from '../../../../api/types';
+import type { StateHookSetter } from '../../../../lib/teact/teact';
+import { useEffect } from '../../../../lib/teact/teact';
+import type { ApiAttachment, ApiMessage } from '../../../../api/types';
 
 import buildAttachment from '../helpers/buildAttachment';
 import { EDITABLE_INPUT_ID, EDITABLE_INPUT_MODAL_ID } from '../../../../config';
+import getFilesFromDataTransferItems from '../helpers/getFilesFromDataTransferItems';
 
 const CLIPBOARD_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
 const MAX_MESSAGE_LENGTH = 4096;
 
-export default (
+const useClipboardPaste = (
+  isActive: boolean,
   insertTextAndUpdateCursor: (text: string, inputId?: string) => void,
   setAttachments: StateHookSetter<ApiAttachment[]>,
   editedMessage: ApiMessage | undefined,
 ) => {
   useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+
     async function handlePaste(e: ClipboardEvent) {
       if (!e.clipboardData) {
         return;
@@ -23,24 +30,24 @@ export default (
         return;
       }
 
-      const { items } = e.clipboardData;
-      const media = Array.from(items)
-        .find((item) => CLIPBOARD_ACCEPTED_TYPES.includes(item.type) && item.kind === 'file');
-      const file = media && media.getAsFile();
       const pastedText = e.clipboardData.getData('text').substring(0, MAX_MESSAGE_LENGTH);
+      const { items } = e.clipboardData;
+      let files: File[] = [];
 
       e.preventDefault();
+      if (items.length > 0) {
+        files = await getFilesFromDataTransferItems(items);
+      }
 
-      if (!file && !pastedText) {
+      if (files.length === 0 && !pastedText) {
         return;
       }
 
-      if (file && !editedMessage) {
-        const attachment = await buildAttachment(file.name, file, true);
-        setAttachments((attachments) => [
-          ...attachments,
-          attachment,
-        ]);
+      if (files.length > 0 && !editedMessage) {
+        const newAttachments = await Promise.all(files.map((file) => {
+          return buildAttachment(file.name, file, files.length === 1 && CLIPBOARD_ACCEPTED_TYPES.includes(file.type));
+        }));
+        setAttachments((attachments) => attachments.concat(newAttachments));
       }
 
       if (pastedText) {
@@ -53,5 +60,7 @@ export default (
     return () => {
       document.removeEventListener('paste', handlePaste, false);
     };
-  }, [insertTextAndUpdateCursor, editedMessage, setAttachments]);
+  }, [insertTextAndUpdateCursor, editedMessage, setAttachments, isActive]);
 };
+
+export default useClipboardPaste;

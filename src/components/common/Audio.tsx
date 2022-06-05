@@ -1,12 +1,13 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { getDispatch } from '../../lib/teact/teactn';
+import { getActions } from '../../global';
 
-import {
-  ApiAudio, ApiMediaFormat, ApiMessage, ApiVoice,
-} from '../../api/types';
-import { AudioOrigin, ISettings } from '../../types';
+import type { ApiAudio, ApiMessage, ApiVoice } from '../../api/types';
+import { ApiMediaFormat } from '../../api/types';
+import type { ISettings } from '../../types';
+import { AudioOrigin } from '../../types';
 
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { formatMediaDateTime, formatMediaDuration, formatPastTimeShort } from '../../util/dateFormat';
@@ -17,7 +18,7 @@ import {
   getMessageMediaHash,
   isMessageLocal,
   isOwnMessage,
-} from '../../modules/helpers';
+} from '../../global/helpers';
 import { MAX_EMPTY_WAVEFORM_POINTS, renderWaveform } from './helpers/waveform';
 import buildClassName from '../../util/buildClassName';
 import renderText from './helpers/renderText';
@@ -25,9 +26,11 @@ import { getFileSizeString } from './helpers/documentInfo';
 import { decodeWaveform, interpolateArray } from '../../util/waveform';
 import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
 import useShowTransition from '../../hooks/useShowTransition';
+import type { BufferedRange } from '../../hooks/useBuffering';
 import useBuffering from '../../hooks/useBuffering';
 import useAudioPlayer from '../../hooks/useAudioPlayer';
-import useLang, { LangFn } from '../../hooks/useLang';
+import type { LangFn } from '../../hooks/useLang';
+import useLang from '../../hooks/useLang';
 import { captureEvents } from '../../util/captureEvents';
 import useMedia from '../../hooks/useMedia';
 import { makeTrackId } from '../../util/audioPlayer';
@@ -80,15 +83,15 @@ const Audio: FC<OwnProps> = ({
   onCancelUpload,
   onDateClick,
 }) => {
+  const { cancelMessageMediaDownload, downloadMessageMedia } = getActions();
+
   const { content: { audio, voice, video }, isMediaUnread } = message;
   const isVoice = Boolean(voice || video);
   const isSeeking = useRef<boolean>(false);
-  const playStateBeforeSeeking = useRef<boolean>(false);
   // eslint-disable-next-line no-null/no-null
   const seekerRef = useRef<HTMLDivElement>(null);
   const lang = useLang();
   const { isRtl } = lang;
-  const dispatch = getDispatch();
 
   const [isActivated, setIsActivated] = useState(false);
   const shouldLoad = (isActivated || PRELOAD) && lastSyncTime;
@@ -116,11 +119,11 @@ const Audio: FC<OwnProps> = ({
   }, []);
 
   const {
-    isBuffered, bufferedProgress, bufferingHandlers, checkBuffering,
+    isBuffered, bufferedRanges, bufferingHandlers, checkBuffering,
   } = useBuffering();
 
   const {
-    isPlaying, playProgress, playPause, play, pause, setCurrentTime, duration,
+    isPlaying, playProgress, playPause, setCurrentTime, duration,
   } = useAudioPlayer(
     makeTrackId(message),
     getMediaDuration(message)!,
@@ -171,7 +174,7 @@ const Audio: FC<OwnProps> = ({
       onPlay(message.id, message.chatId);
     }
 
-    getDispatch().setAudioPlayerOrigin({ origin });
+    getActions().setAudioPlayerOrigin({ origin });
     setIsActivated(!isActivated);
     playPause();
   }, [isUploading, isPlaying, isActivated, playPause, onCancelUpload, onPlay, message.id, message.chatId, origin]);
@@ -184,11 +187,11 @@ const Audio: FC<OwnProps> = ({
 
   const handleDownloadClick = useCallback(() => {
     if (isDownloading) {
-      dispatch.cancelMessageMediaDownload({ message });
+      cancelMessageMediaDownload({ message });
     } else {
-      dispatch.downloadMessageMedia({ message });
+      downloadMessageMedia({ message });
     }
-  }, [dispatch, isDownloading, message]);
+  }, [cancelMessageMediaDownload, downloadMessageMedia, isDownloading, message]);
 
   const handleSeek = useCallback((e: MouseEvent | TouchEvent) => {
     if (isSeeking.current && seekerRef.current) {
@@ -203,15 +206,12 @@ const Audio: FC<OwnProps> = ({
   const handleStartSeek = useCallback((e: MouseEvent | TouchEvent) => {
     if (e instanceof MouseEvent && e.button === 2) return;
     isSeeking.current = true;
-    playStateBeforeSeeking.current = isPlaying;
-    pause();
     handleSeek(e);
-  }, [handleSeek, pause, isPlaying]);
+  }, [handleSeek]);
 
   const handleStopSeek = useCallback(() => {
     isSeeking.current = false;
-    if (playStateBeforeSeeking.current) play();
-  }, [play]);
+  }, []);
 
   const handleDateClick = useCallback(() => {
     onDateClick!(message.id, message.chatId);
@@ -270,44 +270,40 @@ const Audio: FC<OwnProps> = ({
   const buttonClassNames = ['toggle-play'];
   if (shouldRenderCross) {
     buttonClassNames.push('loading');
-  } else if (isPlaying) {
-    buttonClassNames.push('pause');
-  } else if (!isPlaying) {
-    buttonClassNames.push('play');
+  } else {
+    buttonClassNames.push(isPlaying ? 'pause' : 'play');
   }
 
   const contentClassName = buildClassName('content', withSeekline && 'with-seekline');
 
   function renderWithTitle() {
     return (
-      <>
-        <div className={contentClassName}>
-          <div className="content-row">
-            <p className="title" dir="auto" title={renderFirstLine()}>{renderText(renderFirstLine())}</p>
+      <div className={contentClassName}>
+        <div className="content-row">
+          <p className="title" dir="auto" title={renderFirstLine()}>{renderText(renderFirstLine())}</p>
 
-            <div className="message-date">
-              {date && (
-                <Link
-                  className="date"
-                  onClick={handleDateClick}
-                >
-                  {formatPastTimeShort(lang, date * 1000)}
-                </Link>
-              )}
-            </div>
+          <div className="message-date">
+            {date && (
+              <Link
+                className="date"
+                onClick={handleDateClick}
+              >
+                {formatPastTimeShort(lang, date * 1000)}
+              </Link>
+            )}
           </div>
-
-          {withSeekline && (
-            <div className="meta search-result" dir={isRtl ? 'rtl' : undefined}>
-              <span className="duration with-seekline" dir="auto">
-                {playProgress < 1 && `${formatMediaDuration(duration * playProgress, duration)}`}
-              </span>
-              {renderSeekline(playProgress, bufferedProgress, seekerRef)}
-            </div>
-          )}
-          {!withSeekline && renderSecondLine()}
         </div>
-      </>
+
+        {withSeekline && (
+          <div className="meta search-result" dir={isRtl ? 'rtl' : undefined}>
+            <span className="duration with-seekline" dir="auto">
+              {playProgress < 1 && `${formatMediaDuration(duration * playProgress, duration)}`}
+            </span>
+            {renderSeekline(playProgress, bufferedRanges, seekerRef)}
+          </div>
+        )}
+        {!withSeekline && renderSecondLine()}
+      </div>
     );
   }
 
@@ -356,8 +352,17 @@ const Audio: FC<OwnProps> = ({
       )}
       {origin === AudioOrigin.Search && renderWithTitle()}
       {origin !== AudioOrigin.Search && audio && renderAudio(
-        lang, audio, duration, isPlaying, playProgress, bufferedProgress, seekerRef,
-        (isDownloading || isUploading), date, transferProgress, onDateClick ? handleDateClick : undefined,
+        lang,
+        audio,
+        duration,
+        isPlaying,
+        playProgress,
+        bufferedRanges,
+        seekerRef,
+        (isDownloading || isUploading),
+        date,
+        transferProgress,
+        onDateClick ? handleDateClick : undefined,
       )}
       {origin === AudioOrigin.SharedMedia && (voice || video) && renderWithTitle()}
       {origin === AudioOrigin.Inline && voice && (
@@ -373,7 +378,7 @@ function renderAudio(
   duration: number,
   isPlaying: boolean,
   playProgress: number,
-  bufferedProgress: number,
+  bufferedRanges: BufferedRange[],
   seekerRef: React.Ref<HTMLElement>,
   showProgress?: boolean,
   date?: number,
@@ -394,7 +399,7 @@ function renderAudio(
           <span className="duration with-seekline" dir="auto">
             {formatMediaDuration(duration * playProgress, duration)}
           </span>
-          {renderSeekline(playProgress, bufferedProgress, seekerRef)}
+          {renderSeekline(playProgress, bufferedRanges, seekerRef)}
         </div>
       )}
       {!showSeekline && showProgress && (
@@ -405,8 +410,12 @@ function renderAudio(
       {!showSeekline && !showProgress && (
         <div className="meta" dir={isRtl ? 'rtl' : undefined}>
           <span className="duration" dir="auto">{formatMediaDuration(duration)}</span>
-          <span className="bullet">&bull;</span>
-          <span className="performer" dir="auto" title={performer}>{renderText(performer || 'Unknown')}</span>
+          {performer && (
+            <>
+              <span className="bullet">&bull;</span>
+              <span className="performer" dir="auto" title={performer}>{renderText(performer)}</span>
+            </>
+          )}
           {date && (
             <>
               <span className="bullet">&bull;</span>
@@ -497,7 +506,7 @@ function useWaveformCanvas(
 
 function renderSeekline(
   playProgress: number,
-  bufferedProgress: number,
+  bufferedRanges: BufferedRange[],
   seekerRef: React.Ref<HTMLElement>,
 ) {
   return (
@@ -505,21 +514,19 @@ function renderSeekline(
       className="seekline no-selection"
       ref={seekerRef as React.Ref<HTMLDivElement>}
     >
-      <span className="seekline-buffered-progress">
-        <i
-          // @ts-ignore
-          style={`transform: translateX(${bufferedProgress * 100}%)`}
+      {bufferedRanges.map(({ start, end }) => (
+        <div
+          className="seekline-buffered-progress"
+          style={`left: ${start * 100}%; right: ${100 - end * 100}%`}
         />
-      </span>
+      ))}
       <span className="seekline-play-progress">
         <i
-          // @ts-ignore
           style={`transform: translateX(${playProgress * 100}%)`}
         />
       </span>
       <span className="seekline-thumb">
         <i
-          // @ts-ignore
           style={`transform: translateX(${playProgress * 100}%)`}
         />
       </span>

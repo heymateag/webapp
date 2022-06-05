@@ -1,10 +1,12 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useCallback, memo, useRef, useEffect,
+  useCallback, memo, useRef, useEffect,
 } from '../../lib/teact/teact';
 
-import { FormState, FormEditDispatch } from '../../hooks/reducers/usePaymentReducer';
+import type { ApiCountry } from '../../api/types';
+
+import type { FormState, FormEditDispatch } from '../../hooks/reducers/usePaymentReducer';
 import useLang from '../../hooks/useLang';
-import countryList from '../../util/countries';
 
 import InputText from '../ui/InputText';
 import Checkbox from '../ui/Checkbox';
@@ -20,6 +22,7 @@ export type OwnProps = {
   needCardholderName?: boolean;
   needCountry?: boolean;
   needZip?: boolean;
+  countryList: ApiCountry[];
   dispatch: FormEditDispatch;
 };
 
@@ -29,6 +32,7 @@ const PaymentInfo: FC<OwnProps> = ({
   needCardholderName,
   needCountry,
   needZip,
+  countryList,
   dispatch,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -84,7 +88,7 @@ const PaymentInfo: FC<OwnProps> = ({
         />
         { needCardholderName && (
           <InputText
-            label="Name on card"
+            label={lang('PaymentCardName')}
             onChange={handleCardholderChange}
             value={state.cardholder}
             inputMode="text"
@@ -98,7 +102,7 @@ const PaymentInfo: FC<OwnProps> = ({
             error={formErrors.expiry}
           />
           <InputText
-            label="CVV code"
+            label={lang('lng_payments_card_cvc')}
             onChange={handleCvvChange}
             value={state.cvv}
             inputMode="numeric"
@@ -111,8 +115,8 @@ const PaymentInfo: FC<OwnProps> = ({
         ) : undefined }
         { needCountry && (
           <Select
-            label="Country"
-            placeholder="Country"
+            label={lang('PaymentShippingCountry')}
+            placeholder={lang('PaymentShippingCountry')}
             onChange={handleCountryChange}
             value={state.billingCountry}
             hasArrow={Boolean(true)}
@@ -121,12 +125,12 @@ const PaymentInfo: FC<OwnProps> = ({
             ref={selectCountryRef}
           >
             {
-              countryList.map(({ name }) => (
+              countryList.map(({ defaultName, name }) => (
                 <option
-                  value={name}
+                  value={defaultName}
                   className="county-item"
                 >
-                  {name}
+                  {defaultName || name}
                 </option>
               ))
             }
@@ -134,7 +138,7 @@ const PaymentInfo: FC<OwnProps> = ({
         ) }
         { needZip && (
           <InputText
-            label="Post Code"
+            label={lang('PaymentShippingZipPlaceholder')}
             onChange={handleBillingPostCodeChange}
             value={state.billingZip}
             inputMode="text"

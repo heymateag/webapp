@@ -1,57 +1,69 @@
-import { getGlobal, withGlobal } from 'teact/teactn';
+import type { FC } from 'teact/teact';
 import React, {
-  FC, useEffect, memo, useCallback,
+  useEffect, memo, useCallback, useState, useRef,
 } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { LangCode } from '../../types';
-import { GlobalActions } from '../../global/types';
-import { ApiMessage, ApiUser, IHeymateUser } from '../../api/types';
+import type { LangCode } from '../../types';
+import type {
+  ApiChat, ApiMessage, ApiUser, ApiUpdateAuthorizationStateType, ApiUpdateConnectionStateType, IHeymateUser,
+} from '../../api/types';
+import type { GlobalState } from '../../global/types';
 
-import '../../modules/actions/all';
+import '../../global/actions/all';
 import {
-  BASE_EMOJI_KEYWORD_LANG,
-  DEBUG, HEYMATE_URL,
-  INACTIVE_MARKER,
-  PAGE_TITLE,
+  BASE_EMOJI_KEYWORD_LANG, DEBUG, INACTIVE_MARKER, PAGE_TITLE,
+  HEYMATE_URL,
 } from '../../config';
-import { pick } from '../../util/iteratees';
+import { IS_ANDROID } from '../../util/environment';
 import {
   selectChatMessage,
-  selectCountNotMutedUnread,
   selectIsForwardModalOpen,
   selectIsMediaViewerOpen,
   selectIsRightColumnShown,
   selectIsServiceChatReady,
   selectUser,
-} from '../../modules/selectors';
+} from '../../global/selectors';
 import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
 import buildClassName from '../../util/buildClassName';
-import { fastRaf } from '../../util/schedulers';
 import { waitForTransitionEnd } from '../../util/cssAnimationEndListeners';
-import useShowTransition from '../../hooks/useShowTransition';
+import { processDeepLink } from '../../util/deeplink';
+import stopEvent from '../../util/stopEvent';
+import windowSize from '../../util/windowSize';
+import { getAllNotificationsCount } from '../../util/folderManager';
 import useBackgroundMode from '../../hooks/useBackgroundMode';
 import useBeforeUnload from '../../hooks/useBeforeUnload';
 import useOnChange from '../../hooks/useOnChange';
 import usePreventPinchZoomGesture from '../../hooks/usePreventPinchZoomGesture';
-import { processDeepLink } from '../../util/deeplink';
+import useForceUpdate from '../../hooks/useForceUpdate';
 import { LOCATION_HASH } from '../../hooks/useHistoryBack';
+import useShowTransition from '../../hooks/useShowTransition';
+import { fastRaf } from '../../util/schedulers';
 
+import StickerSetModal from '../common/StickerSetModal.async';
+import UnreadCount from '../common/UnreadCounter';
 import LeftColumn from '../left/LeftColumn';
 import MiddleColumn from '../middle/MiddleColumn';
 import RightColumn from '../right/RightColumn';
 import MediaViewer from '../mediaViewer/MediaViewer.async';
 import AudioPlayer from '../middle/AudioPlayer';
 import DownloadManager from './DownloadManager';
+import GameModal from './GameModal';
 import Notifications from './Notifications.async';
 import ZoomDialog from './components/ZoomDialog.async';
 import Dialogs from './Dialogs.async';
 import ForwardPicker from './ForwardPicker.async';
 import SafeLinkModal from './SafeLinkModal.async';
 import HistoryCalendar from './HistoryCalendar.async';
-import StickerSetModal from '../common/StickerSetModal.async';
 import GroupCall from '../calls/group/GroupCall.async';
 import ActiveCallHeader from '../calls/ActiveCallHeader.async';
-import CallFallbackConfirm from '../calls/CallFallbackConfirm.async';
+import PhoneCall from '../calls/phone/PhoneCall.async';
+import MessageListHistoryHandler from '../middle/MessageListHistoryHandler';
+import NewContactModal from './NewContactModal.async';
+import RatePhoneCallModal from '../calls/phone/RatePhoneCallModal.async';
+import WebAppModal from './WebAppModal.async';
+import BotTrustModal from './BotTrustModal.async';
+import BotAttachModal from './BotAttachModal.async';
 
 import './Main.scss';
 import { IAuth } from '../../types/HeymateTypes/Auth.model';
@@ -59,9 +71,12 @@ import { axiosService } from '../../api/services/axiosService';
 import { IHttpResponse } from '../../types/HeymateTypes/HttpResponse.model';
 
 type StateProps = {
+  chat?: ApiChat;
+  connectionState?: ApiUpdateConnectionStateType;
+  authState?: ApiUpdateAuthorizationStateType;
   lastSyncTime?: number;
-  isLeftColumnShown: boolean;
-  isRightColumnShown: boolean;
+  isLeftColumnOpen: boolean;
+  isRightColumnOpen: boolean;
   isMediaViewerOpen: boolean;
   isForwardModalOpen: boolean;
   hasNotifications: boolean;
@@ -77,7 +92,16 @@ type StateProps = {
   animationLevel: number;
   language?: LangCode;
   wasTimeFormatSetManually?: boolean;
-  isCallFallbackConfirmOpen: boolean;
+  isPhoneCallActive?: boolean;
+  addedSetIds?: string[];
+  newContactUserId?: string;
+  newContactByPhoneNumber?: boolean;
+  openedGame?: GlobalState['openedGame'];
+  gameTitle?: string;
+  isRatePhoneCallModalOpen?: boolean;
+  webApp?: GlobalState['webApp'];
+  botTrustRequest?: GlobalState['botTrustRequest'];
+  botAttachRequest?: GlobalState['botAttachRequest'];
   showHeymateScheduleMiddle?: boolean;
   showHeymateWalletMiddle?: boolean;
   currentUserId?: string;
@@ -86,19 +110,6 @@ type StateProps = {
   currentUser?: ApiUser;
 };
 
-type DispatchProps = Pick<
-GlobalActions,
-| 'loadAnimatedEmojis'
-| 'loadNotificationSettings'
-| 'loadNotificationExceptions'
-| 'updateIsOnline'
-| 'loadTopInlineBots'
-| 'loadEmojiKeywords'
-| 'openStickerSetShortName'
-|
-'loadCountryList' | 'ensureTimeFormat' | 'checkVersionNotification' | 'setHeymateUser'
->;
-
 const NOTIFICATION_INTERVAL = 1000;
 
 let notificationInterval: number | undefined;
@@ -106,10 +117,12 @@ let notificationInterval: number | undefined;
 // eslint-disable-next-line @typescript-eslint/naming-convention
 let DEBUG_isLogged = false;
 
-const Main: FC<StateProps & DispatchProps> = ({
+const Main: FC<StateProps> = ({
+  connectionState,
+  authState,
   lastSyncTime,
-  isLeftColumnShown,
-  isRightColumnShown,
+  isLeftColumnOpen,
+  isRightColumnOpen,
   isMediaViewerOpen,
   isForwardModalOpen,
   hasNotifications,
@@ -125,69 +138,115 @@ const Main: FC<StateProps & DispatchProps> = ({
   animationLevel,
   language,
   wasTimeFormatSetManually,
-  isCallFallbackConfirmOpen,
-  loadAnimatedEmojis,
-  loadNotificationSettings,
-  loadNotificationExceptions,
-  updateIsOnline,
-  loadTopInlineBots,
-  loadEmojiKeywords,
-  loadCountryList,
-  ensureTimeFormat,
-  openStickerSetShortName,
-  checkVersionNotification,
+  addedSetIds,
+  isPhoneCallActive,
+  newContactUserId,
+  newContactByPhoneNumber,
+  openedGame,
+  gameTitle,
+  isRatePhoneCallModalOpen,
+  botTrustRequest,
+  botAttachRequest,
+  webApp,
   currentUserId,
   currentUserPhoneNumber,
-  setHeymateUser,
   heymateUser,
   currentUser,
 }) => {
+  const {
+    sync,
+    loadAnimatedEmojis,
+    loadNotificationSettings,
+    loadNotificationExceptions,
+    updateIsOnline,
+    loadTopInlineBots,
+    loadEmojiKeywords,
+    loadCountryList,
+    loadAvailableReactions,
+    loadStickerSets,
+    loadAddedStickers,
+    loadFavoriteStickers,
+    ensureTimeFormat,
+    openStickerSetShortName,
+    checkVersionNotification,
+    loadAppConfig,
+    loadAttachMenuBots,
+    loadContactList,
+    setHeymateUser
+  } = getActions();
+
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
     // eslint-disable-next-line no-console
     console.log('>>> RENDER MAIN');
   }
 
+  useEffect(() => {
+    if (connectionState === 'connectionStateReady' && authState === 'authorizationStateReady') {
+      sync();
+    }
+  }, [connectionState, authState, sync]);
+
   // Initial API calls
   useEffect(() => {
     if (lastSyncTime) {
       updateIsOnline(true);
+      loadAppConfig();
+      loadAvailableReactions();
       loadAnimatedEmojis();
       loadNotificationSettings();
       loadNotificationExceptions();
       loadTopInlineBots();
-
       loadEmojiKeywords({ language: BASE_EMOJI_KEYWORD_LANG });
+      loadAttachMenuBots();
+      loadContactList();
+    }
+  }, [
+    lastSyncTime, loadAnimatedEmojis, loadEmojiKeywords, loadNotificationExceptions, loadNotificationSettings,
+    loadTopInlineBots, updateIsOnline, loadAvailableReactions, loadAppConfig, loadAttachMenuBots, loadContactList,
+  ]);
+
+  // Language-based API calls
+  useEffect(() => {
+    if (lastSyncTime) {
       if (language !== BASE_EMOJI_KEYWORD_LANG) {
         loadEmojiKeywords({ language });
       }
 
       loadCountryList({ langCode: language });
     }
-  }, [
-    lastSyncTime,
-    loadAnimatedEmojis,
-    loadNotificationExceptions,
-    loadNotificationSettings,
-    updateIsOnline,
-    loadTopInlineBots,
-    loadEmojiKeywords,
-    loadCountryList,
-    language,
-  ]);
+  }, [language, lastSyncTime,
 
+    loadCountryList,
+    loadEmojiKeywords]);
+
+  // Sticker sets
+  useEffect(() => {
+    if (lastSyncTime) {
+      if (!addedSetIds) {
+        loadStickerSets();
+        loadFavoriteStickers();
+      } else {
+        loadAddedStickers();
+      }
+    }
+  }, [lastSyncTime, addedSetIds, loadStickerSets, loadFavoriteStickers, loadAddedStickers]);
+
+  // Check version when service chat is ready
   useEffect(() => {
     if (lastSyncTime && isServiceChatReady) {
       checkVersionNotification();
     }
   }, [lastSyncTime, isServiceChatReady, checkVersionNotification]);
 
+  // Ensure time format
   useEffect(() => {
     if (lastSyncTime && !wasTimeFormatSetManually) {
       ensureTimeFormat();
     }
   }, [lastSyncTime, wasTimeFormatSetManually, ensureTimeFormat]);
 
+  // Parse deep link
   useEffect(() => {
     if (lastSyncTime && LOCATION_HASH.startsWith('#?tgaddr=')) {
       processDeepLink(
@@ -196,6 +255,11 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   }, [lastSyncTime]);
 
+  // Prevent refresh by accidentally rotating device when listening to a voice chat
+  useEffect(() => {
+    if (!activeGroupCallId) {
+      return undefined;
+    }
   const getHeymateUser = async (phone_number: any, userId?:string) => {
     if (typeof phone_number === 'undefined') {
       phone_number = localStorage.getItem('HM_PHONE');
@@ -252,73 +316,82 @@ const Main: FC<StateProps & DispatchProps> = ({
     }
   }, [currentUserId, currentUserPhoneNumber, handleHeymateUpdateUser]);
 
-  const { transitionClassNames: middleColumnTransitionClassNames } = useShowTransition(
-    !isLeftColumnShown,
-    undefined,
-    true,
-    undefined,
-    shouldSkipHistoryAnimations,
-  );
+    windowSize.disableRefresh();
 
-  const { transitionClassNames: rightColumnTransitionClassNames } = useShowTransition(
-    isRightColumnShown,
-    undefined,
-    true,
-    undefined,
-    shouldSkipHistoryAnimations,
+    return () => {
+      windowSize.enableRefresh();
+    };
+  }, [activeGroupCallId]);
+
+  const leftColumnTransition = useShowTransition(
+    isLeftColumnOpen, undefined, true, undefined, shouldSkipHistoryAnimations,
   );
+  const willAnimateLeftColumnRef = useRef(false);
+  const forceUpdate = useForceUpdate();
+
+  // Handle opening middle column
+  useOnChange(
+    ([prevIsLeftColumnOpen]) => {
+      if (prevIsLeftColumnOpen === undefined || animationLevel === 0) {
+        return;
+      }
+
+      willAnimateLeftColumnRef.current = true;
+
+    if (IS_ANDROID) {
+      fastRaf(() => {
+        document.body.classList.toggle('android-left-blackout-open', !isLeftColumnOpen);
+      });
+    }
+
+    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+
+    waitForTransitionEnd(document.getElementById('MiddleColumn')!, () => {
+      dispatchHeavyAnimationEnd();
+      willAnimateLeftColumnRef.current = false;
+      forceUpdate();
+    });
+  }, [isLeftColumnOpen]);
+
+  const rightColumnTransition = useShowTransition(
+    isRightColumnOpen, undefined, true, undefined, shouldSkipHistoryAnimations,
+  );
+  const willAnimateRightColumnRef = useRef(false);
+  const [isNarrowMessageList, setIsNarrowMessageList] = useState(isRightColumnOpen);
+
+  // Handle opening right column
+  useOnChange(([prevIsRightColumnOpen]) => {
+    if (prevIsRightColumnOpen === undefined || animationLevel === 0) {
+      return;
+    }
+
+    willAnimateRightColumnRef.current = true;
+
+    const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
+
+    waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
+      dispatchHeavyAnimationEnd();
+      willAnimateRightColumnRef.current = false;
+      forceUpdate();
+      setIsNarrowMessageList(isRightColumnOpen);
+    });
+  }, [isRightColumnOpen]);
 
   const className = buildClassName(
-    middleColumnTransitionClassNames.replace(/([\w-]+)/g, 'middle-column-$1'),
-    rightColumnTransitionClassNames.replace(/([\w-]+)/g, 'right-column-$1'),
+    leftColumnTransition.hasShownClass && 'left-column-shown',
+    leftColumnTransition.hasOpenClass && 'left-column-open',
+    willAnimateLeftColumnRef.current && 'left-column-animating',
+    rightColumnTransition.hasShownClass && 'right-column-shown',
+    rightColumnTransition.hasOpenClass && 'right-column-open',
+    willAnimateRightColumnRef.current && 'right-column-animating',
+    isNarrowMessageList && 'narrow-message-list',
     shouldSkipHistoryAnimations && 'history-animation-disabled',
-  );
-
-  // Dispatch heavy transition event when opening middle column
-  useOnChange(
-    ([prevIsLeftColumnShown]) => {
-      if (prevIsLeftColumnShown === undefined || animationLevel === 0) {
-        return;
-      }
-
-      const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
-
-      waitForTransitionEnd(
-        document.getElementById('MiddleColumn')!,
-        dispatchHeavyAnimationEnd,
-      );
-    },
-    [isLeftColumnShown],
-  );
-
-  // Dispatch heavy transition event and add body class when opening right column
-  useOnChange(
-    ([prevIsRightColumnShown]) => {
-      if (prevIsRightColumnShown === undefined || animationLevel === 0) {
-        return;
-      }
-
-      fastRaf(() => {
-        document.body.classList.add('animating-right-column');
-      });
-
-      const dispatchHeavyAnimationEnd = dispatchHeavyAnimationEvent();
-
-      waitForTransitionEnd(document.getElementById('RightColumn')!, () => {
-        dispatchHeavyAnimationEnd();
-
-        fastRaf(() => {
-          document.body.classList.remove('animating-right-column');
-        });
-      });
-    },
-    [isRightColumnShown],
   );
 
   const handleBlur = useCallback(() => {
     updateIsOnline(false);
 
-    const initialUnread = selectCountNotMutedUnread(getGlobal());
+    const initialUnread = getAllNotificationsCount();
     let index = 0;
 
     clearInterval(notificationInterval);
@@ -329,7 +402,7 @@ const Main: FC<StateProps & DispatchProps> = ({
       }
 
       if (index % 2 === 0) {
-        const newUnread = selectCountNotMutedUnread(getGlobal()) - initialUnread;
+        const newUnread = getAllNotificationsCount() - initialUnread;
         if (newUnread > 0) {
           updatePageTitle(
             `${newUnread} notification${newUnread > 1 ? 's' : ''}`,
@@ -365,13 +438,7 @@ const Main: FC<StateProps & DispatchProps> = ({
   // Online status and browser tab indicators
   useBackgroundMode(handleBlur, handleFocus);
   useBeforeUnload(handleBlur);
-
   usePreventPinchZoomGesture(isMediaViewerOpen);
-
-  function stopEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
 
   return (
     <div
@@ -396,21 +463,29 @@ const Main: FC<StateProps & DispatchProps> = ({
         onClose={handleStickerSetModalClose}
         stickerSetShortName={openedStickerSetShortName}
       />
-      {activeGroupCallId && (
-        <>
-          <GroupCall groupCallId={activeGroupCallId} />
-          <ActiveCallHeader groupCallId={activeGroupCallId} />
-        </>
-      )}
+      {activeGroupCallId && <GroupCall groupCallId={activeGroupCallId} />}
+      <ActiveCallHeader isActive={Boolean(activeGroupCallId || isPhoneCallActive)} />
+      <NewContactModal
+        isOpen={Boolean(newContactUserId || newContactByPhoneNumber)}
+        userId={newContactUserId}
+        isByPhoneNumber={newContactByPhoneNumber}
+      />
+      <GameModal openedGame={openedGame} gameTitle={gameTitle} />
+      <WebAppModal webApp={webApp} />
       <DownloadManager />
-      <CallFallbackConfirm isOpen={isCallFallbackConfirmOpen} />
+      <PhoneCall isActive={isPhoneCallActive} />
+      <UnreadCount isForAppBadge />
+      <RatePhoneCallModal isOpen={isRatePhoneCallModalOpen} />
+      <BotTrustModal bot={botTrustRequest?.bot} type={botTrustRequest?.type} />
+      <BotAttachModal bot={botAttachRequest?.bot} />
+      <MessageListHistoryHandler />
     </div>
   );
 };
 
 function updateIcon(asUnread: boolean) {
   document
-    .querySelectorAll<HTMLLinkElement>('link[rel="icon"]')
+    .querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="alternate icon"]')
     .forEach((link) => {
       if (asUnread) {
         if (!link.href.includes('favicon-unread')) {
@@ -432,19 +507,30 @@ function updatePageTitle(nextTitle: string) {
 
 export default memo(withGlobal(
   (global): StateProps => {
-    const { settings: { byKey: { animationLevel, language, wasTimeFormatSetManually } } } = global;
+    const {
+      settings: {
+        byKey: {
+          animationLevel, language, wasTimeFormatSetManually,
+        },
+      },
+    } = global;
     const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
     const { currentUserId } = global;
     const { currentUserPhoneNumber } = global;
-    const { heymateUser } = global;
+    const  heymateUser  = global.heymateUser;
     const audioMessage = audioChatId && audioMessageId
       ? selectChatMessage(global, audioChatId, audioMessageId)
       : undefined;
+    const openedGame = global.openedGame;
+    const gameMessage = openedGame && selectChatMessage(global, openedGame.chatId, openedGame.messageId);
+    const gameTitle = gameMessage?.content.game?.title;
 
     return {
+      connectionState: global.connectionState,
+      authState: global.authState,
       lastSyncTime: global.lastSyncTime,
-      isLeftColumnShown: global.isLeftColumnShown,
-      isRightColumnShown: selectIsRightColumnShown(global),
+      isLeftColumnOpen: global.isLeftColumnShown,
+      isRightColumnOpen: selectIsRightColumnShown(global),
       isMediaViewerOpen: selectIsMediaViewerOpen(global),
       isForwardModalOpen: selectIsForwardModalOpen(global),
       hasNotifications: Boolean(global.notifications.length),
@@ -460,16 +546,21 @@ export default memo(withGlobal(
       animationLevel,
       language,
       wasTimeFormatSetManually,
-      isCallFallbackConfirmOpen: Boolean(global.groupCalls.isFallbackConfirmOpen),
+      isPhoneCallActive: Boolean(global.phoneCall),
+      addedSetIds: global.stickers.added.setIds,
+      newContactUserId: global.newContact?.userId,
+      newContactByPhoneNumber: global.newContact?.isByPhoneNumber,
+      openedGame,
+      gameTitle,
+      isRatePhoneCallModalOpen: Boolean(global.ratingPhoneCall),
+      botTrustRequest: global.botTrustRequest,
+      botAttachRequest: global.botAttachRequest,
+      webApp: global.webApp,
       currentUserId,
       currentUserPhoneNumber,
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
       heymateUser,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadAnimatedEmojis', 'loadNotificationSettings', 'loadNotificationExceptions', 'updateIsOnline',
-    'loadTopInlineBots', 'loadEmojiKeywords', 'openStickerSetShortName', 'loadCountryList', 'ensureTimeFormat',
-    'checkVersionNotification', 'setHeymateUser',
-  ]),
 )(Main));
+

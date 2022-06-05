@@ -1,22 +1,22 @@
-import { MouseEvent as ReactMouseEvent } from 'react';
-import React, {
-  FC, useEffect, useCallback, memo,
-} from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { useEffect, useCallback, memo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiUser, ApiTypingStatus } from '../../api/types';
-import { GlobalActions, GlobalState } from '../../global/types';
+import type { ApiUser, ApiTypingStatus, ApiUserStatus } from '../../api/types';
+import type { GlobalState } from '../../global/types';
 import { MediaViewerOrigin } from '../../types';
 
-import { selectChatMessages, selectUser } from '../../modules/selectors';
-import { getUserFullName, getUserStatus, isUserOnline } from '../../modules/helpers';
+import { selectChatMessages, selectUser, selectUserStatus } from '../../global/selectors';
+import { getUserFullName, getUserStatus, isUserOnline } from '../../global/helpers';
 import renderText from './helpers/renderText';
-import { pick } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
 
 import Avatar from './Avatar';
 import VerifiedIcon from './VerifiedIcon';
 import TypingStatus from './TypingStatus';
+import DotAnimation from './DotAnimation';
+import FakeIcon from './FakeIcon';
 
 type OwnProps = {
   userId: string;
@@ -24,6 +24,7 @@ type OwnProps = {
   avatarSize?: 'tiny' | 'small' | 'medium' | 'large' | 'jumbo';
   forceShowSelf?: boolean;
   status?: string;
+  withDots?: boolean;
   withMediaViewer?: boolean;
   withUsername?: boolean;
   withFullInfo?: boolean;
@@ -32,19 +33,21 @@ type OwnProps = {
   noRtl?: boolean;
 };
 
-type StateProps = {
-  user?: ApiUser;
-  isSavedMessages?: boolean;
-  areMessagesLoaded: boolean;
-  serverTimeOffset: number;
-} & Pick<GlobalState, 'lastSyncTime'>;
+type StateProps =
+  {
+    user?: ApiUser;
+    userStatus?: ApiUserStatus;
+    isSavedMessages?: boolean;
+    areMessagesLoaded: boolean;
+    serverTimeOffset: number;
+  }
+  & Pick<GlobalState, 'lastSyncTime'>;
 
-type DispatchProps = Pick<GlobalActions, 'loadFullUser' | 'openMediaViewer'>;
-
-const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
+const PrivateChatInfo: FC<OwnProps & StateProps> = ({
   typingStatus,
   avatarSize = 'medium',
   status,
+  withDots,
   withMediaViewer,
   withUsername,
   withFullInfo,
@@ -52,13 +55,17 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   noStatusOrTyping,
   noRtl,
   user,
+  userStatus,
   isSavedMessages,
   areMessagesLoaded,
   lastSyncTime,
   serverTimeOffset,
-  loadFullUser,
-  openMediaViewer,
 }) => {
+  const {
+    loadFullUser,
+    openMediaViewer,
+  } = getActions();
+
   const { id: userId } = user || {};
   const fullName = getUserFullName(user);
 
@@ -86,14 +93,16 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
 
   function renderStatusOrTyping() {
     if (status) {
-      return (
+      return withDots ? (
+        <DotAnimation className="status" content={status} />
+      ) : (
         <span className="status" dir="auto">{status}</span>
       );
     }
 
     if (withUpdatingStatus && !areMessagesLoaded) {
       return (
-        <span className="status" dir="auto">{lang('Updating')}</span>
+        <DotAnimation className="status" content={lang('Updating')} />
       );
     }
 
@@ -106,10 +115,10 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     return (
-      <div className={`status ${isUserOnline(user) ? 'online' : ''}`}>
+      <span className={`status ${isUserOnline(user, userStatus) ? 'online' : ''}`}>
         {withUsername && user.username && <span className="handle">{user.username}</span>}
-        <span className="user-status" dir="auto">{getUserStatus(lang, user, serverTimeOffset)}</span>
-      </div>
+        <span className="user-status" dir="auto">{getUserStatus(lang, user, userStatus, serverTimeOffset)}</span>
+      </span>
     );
   }
 
@@ -131,6 +140,7 @@ const PrivateChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
           <div className="title">
             <h3 dir="auto">{fullName && renderText(fullName)}</h3>
             {user?.isVerified && <VerifiedIcon />}
+            {user.fakeType && <FakeIcon fakeType={user.fakeType} />}
           </div>
         )}
         {(status || (!isSavedMessages && !noStatusOrTyping)) && renderStatusOrTyping()}
@@ -143,12 +153,12 @@ export default memo(withGlobal<OwnProps>(
   (global, { userId, forceShowSelf }): StateProps => {
     const { lastSyncTime, serverTimeOffset } = global;
     const user = selectUser(global, userId);
+    const userStatus = selectUserStatus(global, userId);
     const isSavedMessages = !forceShowSelf && user && user.isSelf;
     const areMessagesLoaded = Boolean(selectChatMessages(global, userId));
 
     return {
-      lastSyncTime, user, isSavedMessages, areMessagesLoaded, serverTimeOffset,
+      lastSyncTime, user, userStatus, isSavedMessages, areMessagesLoaded, serverTimeOffset,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadFullUser', 'openMediaViewer']),
 )(PrivateChatInfo));

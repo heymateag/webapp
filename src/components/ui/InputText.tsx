@@ -1,5 +1,8 @@
-import { ChangeEvent, FormEvent, RefObject } from 'react';
-import React, { FC, memo } from '../../lib/teact/teact';
+import type {
+  ChangeEvent, FormEvent, RefObject,
+} from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
@@ -17,6 +20,7 @@ type OwnProps = {
   placeholder?: string;
   autoComplete?: string;
   maxLength?: number;
+  tabIndex?: number;
   inputMode?: 'text' | 'none' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search';
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   onInput?: (e: FormEvent<HTMLInputElement>) => void;
@@ -40,6 +44,7 @@ const InputText: FC<OwnProps> = ({
   autoComplete,
   inputMode,
   maxLength,
+  tabIndex,
   onChange,
   onInput,
   onKeyPress,
@@ -68,6 +73,7 @@ const InputText: FC<OwnProps> = ({
         id={id}
         dir="auto"
         value={value || ''}
+        tabIndex={tabIndex}
         placeholder={placeholder}
         maxLength={maxLength}
         autoComplete={autoComplete}
@@ -80,6 +86,7 @@ const InputText: FC<OwnProps> = ({
         onKeyDown={onKeyDown}
         onBlur={onBlur}
         onPaste={onPaste}
+        aria-label={labelText}
       />
       {labelText && (
         <label htmlFor={id}>{labelText}</label>

@@ -1,8 +1,8 @@
-import { getGlobal } from '../lib/teact/teactn';
+import { getGlobal } from '../global';
 
 import { ANIMATION_LEVEL_MIN } from '../config';
-import { IS_IOS } from './environment';
 import { animate } from './animation';
+import { fastRaf } from './schedulers';
 
 const DEFAULT_DURATION = 300;
 
@@ -11,23 +11,16 @@ export default function fastSmoothScrollHorizontal(container: HTMLElement, left:
     duration = 0;
   }
 
-  // Native way seems to be smoother in Chrome
-  if (!IS_IOS) {
-    container.scrollTo({
-      left,
-      ...(duration && { behavior: 'smooth' }),
-    });
-  } else {
-    scrollWithJs(container, left, duration);
-  }
+  scrollWithJs(container, left, duration);
 }
 
 function scrollWithJs(container: HTMLElement, left: number, duration: number) {
+  const isRtl = container.getAttribute('dir') === 'rtl';
   const { scrollLeft, offsetWidth: containerWidth, scrollWidth } = container;
   let path = left - scrollLeft;
 
   if (path < 0) {
-    const remainingPath = -scrollLeft;
+    const remainingPath = -scrollLeft * (isRtl ? -1 : 1);
     path = Math.max(path, remainingPath);
   } else if (path > 0) {
     const remainingPath = scrollWidth - (scrollLeft + containerWidth);
@@ -47,13 +40,15 @@ function scrollWithJs(container: HTMLElement, left: number, duration: number) {
 
   const startAt = Date.now();
 
-  animate(() => {
-    const t = Math.min((Date.now() - startAt) / duration, 1);
+  fastRaf(() => {
+    animate(() => {
+      const t = Math.min((Date.now() - startAt) / duration, 1);
 
-    const currentPath = path * (1 - transition(t));
-    container.scrollLeft = Math.round(target - currentPath);
+      const currentPath = path * (1 - transition(t));
+      container.scrollLeft = Math.round(target - currentPath);
 
-    return t < 1;
+      return t < 1;
+    });
   });
 }
 

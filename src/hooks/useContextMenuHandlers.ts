@@ -1,17 +1,12 @@
-import { RefObject } from 'react';
+import type { RefObject } from 'react';
 import { useState, useEffect, useCallback } from '../lib/teact/teact';
 
-import { IAnchorPosition } from '../types';
+import type { IAnchorPosition } from '../types';
 import {
-  IS_TOUCH_ENV, IS_SINGLE_COLUMN_LAYOUT, IS_PWA, IS_IOS,
+  IS_TOUCH_ENV, IS_PWA, IS_IOS,
 } from '../util/environment';
 
 const LONG_TAP_DURATION_MS = 200;
-
-function checkIsDisabledForMobile() {
-  return IS_SINGLE_COLUMN_LAYOUT
-  && window.document.body.classList.contains('enable-symbol-menu-transforms');
-}
 
 function stopEvent(e: Event) {
   e.stopImmediatePropagation();
@@ -19,7 +14,7 @@ function stopEvent(e: Event) {
   e.stopPropagation();
 }
 
-export default (
+const useContextMenuHandlers = (
   elementRef: RefObject<HTMLElement>,
   isMenuDisabled?: boolean,
   shouldDisableOnLink?: boolean,
@@ -30,12 +25,12 @@ export default (
 
   const handleBeforeContextMenu = useCallback((e: React.MouseEvent) => {
     if (!isMenuDisabled && e.button === 2) {
-      document.body.classList.add('no-selection');
+      (e.target as HTMLElement).classList.add('no-selection');
     }
   }, [isMenuDisabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    document.body.classList.remove('no-selection');
+    (e.target as HTMLElement).classList.remove('no-selection');
 
     if (isMenuDisabled || (shouldDisableOnLink && (e.target as HTMLElement).matches('a[href]'))) {
       return;
@@ -56,10 +51,9 @@ export default (
 
   const handleContextMenuHide = useCallback(() => {
     setContextMenuPosition(undefined);
-    document.body.classList.remove('no-selection');
   }, []);
 
-  // Support context menu on touch-devices
+  // Support context menu on touch devices
   useEffect(() => {
     if (isMenuDisabled || !IS_TOUCH_ENV || shouldDisableOnLongTap) {
       return undefined;
@@ -102,13 +96,12 @@ export default (
         }, true);
       }
 
-      document.body.classList.add('no-selection');
       setIsContextMenuOpen(true);
       setContextMenuPosition({ x: clientX, y: clientY });
     };
 
     const startLongPressTimer = (e: TouchEvent) => {
-      if (isMenuDisabled || checkIsDisabledForMobile()) {
+      if (isMenuDisabled) {
         return;
       }
       clearLongPressTimer();
@@ -140,3 +133,5 @@ export default (
     handleContextMenuHide,
   };
 };
+
+export default useContextMenuHandlers;

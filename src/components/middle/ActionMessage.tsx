@@ -1,24 +1,25 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useEffect, useMemo, useRef,
+  memo, useEffect, useMemo, useRef,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { withGlobal } from '../../global';
 
-import { ApiUser, ApiMessage, ApiChat } from '../../api/types';
-import { FocusDirection } from '../../types';
+import type { ApiUser, ApiMessage, ApiChat } from '../../api/types';
+import type { FocusDirection } from '../../types';
 
 import {
   selectUser,
   selectChatMessage,
   selectIsMessageFocused,
   selectChat,
-} from '../../modules/selectors';
-import { isChatChannel } from '../../modules/helpers';
+} from '../../global/selectors';
+import { getMessageHtmlId, isChatChannel } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
-import renderText from '../common/helpers/renderText';
 import { renderActionMessageText } from '../common/helpers/renderActionMessageText';
 import useEnsureMessage from '../../hooks/useEnsureMessage';
 import useContextMenuHandlers from '../../hooks/useContextMenuHandlers';
-import { ObserveFn, useOnIntersect } from '../../hooks/useIntersectionObserver';
+import type { ObserveFn } from '../../hooks/useIntersectionObserver';
+import { useOnIntersect } from '../../hooks/useIntersectionObserver';
 import useFocusMessage from './message/hooks/useFocusMessage';
 import useLang from '../../hooks/useLang';
 
@@ -37,7 +38,8 @@ type OwnProps = {
 
 type StateProps = {
   usersById: Record<string, ApiUser>;
-  sender?: ApiUser | ApiChat;
+  senderUser?: ApiUser;
+  senderChat?: ApiChat;
   targetUserIds?: string[];
   targetMessage?: ApiMessage;
   targetChatId?: string;
@@ -55,7 +57,8 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   appearanceOrder = 0,
   isLastInList,
   usersById,
-  sender,
+  senderUser,
+  senderChat,
   targetUserIds,
   targetMessage,
   targetChatId,
@@ -92,11 +95,12 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   const content = renderActionMessageText(
     lang,
     message,
-    sender,
+    senderUser,
+    senderChat,
     targetUsers,
     targetMessage,
     targetChatId,
-    isEmbedded ? { isEmbedded: true, asPlain: true } : undefined,
+    { asTextWithSpoilers: isEmbedded },
   );
   const {
     isContextMenuOpen, contextMenuPosition,
@@ -111,7 +115,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   };
 
   if (isEmbedded) {
-    return <span className="embedded-action-message">{renderText(content as string)}</span>;
+    return <span className="embedded-action-message">{content}</span>;
   }
 
   const className = buildClassName(
@@ -125,7 +129,7 @@ const ActionMessage: FC<OwnProps & StateProps> = ({
   return (
     <div
       ref={ref}
-      id={`message${message.id}`}
+      id={getMessageHtmlId(message.id)}
       className={className}
       data-message-id={message.id}
       onMouseDown={handleMouseDown}
@@ -160,13 +164,14 @@ export default memo(withGlobal<OwnProps>(
     const { direction: focusDirection, noHighlight: noFocusHighlight } = (isFocused && global.focusedMessage) || {};
 
     const chat = selectChat(global, message.chatId);
-    const sender = chat && (isChatChannel(chat) || userId === message.chatId)
-      ? chat
-      : userId ? selectUser(global, userId) : undefined;
+    const isChat = chat && (isChatChannel(chat) || userId === message.chatId);
+    const senderUser = !isChat && userId ? selectUser(global, userId) : undefined;
+    const senderChat = isChat ? chat : undefined;
 
     return {
       usersById,
-      sender,
+      senderUser,
+      senderChat,
       targetChatId,
       targetUserIds,
       targetMessage,

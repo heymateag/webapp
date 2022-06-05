@@ -1,12 +1,12 @@
 import { useMemo, useRef } from '../../../lib/teact/teact';
 
-import {
-  ApiChat, ApiChatMember, ApiMessage, ApiUser,
+import type {
+  ApiChat, ApiChatMember, ApiMessage, ApiUser, ApiUserStatus,
 } from '../../../api/types';
-import { ProfileTabType, SharedMediaType } from '../../../types';
+import type { ProfileTabType, SharedMediaType } from '../../../types';
 
 import { MEMBERS_SLICE, MESSAGE_SEARCH_SLICE, SHARED_MEDIA_SLICE } from '../../../config';
-import { getMessageContentIds, sortChatIds, sortUserIds } from '../../../modules/helpers';
+import { getMessageContentIds, sortChatIds, sortUserIds } from '../../../global/helpers';
 import useOnChange from '../../../hooks/useOnChange';
 import useInfiniteScroll from '../../../hooks/useInfiniteScroll';
 
@@ -20,6 +20,7 @@ export default function useProfileViewportIds(
   groupChatMembers?: ApiChatMember[],
   commonChatIds?: string[],
   usersById?: Record<string, ApiUser>,
+  userStatusesById?: Record<string, ApiUserStatus>,
   chatsById?: Record<string, ApiChat>,
   chatMessages?: Record<number, ApiMessage>,
   foundIds?: number[],
@@ -30,12 +31,18 @@ export default function useProfileViewportIds(
   const resultType = tabType === 'members' || !mediaSearchType ? tabType : mediaSearchType;
 
   const memberIds = useMemo(() => {
-    if (!groupChatMembers || !usersById) {
+    if (!groupChatMembers || !usersById || !userStatusesById) {
       return undefined;
     }
 
-    return sortUserIds(groupChatMembers.map(({ userId }) => userId), usersById, undefined, serverTimeOffset);
-  }, [groupChatMembers, serverTimeOffset, usersById]);
+    return sortUserIds(
+      groupChatMembers.map(({ userId }) => userId),
+      usersById,
+      userStatusesById,
+      undefined,
+      serverTimeOffset,
+    );
+  }, [groupChatMembers, serverTimeOffset, usersById, userStatusesById]);
 
   const chatIds = useMemo(() => {
     if (!commonChatIds || !chatsById) {
@@ -152,7 +159,7 @@ function useInfiniteScrollForSharedMedia(
         chatMessages,
         foundIds,
         forSharedMediaType,
-      ).reverse();
+      );
     }
   }, [chatMessages, foundIds, currentResultType, forSharedMediaType]);
 

@@ -1,34 +1,40 @@
 import { useMemo } from '../lib/teact/teact';
-import { getDispatch } from '../lib/teact/teactn';
+import { getActions } from '../global';
 
-import { ApiChat, ApiUser } from '../api/types';
+import type { ApiChat, ApiUser } from '../api/types';
 
+import { SERVICE_NOTIFICATIONS_USER_ID } from '../config';
 import {
-  isChatArchived, getCanDeleteChat, isUserId, isChatChannel,
-} from '../modules/helpers';
+  isChatArchived, getCanDeleteChat, isUserId, isChatChannel, isChatGroup,
+} from '../global/helpers';
 import { compact } from '../util/iteratees';
 import useLang from './useLang';
 
-export default ({
+const useChatContextActions = ({
   chat,
-  privateChatUser,
-  handleDelete,
-  handleChatFolderChange,
+  user,
   folderId,
   isPinned,
   isMuted,
+  canChangeFolder,
+  handleDelete,
+  handleChatFolderChange,
+  handleReport,
 }: {
   chat: ApiChat | undefined;
-  privateChatUser: ApiUser | undefined;
-  handleDelete: () => void;
-  handleChatFolderChange: () => void;
+  user: ApiUser | undefined;
   folderId?: number;
   isPinned?: boolean;
   isMuted?: boolean;
+  canChangeFolder?: boolean;
+  handleDelete: () => void;
+  handleChatFolderChange: () => void;
+  handleReport?: () => void;
 }, isInSearch = false) => {
   const lang = useLang();
 
-  const { isSelf } = privateChatUser || {};
+  const { isSelf } = user || {};
+  const isServiceNotifications = user?.id === SERVICE_NOTIFICATIONS_USER_ID;
 
   return useMemo(() => {
     if (!chat) {
@@ -40,13 +46,13 @@ export default ({
       updateChatMutedState,
       toggleChatArchived,
       toggleChatUnread,
-    } = getDispatch();
+    } = getActions();
 
-    const actionAddToFolder = {
+    const actionAddToFolder = canChangeFolder ? {
       title: lang('ChatList.Filter.AddToFolder'),
       icon: 'folder',
       handler: handleChatFolderChange,
-    };
+    } : undefined;
 
     const actionPin = isPinned
       ? {
@@ -57,7 +63,7 @@ export default ({
       : { title: lang('PinToTop'), icon: 'pin', handler: () => toggleChatPinned({ id: chat.id, folderId }) };
 
     if (isInSearch) {
-      return [actionPin, actionAddToFolder];
+      return compact([actionPin, actionAddToFolder]);
     }
 
     const actionUnreadMark = chat.unreadCount || chat.hasUnreadMark
@@ -80,6 +86,11 @@ export default ({
       ? { title: lang('Unarchive'), icon: 'unarchive', handler: () => toggleChatArchived({ id: chat.id }) }
       : { title: lang('Archive'), icon: 'archive', handler: () => toggleChatArchived({ id: chat.id }) };
 
+    const canReport = handleReport && (isChatChannel(chat) || isChatGroup(chat) || (user && !user.isSelf));
+    const actionReport = canReport
+      ? { title: lang('ReportPeer.Report'), icon: 'flag', handler: handleReport }
+      : undefined;
+
     const actionDelete = {
       title: isUserId(chat.id)
         ? lang('Delete')
@@ -98,8 +109,14 @@ export default ({
       actionUnreadMark,
       actionPin,
       !isSelf && actionMute,
-      !isSelf && !isInFolder && actionArchive,
+      !isSelf && !isServiceNotifications && !isInFolder && actionArchive,
+      actionReport,
       actionDelete,
     ]);
-  }, [chat, lang, handleChatFolderChange, isPinned, isInSearch, isMuted, handleDelete, folderId, isSelf]);
+  }, [
+    chat, user, canChangeFolder, lang, handleChatFolderChange, isPinned, isInSearch, isMuted,
+    handleDelete, handleReport, folderId, isSelf, isServiceNotifications,
+  ]);
 };
+
+export default useChatContextActions;

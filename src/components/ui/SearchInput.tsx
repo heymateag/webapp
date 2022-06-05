@@ -1,6 +1,7 @@
-import { RefObject } from 'react';
+import type { RefObject } from 'react';
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useRef, useEffect, memo, useCallback,
+  useRef, useEffect, memo, useCallback,
 } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
@@ -10,18 +11,21 @@ import useInputFocusOnOpen from '../../hooks/useInputFocusOnOpen';
 
 import Loading from './Loading';
 import Button from './Button';
+import ShowTransition from './ShowTransition';
 
 import './SearchInput.scss';
 
 type OwnProps = {
   ref?: RefObject<HTMLInputElement>;
-  children?: any;
+  children?: React.ReactNode;
   parentContainerClassName?: string;
   className?: string;
   inputId?: string;
   value?: string;
   focused?: boolean;
   isLoading?: boolean;
+  spinnerColor?: 'yellow';
+  spinnerBackgroundColor?: 'light';
   placeholder?: string;
   disabled?: boolean;
   autoComplete?: string;
@@ -31,6 +35,7 @@ type OwnProps = {
   onReset?: NoneToVoidFunction;
   onFocus?: NoneToVoidFunction;
   onBlur?: NoneToVoidFunction;
+  onSpinnerClick?: NoneToVoidFunction;
 };
 
 const SearchInput: FC<OwnProps> = ({
@@ -42,6 +47,8 @@ const SearchInput: FC<OwnProps> = ({
   className,
   focused,
   isLoading,
+  spinnerColor,
+  spinnerBackgroundColor,
   placeholder,
   disabled,
   autoComplete,
@@ -51,6 +58,7 @@ const SearchInput: FC<OwnProps> = ({
   onReset,
   onFocus,
   onBlur,
+  onSpinnerClick,
 }) => {
   // eslint-disable-next-line no-null/no-null
   let inputRef = useRef<HTMLInputElement>(null);
@@ -126,9 +134,9 @@ const SearchInput: FC<OwnProps> = ({
         onKeyDown={handleKeyDown}
       />
       <i className="icon-search" />
-      {isLoading && (
-        <Loading />
-      )}
+      <ShowTransition isOpen={Boolean(isLoading)} className="slow">
+        <Loading color={spinnerColor} backgroundColor={spinnerBackgroundColor} onClick={onSpinnerClick} />
+      </ShowTransition>
       {!isLoading && (value || canClose) && onReset && (
         <Button
           round

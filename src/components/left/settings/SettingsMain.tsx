@@ -1,12 +1,11 @@
-import React, { FC, memo, useEffect } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useEffect } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
 import { SettingsScreens } from '../../../types';
-import { ApiUser } from '../../../api/types';
+import type { ApiUser } from '../../../api/types';
 
-import { selectUser } from '../../../modules/selectors';
-import { pick } from '../../../util/iteratees';
+import { selectUser } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
@@ -21,20 +20,21 @@ type OwnProps = {
 };
 
 type StateProps = {
+  sessionCount: number;
   currentUser?: ApiUser;
   lastSyncTime?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadProfilePhotos'>;
-
-const SettingsMain: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsMain: FC<OwnProps & StateProps> = ({
   isActive,
   onScreenSelect,
   onReset,
-  loadProfilePhotos,
   currentUser,
+  sessionCount,
   lastSyncTime,
 }) => {
+  const { loadProfilePhotos, loadAuthorizations } = getActions();
+
   const lang = useLang();
   const profileId = currentUser?.id;
 
@@ -44,7 +44,16 @@ const SettingsMain: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [lastSyncTime, profileId, loadProfilePhotos]);
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.Main);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
+
+  useEffect(() => {
+    if (lastSyncTime) {
+      loadAuthorizations();
+    }
+  }, [lastSyncTime, loadAuthorizations]);
 
   return (
     <div className="settings-content custom-scroll">
@@ -63,39 +72,54 @@ const SettingsMain: FC<OwnProps & StateProps & DispatchProps> = ({
         )}
         <ListItem
           icon="settings"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.General)}
         >
           {lang('Telegram.GeneralSettingsViewController')}
         </ListItem>
         <ListItem
           icon="unmute"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Notifications)}
         >
           {lang('Notifications')}
         </ListItem>
         <ListItem
-          icon="lock"
-          onClick={() => onScreenSelect(SettingsScreens.Privacy)}
-        >
-          {lang('PrivacySettings')}
-        </ListItem>
-        <ListItem
           icon="data"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.DataStorage)}
         >
           {lang('DataSettings')}
         </ListItem>
         <ListItem
+          icon="lock"
+          // eslint-disable-next-line react/jsx-no-bind
+          onClick={() => onScreenSelect(SettingsScreens.Privacy)}
+        >
+          {lang('PrivacySettings')}
+        </ListItem>
+        <ListItem
           icon="folder"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Folders)}
         >
           {lang('Filters')}
         </ListItem>
         <ListItem
+          icon="active-sessions"
+          // eslint-disable-next-line react/jsx-no-bind
+          onClick={() => onScreenSelect(SettingsScreens.ActiveSessions)}
+        >
+          {lang('SessionsTitle')}
+          {sessionCount > 0 && (<span className="settings-item__current-value">{sessionCount}</span>)}
+        </ListItem>
+        <ListItem
           icon="language"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.Language)}
         >
           {lang('Language')}
+          <span className="settings-item__current-value">{lang.langName}</span>
         </ListItem>
       </div>
     </div>
@@ -107,9 +131,9 @@ export default memo(withGlobal<OwnProps>(
     const { currentUserId, lastSyncTime } = global;
 
     return {
+      sessionCount: global.activeSessions.orderedHashes.length,
       currentUser: currentUserId ? selectUser(global, currentUserId) : undefined,
       lastSyncTime,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadProfilePhotos']),
 )(SettingsMain));

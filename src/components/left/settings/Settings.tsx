@@ -1,7 +1,8 @@
-import React, { FC, memo, useCallback } from '../../../lib/teact/teact';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useState } from '../../../lib/teact/teact';
 
 import { SettingsScreens } from '../../../types';
-import { FolderEditDispatch, FoldersState } from '../../../hooks/reducers/useFoldersReducer';
+import type { FolderEditDispatch, FoldersState } from '../../../hooks/reducers/useFoldersReducer';
 
 import { LAYERS_ANIMATION_NAME } from '../../../util/environment';
 import useTwoFaReducer from '../../../hooks/reducers/useTwoFaReducer';
@@ -19,10 +20,12 @@ import SettingsNotifications from './SettingsNotifications';
 import SettingsPrivacy from './SettingsPrivacy';
 import SettingsLanguage from './SettingsLanguage';
 import SettingsPrivacyVisibility from './SettingsPrivacyVisibility';
-import SettingsPrivacyActiveSessions from './SettingsPrivacyActiveSessions';
+import SettingsActiveSessions from './SettingsActiveSessions';
 import SettingsPrivacyBlockedUsers from './SettingsPrivacyBlockedUsers';
 import SettingsTwoFa from './twoFa/SettingsTwoFa';
 import SettingsPrivacyVisibilityExceptionList from './SettingsPrivacyVisibilityExceptionList';
+import SettingsQuickReaction from './SettingsQuickReaction';
+import SettingsPasscode from './passcode/SettingsPasscode';
 
 import './Settings.scss';
 
@@ -48,6 +51,11 @@ const TWO_FA_SCREENS = [
   SettingsScreens.TwoFaRecoveryEmailCode,
 ];
 
+const PASSCODE_SCREENS = [
+  SettingsScreens.PasscodeDisabled,
+  SettingsScreens.PasscodeEnabled,
+];
+
 const FOLDERS_SCREENS = [
   SettingsScreens.Folders,
   SettingsScreens.FoldersCreateFolder,
@@ -61,7 +69,7 @@ const FOLDERS_SCREENS = [
 
 const PRIVACY_SCREENS = [
   SettingsScreens.PrivacyBlockedUsers,
-  SettingsScreens.PrivacyActiveSessions,
+  SettingsScreens.ActiveSessions,
 ];
 
 const PRIVACY_PHONE_NUMBER_SCREENS = [
@@ -77,6 +85,16 @@ const PRIVACY_LAST_SEEN_PHONE_SCREENS = [
 const PRIVACY_PROFILE_PHOTO_SCREENS = [
   SettingsScreens.PrivacyProfilePhotoAllowedContacts,
   SettingsScreens.PrivacyProfilePhotoDeniedContacts,
+];
+
+const PRIVACY_PHONE_CALL_SCREENS = [
+  SettingsScreens.PrivacyPhoneCallAllowedContacts,
+  SettingsScreens.PrivacyPhoneCallDeniedContacts,
+];
+
+const PRIVACY_PHONE_P2P_SCREENS = [
+  SettingsScreens.PrivacyPhoneP2PAllowedContacts,
+  SettingsScreens.PrivacyPhoneP2PDeniedContacts,
 ];
 
 const PRIVACY_FORWARDING_SCREENS = [
@@ -96,7 +114,7 @@ export type OwnProps = {
   foldersDispatch: FolderEditDispatch;
   onScreenSelect: (screen: SettingsScreens) => void;
   shouldSkipTransition?: boolean;
-  onReset: () => void;
+  onReset: (forceReturnToChatList?: true | Event) => void;
 };
 
 const Settings: FC<OwnProps> = ({
@@ -109,8 +127,14 @@ const Settings: FC<OwnProps> = ({
   shouldSkipTransition,
 }) => {
   const [twoFaState, twoFaDispatch] = useTwoFaReducer();
+  const [privacyPasscode, setPrivacyPasscode] = useState<string>('');
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback((forceReturnToChatList?: true | Event) => {
+    if (forceReturnToChatList === true) {
+      onReset(true);
+      return;
+    }
+
     if (
       currentScreen === SettingsScreens.FoldersCreateFolder
       || currentScreen === SettingsScreens.FoldersEditFolder
@@ -149,14 +173,18 @@ const Settings: FC<OwnProps> = ({
       [SettingsScreens.PrivacyPhoneNumber]: PRIVACY_PHONE_NUMBER_SCREENS.includes(screen),
       [SettingsScreens.PrivacyLastSeen]: PRIVACY_LAST_SEEN_PHONE_SCREENS.includes(screen),
       [SettingsScreens.PrivacyProfilePhoto]: PRIVACY_PROFILE_PHOTO_SCREENS.includes(screen),
+      [SettingsScreens.PrivacyPhoneCall]: PRIVACY_PHONE_CALL_SCREENS.includes(screen),
+      [SettingsScreens.PrivacyPhoneP2P]: PRIVACY_PHONE_P2P_SCREENS.includes(screen),
       [SettingsScreens.PrivacyForwarding]: PRIVACY_FORWARDING_SCREENS.includes(screen),
       [SettingsScreens.PrivacyGroupChats]: PRIVACY_GROUP_CHATS_SCREENS.includes(screen),
     };
 
     const isTwoFaScreen = TWO_FA_SCREENS.includes(screen);
+    const isPasscodeScreen = PASSCODE_SCREENS.includes(screen);
     const isFoldersScreen = FOLDERS_SCREENS.includes(screen);
     const isPrivacyScreen = PRIVACY_SCREENS.includes(screen)
       || isTwoFaScreen
+      || isPasscodeScreen
       || Object.keys(privacyAllowScreens).includes(screen.toString())
       || Object.values(privacyAllowScreens).find((key) => key === true);
 
@@ -168,7 +196,6 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.EditProfile:
         return (
           <SettingsEditProfile
-            onScreenSelect={onScreenSelect}
             isActive={isActive && isScreenActive}
             onReset={handleReset}
           />
@@ -178,31 +205,36 @@ const Settings: FC<OwnProps> = ({
           <SettingsGeneral
             onScreenSelect={onScreenSelect}
             isActive={isScreenActive
-            || screen === SettingsScreens.GeneralChatBackgroundColor
-            || screen === SettingsScreens.GeneralChatBackground
-            || isPrivacyScreen || isFoldersScreen}
+              || screen === SettingsScreens.GeneralChatBackgroundColor
+              || screen === SettingsScreens.GeneralChatBackground
+              || screen === SettingsScreens.QuickReaction
+              || isPrivacyScreen || isFoldersScreen}
             onReset={handleReset}
           />
         );
+      case SettingsScreens.QuickReaction:
+        return (
+          <SettingsQuickReaction isActive={isScreenActive} onReset={handleReset} />
+        );
       case SettingsScreens.Notifications:
         return (
-          <SettingsNotifications onScreenSelect={onScreenSelect} isActive={isScreenActive} onReset={handleReset} />
+          <SettingsNotifications isActive={isScreenActive} onReset={handleReset} />
         );
       case SettingsScreens.DataStorage:
         return (
-          <SettingsDataStorage onScreenSelect={onScreenSelect} isActive={isScreenActive} onReset={handleReset} />
+          <SettingsDataStorage isActive={isScreenActive} onReset={handleReset} />
         );
       case SettingsScreens.Privacy:
         return (
           <SettingsPrivacy
             onScreenSelect={onScreenSelect}
-            isActive={isScreenActive || isPrivacyScreen || isTwoFaScreen}
+            isActive={isScreenActive || isPrivacyScreen}
             onReset={handleReset}
           />
         );
       case SettingsScreens.Language:
         return (
-          <SettingsLanguage onScreenSelect={onScreenSelect} isActive={isScreenActive} onReset={handleReset} />
+          <SettingsLanguage isActive={isScreenActive} onReset={handleReset} />
         );
       case SettingsScreens.GeneralChatBackground:
         return (
@@ -215,15 +247,13 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.GeneralChatBackgroundColor:
         return (
           <SettingsGeneralBackgroundColor
-            onScreenSelect={onScreenSelect}
             isActive={isScreenActive}
             onReset={handleReset}
           />
         );
-      case SettingsScreens.PrivacyActiveSessions:
+      case SettingsScreens.ActiveSessions:
         return (
-          <SettingsPrivacyActiveSessions
-            onScreenSelect={onScreenSelect}
+          <SettingsActiveSessions
             isActive={isScreenActive}
             onReset={handleReset}
           />
@@ -231,7 +261,6 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.PrivacyBlockedUsers:
         return (
           <SettingsPrivacyBlockedUsers
-            onScreenSelect={onScreenSelect}
             isActive={isScreenActive}
             onReset={handleReset}
           />
@@ -239,6 +268,8 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.PrivacyPhoneNumber:
       case SettingsScreens.PrivacyLastSeen:
       case SettingsScreens.PrivacyProfilePhoto:
+      case SettingsScreens.PrivacyPhoneCall:
+      case SettingsScreens.PrivacyPhoneP2P:
       case SettingsScreens.PrivacyForwarding:
       case SettingsScreens.PrivacyGroupChats:
         return (
@@ -253,6 +284,8 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.PrivacyPhoneNumberAllowedContacts:
       case SettingsScreens.PrivacyLastSeenAllowedContacts:
       case SettingsScreens.PrivacyProfilePhotoAllowedContacts:
+      case SettingsScreens.PrivacyPhoneCallAllowedContacts:
+      case SettingsScreens.PrivacyPhoneP2PAllowedContacts:
       case SettingsScreens.PrivacyForwardingAllowedContacts:
       case SettingsScreens.PrivacyGroupChatsAllowedContacts:
         return (
@@ -268,6 +301,8 @@ const Settings: FC<OwnProps> = ({
       case SettingsScreens.PrivacyPhoneNumberDeniedContacts:
       case SettingsScreens.PrivacyLastSeenDeniedContacts:
       case SettingsScreens.PrivacyProfilePhotoDeniedContacts:
+      case SettingsScreens.PrivacyPhoneCallDeniedContacts:
+      case SettingsScreens.PrivacyPhoneP2PDeniedContacts:
       case SettingsScreens.PrivacyForwardingDeniedContacts:
       case SettingsScreens.PrivacyGroupChatsDeniedContacts:
         return (
@@ -320,6 +355,27 @@ const Settings: FC<OwnProps> = ({
             currentScreen={currentScreen}
             state={twoFaState}
             dispatch={twoFaDispatch}
+            shownScreen={screen}
+            isActive={isScreenActive}
+            onScreenSelect={onScreenSelect}
+            onReset={handleReset}
+          />
+        );
+
+      case SettingsScreens.PasscodeDisabled:
+      case SettingsScreens.PasscodeNewPasscode:
+      case SettingsScreens.PasscodeNewPasscodeConfirm:
+      case SettingsScreens.PasscodeChangePasscodeCurrent:
+      case SettingsScreens.PasscodeChangePasscodeNew:
+      case SettingsScreens.PasscodeChangePasscodeConfirm:
+      case SettingsScreens.PasscodeCongratulations:
+      case SettingsScreens.PasscodeEnabled:
+      case SettingsScreens.PasscodeTurnOff:
+        return (
+          <SettingsPasscode
+            currentScreen={currentScreen}
+            passcode={privacyPasscode}
+            onSetPasscode={setPrivacyPasscode}
             shownScreen={screen}
             isActive={isScreenActive}
             onScreenSelect={onScreenSelect}

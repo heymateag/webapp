@@ -1,76 +1,55 @@
+import type { FC } from '../../../../lib/teact/teact';
 import React, {
-  FC, memo, useMemo, useCallback, useState, useEffect,
+  memo, useMemo, useCallback, useEffect,
 } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../../global';
 
-import { GlobalActions } from '../../../../global/types';
-import { ApiChatFolder, ApiChat, ApiUser } from '../../../../api/types';
-import { NotifyException, NotifySettings, SettingsScreens } from '../../../../types';
+import type { ApiChatFolder } from '../../../../api/types';
 
 import { STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
-import { pick } from '../../../../util/iteratees';
-import { selectNotifyExceptions, selectNotifySettings } from '../../../../modules/selectors';
+import { LOCAL_TGS_URLS } from '../../../common/helpers/animatedAssets';
 import { throttle } from '../../../../util/schedulers';
-import getAnimationData from '../../../common/helpers/animatedAssets';
-import { getFolderDescriptionText } from '../../../../modules/helpers';
+import { getFolderDescriptionText } from '../../../../global/helpers';
 import useLang from '../../../../hooks/useLang';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
+import { useFolderManagerForChatsCount } from '../../../../hooks/useFolderManager';
 
 import ListItem from '../../../ui/ListItem';
 import Button from '../../../ui/Button';
 import Loading from '../../../ui/Loading';
-import AnimatedSticker from '../../../common/AnimatedSticker';
+import AnimatedIcon from '../../../common/AnimatedIcon';
 
 type OwnProps = {
+  isActive?: boolean;
   onCreateFolder: () => void;
   onEditFolder: (folder: ApiChatFolder) => void;
-  isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
 type StateProps = {
-  chatsById: Record<string, ApiChat>;
-  usersById: Record<string, ApiUser>;
   orderedFolderIds?: number[];
   foldersById: Record<number, ApiChatFolder>;
   recommendedChatFolders?: ApiChatFolder[];
-  notifySettings: NotifySettings;
-  notifyExceptions?: Record<number, NotifyException>;
 };
-
-type DispatchProps = Pick<GlobalActions, 'loadRecommendedChatFolders' | 'addChatFolder' | 'showDialog'>;
 
 const runThrottledForLoadRecommended = throttle((cb) => cb(), 60000, true);
 
 const MAX_ALLOWED_FOLDERS = 10;
 
-const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsFoldersMain: FC<OwnProps & StateProps> = ({
+  isActive,
   onCreateFolder,
   onEditFolder,
-  isActive,
-  onScreenSelect,
   onReset,
-  chatsById,
-  usersById,
   orderedFolderIds,
   foldersById,
   recommendedChatFolders,
-  notifySettings,
-  notifyExceptions,
-  loadRecommendedChatFolders,
-  addChatFolder,
-  showDialog,
 }) => {
-  const [animationData, setAnimationData] = useState<Record<string, any>>();
-  const [isAnimationLoaded, setIsAnimationLoaded] = useState(false);
-  const handleAnimationLoad = useCallback(() => setIsAnimationLoaded(true), []);
-
-  useEffect(() => {
-    if (!animationData) {
-      getAnimationData('FoldersAll').then(setAnimationData);
-    }
-  }, [animationData]);
+  const {
+    loadRecommendedChatFolders,
+    addChatFolder,
+    showDialog,
+  } = getActions();
 
   // Due to the parent Transition, this component never gets unmounted,
   // that's why we use throttled API call on every update.
@@ -97,14 +76,16 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.Folders);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
+  const chatsCountByFolderId = useFolderManagerForChatsCount();
   const userFolders = useMemo(() => {
     if (!orderedFolderIds) {
       return undefined;
     }
-
-    const chatIds = Object.keys(chatsById);
 
     return orderedFolderIds.map((id) => {
       const folder = foldersById[id];
@@ -112,12 +93,10 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
       return {
         id: folder.id,
         title: folder.title,
-        subtitle: getFolderDescriptionText(
-          lang, chatsById, usersById, folder, chatIds, notifySettings, notifyExceptions,
-        ),
+        subtitle: getFolderDescriptionText(lang, folder, chatsCountByFolderId[folder.id]),
       };
     });
-  }, [orderedFolderIds, chatsById, foldersById, usersById, notifySettings, notifyExceptions, lang]);
+  }, [orderedFolderIds, foldersById, lang, chatsCountByFolderId]);
 
   const handleCreateFolderFromRecommended = useCallback((folder: ApiChatFolder) => {
     if (Object.keys(foldersById).length >= MAX_ALLOWED_FOLDERS) {
@@ -135,20 +114,13 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [foldersById, addChatFolder, showDialog]);
 
   return (
-    <div className="settings-content custom-scroll">
+    <div className="settings-content no-border custom-scroll">
       <div className="settings-content-header">
-        <div className="settings-content-icon">
-          {animationData && (
-            <AnimatedSticker
-              id="settingsFoldersMain"
-              size={STICKER_SIZE_FOLDER_SETTINGS}
-              animationData={animationData}
-              play={isAnimationLoaded}
-              noLoop
-              onLoad={handleAnimationLoad}
-            />
-          )}
-        </div>
+        <AnimatedIcon
+          size={STICKER_SIZE_FOLDER_SETTINGS}
+          tgsUrl={LOCAL_TGS_URLS.FoldersAll}
+          className="settings-content-icon"
+        />
 
         <p className="settings-item-description mb-3" dir="auto">
           {lang('CreateNewFilterInfo')}
@@ -177,6 +149,7 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
             className="mb-2 no-icon"
             narrow
             multiline
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={() => onEditFolder(foldersById[folder.id])}
           >
             <span className="title">{folder.title}</span>
@@ -189,7 +162,7 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
         ) : <Loading />}
       </div>
 
-      {(recommendedChatFolders && !!recommendedChatFolders.length) && (
+      {(recommendedChatFolders && Boolean(recommendedChatFolders.length)) && (
         <div className="settings-item pt-3">
           <h4 className="settings-item-header mb-3" dir={lang.isRtl ? 'rtl' : undefined}>
             {lang('FilterRecommended')}
@@ -199,6 +172,7 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
             <ListItem
               className="mb-2"
               narrow
+              // eslint-disable-next-line react/jsx-no-bind
               onClick={() => handleCreateFolderFromRecommended(folder)}
             >
               <div className="settings-folders-recommended-item">
@@ -229,25 +203,15 @@ const SettingsFoldersMain: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const {
-      chats: { byId: chatsById },
-      users: { byId: usersById },
-    } = global;
-
-    const {
       orderedIds: orderedFolderIds,
       byId: foldersById,
       recommended: recommendedChatFolders,
     } = global.chatFolders;
 
     return {
-      chatsById,
-      usersById,
       orderedFolderIds,
       foldersById,
       recommendedChatFolders,
-      notifySettings: selectNotifySettings(global),
-      notifyExceptions: selectNotifyExceptions(global),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadRecommendedChatFolders', 'addChatFolder', 'showDialog']),
 )(SettingsFoldersMain));

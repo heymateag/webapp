@@ -1,11 +1,10 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useRef,
+  memo, useCallback, useEffect, useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiBotInlineMediaResult, ApiBotInlineResult, ApiBotInlineSwitchPm } from '../../../api/types';
-import { IAllowedAttachmentOptions } from '../../../modules/helpers';
+import type { ApiBotInlineMediaResult, ApiBotInlineResult, ApiBotInlineSwitchPm } from '../../../api/types';
 import { LoadMoreDirection } from '../../../types';
 
 import { IS_TOUCH_ENV } from '../../../util/environment';
@@ -13,7 +12,6 @@ import setTooltipItemVisible from '../../../util/setTooltipItemVisible';
 import buildClassName from '../../../util/buildClassName';
 import useShowTransition from '../../../hooks/useShowTransition';
 import { throttle } from '../../../util/schedulers';
-import { pick } from '../../../util/iteratees';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
 import usePrevious from '../../../hooks/usePrevious';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
@@ -34,28 +32,34 @@ export type OwnProps = {
   isOpen: boolean;
   botId?: string;
   isGallery?: boolean;
-  allowedAttachmentOptions: IAllowedAttachmentOptions;
   inlineBotResults?: (ApiBotInlineResult | ApiBotInlineMediaResult)[];
   switchPm?: ApiBotInlineSwitchPm;
-  onSelectResult: (inlineResult: ApiBotInlineMediaResult | ApiBotInlineResult) => void;
+  isSavedMessages?: boolean;
+  canSendGifs?: boolean;
+  onSelectResult: (
+    inlineResult: ApiBotInlineMediaResult | ApiBotInlineResult, isSilent?: boolean, shouldSchedule?: boolean
+  ) => void;
   loadMore: NoneToVoidFunction;
   onClose: NoneToVoidFunction;
 };
 
-type DispatchProps = Pick<GlobalActions, ('startBot' | 'openChat' | 'sendInlineBotResult')>;
-
-const InlineBotTooltip: FC<OwnProps & DispatchProps> = ({
+const InlineBotTooltip: FC<OwnProps> = ({
   isOpen,
   botId,
   isGallery,
   inlineBotResults,
   switchPm,
+  isSavedMessages,
+  canSendGifs,
   loadMore,
   onClose,
-  openChat,
-  startBot,
   onSelectResult,
 }) => {
+  const {
+    openChat,
+    startBot,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const containerRef = useRef<HTMLDivElement>(null);
   const { shouldRender, transitionClassNames } = useShowTransition(isOpen, undefined, undefined, false);
@@ -101,7 +105,7 @@ const InlineBotTooltip: FC<OwnProps & DispatchProps> = ({
     ? prevInlineBotResults
     : inlineBotResults;
 
-  if (!shouldRender || !renderedInlineBotResults || (!renderedInlineBotResults.length && !switchPm)) {
+  if (!shouldRender || !(renderedInlineBotResults?.length || switchPm)) {
     return undefined;
   }
 
@@ -130,6 +134,8 @@ const InlineBotTooltip: FC<OwnProps & DispatchProps> = ({
               inlineResult={inlineBotResult}
               observeIntersection={observeIntersection}
               onClick={onSelectResult}
+              isSavedMessages={isSavedMessages}
+              canSendGifs={canSendGifs}
             />
           );
 
@@ -150,10 +156,12 @@ const InlineBotTooltip: FC<OwnProps & DispatchProps> = ({
               inlineResult={inlineBotResult}
               observeIntersection={observeIntersection}
               onClick={onSelectResult}
+              isSavedMessages={isSavedMessages}
             />
           );
 
         case 'video':
+        case 'file':
         case 'game':
           return (
             <MediaResult
@@ -191,14 +199,9 @@ const InlineBotTooltip: FC<OwnProps & DispatchProps> = ({
       sensitiveArea={160}
     >
       {switchPm && renderSwitchPm()}
-      {renderContent()}
+      {renderedInlineBotResults?.length && renderContent()}
     </InfiniteScroll>
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'startBot', 'openChat', 'sendInlineBotResult',
-  ]),
-)(InlineBotTooltip));
+export default memo(InlineBotTooltip);

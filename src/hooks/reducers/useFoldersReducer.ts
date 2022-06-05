@@ -1,5 +1,6 @@
-import useReducer, { StateReducer, Dispatch } from '../useReducer';
-import { ApiChatFolder } from '../../api/types';
+import type { StateReducer, Dispatch } from '../useReducer';
+import useReducer from '../useReducer';
+import type { ApiChatFolder } from '../../api/types';
 import { pick, omit } from '../../util/iteratees';
 
 export type FolderChatType = {
@@ -238,6 +239,8 @@ const foldersReducer: StateReducer<FoldersState, FoldersActions> = (
   }
 };
 
-export default () => {
+const useFoldersReducer = () => {
   return useReducer(foldersReducer, INITIAL_STATE);
 };
+
+export default useFoldersReducer;

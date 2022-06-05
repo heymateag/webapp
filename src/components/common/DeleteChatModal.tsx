@@ -1,10 +1,10 @@
-import React, { FC, useCallback, memo } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback, memo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiChat } from '../../api/types';
-import { GlobalActions } from '../../global/types';
+import type { ApiChat } from '../../api/types';
 
-import { selectIsChatWithSelf, selectUser } from '../../modules/selectors';
+import { selectIsChatWithSelf, selectUser } from '../../global/selectors';
 import {
   isUserId,
   isUserBot,
@@ -14,8 +14,7 @@ import {
   isChatSuperGroup,
   isChatChannel,
   getChatTitle,
-} from '../../modules/helpers';
-import { pick } from '../../util/iteratees';
+} from '../../global/helpers';
 import useLang from '../../hooks/useLang';
 import renderText from './helpers/renderText';
 
@@ -44,11 +43,7 @@ type StateProps = {
   contactName?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'leaveChannel' | 'deleteHistory' | 'deleteChannel' | 'deleteChatUser' | 'blockContact'
-)>;
-
-const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
+const DeleteChatModal: FC<OwnProps & StateProps> = ({
   isOpen,
   chat,
   isChannel,
@@ -62,12 +57,15 @@ const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
   contactName,
   onClose,
   onCloseAnimationEnd,
-  leaveChannel,
-  deleteHistory,
-  deleteChannel,
-  deleteChatUser,
-  blockContact,
 }) => {
+  const {
+    leaveChannel,
+    deleteHistory,
+    deleteChannel,
+    deleteChatUser,
+    blockContact,
+  } = getActions();
+
   const lang = useLang();
   const chatTitle = getChatTitle(lang, chat);
 
@@ -110,6 +108,15 @@ const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
     leaveChannel,
     deleteChannel,
   ]);
+
+  const handleLeaveChat = useCallback(() => {
+    if (isChannel || isSuperGroup) {
+      leaveChannel({ chatId: chat.id });
+      onClose();
+    } else {
+      handleDeleteChat();
+    }
+  }, [chat.id, handleDeleteChat, isChannel, isSuperGroup, leaveChannel, onClose]);
 
   function renderHeader() {
     return (
@@ -186,7 +193,17 @@ const DeleteChatModal: FC<OwnProps & StateProps & DispatchProps> = ({
           {contactName ? renderText(lang('ChatList.DeleteForEveryone', contactName)) : lang('DeleteForAll')}
         </Button>
       )}
-      <Button color="danger" className="confirm-dialog-button" isText onClick={handleDeleteChat}>
+      {!isPrivateChat && chat.isCreator && (
+        <Button color="danger" className="confirm-dialog-button" isText onClick={handleDeleteChat}>
+          {lang('DeleteForAll')}
+        </Button>
+      )}
+      <Button
+        color="danger"
+        className="confirm-dialog-button"
+        isText
+        onClick={isPrivateChat ? handleDeleteChat : handleLeaveChat}
+      >
         {lang(renderActionText())}
       </Button>
       <Button className="confirm-dialog-button" isText onClick={onClose}>{lang('Cancel')}</Button>
@@ -217,6 +234,4 @@ export default memo(withGlobal<OwnProps>(
       contactName,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions,
-    ['leaveChannel', 'deleteHistory', 'deleteChannel', 'deleteChatUser', 'blockContact']),
 )(DeleteChatModal));

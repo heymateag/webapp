@@ -1,14 +1,16 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useLayoutEffect, useMemo, useRef,
+  memo, useCallback, useLayoutEffect, useMemo, useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
-import useLang, { LangFn } from '../../../hooks/useLang';
+import type { LangFn } from '../../../hooks/useLang';
+import useLang from '../../../hooks/useLang';
 
-import { GlobalActions } from '../../../global/types';
-import {
-  ApiChat, ApiUser, ApiMessage, ApiMessageOutgoingStatus, ApiFormattedText, MAIN_THREAD_ID,
+import type {
+  ApiChat, ApiUser, ApiMessage, ApiMessageOutgoingStatus, ApiFormattedText, ApiUserStatus,
 } from '../../../api/types';
+import { MAIN_THREAD_ID } from '../../../api/types';
 
 import { ANIMATION_END_DELAY } from '../../../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
@@ -21,27 +23,26 @@ import {
   getMessageSenderName,
   isChatChannel,
   getMessageMediaHash,
-  getMessageSummaryText,
   getMessageMediaThumbDataUri,
   getMessageVideo,
   getMessageSticker,
   selectIsChatMuted,
   getMessageRoundVideo,
-} from '../../../modules/helpers';
+} from '../../../global/helpers';
 import {
   selectChat, selectUser, selectChatMessage, selectOutgoingStatus, selectDraft, selectCurrentMessageList,
-  selectNotifySettings, selectNotifyExceptions,
-} from '../../../modules/selectors';
+  selectNotifySettings, selectNotifyExceptions, selectUserStatus,
+} from '../../../global/selectors';
 import { renderActionMessageText } from '../../common/helpers/renderActionMessageText';
 import renderText from '../../common/helpers/renderText';
 import { fastRaf } from '../../../util/schedulers';
 import buildClassName from '../../../util/buildClassName';
-import { pick } from '../../../util/iteratees';
 import useEnsureMessage from '../../../hooks/useEnsureMessage';
 import useChatContextActions from '../../../hooks/useChatContextActions';
 import useFlag from '../../../hooks/useFlag';
 import useMedia from '../../../hooks/useMedia';
 import { ChatAnimationTypes } from './hooks';
+import { renderMessageSummary } from '../../common/helpers/renderMessageText';
 
 import Avatar from '../../common/Avatar';
 import VerifiedIcon from '../../common/VerifiedIcon';
@@ -52,6 +53,8 @@ import ListItem from '../../ui/ListItem';
 import Badge from './Badge';
 import ChatFolderModal from '../ChatFolderModal.async';
 import ChatCallStatus from './ChatCallStatus';
+import ReportModal from '../../common/ReportModal';
+import FakeIcon from '../../common/FakeIcon';
 
 import './Chat.scss';
 
@@ -67,9 +70,9 @@ type OwnProps = {
 type StateProps = {
   chat?: ApiChat;
   isMuted?: boolean;
-  privateChatUser?: ApiUser;
+  user?: ApiUser;
+  userStatus?: ApiUserStatus;
   actionTargetUserIds?: string[];
-  usersById?: Record<string, ApiUser>;
   actionTargetMessage?: ApiMessage;
   actionTargetChatId?: string;
   lastMessageSender?: ApiUser;
@@ -78,14 +81,13 @@ type StateProps = {
   animationLevel?: number;
   isSelected?: boolean;
   canScrollDown?: boolean;
+  canChangeFolder?: boolean;
   lastSyncTime?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openChat' | 'focusLastMessage'>;
-
 const ANIMATION_DURATION = 200;
 
-const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
+const Chat: FC<OwnProps & StateProps> = ({
   style,
   chatId,
   folderId,
@@ -94,9 +96,9 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   isPinned,
   chat,
   isMuted,
-  privateChatUser,
+  user,
+  userStatus,
   actionTargetUserIds,
-  usersById,
   lastMessageSender,
   lastMessageOutgoingStatus,
   actionTargetMessage,
@@ -105,17 +107,23 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   animationLevel,
   isSelected,
   canScrollDown,
+  canChangeFolder,
   lastSyncTime,
-  openChat,
-  focusLastMessage,
 }) => {
+  const {
+    openChat,
+    focusLastMessage,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
 
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useFlag();
   const [isChatFolderModalOpen, openChatFolderModal, closeChatFolderModal] = useFlag();
+  const [isReportModalOpen, openReportModal, closeReportModal] = useFlag();
   const [shouldRenderDeleteModal, markRenderDeleteModal, unmarkRenderDeleteModal] = useFlag();
   const [shouldRenderChatFolderModal, markRenderChatFolderModal, unmarkRenderChatFolderModal] = useFlag();
+  const [shouldRenderReportModal, markRenderReportModal, unmarkRenderReportModal] = useFlag();
 
   const { lastMessage, typingStatus } = chat || {};
   const isAction = lastMessage && isActionMessage(lastMessage);
@@ -129,10 +137,14 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
   const isRoundVideo = Boolean(lastMessage && getMessageRoundVideo(lastMessage));
 
   const actionTargetUsers = useMemo(() => {
-    return actionTargetUserIds
-      ? actionTargetUserIds.map((userId) => usersById?.[userId]).filter<ApiUser>(Boolean as any)
-      : undefined;
-  }, [actionTargetUserIds, usersById]);
+    if (!actionTargetUserIds) {
+      return undefined;
+    }
+
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
+    return actionTargetUserIds.map((userId) => usersById[userId]).filter<ApiUser>(Boolean as any);
+  }, [actionTargetUserIds]);
 
   // Sets animation excess values when `orderDiff` changes and then resets excess values to animate.
   useLayoutEffect(() => {
@@ -184,24 +196,31 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
     focusLastMessage,
   ]);
 
-  function handleDelete() {
+  const handleDelete = useCallback(() => {
     markRenderDeleteModal();
     openDeleteModal();
-  }
+  }, [markRenderDeleteModal, openDeleteModal]);
 
-  function handleChatFolderChange() {
+  const handleChatFolderChange = useCallback(() => {
     markRenderChatFolderModal();
     openChatFolderModal();
-  }
+  }, [markRenderChatFolderModal, openChatFolderModal]);
+
+  const handleReport = useCallback(() => {
+    markRenderReportModal();
+    openReportModal();
+  }, [markRenderReportModal, openReportModal]);
 
   const contextActions = useChatContextActions({
     chat,
-    privateChatUser,
+    user,
     handleDelete,
     handleChatFolderChange,
+    handleReport,
     folderId,
     isPinned,
     isMuted,
+    canChangeFolder,
   });
 
   const lang = useLang();
@@ -229,21 +248,20 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
     }
 
     if (isAction) {
-      const actionOrigin = chat && (isChatChannel(chat) || lastMessage.senderId === lastMessage.chatId)
-        ? chat
-        : lastMessageSender;
+      const isChat = chat && (isChatChannel(chat) || lastMessage.senderId === lastMessage.chatId);
 
       return (
         <p className="last-message" dir={lang.isRtl ? 'auto' : 'ltr'}>
-          {renderText(renderActionMessageText(
+          {renderActionMessageText(
             lang,
             lastMessage,
-            actionOrigin,
+            !isChat ? lastMessageSender : undefined,
+            isChat ? chat : undefined,
             actionTargetUsers,
             actionTargetMessage,
             actionTargetChatId,
-            { asPlain: true },
-          ) as string)}
+            { asTextWithSpoilers: true },
+          )}
         </p>
       );
     }
@@ -258,7 +276,7 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
             <span className="colon">:</span>
           </>
         )}
-        {renderMessageSummary(lang, lastMessage!, mediaBlobUrl || mediaThumbnail, isRoundVideo)}
+        {renderSummary(lang, lastMessage!, mediaBlobUrl || mediaThumbnail, isRoundVideo)}
       </p>
     );
   }
@@ -281,9 +299,9 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
       <div className="status">
         <Avatar
           chat={chat}
-          user={privateChatUser}
-          withOnlineStatus
-          isSavedMessages={privateChatUser?.isSelf}
+          user={user}
+          userStatus={userStatus}
+          isSavedMessages={user?.isSelf}
           lastSyncTime={lastSyncTime}
         />
         {chat.isCallActive && chat.isCallNotEmpty && (
@@ -292,8 +310,9 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
       <div className="info">
         <div className="title">
-          <h3>{renderText(getChatTitle(lang, chat, privateChatUser))}</h3>
+          <h3>{renderText(getChatTitle(lang, chat, user))}</h3>
           {chat.isVerified && <VerifiedIcon />}
+          {chat.fakeType && <FakeIcon fakeType={chat.fakeType} />}
           {isMuted && <i className="icon-muted" />}
           {chat.lastMessage && (
             <LastMessageMeta
@@ -323,20 +342,29 @@ const Chat: FC<OwnProps & StateProps & DispatchProps> = ({
           chatId={chatId}
         />
       )}
+      {shouldRenderReportModal && (
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={closeReportModal}
+          onCloseAnimationEnd={unmarkRenderReportModal}
+          chatId={chatId}
+          subject="peer"
+        />
+      )}
     </ListItem>
   );
 };
 
-function renderMessageSummary(lang: LangFn, message: ApiMessage, blobUrl?: string, isRoundVideo?: boolean) {
+function renderSummary(lang: LangFn, message: ApiMessage, blobUrl?: string, isRoundVideo?: boolean) {
   if (!blobUrl) {
-    return renderText(getMessageSummaryText(lang, message));
+    return renderMessageSummary(lang, message);
   }
 
   return (
     <span className="media-preview">
-      <img src={blobUrl} alt="" className={isRoundVideo ? 'round' : undefined} />
+      <img src={blobUrl} alt="" className={buildClassName('media-preview--image', isRoundVideo && 'round')} />
       {getMessageVideo(message) && <i className="icon-play" />}
-      {renderText(getMessageSummaryText(lang, message, true))}
+      {renderMessageSummary(lang, message, true)}
     </span>
   );
 }
@@ -356,7 +384,6 @@ export default memo(withGlobal<OwnProps>(
       : undefined;
     const { targetUserIds: actionTargetUserIds, targetChatId: actionTargetChatId } = lastMessageAction || {};
     const privateChatUserId = getPrivateChatUserId(chat);
-    const { byId: usersById } = global.users;
     const {
       chatId: currentChatId,
       threadId: currentThreadId,
@@ -375,14 +402,13 @@ export default memo(withGlobal<OwnProps>(
       animationLevel: global.settings.byKey.animationLevel,
       isSelected,
       canScrollDown: isSelected && messageListType === 'thread',
+      canChangeFolder: Boolean(global.chatFolders.orderedIds?.length),
       lastSyncTime: global.lastSyncTime,
       ...(isOutgoing && { lastMessageOutgoingStatus: selectOutgoingStatus(global, chat.lastMessage) }),
-      ...(privateChatUserId && { privateChatUser: selectUser(global, privateChatUserId) }),
-      ...(actionTargetUserIds && { usersById }),
+      ...(privateChatUserId && {
+        user: selectUser(global, privateChatUserId),
+        userStatus: selectUserStatus(global, privateChatUserId),
+      }),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openChat',
-    'focusLastMessage',
-  ]),
 )(Chat));

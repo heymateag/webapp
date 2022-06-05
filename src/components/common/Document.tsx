@@ -1,9 +1,10 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useCallback, memo, useRef, useEffect, useState,
+  useCallback, memo, useRef, useEffect, useState,
 } from '../../lib/teact/teact';
-import { getDispatch } from '../../lib/teact/teactn';
+import { getActions } from '../../global';
 
-import { ApiMediaFormat, ApiMessage } from '../../api/types';
+import type { ApiMessage } from '../../api/types';
 
 import { getDocumentExtension, getDocumentHasPreview } from './helpers/documentInfo';
 import {
@@ -11,8 +12,9 @@ import {
   getMessageMediaHash,
   getMessageMediaThumbDataUri,
   isMessageDocumentVideo,
-} from '../../modules/helpers';
-import { ObserveFn, useIsIntersecting } from '../../hooks/useIntersectionObserver';
+} from '../../global/helpers';
+import type { ObserveFn } from '../../hooks/useIntersectionObserver';
+import { useIsIntersecting } from '../../hooks/useIntersectionObserver';
 import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
 import useMedia from '../../hooks/useMedia';
 import useFlag from '../../hooks/useFlag';
@@ -58,7 +60,7 @@ const Document: FC<OwnProps> = ({
   onDateClick,
   isDownloading,
 }) => {
-  const dispatch = getDispatch();
+  const dispatch = getActions();
 
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -83,7 +85,7 @@ const Document: FC<OwnProps> = ({
   const shouldDownload = Boolean(isDownloading || (isLoadAllowed && wasIntersected));
 
   const documentHash = getMessageMediaHash(message, 'download');
-  const { loadProgress: downloadProgress, mediaData } = useMediaWithLoadProgress<ApiMediaFormat.BlobUrl>(
+  const { loadProgress: downloadProgress, mediaData } = useMediaWithLoadProgress(
     documentHash, !shouldDownload, undefined, undefined, undefined, true,
   );
   const isLoaded = Boolean(mediaData);

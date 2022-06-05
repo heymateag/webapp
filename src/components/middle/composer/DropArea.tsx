@@ -1,13 +1,16 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useRef,
+  memo, useCallback, useEffect, useRef,
 } from '../../../lib/teact/teact';
 
 import useShowTransition from '../../../hooks/useShowTransition';
 import buildClassName from '../../../util/buildClassName';
+import getFilesFromDataTransferItems from './helpers/getFilesFromDataTransferItems';
 
 import captureEscKeyListener from '../../../util/captureEscKeyListener';
 import usePrevious from '../../../hooks/usePrevious';
 
+import Portal from '../../ui/Portal';
 import DropTarget from './DropTarget';
 
 import './DropArea.scss';
@@ -37,13 +40,21 @@ const DropArea: FC<OwnProps> = ({
 
   useEffect(() => (isOpen ? captureEscKeyListener(onHide) : undefined), [isOpen, onHide]);
 
-  const handleFilesDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleFilesDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     const { dataTransfer: dt } = e;
+    let files: File[] = [];
 
-    if (dt.files && dt.files.length > 0) {
-      onHide();
-      onFileSelect(Array.from(dt.files), false);
+    if (dt.files && dt.files.length > 0 && (!dt.items || !dt.items.length)) {
+      files = files.concat(Array.from(dt.files));
+    } else if (dt.items && dt.items.length > 0) {
+      const folderFiles = await getFilesFromDataTransferItems(dt.items);
+      if (folderFiles.length) {
+        files = files.concat(folderFiles);
+      }
     }
+
+    onHide();
+    onFileSelect(files, false);
   }, [onFileSelect, onHide]);
 
   const handleQuickFilesDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -84,10 +95,12 @@ const DropArea: FC<OwnProps> = ({
   );
 
   return (
-    <div className={className} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={onHide}>
-      <DropTarget onFileSelect={handleFilesDrop} />
-      {(withQuick || prevWithQuick) && <DropTarget onFileSelect={handleQuickFilesDrop} isQuick />}
-    </div>
+    <Portal containerId="#middle-column-portals">
+      <div className={className} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={onHide}>
+        <DropTarget onFileSelect={handleFilesDrop} />
+        {(withQuick || prevWithQuick) && <DropTarget onFileSelect={handleQuickFilesDrop} isQuick />}
+      </div>
+    </Portal>
   );
 };
 

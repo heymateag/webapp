@@ -1,6 +1,6 @@
-import { ApiMessage } from '../../../../api/types';
+import type { ApiMessage } from '../../../../api/types';
 
-import { getMessageContent } from '../../../../modules/helpers';
+import { getMessageContent } from '../../../../global/helpers';
 
 export function isEmojiOnlyMessage(customShape?: boolean | number) {
   return typeof customShape === 'number';
@@ -17,6 +17,8 @@ export function buildContentClassName(
     forceSenderName,
     hasComments,
     hasActionButton,
+    hasReactions,
+    isGeoLiveActive,
     isHeymateMsg,
   }: {
     hasReply?: boolean;
@@ -27,21 +29,24 @@ export function buildContentClassName(
     forceSenderName?: boolean;
     hasComments?: boolean;
     hasActionButton?: boolean;
+    hasReactions?: boolean;
+    isGeoLiveActive?: boolean;
     isHeymateMsg?: boolean;
   } = {},
 ) {
   const {
-    text, photo, video, audio, voice, document, poll, webPage, contact,
+    text, photo, video, audio, voice, document, poll, webPage, contact, location, invoice,
   } = getMessageContent(message);
 
   const classNames = ['message-content'];
-  const isMedia = photo || video;
-  const isMediaWithNoText = isMedia && !text;
+  const isMedia = photo || video || location;
+  const hasText = text || location?.type === 'venue' || isGeoLiveActive;
+  const isMediaWithNoText = isMedia && !hasText;
   const isViaBot = Boolean(message.viaBotId);
 
   if (isEmojiOnlyMessage(customShape)) {
     classNames.push(`emoji-only emoji-only-${customShape}`);
-  } else if (text) {
+  } else if (hasText) {
     classNames.push('text');
   }
 
@@ -65,7 +70,7 @@ export function buildContentClassName(
   if (isHeymateMsg) {
     classNames.push('my-message');
   }
-  if (photo || video) {
+  if (isMedia) {
     classNames.push('media');
   } else if (audio) {
     classNames.push('audio');
@@ -85,7 +90,11 @@ export function buildContentClassName(
     }
   }
 
-  if (asForwarded && !customShape) {
+  if (invoice) {
+    classNames.push('invoice');
+  }
+
+  if (asForwarded) {
     classNames.push('is-forwarded');
   }
 
@@ -95,6 +104,10 @@ export function buildContentClassName(
 
   if (hasThread) {
     classNames.push('has-replies');
+  }
+
+  if (hasReactions) {
+    classNames.push('has-reactions');
   }
 
   if (isViaBot) {
@@ -116,7 +129,7 @@ export function buildContentClassName(
       classNames.push('has-solid-background');
     }
 
-    if (isLastInGroup && (photo || !isMediaWithNoText)) {
+    if (isLastInGroup && (photo || (location && !hasText) || !isMediaWithNoText)) {
       classNames.push('has-appendix');
     }
   }

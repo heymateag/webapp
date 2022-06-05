@@ -1,15 +1,14 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
 import { ManagementScreens } from '../../../types';
-import { ApiChat, ApiChatBannedRights, ApiChatMember } from '../../../api/types';
-import { GlobalActions } from '../../../global/types';
+import type { ApiChat, ApiChatBannedRights, ApiChatMember } from '../../../api/types';
 
 import useLang from '../../../hooks/useLang';
-import { selectChat } from '../../../modules/selectors';
-import { pick } from '../../../util/iteratees';
+import { selectChat } from '../../../global/selectors';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
 import ListItem from '../../ui/ListItem';
@@ -30,8 +29,6 @@ type StateProps = {
   chat?: ApiChat;
   currentUserId?: string;
 };
-
-type DispatchProps = Pick<GlobalActions, 'updateChatDefaultBannedRights'>;
 
 const FLOATING_BUTTON_ANIMATION_TIMEOUT_MS = 250;
 
@@ -58,21 +55,25 @@ function getLangKeyForBannedRightKey(key: string) {
   }
 }
 
-const ManageGroupPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
+const ManageGroupPermissions: FC<OwnProps & StateProps> = ({
   onScreenSelect,
   onChatMemberSelect,
   chat,
   currentUserId,
-  updateChatDefaultBannedRights,
   onClose,
   isActive,
 }) => {
+  const { updateChatDefaultBannedRights } = getActions();
+
   const [permissions, setPermissions] = useState<ApiChatBannedRights>({});
   const [havePermissionChanged, setHavePermissionChanged] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const lang = useLang();
 
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   const handleRemovedUsersClick = useCallback(() => {
     onScreenSelect(ManagementScreens.GroupRemovedUsers);
@@ -134,7 +135,7 @@ const ManageGroupPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
       return [];
     }
 
-    return chat.fullInfo.members.filter(({ bannedRights }) => !!bannedRights);
+    return chat.fullInfo.members.filter(({ bannedRights }) => Boolean(bannedRights));
   }, [chat]);
 
   const getMemberExceptions = useCallback((member: ApiChatMember) => {
@@ -272,6 +273,7 @@ const ManageGroupPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
             <ListItem
               key={member.userId}
               className="chat-item-clickable exceptions-member"
+              // eslint-disable-next-line react/jsx-no-bind
               onClick={() => handleExceptionMemberClick(member)}
             >
               <PrivateChatInfo
@@ -305,5 +307,4 @@ export default memo(withGlobal<OwnProps>(
 
     return { chat, currentUserId: global.currentUserId };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['updateChatDefaultBannedRights']),
 )(ManageGroupPermissions));

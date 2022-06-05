@@ -1,15 +1,23 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useMemo, useState, memo, useRef, useCallback,
+  useMemo, useState, memo, useRef, useCallback, useEffect,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, getGlobal, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiChat, MAIN_THREAD_ID } from '../../api/types';
+import type { ApiChat } from '../../api/types';
+import { MAIN_THREAD_ID } from '../../api/types';
+import type { GlobalState } from '../../global/types';
 
-import { getCanPostInChat, getChatTitle, sortChatIds } from '../../modules/helpers';
-import searchWords from '../../util/searchWords';
-import { pick, unique } from '../../util/iteratees';
+import {
+  filterChatsByName,
+  filterUsersByName,
+  getCanPostInChat,
+  sortChatIds,
+} from '../../global/helpers';
+import { unique } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
+import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
+import useFlag from '../../hooks/useFlag';
 
 import ChatOrUserPicker from '../common/ChatOrUserPicker';
 
@@ -19,78 +27,104 @@ export type OwnProps = {
 
 type StateProps = {
   chatsById: Record<string, ApiChat>;
-  pinnedIds?: string[];
   activeListIds?: string[];
   archivedListIds?: string[];
-  orderedPinnedIds?: string[];
+  pinnedIds?: string[];
+  contactIds?: string[];
   currentUserId?: string;
+  switchBotInline?: GlobalState['switchBotInline'];
 };
 
-type DispatchProps = Pick<GlobalActions, 'setForwardChatId' | 'exitForwardMode' | 'loadMoreChats'>;
-
-const ForwardPicker: FC<OwnProps & StateProps & DispatchProps> = ({
+const ForwardPicker: FC<OwnProps & StateProps> = ({
   chatsById,
-  pinnedIds,
   activeListIds,
   archivedListIds,
+  pinnedIds,
+  contactIds,
   currentUserId,
   isOpen,
-  setForwardChatId,
-  exitForwardMode,
-  loadMoreChats,
+  switchBotInline,
 }) => {
+  const {
+    setForwardChatId,
+    exitForwardMode,
+    openChatWithText,
+    resetSwitchBotInline,
+  } = getActions();
+
   const lang = useLang();
   const [filter, setFilter] = useState('');
   // eslint-disable-next-line no-null/no-null
   const filterRef = useRef<HTMLInputElement>(null);
 
-  const chatIds = useMemo(() => {
-    const listIds = [
-      ...(activeListIds || []),
-      ...(archivedListIds || []),
-    ];
+  const [isShown, markIsShown, unmarkIsShown] = useFlag();
+  useEffect(() => {
+    if (isOpen) {
+      markIsShown();
+    }
+  }, [isOpen, markIsShown]);
+
+  const chatAndContactIds = useMemo(() => {
+    if (!isOpen) {
+      return undefined;
+    }
 
     let priorityIds = pinnedIds || [];
     if (currentUserId) {
       priorityIds = unique([currentUserId, ...priorityIds]);
     }
 
-    return sortChatIds([
-      ...listIds.filter((id) => {
-        const chat = chatsById[id];
-        if (!chat) {
-          return true;
-        }
+    const chatIds = [
+      ...(activeListIds || []),
+      ...(archivedListIds || []),
+    ].filter((id) => {
+      const chat = chatsById[id];
 
-        if (!getCanPostInChat(chat, MAIN_THREAD_ID)) {
-          return false;
-        }
+      return chat && getCanPostInChat(chat, MAIN_THREAD_ID);
+    });
 
-        if (!filter) {
-          return true;
-        }
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
 
-        return searchWords(getChatTitle(lang, chatsById[id], undefined, id === currentUserId), filter);
-      }),
-    ], chatsById, undefined, priorityIds);
-  }, [activeListIds, archivedListIds, chatsById, currentUserId, filter, lang, pinnedIds]);
+    return sortChatIds(unique([
+      ...filterChatsByName(lang, chatIds, chatsById, filter, currentUserId),
+      ...(contactIds ? filterUsersByName(contactIds, usersById, filter) : []),
+    ]), chatsById, undefined, priorityIds);
+  }, [activeListIds, archivedListIds, chatsById, contactIds, currentUserId, filter, isOpen, lang, pinnedIds]);
 
   const handleSelectUser = useCallback((userId: string) => {
-    setForwardChatId({ id: userId });
-  }, [setForwardChatId]);
+    if (switchBotInline) {
+      const text = `@${switchBotInline.botUsername} ${switchBotInline.query}`;
+      openChatWithText({ chatId: userId, text });
+      resetSwitchBotInline();
+    } else {
+      setForwardChatId({ id: userId });
+    }
+  }, [openChatWithText, resetSwitchBotInline, setForwardChatId, switchBotInline]);
+
+  const handleClose = useCallback(() => {
+    exitForwardMode();
+    resetSwitchBotInline();
+  }, [exitForwardMode, resetSwitchBotInline]);
+
+  const renderingChatAndContactIds = useCurrentOrPrev(chatAndContactIds, true)!;
+
+  if (!isOpen && !isShown) {
+    return undefined;
+  }
 
   return (
     <ChatOrUserPicker
       currentUserId={currentUserId}
       isOpen={isOpen}
-      chatOrUserIds={chatIds}
+      chatOrUserIds={renderingChatAndContactIds}
       filterRef={filterRef}
       filterPlaceholder={lang('ForwardTo')}
       filter={filter}
       onFilterChange={setFilter}
-      loadMore={loadMoreChats}
       onSelectChatOrUser={handleSelectUser}
-      onClose={exitForwardMode}
+      onClose={handleClose}
+      onCloseAnimationEnd={unmarkIsShown}
     />
   );
 };
@@ -104,15 +138,17 @@ export default memo(withGlobal<OwnProps>(
         orderedPinnedIds,
       },
       currentUserId,
+      switchBotInline,
     } = global;
 
     return {
       chatsById,
-      pinnedIds: orderedPinnedIds.active,
       activeListIds: listIds.active,
       archivedListIds: listIds.archived,
+      pinnedIds: orderedPinnedIds.active,
+      contactIds: global.contactList?.userIds,
       currentUserId,
+      switchBotInline,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['setForwardChatId', 'exitForwardMode', 'loadMoreChats']),
 )(ForwardPicker));

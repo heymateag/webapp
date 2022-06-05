@@ -1,17 +1,16 @@
-import { ChangeEvent } from 'react';
-import { axiosService } from '../../api/services/axiosService';
-import { HEYMATE_URL } from '../../config';
-// @ts-ignore
+import type { ChangeEvent } from 'react';
+
 import monkeyPath from '../../assets/monkey.svg';
 
+import type { FC } from 'teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
+  memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions, GlobalState } from '../../global/types';
-import { LangCode } from '../../types';
-import { ApiCountryCode } from '../../api/types';
+import type { GlobalState } from '../../global/types';
+import type { LangCode } from '../../types';
+import type { ApiCountryCode } from '../../api/types';
 
 import { IS_SAFARI, IS_TOUCH_ENV } from '../../util/environment';
 import { preloadImage } from '../../util/files';
@@ -33,6 +32,9 @@ import AuthOnBoarding from './AuthOnBoarding';
 
 import { IAuth } from '../../types/HeymateTypes/Auth.model';
 
+import {axiosService} from "../../api/services/axiosService";
+import {HEYMATE_URL} from "../../config";
+
 type StateProps = Pick<GlobalState, (
   'connectionState' | 'authState' |
   'authPhoneNumber' | 'authIsLoading' |
@@ -42,16 +44,12 @@ type StateProps = Pick<GlobalState, (
   language?: LangCode;
   phoneCodeList: ApiCountryCode[];
 };
-type DispatchProps = Pick<GlobalActions, (
-  'setAuthPhoneNumber' | 'setAuthRememberMe' | 'loadNearestCountry' | 'loadCountryList' | 'clearAuthError' |
-  'goToAuthQrCode' | 'setSettingOption' | 'returnToAuthPhoneNumber' | 'setCurrentUserPhoneNumber'
-)>;
 
 const MIN_NUMBER_LENGTH = 7;
 
 let isPreloadInitiated = false;
 
-const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
+const AuthPhoneNumber: FC<StateProps> = ({
   connectionState,
   authState,
   authPhoneNumber,
@@ -62,16 +60,18 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
   authNearestCountry,
   phoneCodeList,
   language,
-  setAuthPhoneNumber,
-  setAuthRememberMe,
-  loadNearestCountry,
-  loadCountryList,
-  clearAuthError,
-  goToAuthQrCode,
-  setSettingOption,
-  returnToAuthPhoneNumber,
-  setCurrentUserPhoneNumber,
 }) => {
+  const {
+    setAuthPhoneNumber,
+    setAuthRememberMe,
+    loadNearestCountry,
+    loadCountryList,
+    clearAuthError,
+    goToAuthQrCode,
+    setCurrentUserPhoneNumber,
+    setSettingOption,
+  } = getActions();
+
   const lang = useLang();
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLInputElement>(null);
@@ -291,10 +291,8 @@ const AuthPhoneNumber: FC<StateProps & DispatchProps> = ({
     }
   }
 
-  const isAuthReady = authState === 'authorizationStateWaitPhoneNumber' || 'authorizationStateWaitQrCode';
-  if (authState === 'authorizationStateWaitQrCode') {
-    returnToAuthPhoneNumber();
-  }
+  const isAuthReady = authState === 'authorizationStateWaitPhoneNumber';
+
   return (
     <div id="auth-phone-number-form" className="custom-scroll">
       <AuthOnBoarding />
@@ -371,15 +369,4 @@ export default memo(withGlobal(
       phoneCodeList,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'setAuthPhoneNumber',
-    'setAuthRememberMe',
-    'clearAuthError',
-    'loadNearestCountry',
-    'loadCountryList',
-    'goToAuthQrCode',
-    'setSettingOption',
-    'returnToAuthPhoneNumber',
-    'setCurrentUserPhoneNumber',
-  ]),
 )(AuthPhoneNumber));

@@ -1,16 +1,17 @@
-import React, { FC, memo } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../lib/teact/teactn';
+import type { FC } from '../../../../lib/teact/teact';
+import React, { memo } from '../../../../lib/teact/teact';
 
-import { ApiSticker } from '../../../../api/types';
 import { SettingsScreens } from '../../../../types';
 
-import { selectAnimatedEmoji } from '../../../../modules/selectors';
 import useLang from '../../../../hooks/useLang';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 
+import { LOCAL_TGS_URLS } from '../../../common/helpers/animatedAssets';
 import ListItem from '../../../ui/ListItem';
-import AnimatedEmoji from '../../../common/AnimatedEmoji';
 import renderText from '../../../common/helpers/renderText';
+import AnimatedIconWithPreview from '../../../common/AnimatedIconWithPreview';
+
+import lockPreviewUrl from '../../../../assets/lock.png';
 
 type OwnProps = {
   isActive?: boolean;
@@ -18,42 +19,49 @@ type OwnProps = {
   onReset: () => void;
 };
 
-type StateProps = {
-  animatedEmoji: ApiSticker;
-};
-
-const SettingsTwoFaEnabled: FC<OwnProps & StateProps> = ({
-  isActive, onReset, animatedEmoji, onScreenSelect,
+const SettingsTwoFaEnabled: FC<OwnProps> = ({
+  isActive, onReset, onScreenSelect,
 }) => {
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.TwoFaEnabled);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   return (
     <div className="settings-content two-fa custom-scroll">
-      <div className="settings-content-header">
-        <AnimatedEmoji sticker={animatedEmoji} size="large" />
+      <div className="settings-content-header no-border">
+        <AnimatedIconWithPreview
+          tgsUrl={LOCAL_TGS_URLS.Lock}
+          previewUrl={lockPreviewUrl}
+          size={160}
+          className="settings-content-icon"
+        />
 
         <p className="settings-item-description mb-3" dir="auto">
           {renderText(lang('EnabledPasswordText'), ['br'])}
         </p>
       </div>
 
-      <div className="settings-item pt-0 no-border">
+      <div className="settings-item pt-0">
         <ListItem
           icon="edit"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.TwoFaChangePasswordCurrent)}
         >
           {lang('ChangePassword')}
         </ListItem>
         <ListItem
           icon="password-off"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.TwoFaTurnOff)}
         >
           {lang('TurnPasswordOff')}
         </ListItem>
         <ListItem
           icon="email"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => onScreenSelect(SettingsScreens.TwoFaRecoveryEmailCurrentPassword)}
         >
           {lang('SetRecoveryEmail')}
@@ -63,8 +71,4 @@ const SettingsTwoFaEnabled: FC<OwnProps & StateProps> = ({
   );
 };
 
-export default memo(withGlobal<OwnProps>((global) => {
-  return {
-    animatedEmoji: selectAnimatedEmoji(global, '🔐'),
-  };
-})(SettingsTwoFaEnabled));
+export default memo(SettingsTwoFaEnabled);

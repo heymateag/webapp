@@ -1,21 +1,21 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiChat } from '../../api/types';
-import { IAnchorPosition } from '../../types';
+import type { ApiBotCommand, ApiChat } from '../../api/types';
+import type { IAnchorPosition } from '../../types';
 
+import { REPLIES_USER_ID } from '../../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
 import { disableScrolling, enableScrolling } from '../../util/scrollLock';
 import {
-  selectChat, selectNotifySettings, selectNotifyExceptions, selectUser,
-} from '../../modules/selectors';
-import { pick } from '../../util/iteratees';
+  selectChat, selectNotifySettings, selectNotifyExceptions, selectUser, selectChatBot,
+} from '../../global/selectors';
 import {
-  isUserId, getCanDeleteChat, selectIsChatMuted, getCanAddContact,
-} from '../../modules/helpers';
+  isUserId, getCanDeleteChat, selectIsChatMuted, getCanAddContact, isChatChannel, isChatGroup,
+} from '../../global/helpers';
 import useShowTransition from '../../hooks/useShowTransition';
 import useLang from '../../hooks/useLang';
 
@@ -23,13 +23,24 @@ import Portal from '../ui/Portal';
 import Menu from '../ui/Menu';
 import MenuItem from '../ui/MenuItem';
 import DeleteChatModal from '../common/DeleteChatModal';
+import ReportModal from '../common/ReportModal';
 
 import './HeaderMenuContainer.scss';
 
-type DispatchProps = Pick<GlobalActions, (
-  'updateChatMutedState' | 'enterMessageSelectMode' | 'sendBotCommand' | 'restartBot' | 'openLinkedChat' |
-  'joinGroupCall' | 'createGroupCall' | 'addContact' | 'openCallFallbackConfirm'
-)>;
+const BOT_BUTTONS: Record<string, { icon: string; label: string }> = {
+  settings: {
+    icon: 'bots',
+    label: 'BotSettings',
+  },
+  privacy: {
+    icon: 'info',
+    label: 'Privacy',
+  },
+  help: {
+    icon: 'help',
+    label: 'BotHelp',
+  },
+};
 
 export type OwnProps = {
   chatId: string;
@@ -44,6 +55,7 @@ export type OwnProps = {
   canSearch?: boolean;
   canCall?: boolean;
   canMute?: boolean;
+  canViewStatistics?: boolean;
   canLeave?: boolean;
   canEnterVoiceChat?: boolean;
   canCreateVoiceChat?: boolean;
@@ -55,31 +67,36 @@ export type OwnProps = {
 
 type StateProps = {
   chat?: ApiChat;
+  botCommands?: ApiBotCommand[];
   isPrivate?: boolean;
   isMuted?: boolean;
   canAddContact?: boolean;
+  canReportChat?: boolean;
   canDeleteChat?: boolean;
   hasLinkedChat?: boolean;
 };
 
-const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
+const HeaderMenuContainer: FC<OwnProps & StateProps> = ({
   chatId,
   isOpen,
   withExtraActions,
   anchor,
   isChannel,
+  botCommands,
   canStartBot,
   canRestartBot,
   canSubscribe,
   canSearch,
   canCall,
   canMute,
+  canViewStatistics,
   canLeave,
   canEnterVoiceChat,
   canCreateVoiceChat,
   chat,
   isPrivate,
   isMuted,
+  canReportChat,
   canDeleteChat,
   hasLinkedChat,
   canAddContact,
@@ -87,21 +104,35 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   onSearchClick,
   onClose,
   onCloseAnimationEnd,
-  updateChatMutedState,
-  enterMessageSelectMode,
-  sendBotCommand,
-  restartBot,
-  joinGroupCall,
-  createGroupCall,
-  openLinkedChat,
-  addContact,
-  openCallFallbackConfirm,
 }) => {
+  const {
+    updateChatMutedState,
+    enterMessageSelectMode,
+    sendBotCommand,
+    restartBot,
+    joinGroupCall,
+    createGroupCall,
+    openLinkedChat,
+    openAddContactDialog,
+    requestCall,
+    toggleStatistics,
+  } = getActions();
   const [isMenuOpen, setIsMenuOpen] = useState(true);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const { x, y } = anchor;
 
   useShowTransition(isOpen, onCloseAnimationEnd, undefined, false);
+
+  const handleReport = useCallback(() => {
+    setIsMenuOpen(false);
+    setIsReportModalOpen(true);
+  }, []);
+
+  const closeReportModal = useCallback(() => {
+    setIsReportModalOpen(false);
+    onClose();
+  }, [onClose]);
 
   const handleDelete = useCallback(() => {
     setIsMenuOpen(false);
@@ -151,24 +182,34 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [chatId, closeMenu, openLinkedChat]);
 
   const handleAddContactClick = useCallback(() => {
-    addContact({ userId: chatId });
+    openAddContactDialog({ userId: chatId });
     closeMenu();
-  }, [addContact, chatId, closeMenu]);
+  }, [openAddContactDialog, chatId, closeMenu]);
 
   const handleSubscribe = useCallback(() => {
     onSubscribeChannel();
     closeMenu();
   }, [closeMenu, onSubscribeChannel]);
 
-  const handleCall = useCallback(() => {
-    openCallFallbackConfirm();
+  const handleVideoCall = useCallback(() => {
+    requestCall({ userId: chatId, isVideo: true });
     closeMenu();
-  }, [closeMenu, openCallFallbackConfirm]);
+  }, [chatId, closeMenu, requestCall]);
+
+  const handleCall = useCallback(() => {
+    requestCall({ userId: chatId });
+    closeMenu();
+  }, [chatId, closeMenu, requestCall]);
 
   const handleSearch = useCallback(() => {
     onSearchClick();
     closeMenu();
   }, [closeMenu, onSearchClick]);
+
+  const handleStatisticsClick = useCallback(() => {
+    toggleStatistics();
+    closeMenu();
+  }, [closeMenu, toggleStatistics]);
 
   const handleSelectMessages = useCallback(() => {
     enterMessageSelectMode();
@@ -182,6 +223,28 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
   }, []);
 
   const lang = useLang();
+
+  const botButtons = useMemo(() => {
+    return botCommands?.map(({ command }) => {
+      const cmd = BOT_BUTTONS[command];
+      if (!cmd) return undefined;
+      const handleClick = () => {
+        sendBotCommand({ command: `/${command}` });
+        closeMenu();
+      };
+
+      return (
+        <MenuItem
+          key={command}
+          icon={cmd.icon}
+          // eslint-disable-next-line react/jsx-no-bind
+          onClick={handleClick}
+        >
+          {lang(cmd.label)}
+        </MenuItem>
+      );
+    });
+  }, [botCommands, closeMenu, lang, sendBotCommand]);
 
   return (
     <Portal>
@@ -232,6 +295,14 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
               {lang('Call')}
             </MenuItem>
           )}
+          {canCall && (
+            <MenuItem
+              icon="video-outlined"
+              onClick={handleVideoCall}
+            >
+              {lang('VideoCall')}
+            </MenuItem>
+          )}
           {IS_SINGLE_COLUMN_LAYOUT && canSearch && (
             <MenuItem
               icon="search"
@@ -270,6 +341,23 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
           >
             {lang('ReportSelectMessages')}
           </MenuItem>
+          {canViewStatistics && (
+            <MenuItem
+              icon="stats"
+              onClick={handleStatisticsClick}
+            >
+              {lang('Statistics')}
+            </MenuItem>
+          )}
+          {canReportChat && (
+            <MenuItem
+              icon="flag"
+              onClick={handleReport}
+            >
+              {lang('ReportPeer.Report')}
+            </MenuItem>
+          )}
+          {botButtons}
           {canLeave && (
             <MenuItem
               destructive
@@ -289,6 +377,14 @@ const HeaderMenuContainer: FC<OwnProps & StateProps & DispatchProps> = ({
             chat={chat}
           />
         )}
+        {canReportChat && chat?.id && (
+          <ReportModal
+            isOpen={isReportModalOpen}
+            onClose={closeReportModal}
+            subject="peer"
+            chatId={chat.id}
+          />
+        )}
       </div>
     </Portal>
   );
@@ -303,25 +399,19 @@ export default memo(withGlobal<OwnProps>(
     const isPrivate = isUserId(chat.id);
     const user = isPrivate ? selectUser(global, chatId) : undefined;
     const canAddContact = user && getCanAddContact(user);
+    const canReportChat = isChatChannel(chat) || isChatGroup(chat) || (user && !user.isSelf);
+
+    const chatBot = chatId !== REPLIES_USER_ID ? selectChatBot(global, chatId) : undefined;
 
     return {
       chat,
       isMuted: selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global)),
       isPrivate,
       canAddContact,
+      canReportChat,
       canDeleteChat: getCanDeleteChat(chat),
       hasLinkedChat: Boolean(chat?.fullInfo?.linkedChatId),
+      botCommands: chatBot?.fullInfo?.botInfo?.commands,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'updateChatMutedState',
-    'enterMessageSelectMode',
-    'sendBotCommand',
-    'restartBot',
-    'joinGroupCall',
-    'createGroupCall',
-    'openLinkedChat',
-    'addContact',
-    'openCallFallbackConfirm',
-  ]),
 )(HeaderMenuContainer));

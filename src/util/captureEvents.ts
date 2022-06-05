@@ -1,4 +1,6 @@
 import { IS_IOS } from './environment';
+import { clamp, round } from './math';
+import { debounce } from './schedulers';
 
 export enum SwipeDirection {
   Up,
@@ -11,17 +13,43 @@ interface CaptureOptions {
   onCapture?: (e: MouseEvent | TouchEvent) => void;
   onRelease?: (e: MouseEvent | TouchEvent) => void;
   onDrag?: (
-    e: MouseEvent | TouchEvent,
-    captureEvent: MouseEvent | TouchEvent,
+    e: MouseEvent | TouchEvent | WheelEvent,
+    captureEvent: MouseEvent | TouchEvent | WheelEvent,
     params: {
       dragOffsetX: number;
       dragOffsetY: number;
     },
+    cancelDrag?: (x: boolean, y: boolean) => void,
   ) => void;
   onSwipe?: (e: Event, direction: SwipeDirection) => boolean;
+  onZoom?: (e: TouchEvent | WheelEvent, params: {
+    // Absolute zoom level
+    zoom?: number;
+    // Relative zoom factor
+    zoomFactor?: number;
+
+    // center coordinate of the initial pinch
+    initialCenterX: number;
+    initialCenterY: number;
+
+    // offset of the pinch center (current from initial)
+    dragOffsetX: number;
+    dragOffsetY: number;
+
+    // center coordinate of the current pinch
+    currentCenterX: number;
+    currentCenterY: number;
+  }) => void;
   onClick?: (e: MouseEvent | TouchEvent) => void;
+  onDoubleClick?: (e: MouseEvent | RealTouchEvent, params: { centerX: number; centerY: number }) => void;
   excludedClosestSelector?: string;
   selectorToPreventScroll?: string;
+  withNativeDrag?: boolean;
+  maxZoom?: number;
+  minZoom?: number;
+  doubleTapZoom?: number;
+  initialZoom?: number;
+  isNotPassive?: boolean;
   withCursor?: boolean;
 }
 
@@ -37,15 +65,46 @@ type TSwipeAxis =
   | 'y'
   | undefined;
 
-const IOS_SCREEN_EDGE_THRESHOLD = 20;
+export const IOS_SCREEN_EDGE_THRESHOLD = 20;
 const MOVED_THRESHOLD = 15;
 const SWIPE_THRESHOLD = 50;
 
+function getDistance(a: Touch, b?: Touch) {
+  if (!b) return 0;
+  return Math.hypot((b.pageX - a.pageX), (b.pageY - a.pageY));
+}
+
+function getTouchCenter(a: Touch, b: Touch) {
+  return {
+    x: (a.pageX + b.pageX) / 2,
+    y: (a.pageY + b.pageY) / 2,
+  };
+}
+
+let lastClickTime = 0;
+
 export function captureEvents(element: HTMLElement, options: CaptureOptions) {
-  let captureEvent: MouseEvent | RealTouchEvent | undefined;
+  let captureEvent: MouseEvent | RealTouchEvent | WheelEvent | undefined;
   let hasMoved = false;
   let hasSwiped = false;
+  let isZooming = false;
+  let initialDistance = 0;
+  let wheelZoom = options.initialZoom ?? 1;
+  let initialDragOffset = {
+    x: 0,
+    y: 0,
+  };
+  let isDragCanceled = {
+    x: false,
+    y: false,
+  };
+  let initialTouchCenter = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  };
   let initialSwipeAxis: TSwipeAxis | undefined;
+  const minZoom = options.minZoom ?? 1;
+  const maxZoom = options.maxZoom ?? 4;
 
   function onCapture(e: MouseEvent | RealTouchEvent) {
     if (options.excludedClosestSelector && (
@@ -58,6 +117,10 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
     captureEvent = e;
 
     if (e.type === 'mousedown') {
+      if (!options.withNativeDrag && options.onDrag) {
+        e.preventDefault();
+      }
+
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onRelease);
     } else if (e.type === 'touchstart') {
@@ -76,10 +139,14 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
         if (e.pageY === undefined) {
           e.pageY = e.touches[0].pageY;
         }
+
+        if (e.touches.length === 2) {
+          initialDistance = getDistance(e.touches[0], e.touches[1]);
+          initialTouchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+        }
       }
     }
 
-    document.body.classList.add('no-selection');
     if (options.withCursor) {
       document.body.classList.add('cursor-grabbing');
     }
@@ -89,12 +156,11 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
     }
   }
 
-  function onRelease(e: MouseEvent | TouchEvent) {
+  function onRelease(e?: MouseEvent | TouchEvent) {
     if (captureEvent) {
       if (options.withCursor) {
         document.body.classList.remove('cursor-grabbing');
       }
-      document.body.classList.remove('no-selection');
 
       document.removeEventListener('mouseup', onRelease);
       document.removeEventListener('mousemove', onMove);
@@ -102,26 +168,51 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
       (captureEvent.target as HTMLElement).removeEventListener('touchend', onRelease);
       (captureEvent.target as HTMLElement).removeEventListener('touchmove', onMove);
 
-      captureEvent = undefined;
-
       if (IS_IOS && options.selectorToPreventScroll) {
-        Array.from(document.querySelectorAll<HTMLElement>(options.selectorToPreventScroll)).forEach((scrollable) => {
-          scrollable.style.overflow = '';
-        });
+        Array.from(document.querySelectorAll<HTMLElement>(options.selectorToPreventScroll))
+          .forEach((scrollable) => {
+            scrollable.style.overflow = '';
+          });
       }
 
-      if (hasMoved) {
-        if (options.onRelease) {
-          options.onRelease(e);
+      if (e) {
+        if (hasMoved) {
+          if (options.onRelease) {
+            options.onRelease(e);
+          }
+        } else if (e.type === 'mouseup') {
+          if (options.onDoubleClick && Date.now() - lastClickTime < 300) {
+            options.onDoubleClick(e, {
+              centerX: captureEvent!.pageX!,
+              centerY: captureEvent!.pageY!,
+            });
+          } else if (options.onClick && (!('button' in e) || e.button === 0)) {
+            options.onClick(e);
+          }
+          lastClickTime = Date.now();
         }
-      } else if (options.onClick && (!('button' in e) || e.button === 0)) {
-        options.onClick(e);
       }
     }
 
     hasMoved = false;
     hasSwiped = false;
+    isZooming = false;
+    initialDistance = 0;
+    wheelZoom = clamp(wheelZoom, minZoom, maxZoom);
     initialSwipeAxis = undefined;
+    initialDragOffset = {
+      x: 0,
+      y: 0,
+    };
+    isDragCanceled = {
+      x: false,
+      y: false,
+    };
+    initialTouchCenter = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    };
+    captureEvent = undefined;
   }
 
   function onMove(e: MouseEvent | RealTouchEvent) {
@@ -133,6 +224,24 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
 
         if (e.pageY === undefined) {
           e.pageY = e.touches[0].pageY;
+        }
+
+        if (options.onZoom && initialDistance > 0 && e.touches.length === 2) {
+          const endDistance = getDistance(e.touches[0], e.touches[1]);
+          const touchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+          const dragOffsetX = touchCenter.x - initialTouchCenter.x;
+          const dragOffsetY = touchCenter.y - initialTouchCenter.y;
+          const zoomFactor = endDistance / initialDistance;
+          options.onZoom(e, {
+            zoomFactor,
+            initialCenterX: initialTouchCenter.x,
+            initialCenterY: initialTouchCenter.y,
+            dragOffsetX,
+            dragOffsetY,
+            currentCenterX: touchCenter.x,
+            currentCenterY: touchCenter.y,
+          });
+          if (zoomFactor !== 1) hasMoved = true;
         }
       }
 
@@ -146,7 +255,10 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
       let shouldPreventScroll = false;
 
       if (options.onDrag) {
-        options.onDrag(e, captureEvent, { dragOffsetX, dragOffsetY });
+        options.onDrag(e, captureEvent, {
+          dragOffsetX,
+          dragOffsetY,
+        });
         shouldPreventScroll = true;
       }
 
@@ -156,9 +268,10 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
       }
 
       if (IS_IOS && shouldPreventScroll && options.selectorToPreventScroll) {
-        Array.from(document.querySelectorAll<HTMLElement>(options.selectorToPreventScroll)).forEach((scrollable) => {
-          scrollable.style.overflow = 'hidden';
-        });
+        Array.from(document.querySelectorAll<HTMLElement>(options.selectorToPreventScroll))
+          .forEach((scrollable) => {
+            scrollable.style.overflow = 'hidden';
+          });
       }
     }
   }
@@ -204,12 +317,73 @@ export function captureEvents(element: HTMLElement, options: CaptureOptions) {
     return processSwipe(e, axis, dragOffsetX, dragOffsetY, options.onSwipe!);
   }
 
+  const releaseWheel = debounce(onRelease, 100, false);
+
+  function onWheel(e: WheelEvent) {
+    if (!options.onZoom && !options.onDrag) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!hasMoved) {
+      onCapture(e);
+      hasMoved = true;
+      initialTouchCenter = {
+        x: e.x,
+        y: e.y,
+      };
+    }
+    const { doubleTapZoom = 3 } = options;
+    if (options.onDoubleClick && Object.is(e.deltaX, -0) && Object.is(e.deltaY, -0) && e.ctrlKey) {
+      wheelZoom = wheelZoom > 1 ? 1 : doubleTapZoom;
+      options.onDoubleClick(e, { centerX: e.pageX, centerY: e.pageY });
+      hasMoved = false;
+      return;
+    }
+    const metaKeyPressed = e.metaKey || e.ctrlKey || e.shiftKey;
+    if (options.onZoom && metaKeyPressed) {
+      isZooming = true;
+      const dragOffsetX = e.x - initialTouchCenter.x;
+      const dragOffsetY = e.y - initialTouchCenter.y;
+      const delta = clamp(e.deltaY, -25, 25);
+      wheelZoom -= delta * 0.01;
+      wheelZoom = clamp(wheelZoom, minZoom * 0.5, maxZoom * 3);
+      options.onZoom(e, {
+        zoom: round(wheelZoom, 2),
+        initialCenterX: initialTouchCenter.x,
+        initialCenterY: initialTouchCenter.y,
+        dragOffsetX,
+        dragOffsetY,
+        currentCenterX: e.x,
+        currentCenterY: e.y,
+      });
+    }
+    if (options.onDrag && !metaKeyPressed && !isZooming) {
+      // Ignore wheel inertia if drag is canceled in this direction
+      if (!isDragCanceled.x || Math.sign(initialDragOffset.x) === Math.sign(e.deltaX)) {
+        initialDragOffset.x -= e.deltaX;
+      }
+      if (!isDragCanceled.y || Math.sign(initialDragOffset.y) === Math.sign(e.deltaY)) {
+        initialDragOffset.y -= e.deltaY;
+      }
+      const { x, y } = initialDragOffset;
+      options.onDrag(e, captureEvent!, {
+        dragOffsetX: x,
+        dragOffsetY: y,
+      }, (dx, dy) => {
+        isDragCanceled = { x: dx, y: dy };
+      });
+    }
+    releaseWheel(e);
+  }
+
+  element.addEventListener('wheel', onWheel);
   element.addEventListener('mousedown', onCapture);
-  element.addEventListener('touchstart', onCapture, { passive: true });
+  element.addEventListener('touchstart', onCapture, { passive: !options.isNotPassive });
 
   return () => {
-    element.removeEventListener('mousedown', onCapture);
+    onRelease();
+    element.removeEventListener('wheel', onWheel);
     element.removeEventListener('touchstart', onCapture);
+    element.removeEventListener('mousedown', onCapture);
   };
 }
 

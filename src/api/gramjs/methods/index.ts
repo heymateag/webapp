@@ -1,20 +1,25 @@
 export {
-  destroy, disconnect, downloadMedia, fetchCurrentUser,
+  destroy, disconnect, downloadMedia, fetchCurrentUser, repairFileReference,
 } from './client';
+
+export {
+  reportPeer, reportProfilePhoto, changeSessionSettings, changeSessionTtl,
+} from './account';
 
 export {
   provideAuthPhoneNumber, provideAuthCode, provideAuthPassword, provideAuthRegistration, restartAuth, restartAuthWithQr,
 } from './auth';
 
 export {
-  fetchChats, fetchFullChat, searchChats, requestChatUpdate,
+  fetchChats, fetchFullChat, searchChats, requestChatUpdate, fetchChatSettings,
   saveDraft, clearDraft, fetchChat, updateChatMutedState,
   createChannel, joinChannel, deleteChatUser, deleteChat, leaveChannel, deleteChannel, createGroupChat, editChatPhoto,
-  toggleChatPinned, toggleChatArchived, toggleDialogUnread,
+  toggleChatPinned, toggleChatArchived, toggleDialogUnread, setChatEnabledReactions,
   fetchChatFolders, editChatFolder, deleteChatFolder, fetchRecommendedChatFolders,
   getChatByUsername, togglePreHistoryHidden, updateChatDefaultBannedRights, updateChatMemberBannedRights,
   updateChatTitle, updateChatAbout, toggleSignatures, updateChatAdmin, fetchGroupsForDiscussion, setDiscussionGroup,
-  migrateChat, openChatByInvite, fetchMembers, importChatInvite, addChatMembers, deleteChatMember,
+  migrateChat, openChatByInvite, fetchMembers, importChatInvite, addChatMembers, deleteChatMember, toggleIsProtected,
+  getChatByPhoneNumber,
 } from './chats';
 
 export {
@@ -22,22 +27,27 @@ export {
   markMessageListRead, markMessagesRead, requestThreadInfoUpdate, searchMessagesLocal, searchMessagesGlobal,
   fetchWebPagePreview, editMessage, forwardMessages, loadPollOptionResults, sendPollVote, findFirstMessageIdAfterDate,
   fetchPinnedMessages, fetchScheduledHistory, sendScheduledMessages, rescheduleMessage, deleteScheduledMessages,
-  reportMessages,
+  reportMessages, sendMessageAction, fetchSeenBy, fetchSponsoredMessages, viewSponsoredMessage, fetchSendAs,
+  saveDefaultSendAs, fetchUnreadReactions, readAllReactions, fetchUnreadMentions, readAllMentions,
 } from './messages';
 
 export {
   fetchFullUser, fetchNearestCountry, fetchTopUsers, fetchContactList, fetchUsers,
-  addContact, updateContact, deleteUser, fetchProfilePhotos, fetchCommonChats,
+  updateContact, importContact, deleteContact, fetchProfilePhotos, fetchCommonChats, reportSpam,
 } from './users';
 
 export {
   fetchStickerSets, fetchRecentStickers, fetchFavoriteStickers, fetchFeaturedStickers,
-  faveSticker, fetchStickers, fetchSavedGifs, searchStickers, installStickerSet, uninstallStickerSet,
-  searchGifs, fetchAnimatedEmojis, fetchStickersForEmoji, fetchEmojiKeywords,
+  faveSticker, fetchStickers, fetchSavedGifs, saveGif, searchStickers, installStickerSet, uninstallStickerSet,
+  searchGifs, fetchAnimatedEmojis, fetchStickersForEmoji, fetchEmojiKeywords, fetchAnimatedEmojiEffects,
+  removeRecentSticker, clearRecentStickers,
 } from './symbols';
 
 export {
   checkChatUsername, setChatUsername, updatePrivateLink,
+  fetchExportedChatInvites, editExportedChatInvite, exportChatInvite, deleteExportedChatInvite,
+  deleteRevokedExportedChatInvites, fetchChatInviteImporters, hideChatJoinRequest, hideAllChatJoinRequests,
+  hideChatReportPanel,
 } from './management';
 
 export {
@@ -46,7 +56,7 @@ export {
   fetchAuthorizations, terminateAuthorization, terminateAllAuthorizations,
   fetchNotificationExceptions, fetchNotificationSettings, updateContactSignUpNotification, updateNotificationSettings,
   fetchLanguages, fetchLangPack, fetchPrivacySettings, setPrivacySettings, registerDevice, unregisterDevice,
-  updateIsOnline, fetchContentSettings, updateContentSettings, fetchLangStrings, fetchCountryList,
+  updateIsOnline, fetchContentSettings, updateContentSettings, fetchLangStrings, fetchCountryList, fetchAppConfig,
 } from './settings';
 
 export {
@@ -55,6 +65,7 @@ export {
 
 export {
   answerCallbackButton, fetchTopInlineBots, fetchInlineBot, fetchInlineBotResults, sendInlineBotResult, startBot,
+  requestWebView, requestSimpleWebView, sendWebViewData, prolongWebView, loadAttachMenuBots, toggleBotInAttachMenu,
 } from './bots';
 
 export {
@@ -65,4 +76,20 @@ export {
   getGroupCall, joinGroupCall, discardGroupCall, createGroupCall,
   editGroupCallTitle, editGroupCallParticipant, exportGroupCallInvite, fetchGroupCallParticipants,
   joinGroupCallPresentation, leaveGroupCall, leaveGroupCallPresentation, toggleGroupCallStartSubscription,
+  requestCall, getDhConfig, confirmCall, sendSignalingData, acceptCall, discardCall, setCallRating, receivedCall,
 } from './calls';
+
+export {
+  getAvailableReactions, sendReaction, sendEmojiInteraction, fetchMessageReactionsList,
+  setDefaultReaction, fetchMessageReactions, sendWatchingEmojiInteraction,
+} from './reactions';
+
+export {
+  fetchChannelStatistics, fetchGroupStatistics, fetchMessageStatistics,
+	fetchMessagePublicForwards, fetchStatisticsAsyncGraph,
+} from './statistics';
+
+export {
+  acceptPhoneCall, confirmPhoneCall, requestPhoneCall, decodePhoneCallData, createPhoneCallState,
+  destroyPhoneCallState, encodePhoneCallData,
+} from './phoneCallState';

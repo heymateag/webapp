@@ -1,4 +1,4 @@
-import { CancellableCallback, OriginMessageEvent, WorkerMessageData } from './WorkerConnector';
+import type { CancellableCallback, OriginMessageEvent, WorkerMessageData } from './WorkerConnector';
 import { DEBUG } from '../config';
 
 declare const self: WorkerGlobalScope;
@@ -43,7 +43,7 @@ export default function createInterface(api: Record<string, Function>) {
               arrayBuffers,
             );
           }
-        } catch (error) {
+        } catch (error: any) {
           if (DEBUG) {
             // eslint-disable-next-line no-console
             console.error(error);

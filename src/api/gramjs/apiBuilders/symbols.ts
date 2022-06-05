@@ -1,47 +1,75 @@
 import { Api as GramJs } from '../../../lib/gramjs';
-import { ApiSticker, ApiStickerSet } from '../../types';
-import { MEMOJI_STICKER_ID } from '../../../config';
+import type {
+  ApiEmojiInteraction, ApiSticker, ApiStickerSet, GramJsEmojiInteraction,
+} from '../../types';
+import { NO_STICKER_SET_ID } from '../../../config';
 
 import { buildApiThumbnailFromCached, buildApiThumbnailFromPath } from './common';
 import localDb from '../localDb';
 
-const ANIMATED_STICKER_MIME_TYPE = 'application/x-tgsticker';
+const LOTTIE_STICKER_MIME_TYPE = 'application/x-tgsticker';
+const VIDEO_STICKER_MIME_TYPE = 'video/webm';
 
 export function buildStickerFromDocument(document: GramJs.TypeDocument): ApiSticker | undefined {
   if (document instanceof GramJs.DocumentEmpty) {
     return undefined;
   }
 
+  const { mimeType } = document;
   const stickerAttribute = document.attributes
     .find((attr: any): attr is GramJs.DocumentAttributeSticker => (
       attr instanceof GramJs.DocumentAttributeSticker
     ));
 
-  const fileAttribute = document.mimeType === ANIMATED_STICKER_MIME_TYPE && document.attributes
-    .find((attr: any): attr is GramJs.DocumentAttributeFilename => (
-      attr instanceof GramJs.DocumentAttributeFilename
-    ));
+  const fileAttribute = (mimeType === LOTTIE_STICKER_MIME_TYPE || mimeType === VIDEO_STICKER_MIME_TYPE)
+    && document.attributes
+      .find((attr: any): attr is GramJs.DocumentAttributeFilename => (
+        attr instanceof GramJs.DocumentAttributeFilename
+      ));
 
   if (!stickerAttribute && !fileAttribute) {
     return undefined;
   }
 
-  const sizeAttribute = document.attributes
+  const isLottie = mimeType === LOTTIE_STICKER_MIME_TYPE;
+  const isVideo = mimeType === VIDEO_STICKER_MIME_TYPE;
+
+  const imageSizeAttribute = document.attributes
     .find((attr: any): attr is GramJs.DocumentAttributeImageSize => (
       attr instanceof GramJs.DocumentAttributeImageSize
     ));
+
+  const videoSizeAttribute = document.attributes
+    .find((attr: any): attr is GramJs.DocumentAttributeVideo => (
+      attr instanceof GramJs.DocumentAttributeVideo
+    ));
+
+  const sizeAttribute = imageSizeAttribute || videoSizeAttribute;
 
   const stickerSetInfo = stickerAttribute && stickerAttribute.stickerset instanceof GramJs.InputStickerSetID
     ? stickerAttribute.stickerset
     : undefined;
   const emoji = stickerAttribute?.alt;
-  const isAnimated = document.mimeType === ANIMATED_STICKER_MIME_TYPE;
+
   const cachedThumb = document.thumbs && document.thumbs.find(
     (s): s is GramJs.PhotoCachedSize => s instanceof GramJs.PhotoCachedSize,
   );
+
+  // eslint-disable-next-line no-restricted-globals
+  if (mimeType === VIDEO_STICKER_MIME_TYPE && !(self as any).isWebmSupported && !cachedThumb) {
+    const staticThumb = document.thumbs && document.thumbs.find(
+      (s): s is GramJs.PhotoSize => s instanceof GramJs.PhotoSize,
+    );
+
+    if (!staticThumb) {
+      return undefined;
+    }
+  }
+
   const pathThumb = document.thumbs && document.thumbs.find(
     (s): s is GramJs.PhotoPathSize => s instanceof GramJs.PhotoPathSize,
   );
+
   const thumbnail = cachedThumb ? (
     buildApiThumbnailFromCached(cachedThumb)
   ) : pathThumb && sizeAttribute ? (
@@ -52,10 +80,11 @@ export function buildStickerFromDocument(document: GramJs.TypeDocument): ApiStic
 
   return {
     id: String(document.id),
-    stickerSetId: stickerSetInfo ? String(stickerSetInfo.id) : MEMOJI_STICKER_ID,
+    stickerSetId: stickerSetInfo ? String(stickerSetInfo.id) : NO_STICKER_SET_ID,
     stickerSetAccessHash: stickerSetInfo && String(stickerSetInfo.accessHash),
     emoji,
-    isAnimated,
+    isLottie,
+    isVideo,
     width,
     height,
     thumbnail,
@@ -67,6 +96,7 @@ export function buildStickerSet(set: GramJs.StickerSet): ApiStickerSet {
     archived,
     animated,
     installedDate,
+    videos,
     id,
     accessHash,
     title,
@@ -77,7 +107,8 @@ export function buildStickerSet(set: GramJs.StickerSet): ApiStickerSet {
 
   return {
     archived,
-    isAnimated: animated,
+    isLottie: animated,
+    isVideos: videos,
     installedDate,
     id: String(id),
     accessHash: String(accessHash),
@@ -107,4 +138,10 @@ export function buildStickerSetCovered(coveredStickerSet: GramJs.TypeStickerSetC
   });
 
   return stickerSet;
+}
+
+export function buildApiEmojiInteraction(json: GramJsEmojiInteraction): ApiEmojiInteraction {
+  return {
+    timestamps: json.a.map((l) => l.t),
+  };
 }

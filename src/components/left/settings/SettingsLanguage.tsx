@@ -1,14 +1,13 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ISettings, LangCode, SettingsScreens } from '../../../types';
-import { ApiLanguage } from '../../../api/types';
+import type { ISettings, LangCode } from '../../../types';
+import type { ApiLanguage } from '../../../api/types';
 
 import { setLanguage } from '../../../util/langProvider';
-import { pick } from '../../../util/iteratees';
 
 import RadioGroup from '../../ui/RadioGroup';
 import Loading from '../../ui/Loading';
@@ -17,23 +16,22 @@ import useHistoryBack from '../../../hooks/useHistoryBack';
 
 type OwnProps = {
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
 type StateProps = Pick<ISettings, 'languages' | 'language'>;
 
-type DispatchProps = Pick<GlobalActions, 'loadLanguages' | 'setSettingOption'>;
-
-const SettingsLanguage: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsLanguage: FC<OwnProps & StateProps> = ({
   isActive,
-  onScreenSelect,
   onReset,
   languages,
   language,
-  loadLanguages,
-  setSettingOption,
 }) => {
+  const {
+    loadLanguages,
+    setSettingOption,
+  } = getActions();
+
   const [selectedLanguage, setSelectedLanguage] = useState<string>(language);
   const [isLoading, markIsLoading, unmarkIsLoading] = useFlag();
 
@@ -57,10 +55,13 @@ const SettingsLanguage: FC<OwnProps & StateProps & DispatchProps> = ({
     return languages ? buildOptions(languages) : undefined;
   }, [languages]);
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.Language);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   return (
-    <div className="settings-content settings-item settings-language custom-scroll">
+    <div className="settings-content settings-item settings-language custom-scroll settings-item--first">
       {options ? (
         <RadioGroup
           name="keyboard-send-settings"
@@ -96,7 +97,4 @@ export default memo(withGlobal<OwnProps>(
       language: global.settings.byKey.language,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadLanguages', 'setSettingOption',
-  ]),
 )(SettingsLanguage));

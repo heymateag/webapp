@@ -1,4 +1,4 @@
-import { Api as GramJs } from '../../../lib/gramjs';
+import type { Api as GramJs } from '../../../lib/gramjs';
 
 export function buildShippingOptions(shippingOptions: GramJs.ShippingOption[] | undefined) {
   if (!shippingOptions) {
@@ -116,6 +116,7 @@ export function buildPaymentForm(form: GramJs.payments.PaymentForm) {
       needCountry: nativeData.need_country,
       needZip: nativeData.need_zip,
       publishableKey: nativeData.publishable_key,
+      publicToken: nativeData?.public_token,
     },
   };
 }

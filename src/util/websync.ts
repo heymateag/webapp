@@ -1,5 +1,5 @@
-import { APP_VERSION, DEBUG } from '../config';
-import { getGlobal } from '../lib/teact/teactn';
+import { APP_VERSION, DEBUG, IS_MOCKED_CLIENT } from '../config';
+import { getGlobal } from '../global';
 import { hasStoredSession } from './sessions';
 
 const WEBSYNC_URLS = [
@@ -25,6 +25,7 @@ const saveSync = (authed: boolean) => {
 let lastTimeout: NodeJS.Timeout | undefined;
 
 export const forceWebsync = (authed: boolean) => {
+  if (IS_MOCKED_CLIENT) return undefined;
   const currentTs = getTs();
 
   const { canRedirect, ts } = JSON.parse(localStorage.getItem(WEBSYNC_KEY) || '{}');
@@ -34,7 +35,7 @@ export const forceWebsync = (authed: boolean) => {
       return new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
 
-        const removeElement = () => !!document.body.removeChild(script);
+        const removeElement = () => Boolean(document.body.removeChild(script));
 
         script.src = url + new URLSearchParams({
           authed: Number(authed).toString(),
@@ -83,4 +84,8 @@ export function startWebsync() {
     const authed = authState === 'authorizationStateReady' || hasStoredSession(true);
     forceWebsync(authed);
   }, Math.max(0, timeout * 1000));
+}
+
+export function clearWebsync() {
+  localStorage.removeItem(WEBSYNC_KEY);
 }

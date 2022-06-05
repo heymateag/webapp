@@ -1,11 +1,11 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
+  memo, useCallback, useEffect, useLayoutEffect, useRef, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { withGlobal } from '../../../global';
 
-import { ApiSticker, ApiVideo } from '../../../api/types';
+import type { ApiSticker, ApiVideo } from '../../../api/types';
 
-import { IAllowedAttachmentOptions } from '../../../modules/helpers';
 import { IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../../util/environment';
 import { fastRaf } from '../../../util/schedulers';
 import buildClassName from '../../../util/buildClassName';
@@ -27,13 +27,18 @@ import './SymbolMenu.scss';
 const ANIMATION_DURATION = 350;
 
 export type OwnProps = {
+  chatId: string;
+  threadId?: number;
   isOpen: boolean;
-  allowedAttachmentOptions: IAllowedAttachmentOptions;
+  canSendStickers: boolean;
+  canSendGifs: boolean;
   onLoad: () => void;
   onClose: () => void;
   onEmojiSelect: (emoji: string) => void;
-  onStickerSelect: (sticker: ApiSticker, shouldPreserveInput?: boolean) => void;
-  onGifSelect: (gif: ApiVideo) => void;
+  onStickerSelect: (
+    sticker: ApiSticker, isSilent?: boolean, shouldSchedule?: boolean, shouldPreserveInput?: boolean
+  ) => void;
+  onGifSelect: (gif: ApiVideo, isSilent?: boolean, shouldSchedule?: boolean) => void;
   onRemoveSymbol: () => void;
   onSearchOpen: (type: 'stickers' | 'gifs') => void;
   addRecentEmoji: AnyToVoidFunction;
@@ -46,10 +51,20 @@ type StateProps = {
 let isActivated = false;
 
 const SymbolMenu: FC<OwnProps & StateProps> = ({
-  isOpen, allowedAttachmentOptions, isLeftColumnShown,
-  onLoad, onClose,
-  onEmojiSelect, onStickerSelect, onGifSelect,
-  onRemoveSymbol, onSearchOpen, addRecentEmoji,
+  chatId,
+  threadId,
+  isOpen,
+  canSendStickers,
+  canSendGifs,
+  isLeftColumnShown,
+  onLoad,
+  onClose,
+  onEmojiSelect,
+  onStickerSelect,
+  onGifSelect,
+  onRemoveSymbol,
+  onSearchOpen,
+  addRecentEmoji,
 }) => {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
@@ -114,13 +129,11 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
     onSearchOpen(type);
   }, [onClose, onSearchOpen]);
 
-  const handleStickerSelect = useCallback((sticker: ApiSticker) => {
-    onStickerSelect(sticker, true);
+  const handleStickerSelect = useCallback((sticker: ApiSticker, isSilent?: boolean, shouldSchedule?: boolean) => {
+    onStickerSelect(sticker, isSilent, shouldSchedule, true);
   }, [onStickerSelect]);
 
   const lang = useLang();
-
-  const { canSendStickers, canSendGifs } = allowedAttachmentOptions;
 
   function renderContent(isActive: boolean, isFrom: boolean) {
     switch (activeTab) {
@@ -138,6 +151,8 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
             loadAndPlay={canSendStickers ? isOpen && (isActive || isFrom) : false}
             canSendStickers={canSendStickers}
             onStickerSelect={handleStickerSelect}
+            chatId={chatId}
+            threadId={threadId}
           />
         );
       case SymbolMenuTabs.GIFs:
@@ -197,7 +212,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
     const className = buildClassName(
       'SymbolMenu mobile-menu',
       transitionClassNames,
-      !isLeftColumnShown && 'middle-column-open',
+      isLeftColumnShown && 'left-column-open',
     );
 
     return (
@@ -220,6 +235,7 @@ const SymbolMenu: FC<OwnProps & StateProps> = ({
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
       onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
       noCloseOnBackdrop={!IS_TOUCH_ENV}
+      noCompact
     >
       {content}
     </Menu>

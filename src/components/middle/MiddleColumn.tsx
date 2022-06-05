@@ -1,12 +1,16 @@
-/* eslint-disable max-len */
+import type { FC } from 'teact/teact';
 import React, {
-  FC, useEffect, useState, memo, useMemo, useCallback,
+  useEffect, useState, memo, useMemo, useCallback,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiChatBannedRights, MAIN_THREAD_ID } from '../../api/types';
-import { GlobalActions, MessageListType, MessageList as GlobalMessageList, GlobalState } from '../../global/types';
-import { ThemeKey } from '../../types';
+import type { ApiChatBannedRights } from '../../api/types';
+import { MAIN_THREAD_ID } from '../../api/types';
+import type {
+  MessageListType,
+  ActiveEmojiInteraction,
+} from '../../global/types';
+import type { ThemeKey } from '../../types';
 
 import {
   MIN_SCREEN_WIDTH_FOR_STATIC_LEFT_COLUMN,
@@ -30,30 +34,35 @@ import {
 import { DropAreaState } from './composer/DropArea';
 import {
   selectChat,
+  selectChatBot,
   selectCurrentMessageList,
   selectCurrentTextSearch,
   selectIsChatBotNotStarted,
   selectIsInSelectMode,
   selectIsRightColumnShown,
+  selectIsUserBlocked,
   selectPinnedIds,
   selectTheme,
-} from '../../modules/selectors';
-import { getCanPostInChat, getMessageSendingRestrictionReason, isUserId } from '../../modules/helpers';
+} from '../../global/selectors';
+import {
+  getCanPostInChat, getMessageSendingRestrictionReason, isChatChannel, isChatSuperGroup, isUserId,
+} from '../../global/helpers';
 import captureEscKeyListener from '../../util/captureEscKeyListener';
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 import useCustomBackground from '../../hooks/useCustomBackground';
 import useWindowSize from '../../hooks/useWindowSize';
 import usePrevDuringAnimation from '../../hooks/usePrevDuringAnimation';
-import calculateMiddleFooterTransforms from './helpers/calculateMiddleFooterTransforms';
 import useLang from '../../hooks/useLang';
 import useHistoryBack from '../../hooks/useHistoryBack';
-import { createMessageHash } from '../../util/routing';
+import usePrevious from '../../hooks/usePrevious';
+import useForceUpdate from '../../hooks/useForceUpdate';
+import useOnChange from '../../hooks/useOnChange';
+import calculateMiddleFooterTransforms from './helpers/calculateMiddleFooterTransforms';
 
 import Transition from '../ui/Transition';
 import MiddleHeader from './MiddleHeader';
 import MessageList from './MessageList';
-import ScrollDownButton from './ScrollDownButton';
+import FloatingActionButtons from './FloatingActionButtons';
 import Composer from './composer/Composer';
 import Button from '../ui/Button';
 import MobileSearch from './MobileSearch.async';
@@ -61,8 +70,12 @@ import MessageSelectToolbar from './MessageSelectToolbar.async';
 import UnpinAllMessagesModal from '../common/UnpinAllMessagesModal.async';
 import PaymentModal from '../payment/PaymentModal.async';
 import ReceiptModal from '../payment/ReceiptModal.async';
+import SeenByModal from '../common/SeenByModal.async';
+import EmojiInteractionAnimation from './EmojiInteractionAnimation.async';
+import ReactorListModal from './ReactorListModal.async';
 
 import './MiddleColumn.scss';
+import styles from './MiddleColumn.module.scss';
 
 type StateProps = {
   chatId?: string;
@@ -74,7 +87,7 @@ type StateProps = {
   canPost?: boolean;
   currentUserBannedRights?: ApiChatBannedRights;
   defaultBannedRights?: ApiChatBannedRights;
-  hasPinnedOrAudioMessage?: boolean;
+  hasPinnedOrAudioPlayer?: boolean;
   pinnedMessagesCount?: number;
   theme: ThemeKey;
   customBackground?: string;
@@ -87,16 +100,22 @@ type StateProps = {
   isSelectModeActive?: boolean;
   isPaymentModalOpen?: boolean;
   isReceiptModalOpen?: boolean;
+  isSeenByModalOpen: boolean;
+  isReactorListModalOpen: boolean;
   animationLevel?: number;
   shouldSkipHistoryAnimations?: boolean;
   currentTransitionKey: number;
-  messageLists?: GlobalMessageList[];
-} & Pick<GlobalState, 'showHeymateScheduleMiddle' | 'showHeymateWalletMiddle' | 'showHeymateManageOfferMiddle'>;
-
-type DispatchProps = Pick<GlobalActions, (
-  'openChat' | 'unpinAllMessages' | 'loadUser' | 'closeLocalTextSearch' | 'exitMessageSelectMode' |
-  'closePaymentModal' | 'clearReceipt'
-)>;
+  isChannel?: boolean;
+  areChatSettingsLoaded?: boolean;
+  canSubscribe?: boolean;
+  canStartBot?: boolean;
+  canRestartBot?: boolean;
+  activeEmojiInteractions?: ActiveEmojiInteraction[];
+  lastSyncTime?: number;
+  showHeymateScheduleMiddle?: boolean;
+  showHeymateWalletMiddle?: boolean;
+  showHeymateManageOfferMiddle?: boolean;
+};
 
 const CLOSE_ANIMATION_DURATION = IS_SINGLE_COLUMN_LAYOUT ? 450 + ANIMATION_END_DELAY : undefined;
 
@@ -104,17 +123,16 @@ function isImage(item: DataTransferItem) {
   return item.kind === 'file' && item.type && SUPPORTED_IMAGE_CONTENT_TYPES.has(item.type);
 }
 
-const MiddleColumn: FC<StateProps & DispatchProps> = ({
+const MiddleColumn: FC<StateProps> = ({
   chatId,
   threadId,
   messageListType,
   isPrivate,
   isPinnedMessageList,
-  messageLists,
   canPost,
   currentUserBannedRights,
   defaultBannedRights,
-  hasPinnedOrAudioMessage,
+  hasPinnedOrAudioPlayer,
   pinnedMessagesCount,
   customBackground,
   theme,
@@ -127,32 +145,49 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   isSelectModeActive,
   isPaymentModalOpen,
   isReceiptModalOpen,
+  isSeenByModalOpen,
+  isReactorListModalOpen,
   animationLevel,
   shouldSkipHistoryAnimations,
   currentTransitionKey,
+  isChannel,
+  areChatSettingsLoaded,
+  canSubscribe,
+  canStartBot,
+  canRestartBot,
+  activeEmojiInteractions,
+  lastSyncTime,
   showHeymateScheduleMiddle,
   showHeymateWalletMiddle,
   showHeymateManageOfferMiddle,
-  openChat,
-  unpinAllMessages,
-  loadUser,
-  closeLocalTextSearch,
-  exitMessageSelectMode,
-  closePaymentModal,
-  clearReceipt,
 }) => {
+  const {
+    openChat,
+    openPreviousChat,
+    unpinAllMessages,
+    loadUser,
+    loadChatSettings,
+    closeLocalTextSearch,
+    exitMessageSelectMode,
+    closePaymentModal,
+    clearReceipt,
+    joinChannel,
+    sendBotCommand,
+    restartBot,
+  } = getActions();
+
   const { width: windowWidth } = useWindowSize();
   const lang = useLang();
   const [dropAreaState, setDropAreaState] = useState(DropAreaState.None);
   const [isFabShown, setIsFabShown] = useState<boolean | undefined>();
   const [isNotchShown, setIsNotchShown] = useState<boolean | undefined>();
   const [isUnpinModalOpen, setIsUnpinModalOpen] = useState(false);
-  const [isReady, setIsReady] = useState(!IS_SINGLE_COLUMN_LAYOUT || animationLevel === ANIMATION_LEVEL_MIN);
+
   const [activeTab, setActiveTab] = useState(
     // ManageOffer.MY_ORDERS,
     0,
   );
-  const hasTools = hasPinnedOrAudioMessage && (
+  const hasTools = hasPinnedOrAudioPlayer && (
     windowWidth < MOBILE_SCREEN_MAX_WIDTH
     || (
       isRightColumnShown && windowWidth > MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN
@@ -166,9 +201,27 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   const renderingChatId = usePrevDuringAnimation(chatId, CLOSE_ANIMATION_DURATION);
   const renderingThreadId = usePrevDuringAnimation(threadId, CLOSE_ANIMATION_DURATION);
   const renderingMessageListType = usePrevDuringAnimation(messageListType, CLOSE_ANIMATION_DURATION);
-  const renderingCanPost = usePrevDuringAnimation(canPost, CLOSE_ANIMATION_DURATION);
+  const renderingCanSubscribe = usePrevDuringAnimation(canSubscribe, CLOSE_ANIMATION_DURATION);
+  const renderingCanStartBot = usePrevDuringAnimation(canStartBot, CLOSE_ANIMATION_DURATION);
+  const renderingCanRestartBot = usePrevDuringAnimation(canRestartBot, CLOSE_ANIMATION_DURATION);
+  const renderingCanPost = usePrevDuringAnimation(canPost, CLOSE_ANIMATION_DURATION)
+    && !renderingCanRestartBot && !renderingCanStartBot && !renderingCanSubscribe;
   const renderingHasTools = usePrevDuringAnimation(hasTools, CLOSE_ANIMATION_DURATION);
   const renderingIsFabShown = usePrevDuringAnimation(isFabShown, CLOSE_ANIMATION_DURATION);
+  const renderingIsChannel = usePrevDuringAnimation(isChannel, CLOSE_ANIMATION_DURATION);
+
+  const prevTransitionKey = usePrevious(currentTransitionKey);
+
+  const cleanupExceptionKey = (
+    prevTransitionKey !== undefined && prevTransitionKey < currentTransitionKey ? prevTransitionKey : undefined
+  );
+
+  const { isReady, handleOpenEnd, handleSlideStop } = useIsReady(
+    !shouldSkipHistoryAnimations && animationLevel !== ANIMATION_LEVEL_MIN,
+    currentTransitionKey,
+    prevTransitionKey,
+    chatId,
+  );
 
   useEffect(() => {
     return chatId
@@ -178,17 +231,11 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
       : undefined;
   }, [chatId, openChat]);
 
-  useEffect(() => {
+  useOnChange(() => {
     setDropAreaState(DropAreaState.None);
     setIsFabShown(undefined);
     setIsNotchShown(undefined);
   }, [chatId]);
-
-  useEffect(() => {
-    if (animationLevel === ANIMATION_LEVEL_MIN) {
-      setIsReady(true);
-    }
-  }, [animationLevel]);
 
   // Fix for mobile virtual keyboard
   useEffect(() => {
@@ -212,17 +259,17 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     };
   }, []);
 
-  const handleTransitionEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
-    if (e.propertyName === 'transform' && e.target === e.currentTarget) {
-      setIsReady(Boolean(chatId));
-    }
-  };
-
   useEffect(() => {
     if (isPrivate) {
       loadUser({ userId: chatId });
     }
   }, [chatId, isPrivate, loadUser]);
+
+  useEffect(() => {
+    if (!areChatSettingsLoaded && lastSyncTime) {
+      loadChatSettings({ chatId });
+    }
+  }, [chatId, isPrivate, areChatSettingsLoaded, lastSyncTime, loadChatSettings]);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     if (IS_TOUCH_ENV) {
@@ -230,7 +277,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     }
 
     const { items } = e.dataTransfer || {};
-    const shouldDrawQuick = items && Array.from(items)
+    const shouldDrawQuick = items && items.length > 0 && Array.from(items)
       // Filter unnecessary element for drag and drop images in Firefox (https://github.com/Ajaxy/telegram-tt/issues/49)
       // https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Recommended_drag_types#image
       .filter((item) => item.type !== 'text/uri-list')
@@ -255,8 +302,8 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
   const handleUnpinAllMessages = useCallback(() => {
     unpinAllMessages({ chatId });
     closeUnpinModal();
-    openChat({ id: chatId });
-  }, [unpinAllMessages, openChat, closeUnpinModal, chatId]);
+    openPreviousChat();
+  }, [unpinAllMessages, chatId, closeUnpinModal, openPreviousChat]);
 
   const handleTabletFocus = useCallback(() => {
     openChat({ id: chatId });
@@ -266,14 +313,32 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     setActiveTab(index);
   }, []);
 
+  const handleSubscribeClick = useCallback(() => {
+    joinChannel({ chatId });
+  }, [joinChannel, chatId]);
+
+  const handleStartBot = useCallback(() => {
+    sendBotCommand({ command: '/start' });
+  }, [sendBotCommand]);
+
+  const handleRestartBot = useCallback(() => {
+    restartBot({ chatId });
+  }, [chatId, restartBot]);
+
   const customBackgroundValue = useCustomBackground(theme, customBackground);
 
   const className = buildClassName(
     renderingHasTools && 'has-header-tools',
-    customBackground && 'custom-bg-image',
-    backgroundColor && 'custom-bg-color',
-    customBackground && isBackgroundBlurred && 'blurred',
     MASK_IMAGE_DISABLED ? 'mask-image-disabled' : 'mask-image-enabled',
+  );
+
+  const bgClassName = buildClassName(
+    styles.background,
+    styles.withTransition,
+    customBackground && styles.customBgImage,
+    backgroundColor && styles.customBgColor,
+    customBackground && isBackgroundBlurred && styles.blurred,
+    isRightColumnShown && styles.withRightColumn,
   );
 
   const messagingDisabledClassName = buildClassName(
@@ -301,25 +366,30 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
     renderingCanPost && isNotchShown && !isSelectModeActive && 'with-notch',
   );
 
-  const closeChat = () => {
-    openChat({ id: undefined }, true);
-  };
+  useHistoryBack({
+    isActive: isSelectModeActive,
+    onBack: exitMessageSelectMode,
+  });
 
-  useHistoryBack(renderingChatId && renderingThreadId,
-    closeChat, undefined, undefined, undefined,
-    messageLists ? messageLists.map(createMessageHash) : []);
+  useHistoryBack({
+    isActive: isMobileSearchActive,
+    onBack: closeLocalTextSearch,
+  });
 
-  useHistoryBack(isMobileSearchActive, closeLocalTextSearch);
-  useHistoryBack(isSelectModeActive, exitMessageSelectMode);
-
-  const isMessagingDisabled = Boolean(!isPinnedMessageList && !renderingCanPost && messageSendingRestrictionReason);
+  const isMessagingDisabled = Boolean(
+    !isPinnedMessageList && !renderingCanPost && !renderingCanRestartBot && !renderingCanStartBot
+    && !renderingCanSubscribe && messageSendingRestrictionReason,
+  );
+  const withMessageListBottomShift = Boolean(
+    renderingCanRestartBot || renderingCanSubscribe || renderingCanStartBot || isPinnedMessageList,
+  );
+  const withExtraShift = Boolean(isMessagingDisabled || isSelectModeActive || isPinnedMessageList);
 
   return (
     <div
       id="MiddleColumn"
       className={className}
-      onTransitionEnd={handleTransitionEnd}
-      // @ts-ignore teact-feature
+      onTransitionEnd={handleOpenEnd}
       style={`
         --composer-hidden-scale: ${composerHiddenScale};
         --toolbar-hidden-scale: ${toolbarHiddenScale};
@@ -334,8 +404,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
       onClick={(IS_TABLET_COLUMN_LAYOUT && isLeftColumnShown) ? handleTabletFocus : undefined}
     >
       <div
-        id="middle-column-bg"
-        // @ts-ignore
+        className={bgClassName}
         style={customBackgroundValue ? `--custom-background: ${customBackgroundValue}` : undefined}
       />
       <div id="middle-column-portals" />
@@ -354,20 +423,20 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
               name={shouldSkipHistoryAnimations ? 'none' : animationLevel === ANIMATION_LEVEL_MAX ? 'slide' : 'fade'}
               activeKey={currentTransitionKey}
               shouldCleanup
+              cleanupExceptionKey={cleanupExceptionKey}
+              onStop={handleSlideStop}
             >
-              {(isActive) => (
-                <>
-                  <MessageList
-                    key={`${renderingChatId}-${renderingThreadId}-${renderingMessageListType}`}
-                    chatId={renderingChatId}
-                    threadId={renderingThreadId}
-                    type={renderingMessageListType}
-                    canPost={renderingCanPost}
-                    hasTools={renderingHasTools}
-                    onFabToggle={setIsFabShown}
-                    onNotchToggle={setIsNotchShown}
-                    isReady={isReady}
-                    isActive={isActive}
+              <MessageList
+                key={`${renderingChatId}-${renderingThreadId}-${renderingMessageListType}`}
+                chatId={renderingChatId}
+                threadId={renderingThreadId}
+                type={renderingMessageListType}
+                canPost={renderingCanPost}
+                hasTools={renderingHasTools}
+                onFabToggle={setIsFabShown}
+                onNotchToggle={setIsNotchShown}
+                isReady={isReady}
+                withBottomShift={withMessageListBottomShift}
                     activeTab={activeTab}
                   />
                   <div className={footerClassName}>
@@ -382,50 +451,89 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
                       />
                     )}
                     {isPinnedMessageList && (
-                      <div className="unpin-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
-                        <Button
-                          size="tiny"
-                          fluid
-                          color="secondary"
-                          className="unpin-all-button"
-                          onClick={handleOpenUnpinModal}
-                        >
-                          <i className="icon-unpin" />
-                          <span>{lang('Chat.Pinned.UnpinAll', pinnedMessagesCount, 'i')}</span>
-                        </Button>
-                      </div>
-                    )}
-                    {isMessagingDisabled && (
-                      <div className={messagingDisabledClassName}>
-                        <div className="messaging-disabled-inner">
-                          <span>
-                            {messageSendingRestrictionReason}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    <MessageSelectToolbar
-                      messageListType={renderingMessageListType}
-                      isActive={isSelectModeActive}
-                      canPost={renderingCanPost}
-                    />
-                    <PaymentModal
-                      isOpen={Boolean(isPaymentModalOpen)}
-                      onClose={closePaymentModal}
-                    />
-                    <ReceiptModal
-                      isOpen={Boolean(isReceiptModalOpen)}
-                      onClose={clearReceipt}
-                    />
+                      <div className="middle-column-footer-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
+                    <Button
+                      size="tiny"
+                      fluid
+                      color="secondary"
+                      className="unpin-all-button"
+                      onClick={handleOpenUnpinModal}
+                    >
+                      <i className="icon-unpin" />
+                      <span>{lang('Chat.Pinned.UnpinAll', pinnedMessagesCount, 'i')}</span>
+                    </Button>
                   </div>
-                </>
-              )}
+                )}
+                {isMessagingDisabled && (
+                  <div className={messagingDisabledClassName}>
+                    <div className="messaging-disabled-inner">
+                      <span>
+                        {messageSendingRestrictionReason}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {IS_SINGLE_COLUMN_LAYOUT && renderingCanSubscribe && (
+                  <div className="middle-column-footer-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
+                    <Button
+                      size="tiny"
+                      fluid
+                      ripple
+                      className="join-subscribe-button"
+                      onClick={handleSubscribeClick}
+                    >
+                      {lang(renderingIsChannel ? 'ProfileJoinChannel' : 'ProfileJoinGroup')}
+                    </Button>
+                  </div>
+                )}
+                {IS_SINGLE_COLUMN_LAYOUT && renderingCanStartBot && (
+                  <div className="middle-column-footer-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
+                    <Button
+                      size="tiny"
+                      fluid
+                      ripple
+                      className="join-subscribe-button"
+                      onClick={handleStartBot}
+                    >
+                      {lang('BotStart')}
+                    </Button>
+                  </div>
+                )}
+                {IS_SINGLE_COLUMN_LAYOUT && renderingCanRestartBot && (
+                  <div className="middle-column-footer-button-container" dir={lang.isRtl ? 'rtl' : undefined}>
+                    <Button
+                      size="tiny"
+                      fluid
+                      ripple
+                      className="join-subscribe-button"
+                      onClick={handleRestartBot}
+                    >
+                      {lang('BotRestart')}
+                    </Button>
+                  </div>
+                )}
+                <MessageSelectToolbar
+                  messageListType={renderingMessageListType}
+                  isActive={isSelectModeActive}
+                  canPost={renderingCanPost}
+                />
+                <PaymentModal
+                  isOpen={Boolean(isPaymentModalOpen)}
+                  onClose={closePaymentModal}
+                />
+                <ReceiptModal
+                  isOpen={Boolean(isReceiptModalOpen)}
+                  onClose={clearReceipt}
+                />
+                <SeenByModal isOpen={isSeenByModalOpen} />
+                <ReactorListModal isOpen={isReactorListModalOpen} />
+              </div>
             </Transition>
 
-            <ScrollDownButton
+            <FloatingActionButtons
               isShown={renderingIsFabShown && !showHeymateScheduleMiddle && !showHeymateWalletMiddle && !showHeymateManageOfferMiddle}
               canPost={renderingCanPost}
-              withExtraShift={isMessagingDisabled || isSelectModeActive || isPinnedMessageList}
+              withExtraShift={withExtraShift}
             />
           </div>
           {IS_SINGLE_COLUMN_LAYOUT && <MobileSearch isActive={Boolean(isMobileSearchActive)} />}
@@ -440,6 +548,15 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
           onUnpin={handleUnpinAllMessages}
         />
       )}
+      <div teactFastList>
+        {activeEmojiInteractions?.map((activeEmojiInteraction, i) => (
+          <EmojiInteractionAnimation
+            teactOrderKey={i}
+            key={activeEmojiInteraction.id}
+            activeEmojiInteraction={activeEmojiInteraction}
+          />
+        ))}
+      </div>
     </div>
   );
 };
@@ -454,7 +571,9 @@ export default memo(withGlobal(
 
     const { messageLists } = global.messages;
     const currentMessageList = selectCurrentMessageList(global);
-    const { isLeftColumnShown, chats: { listIds } } = global;
+    const {
+      isLeftColumnShown, chats: { listIds }, activeEmojiInteractions, lastSyncTime,
+    } = global;
     const state: StateProps = {
       theme,
       customBackground,
@@ -467,8 +586,12 @@ export default memo(withGlobal(
       isSelectModeActive: selectIsInSelectMode(global),
       isPaymentModalOpen: global.payment.isPaymentModalOpen,
       isReceiptModalOpen: Boolean(global.payment.receipt),
+      isSeenByModalOpen: Boolean(global.seenByModal),
+      isReactorListModalOpen: Boolean(global.reactorModal),
       animationLevel: global.settings.byKey.animationLevel,
-      currentTransitionKey: Math.max(0, global.messages.messageLists.length - 1),
+      currentTransitionKey: Math.max(0, messageLists.length - 1),
+      activeEmojiInteractions,
+      lastSyncTime,
       showHeymateScheduleMiddle,
       showHeymateWalletMiddle,
       showHeymateManageOfferMiddle,
@@ -479,7 +602,9 @@ export default memo(withGlobal(
     }
 
     const { chatId, threadId, type: messageListType } = currentMessageList;
+    const isPrivate = isUserId(chatId);
     const chat = selectChat(global, chatId);
+    const bot = selectChatBot(global, chatId);
     const pinnedIds = selectPinnedIds(global, chatId);
     const { chatId: audioChatId, messageId: audioMessageId } = global.audioPlayer;
 
@@ -487,33 +612,81 @@ export default memo(withGlobal(
     const isBotNotStarted = selectIsChatBotNotStarted(global, chatId);
     const isPinnedMessageList = messageListType === 'pinned';
     const isScheduledMessageList = messageListType === 'scheduled';
+    const isMainThread = messageListType === 'thread' && threadId === MAIN_THREAD_ID;
+    const isChannel = Boolean(chat && isChatChannel(chat));
+    const canSubscribe = Boolean(
+      chat && isMainThread && (isChannel || isChatSuperGroup(chat)) && chat.isNotJoined,
+    );
+    const canRestartBot = Boolean(bot && selectIsUserBlocked(global, bot.id));
+    const canStartBot = !canRestartBot && isBotNotStarted;
 
     return {
       ...state,
       chatId,
       threadId,
       messageListType,
-      isPrivate: isUserId(chatId),
+      isPrivate,
+      areChatSettingsLoaded: Boolean(chat?.settings),
       canPost: !isPinnedMessageList && (!chat || canPost) && !isBotNotStarted,
       isPinnedMessageList,
       isScheduledMessageList,
       currentUserBannedRights: chat?.currentUserBannedRights,
       defaultBannedRights: chat?.defaultBannedRights,
-      hasPinnedOrAudioMessage: (
+      hasPinnedOrAudioPlayer: (
         threadId !== MAIN_THREAD_ID
-        || Boolean(pinnedIds?.length)
+        || Boolean(!isPinnedMessageList && pinnedIds?.length)
         || Boolean(audioChatId && audioMessageId)
       ),
       pinnedMessagesCount: pinnedIds ? pinnedIds.length : 0,
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
-      messageLists,
+      isChannel,
+      canSubscribe,
+      canStartBot,
+      canRestartBot,
       showHeymateScheduleMiddle,
       showHeymateWalletMiddle,
       showHeymateManageOfferMiddle,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openChat', 'unpinAllMessages', 'loadUser', 'closeLocalTextSearch', 'exitMessageSelectMode',
-    'closePaymentModal', 'clearReceipt',
-  ]),
 )(MiddleColumn));
+
+function useIsReady(
+  withAnimations?: boolean,
+  currentTransitionKey?: number,
+  prevTransitionKey?: number,
+  chatId?: string,
+) {
+  const [isReady, setIsReady] = useState(!IS_SINGLE_COLUMN_LAYOUT);
+  const forceUpdate = useForceUpdate();
+
+  const willSwitchMessageList = prevTransitionKey !== undefined && prevTransitionKey !== currentTransitionKey;
+  if (willSwitchMessageList) {
+    if (withAnimations) {
+      setIsReady(false);
+    } else {
+      forceUpdate();
+    }
+  }
+
+  useOnChange(() => {
+    if (!withAnimations) {
+      setIsReady(true);
+    }
+  }, [withAnimations]);
+
+  function handleOpenEnd(e: React.TransitionEvent<HTMLDivElement>) {
+    if (e.propertyName === 'transform' && e.target === e.currentTarget) {
+      setIsReady(Boolean(chatId));
+    }
+  }
+
+  function handleSlideStop() {
+    setIsReady(true);
+  }
+
+  return {
+    isReady: isReady && !willSwitchMessageList,
+    handleOpenEnd: withAnimations ? handleOpenEnd : undefined,
+    handleSlideStop: withAnimations ? handleSlideStop : undefined,
+  };
+}

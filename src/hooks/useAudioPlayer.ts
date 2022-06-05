@@ -1,21 +1,23 @@
 import {
   useCallback, useEffect, useRef, useState,
 } from '../lib/teact/teact';
-import { getDispatch, getGlobal } from '../lib/teact/teactn';
+import { getActions, getGlobal } from '../global';
 
-import { register, Track, TrackId } from '../util/audioPlayer';
+import type { Track, TrackId } from '../util/audioPlayer';
+import { register } from '../util/audioPlayer';
 import useEffectWithPrevDeps from './useEffectWithPrevDeps';
 import { isSafariPatchInProgress } from '../util/patchSafariProgressiveAudio';
 import useOnChange from './useOnChange';
+import type { MediaSessionHandlers } from '../util/mediaSession';
 import {
-  MediaSessionHandlers, registerMediaSession, setPlaybackState, setPositionState, updateMetadata,
+  registerMediaSession, setPlaybackState, setPositionState, updateMetadata,
 } from '../util/mediaSession';
 
 type Handler = (e: Event) => void;
 
 const DEFAULT_SKIP_TIME = 10;
 
-export default (
+const useAudioPlayer = (
   trackId: TrackId,
   originalDuration: number, // Sometimes incorrect for voice messages
   trackType: Track['type'],
@@ -54,7 +56,7 @@ export default (
           registerMediaSession(metadata, makeMediaHandlers(controllerRef));
           setPlaybackState('playing');
           setVolume(getGlobal().audioPlayer.volume);
-          toggleMuted(!!getGlobal().audioPlayer.isMuted);
+          toggleMuted(Boolean(getGlobal().audioPlayer.isMuted));
           if (trackType === 'voice') {
             setPlaybackRate(getGlobal().audioPlayer.playbackRate);
           }
@@ -212,7 +214,7 @@ function makeMediaHandlers(controllerRef: React.RefObject<ReturnType<typeof regi
       stop: () => {
         pause();
         setCurrentTime(0);
-        getDispatch().closeAudioPlayer();
+        getActions().closeAudioPlayer();
       },
       seekbackward: (event) => {
         const skipTime = event.seekOffset || DEFAULT_SKIP_TIME;
@@ -242,3 +244,5 @@ function makeMediaHandlers(controllerRef: React.RefObject<ReturnType<typeof regi
   }
   return mediaHandlers;
 }
+
+export default useAudioPlayer;

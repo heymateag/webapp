@@ -1,5 +1,5 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC,
   useCallback,
   useEffect,
   useState,
@@ -7,18 +7,17 @@ import React, {
   useMemo,
   useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import {
+import type {
   ApiMessage, ApiPoll, ApiUser, ApiPollAnswer,
 } from '../../../api/types';
 
-import { pick } from '../../../util/iteratees';
 import renderText from '../../common/helpers/renderText';
-import { renderTextWithEntities } from '../../common/helpers/renderMessageText';
+import { renderTextWithEntities } from '../../common/helpers/renderTextWithEntities';
 import { formatMediaDuration } from '../../../util/dateFormat';
-import useLang, { LangFn } from '../../../hooks/useLang';
+import type { LangFn } from '../../../hooks/useLang';
+import useLang from '../../../hooks/useLang';
 
 import CheckboxGroup from '../../ui/CheckboxGroup';
 import RadioGroup from '../../ui/RadioGroup';
@@ -41,22 +40,20 @@ type StateProps = {
   serverTimeOffset: number;
 };
 
-type DispatchProps = Pick<GlobalActions, ('loadMessage' | 'openPollResults')>;
-
 const SOLUTION_CONTAINER_ID = '#middle-column-portals';
 const SOLUTION_DURATION = 5000;
 const NBSP = '\u00A0';
 
-const Poll: FC<OwnProps & StateProps & DispatchProps> = ({
+const Poll: FC<OwnProps & StateProps> = ({
   message,
   poll,
   recentVoterIds,
   usersById,
-  loadMessage,
   onSendVote,
-  openPollResults,
   serverTimeOffset,
 }) => {
+  const { loadMessage, openPollResults } = getActions();
+
   const { id: messageId, chatId } = message;
   const { summary, results } = poll;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -372,5 +369,4 @@ export default memo(withGlobal<OwnProps>(
       serverTimeOffset,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadMessage', 'openPollResults']),
 )(Poll));

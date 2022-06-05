@@ -1,11 +1,9 @@
-import React, {
-  FC, useCallback, useEffect, useMemo,
-} from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback, useEffect, useMemo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { AudioOrigin } from '../../types';
-import { GlobalActions } from '../../global/types';
-import {
+import type { AudioOrigin } from '../../types';
+import type {
   ApiAudio, ApiChat, ApiMessage, ApiUser,
 } from '../../api/types';
 
@@ -14,9 +12,8 @@ import { IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../util/enviro
 import * as mediaLoader from '../../util/mediaLoader';
 import {
   getMediaDuration, getMessageContent, getMessageMediaHash, getSenderTitle, isMessageLocal,
-} from '../../modules/helpers';
-import { selectChat, selectSender } from '../../modules/selectors';
-import { pick } from '../../util/iteratees';
+} from '../../global/helpers';
+import { selectChat, selectSender } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { makeTrackId } from '../../util/audioPlayer';
 import { clearMediaSession } from '../../util/mediaSession';
@@ -47,17 +44,9 @@ type StateProps = {
   isMuted: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'focusMessage' |
-  'closeAudioPlayer' |
-  'setAudioPlayerVolume' |
-  'setAudioPlayerPlaybackRate' |
-  'setAudioPlayerMuted'
-)>;
-
 const FAST_PLAYBACK_RATE = 1.8;
 
-const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
+const AudioPlayer: FC<OwnProps & StateProps> = ({
   message,
   className,
   noUi,
@@ -66,12 +55,15 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
   volume,
   playbackRate,
   isMuted,
-  setAudioPlayerVolume,
-  setAudioPlayerPlaybackRate,
-  setAudioPlayerMuted,
-  focusMessage,
-  closeAudioPlayer,
 }) => {
+  const {
+    setAudioPlayerVolume,
+    setAudioPlayerPlaybackRate,
+    setAudioPlayerMuted,
+    focusMessage,
+    closeAudioPlayer,
+  } = getActions();
+
   const lang = useLang();
   const { audio, voice, video } = getMessageContent(message);
   const isVoice = Boolean(voice || video);
@@ -134,10 +126,9 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const handleVolumeChange = useCallback((value: number) => {
     setAudioPlayerVolume({ volume: value / 100 });
-    setAudioPlayerMuted({ isMuted: false });
 
     setVolume(value / 100);
-  }, [setAudioPlayerMuted, setAudioPlayerVolume, setVolume]);
+  }, [setAudioPlayerVolume, setVolume]);
 
   const handleVolumeClick = useCallback(() => {
     if (IS_TOUCH_ENV && !IS_IOS) return;
@@ -216,14 +207,14 @@ const AudioPlayer: FC<OwnProps & StateProps & DispatchProps> = ({
         color="translucent"
         size="smaller"
         ariaLabel="Volume"
-        withClickPropagation
+        noPreventDefault
       >
         <i className={volumeIcon} onClick={handleVolumeClick} />
         {!IS_IOS && (
           <>
             <div className="volume-slider-spacer" />
             <div className="volume-slider">
-              <RangeSlider value={isMuted ? 0 : volume * 100} onChange={handleVolumeChange} />
+              <RangeSlider bold value={isMuted ? 0 : volume * 100} onChange={handleVolumeChange} />
             </div>
           </>
         )}
@@ -293,8 +284,4 @@ export default withGlobal<OwnProps>(
       isMuted,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(
-    actions,
-    ['focusMessage', 'closeAudioPlayer', 'setAudioPlayerVolume', 'setAudioPlayerPlaybackRate', 'setAudioPlayerMuted'],
-  ),
 )(AudioPlayer);

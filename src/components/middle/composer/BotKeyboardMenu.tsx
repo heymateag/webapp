@@ -1,12 +1,11 @@
-import React, { FC, memo, useEffect } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useEffect } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiMessage } from '../../../api/types';
+import type { ApiMessage } from '../../../api/types';
 
 import { IS_TOUCH_ENV } from '../../../util/environment';
-import { pick } from '../../../util/iteratees';
-import { selectChatMessage, selectCurrentMessageList } from '../../../modules/selectors';
+import { selectChatMessage, selectCurrentMessageList } from '../../../global/selectors';
 import useMouseInside from '../../../hooks/useMouseInside';
 import useFlag from '../../../hooks/useFlag';
 
@@ -25,23 +24,23 @@ type StateProps = {
   message?: ApiMessage;
 };
 
-type DispatchProps = Pick<GlobalActions, ('clickInlineButton')>;
-
-const BotKeyboardMenu: FC<OwnProps & StateProps & DispatchProps> = ({
-  isOpen, message, onClose, clickInlineButton,
+const BotKeyboardMenu: FC<OwnProps & StateProps> = ({
+  isOpen, message, onClose,
 }) => {
+  const { clickBotInlineButton } = getActions();
+
   const [handleMouseEnter, handleMouseLeave] = useMouseInside(isOpen, onClose);
   const { isKeyboardSingleUse } = message || {};
   const [forceOpen, markForceOpen, unmarkForceOpen] = useFlag(true);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     unmarkForceOpen();
     onClose();
-  };
+  }, [onClose, unmarkForceOpen]);
 
   useEffect(() => {
     markForceOpen();
-  }, [markForceOpen, message]);
+  }, [markForceOpen, message?.keyboardButtons]);
 
   if (!message || !message.keyboardButtons) {
     return undefined;
@@ -58,6 +57,7 @@ const BotKeyboardMenu: FC<OwnProps & StateProps & DispatchProps> = ({
       onCloseAnimationEnd={handleClose}
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
       onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
+      noCompact
     >
       <div className="content">
         {message.keyboardButtons.map((row) => (
@@ -65,8 +65,9 @@ const BotKeyboardMenu: FC<OwnProps & StateProps & DispatchProps> = ({
             {row.map((button) => (
               <Button
                 ripple
-                disabled={button.type === 'NOT_SUPPORTED'}
-                onClick={() => clickInlineButton({ button })}
+                disabled={button.type === 'unsupported'}
+                // eslint-disable-next-line react/jsx-no-bind
+                onClick={() => clickBotInlineButton({ messageId: message.id, button })}
               >
                 {button.text}
               </Button>
@@ -87,7 +88,4 @@ export default memo(withGlobal<OwnProps>(
 
     return { message: selectChatMessage(global, chatId, messageId) };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'clickInlineButton',
-  ]),
 )(BotKeyboardMenu));

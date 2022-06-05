@@ -1,7 +1,11 @@
-import { MouseEvent as ReactMouseEvent } from 'react';
-import React, { FC, memo, useCallback } from '../../lib/teact/teact';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { FC, TeactNode } from '../../lib/teact/teact';
+import React, { memo, useCallback } from '../../lib/teact/teact';
 
-import { ApiChat, ApiMediaFormat, ApiUser } from '../../api/types';
+import type {
+  ApiChat, ApiPhoto, ApiUser, ApiUserStatus,
+} from '../../api/types';
+import { ApiMediaFormat } from '../../api/types';
 
 import { IS_TEST } from '../../config';
 import {
@@ -13,9 +17,9 @@ import {
   isChatWithRepliesBot,
   isDeletedUser,
   isUserOnline,
-} from '../../modules/helpers';
+} from '../../global/helpers';
 import { getFirstLetters } from '../../util/textFormat';
-import buildClassName from '../../util/buildClassName';
+import buildClassName, { createClassNameBuilder } from '../../util/buildClassName';
 import renderText from './helpers/renderText';
 import useMedia from '../../hooks/useMedia';
 import useShowTransition from '../../hooks/useShowTransition';
@@ -23,12 +27,17 @@ import useLang from '../../hooks/useLang';
 
 import './Avatar.scss';
 
+const cn = createClassNameBuilder('Avatar');
+cn.img = cn('img');
+cn.icon = cn('icon');
+
 type OwnProps = {
   className?: string;
   size?: 'micro' | 'tiny' | 'small' | 'medium' | 'large' | 'jumbo';
-  withOnlineStatus?: boolean;
   chat?: ApiChat;
   user?: ApiUser;
+  photo?: ApiPhoto;
+  userStatus?: ApiUserStatus;
   text?: string;
   isSavedMessages?: boolean;
   lastSyncTime?: number;
@@ -40,8 +49,9 @@ const Avatar: FC<OwnProps> = ({
   size = 'large',
   chat,
   user,
+  photo,
+  userStatus,
   text,
-  withOnlineStatus,
   isSavedMessages,
   lastSyncTime,
   onClick,
@@ -50,11 +60,14 @@ const Avatar: FC<OwnProps> = ({
   const isReplies = user && isChatWithRepliesBot(user.id);
   let imageHash: string | undefined;
 
+  const shouldFetchBig = size === 'jumbo';
   if (!isSavedMessages && !isDeleted) {
     if (user) {
-      imageHash = getChatAvatarHash(user);
+      imageHash = getChatAvatarHash(user, shouldFetchBig ? 'big' : undefined);
     } else if (chat) {
-      imageHash = getChatAvatarHash(chat);
+      imageHash = getChatAvatarHash(chat, shouldFetchBig ? 'big' : undefined);
+    } else if (photo) {
+      imageHash = `photo${photo.id}?size=m`;
     }
   }
 
@@ -64,17 +77,23 @@ const Avatar: FC<OwnProps> = ({
 
   const lang = useLang();
 
-  let content: string | undefined = '';
+  let content: TeactNode | undefined;
+  const author = user ? getUserFullName(user) : (chat ? getChatTitle(lang, chat) : text);
 
   if (isSavedMessages) {
-    content = <i className="icon-avatar-saved-messages" />;
+    content = <i className={buildClassName(cn.icon, 'icon-avatar-saved-messages')} aria-label={author} />;
   } else if (isDeleted) {
-    content = <i className="icon-avatar-deleted-account" />;
+    content = <i className={buildClassName(cn.icon, 'icon-avatar-deleted-account')} aria-label={author} />;
   } else if (isReplies) {
-    content = <i className="icon-reply-filled" />;
+    content = <i className={buildClassName(cn.icon, 'icon-reply-filled')} aria-label={author} />;
   } else if (blobUrl) {
     content = (
-      <img src={blobUrl} className={buildClassName('avatar-media', transitionClassNames)} alt="" decoding="async" />
+      <img
+        src={blobUrl}
+        className={buildClassName(cn.img, 'avatar-media', transitionClassNames)}
+        alt={author}
+        decoding="async"
+      />
     );
   } else if (user) {
     const userFullName = getUserFullName(user);
@@ -86,7 +105,7 @@ const Avatar: FC<OwnProps> = ({
     content = getFirstLetters(text, 2);
   }
 
-  const isOnline = !isSavedMessages && user && isUserOnline(user);
+  const isOnline = !isSavedMessages && user && userStatus && isUserOnline(user, userStatus);
   const fullClassName = buildClassName(
     `Avatar size-${size}`,
     className,
@@ -94,7 +113,7 @@ const Avatar: FC<OwnProps> = ({
     isSavedMessages && 'saved-messages',
     isDeleted && 'deleted-account',
     isReplies && 'replies-bot-account',
-    withOnlineStatus && isOnline && 'online',
+    isOnline && 'online',
     onClick && 'interactive',
     (!isSavedMessages && !blobUrl) && 'no-photo',
   );
@@ -109,7 +128,12 @@ const Avatar: FC<OwnProps> = ({
   const senderId = (user || chat) && (user || chat)!.id;
 
   return (
-    <div className={fullClassName} onClick={handleClick} data-test-sender-id={IS_TEST ? senderId : undefined}>
+    <div
+      className={fullClassName}
+      onClick={handleClick}
+      data-test-sender-id={IS_TEST ? senderId : undefined}
+      aria-label={typeof content === 'string' ? author : undefined}
+    >
       {typeof content === 'string' ? renderText(content, [size === 'jumbo' ? 'hq_emoji' : 'emoji']) : content}
     </div>
   );

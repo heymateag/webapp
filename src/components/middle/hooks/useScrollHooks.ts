@@ -1,14 +1,14 @@
-import { RefObject } from 'react';
-import { getDispatch } from '../../../lib/teact/teactn';
+import type { RefObject } from 'react';
+import { getActions } from '../../../global';
 import { useMemo, useRef } from '../../../lib/teact/teact';
 
 import { LoadMoreDirection } from '../../../types';
-import { MessageListType } from '../../../global/types';
+import type { MessageListType } from '../../../global/types';
 
+import { LOCAL_MESSAGE_MIN_ID, MESSAGE_LIST_SLICE } from '../../../config';
+import { IS_SCROLL_PATCH_NEEDED, MESSAGE_LIST_SENSITIVE_AREA } from '../../../util/environment';
 import { debounce } from '../../../util/schedulers';
 import { useIntersectionObserver, useOnIntersect } from '../../../hooks/useIntersectionObserver';
-import { LOCAL_MESSAGE_ID_BASE, MESSAGE_LIST_SENSITIVE_AREA } from '../../../config';
-import resetScroll from '../../../util/resetScroll';
 import useOnChange from '../../../hooks/useOnChange';
 
 const FAB_THRESHOLD = 50;
@@ -23,9 +23,11 @@ export default function useScrollHooks(
   isUnread: boolean,
   onFabToggle: AnyToVoidFunction,
   onNotchToggle: AnyToVoidFunction,
-  isActive: boolean,
+  isReady: boolean,
+  isScrollingRef: { current: boolean | undefined },
+  isScrollPatchNeededRef: { current: boolean | undefined },
 ) {
-  const { loadViewportMessages } = getDispatch();
+  const { loadViewportMessages } = getActions();
 
   const [loadMoreBackwards, loadMoreForwards] = useMemo(
     () => (type === 'thread' ? [
@@ -44,7 +46,7 @@ export default function useScrollHooks(
   const fabTriggerRef = useRef<HTMLDivElement>(null);
 
   function toggleScrollTools() {
-    if (!isActive) return;
+    if (!isReady) return;
 
     if (!messageIds || !messageIds.length) {
       onFabToggle(false);
@@ -58,7 +60,11 @@ export default function useScrollHooks(
       return;
     }
 
-    const { offsetHeight, scrollHeight, scrollTop } = containerRef.current!;
+    if (!containerRef.current) {
+      return;
+    }
+
+    const { offsetHeight, scrollHeight, scrollTop } = containerRef.current;
     const scrollBottom = Math.round(scrollHeight - scrollTop - offsetHeight);
     const isNearBottom = scrollBottom <= FAB_THRESHOLD;
     const isAtBottom = scrollBottom <= NOTCH_THRESHOLD;
@@ -78,7 +84,7 @@ export default function useScrollHooks(
     }
 
     // Loading history while sending a message can return the same message and cause ambiguity
-    const isFirstMessageLocal = messageIds[0] >= LOCAL_MESSAGE_ID_BASE;
+    const isFirstMessageLocal = messageIds[0] > LOCAL_MESSAGE_MIN_ID;
     if (isFirstMessageLocal) {
       return;
     }
@@ -91,10 +97,14 @@ export default function useScrollHooks(
     const { target } = triggerEntry;
 
     if (target.className === 'backwards-trigger') {
-      resetScroll(containerRef.current!);
+      if (
+        IS_SCROLL_PATCH_NEEDED && isScrollingRef.current && messageIds.length <= MESSAGE_LIST_SLICE
+      ) {
+        isScrollPatchNeededRef.current = true;
+      }
+
       loadMoreBackwards();
     } else if (target.className === 'forwards-trigger') {
-      resetScroll(containerRef.current!);
       loadMoreForwards();
     }
   });
@@ -123,6 +133,12 @@ export default function useScrollHooks(
   }, toggleScrollTools);
 
   useOnIntersect(fabTriggerRef, observeIntersectionForNotch);
+
+  useOnChange(() => {
+    if (isReady) {
+      toggleScrollTools();
+    }
+  }, [isReady]);
 
   // Workaround for FAB and notch flickering with tall incoming message
   useOnChange(() => {

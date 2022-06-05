@@ -1,31 +1,31 @@
-import React, { FC } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiUser } from '../../../api/types';
+import type { ApiChat, ApiUser } from '../../../api/types';
 
-import { pick } from '../../../util/iteratees';
-import { selectUser } from '../../../modules/selectors';
+import { selectUser } from '../../../global/selectors';
 
 type OwnProps = {
   userId?: string;
   username?: string;
-  children: any;
+  children: React.ReactNode;
 };
 
 type StateProps = {
   userOrChat?: ApiUser | ApiChat;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openChat' | 'openChatByUsername'>;
-
-const MentionLink: FC<OwnProps & StateProps & DispatchProps> = ({
+const MentionLink: FC<OwnProps & StateProps> = ({
   username,
   userOrChat,
   children,
-  openChat,
-  openChatByUsername,
 }) => {
+  const {
+    openChat,
+    openChatByUsername,
+  } = getActions();
+
   const handleClick = () => {
     if (userOrChat) {
       openChat({ id: userOrChat.id });
@@ -47,5 +47,4 @@ export default withGlobal<OwnProps>(
       userOrChat: userId ? selectUser(global, userId) : undefined,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['openChat', 'openChatByUsername']),
 )(MentionLink);

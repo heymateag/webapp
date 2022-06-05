@@ -31,6 +31,15 @@ export function addMessageToLocalDb(message: GramJs.Message | GramJs.MessageServ
     localDb.documents[String(message.media.webpage.document.id)] = message.media.webpage.document;
   }
 
+  if (message instanceof GramJs.Message
+    && message.media instanceof GramJs.MessageMediaGame
+  ) {
+    if (message.media.game.document instanceof GramJs.Document) {
+      localDb.documents[String(message.media.game.document.id)] = message.media.game.document;
+    }
+    addPhotoToLocalDb(message.media.game.photo);
+  }
+
   if (message instanceof GramJs.MessageService && 'photo' in message.action) {
     addPhotoToLocalDb(message.action.photo);
   }
@@ -42,12 +51,34 @@ export function addPhotoToLocalDb(photo: GramJs.TypePhoto) {
   }
 }
 
-export function addChatToLocalDb(chat: GramJs.TypeChat) {
-  if (chat instanceof GramJs.Chat || chat instanceof GramJs.Channel) {
-    localDb.chats[buildApiPeerId(chat.id, chat instanceof GramJs.Chat ? 'chat' : 'channel')] = chat;
+function addChatToLocalDb(chat: GramJs.Chat | GramJs.Channel, noOverwrite = false) {
+  const id = buildApiPeerId(chat.id, chat instanceof GramJs.Chat ? 'chat' : 'channel');
+  if (!noOverwrite || !localDb.chats[id]) {
+    localDb.chats[id] = chat;
   }
 }
 
-export function addUserToLocalDb(user: GramJs.User) {
-  localDb.users[buildApiPeerId(user.id, 'user')] = user;
+export function addUserToLocalDb(user: GramJs.User, shouldOverwrite = false) {
+  const id = buildApiPeerId(user.id, 'user');
+  if (shouldOverwrite || !localDb.users[id]) {
+    localDb.users[id] = user;
+  }
+}
+
+export function addEntitiesWithPhotosToLocalDb(entities: (GramJs.TypeUser | GramJs.TypeChat)[]) {
+  entities.forEach((entity) => {
+    if (entity instanceof GramJs.User && entity.photo) {
+      addUserToLocalDb(entity);
+    } else if ((entity instanceof GramJs.Chat || entity instanceof GramJs.Channel) && entity.photo) {
+      addChatToLocalDb(entity);
+    }
+  });
+}
+
+export function serializeBytes(value: Buffer) {
+  return String.fromCharCode(...value);
+}
+
+export function deserializeBytes(value: string) {
+  return Buffer.from(value, 'binary');
 }

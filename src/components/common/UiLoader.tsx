@@ -1,10 +1,14 @@
-import React, { FC, useEffect } from '../../lib/teact/teact';
-import { getGlobal, withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useEffect } from '../../lib/teact/teact';
+import { getActions, getGlobal, withGlobal } from '../../global';
 
 import { ApiMediaFormat } from '../../api/types';
-import { GlobalActions, GlobalState } from '../../global/types';
+import type { GlobalState } from '../../global/types';
+import type { ThemeKey } from '../../types';
 
-import { getChatAvatarHash } from '../../modules/helpers/chats'; // Direct import for better module splitting
+import { getChatAvatarHash } from '../../global/helpers/chats'; // Direct import for better module splitting
+import { selectIsRightColumnShown, selectTheme } from '../../global/selectors';
+import { DARK_THEME_BG_COLOR, LIGHT_THEME_BG_COLOR } from '../../config';
 import useFlag from '../../hooks/useFlag';
 import useShowTransition from '../../hooks/useShowTransition';
 import { pause } from '../../util/schedulers';
@@ -12,30 +16,33 @@ import { preloadImage } from '../../util/files';
 import preloadFonts from '../../util/fonts';
 import * as mediaLoader from '../../util/mediaLoader';
 import { Bundles, loadModule } from '../../util/moduleLoader';
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 
-import './UiLoader.scss';
+import styles from './UiLoader.module.scss';
 
-// @ts-ignore
 import telegramLogoPath from '../../assets/heymate/heymate-logo1x.png';
-// @ts-ignore
+import reactionThumbsPath from '../../assets/reaction-thumbs.png';
+import lockPreviewPath from '../../assets/lock.png';
 import monkeyPath from '../../assets/monkey.svg';
-import { selectIsRightColumnShown, selectTheme } from '../../modules/selectors';
+
+export type UiLoaderPage =
+  'main'
+  | 'lock'
+  | 'authCode'
+  | 'authPassword'
+  | 'authPhoneNumber'
+  | 'authQrCode';
 
 type OwnProps = {
-  page: 'main' | 'authCode' | 'authPassword' | 'authPhoneNumber' | 'authQrCode';
-  children: any;
+  page?: UiLoaderPage;
+  children: React.ReactNode;
 };
 
 type StateProps = Pick<GlobalState, 'uiReadyState' | 'shouldSkipHistoryAnimations'> & {
-  hasCustomBackground?: boolean;
-  hasCustomBackgroundColor: boolean;
   isRightColumnShown?: boolean;
   leftColumnWidth?: number;
+  theme: ThemeKey;
 };
-
-type DispatchProps = Pick<GlobalActions, 'setIsUiReady'>;
 
 const MAX_PRELOAD_DELAY = 700;
 const SECOND_STATE_DELAY = 1000;
@@ -67,6 +74,7 @@ const preloadTasks = {
     loadModule(Bundles.Main, 'Main')
       .then(preloadFonts),
     preloadAvatars(),
+    preloadImage(reactionThumbsPath),
   ]),
   authPhoneNumber: () => Promise.all([
     preloadFonts(),
@@ -75,18 +83,22 @@ const preloadTasks = {
   authCode: () => preloadImage(monkeyPath),
   authPassword: () => preloadImage(monkeyPath),
   authQrCode: preloadFonts,
+  lock: () => Promise.all([
+    preloadFonts(),
+    preloadImage(lockPreviewPath),
+  ]),
 };
 
-const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
+const UiLoader: FC<OwnProps & StateProps> = ({
   page,
   children,
-  hasCustomBackground,
-  hasCustomBackgroundColor,
   isRightColumnShown,
   shouldSkipHistoryAnimations,
   leftColumnWidth,
-  setIsUiReady,
+  theme,
 }) => {
+  const { setIsUiReady } = getActions();
+
   const [isReady, markReady] = useFlag();
   const {
     shouldRender: shouldRenderMask, transitionClassNames,
@@ -97,7 +109,7 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
 
     const safePreload = async () => {
       try {
-        await preloadTasks[page]();
+        await preloadTasks[page!]();
       } catch (err) {
         // Do nothing
       }
@@ -105,7 +117,7 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
 
     Promise.race([
       pause(MAX_PRELOAD_DELAY),
-      safePreload(),
+      page ? safePreload() : Promise.resolve(),
     ]).then(() => {
       markReady();
       setIsUiReady({ uiReadyState: 1 });
@@ -127,29 +139,25 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
   }, []);
 
   return (
-    <div id="UiLoader">
+    <div
+      id="UiLoader"
+      className={styles.root}
+      style={`--theme-background-color: ${theme === 'dark' ? DARK_THEME_BG_COLOR : LIGHT_THEME_BG_COLOR}`}
+    >
       {children}
-      {shouldRenderMask && !shouldSkipHistoryAnimations && (
-        <div className={buildClassName('mask', transitionClassNames)}>
+      {shouldRenderMask && !shouldSkipHistoryAnimations && Boolean(page) && (
+        <div className={buildClassName(styles.mask, transitionClassNames)}>
           {page === 'main' ? (
             <>
               <div
-                className="left"
-                // @ts-ignore teact feature
+                className={styles.left}
                 style={leftColumnWidth ? `width: ${leftColumnWidth}px` : undefined}
               />
-              <div
-                className={buildClassName(
-                  'middle',
-                  hasCustomBackground && 'custom-bg-image',
-                  hasCustomBackgroundColor && 'custom-bg-color',
-                  isRightColumnShown && 'with-right-column',
-                )}
-              />
-              {isRightColumnShown && <div className="right" />}
+              <div className={buildClassName(styles.middle, transitionClassNames)} />
+              {isRightColumnShown && <div className={styles.right} />}
             </>
           ) : (
-            <div className="blank" />
+            <div className={styles.blank} />
           )}
         </div>
       )}
@@ -160,16 +168,13 @@ const UiLoader: FC<OwnProps & StateProps & DispatchProps> = ({
 export default withGlobal<OwnProps>(
   (global): StateProps => {
     const theme = selectTheme(global);
-    const { background, backgroundColor } = global.settings.themes[theme] || {};
 
     return {
       shouldSkipHistoryAnimations: global.shouldSkipHistoryAnimations,
       uiReadyState: global.uiReadyState,
-      hasCustomBackground: Boolean(background),
-      hasCustomBackgroundColor: Boolean(backgroundColor),
       isRightColumnShown: selectIsRightColumnShown(global),
       leftColumnWidth: global.leftColumnWidth,
+      theme,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['setIsUiReady']),
 )(UiLoader);

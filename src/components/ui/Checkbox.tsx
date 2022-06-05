@@ -1,5 +1,6 @@
-import { ChangeEvent } from 'react';
-import React, { FC, memo, useCallback } from '../../lib/teact/teact';
+import type { ChangeEvent } from 'react';
+import type { FC, TeactNode } from '../../lib/teact/teact';
+import React, { memo, useCallback } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 import useLang from '../../hooks/useLang';
@@ -13,10 +14,11 @@ type OwnProps = {
   id?: string;
   name?: string;
   value?: string;
-  label: string;
+  label: TeactNode;
   subLabel?: string;
   checked: boolean;
   disabled?: boolean;
+  tabIndex?: number;
   round?: boolean;
   blocking?: boolean;
   isLoading?: boolean;
@@ -32,6 +34,7 @@ const Checkbox: FC<OwnProps> = ({
   label,
   subLabel,
   checked,
+  tabIndex,
   disabled,
   round,
   blocking,
@@ -67,6 +70,7 @@ const Checkbox: FC<OwnProps> = ({
         value={value}
         checked={checked}
         disabled={disabled}
+        tabIndex={tabIndex}
         onChange={handleChange}
       />
       <div className="Checkbox-main">

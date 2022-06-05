@@ -1,10 +1,10 @@
-import React, {
-  FC, useCallback, useRef, useState,
-} from '../../../lib/teact/teact';
-import { getDispatch } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { useCallback, useRef, useState } from '../../../lib/teact/teact';
+import { getActions } from '../../../global';
 
-import { ApiMediaFormat, ApiMessage } from '../../../api/types';
-import { IMediaDimensions } from './helpers/calculateAlbumLayout';
+import type { ApiMessage } from '../../../api/types';
+import { ApiMediaFormat } from '../../../api/types';
+import type { IMediaDimensions } from './helpers/calculateAlbumLayout';
 
 import { formatMediaDuration } from '../../../util/dateFormat';
 import buildClassName from '../../../util/buildClassName';
@@ -17,14 +17,16 @@ import {
   getMessageWebPageVideo,
   isForwardedMessage,
   isOwnMessage,
-} from '../../../modules/helpers';
-import { ObserveFn, useIsIntersecting } from '../../../hooks/useIntersectionObserver';
+} from '../../../global/helpers';
+import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import { useIsIntersecting } from '../../../hooks/useIntersectionObserver';
 import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
 import useMedia from '../../../hooks/useMedia';
 import useShowTransition from '../../../hooks/useShowTransition';
 import usePrevious from '../../../hooks/usePrevious';
 import useBuffering from '../../../hooks/useBuffering';
 import useVideoCleanup from '../../../hooks/useVideoCleanup';
+import useMediaTransition from '../../../hooks/useMediaTransition';
 import useVideoAutoPause from './hooks/useVideoAutoPause';
 import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
 
@@ -41,6 +43,8 @@ export type OwnProps = {
   dimensions?: IMediaDimensions;
   lastSyncTime?: number;
   isDownloading: boolean;
+  isProtected?: boolean;
+  withAspectRatio?: boolean;
   onClick?: (id: number) => void;
   onCancelUpload?: (message: ApiMessage) => void;
 };
@@ -58,6 +62,8 @@ const Video: FC<OwnProps> = ({
   onClick,
   onCancelUpload,
   isDownloading,
+  isProtected,
+  withAspectRatio,
 }) => {
   // eslint-disable-next-line no-null/no-null
   const ref = useRef<HTMLDivElement>(null);
@@ -79,12 +85,7 @@ const Video: FC<OwnProps> = ({
     getMessageMediaFormat(message, 'pictogram'),
     lastSyncTime,
   );
-  const { transitionClassNames: previewClassNames } = useShowTransition(
-    Boolean(previewBlobUrl),
-    undefined,
-    undefined,
-    'slow',
-  );
+  const previewClassNames = useMediaTransition(previewBlobUrl);
 
   const { mediaData, loadProgress } = useMediaWithLoadProgress(
     getMessageMediaHash(message, 'inline'),
@@ -140,7 +141,7 @@ const Video: FC<OwnProps> = ({
         onCancelUpload(message);
       }
     } else if (isDownloading) {
-      getDispatch().cancelMessageMediaDownload({ message });
+      getActions().cancelMessageMediaDownload({ message });
     } else if (!fullMediaData) {
       setIsLoadAllowed((isAllowed) => !isAllowed);
     } else if (fullMediaData && !isPlayAllowed) {
@@ -152,31 +153,29 @@ const Video: FC<OwnProps> = ({
   }, [isUploading, isDownloading, fullMediaData, isPlayAllowed, onClick, onCancelUpload, message]);
 
   const className = buildClassName('media-inner dark', !isUploading && 'interactive');
+  const aspectRatio = withAspectRatio ? `aspect-ratio: ${(width / height).toFixed(3)}/ 1` : '';
   const style = dimensions
-    ? `width: ${width}px; height: ${height}px; left: ${dimensions.x}px; top: ${dimensions.y}px;`
+    ? `width: ${width}px; height: ${height}px; left: ${dimensions.x}px; top: ${dimensions.y}px;${aspectRatio}`
     : '';
-
   return (
     <div
       ref={ref}
       id={id}
       className={className}
-      // @ts-ignore teact feature
       style={style}
       onClick={isUploading ? undefined : handleClick}
     >
       <canvas
         ref={thumbRef}
         className="thumbnail"
-        // @ts-ignore teact feature
-        style={`width: ${width}px; height: ${height}px;`}
+        style={`width: ${width}px; height: ${height}px;${aspectRatio}`}
       />
       <img
         src={previewBlobUrl}
         className={buildClassName('thumbnail', previewClassNames)}
-        // @ts-ignore teact feature
-        style={`width: ${width}px; height: ${height}px;`}
+        style={`width: ${width}px; height: ${height}px;${aspectRatio}`}
         alt=""
+        draggable={!isProtected}
       />
       {isInline && (
         <video
@@ -190,11 +189,14 @@ const Video: FC<OwnProps> = ({
           playsInline
           // eslint-disable-next-line react/jsx-props-no-spreading
           {...bufferingHandlers}
+          draggable={!isProtected}
           onTimeUpdate={handleTimeUpdate}
+          style={aspectRatio}
         >
           <source src={fullMediaData} />
         </video>
       )}
+      {isProtected && <span className="protector" />}
       {shouldRenderPlayButton && <i className={buildClassName('icon-large-play', playButtonClassNames)} />}
       {shouldRenderSpinner && (
         <div className={buildClassName('media-loading', spinnerClassNames)}>

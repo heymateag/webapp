@@ -1,21 +1,23 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC,
   memo,
   useRef,
   useCallback,
   useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions, MessageListType } from '../../global/types';
+import type { MessageListType } from '../../global/types';
 import { MAIN_THREAD_ID } from '../../api/types';
-import { IAnchorPosition } from '../../types';
+import type { IAnchorPosition } from '../../types';
+import { ManagementScreens } from '../../types';
 
-import { ARE_CALLS_SUPPORTED, IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
-import { pick } from '../../util/iteratees';
+import {
+  ARE_CALLS_SUPPORTED, IS_PWA, IS_SINGLE_COLUMN_LAYOUT,
+} from '../../util/environment';
 import {
   isChatBasicGroup, isChatChannel, isChatSuperGroup, isUserId,
-} from '../../modules/helpers';
+} from '../../global/helpers';
 import {
   selectChat,
   selectChatBot,
@@ -24,8 +26,9 @@ import {
   selectIsChatWithSelf,
   selectIsInSelectMode,
   selectIsRightColumnShown,
-} from '../../modules/selectors';
+} from '../../global/selectors';
 import useLang from '../../hooks/useLang';
+import { useHotkeys } from '../../hooks/useHotkeys';
 
 import Button from '../ui/Button';
 import HeaderMenuContainer from './HeaderMenuContainer.async';
@@ -47,19 +50,17 @@ interface StateProps {
   canSearch?: boolean;
   canCall?: boolean;
   canMute?: boolean;
+  canViewStatistics?: boolean;
   canLeave?: boolean;
   canEnterVoiceChat?: boolean;
   canCreateVoiceChat?: boolean;
+  pendingJoinRequests?: number;
 }
-
-type DispatchProps = Pick<GlobalActions, (
-  'joinChannel' | 'sendBotCommand' | 'openLocalTextSearch' | 'restartBot' | 'openCallFallbackConfirm'
-)>;
 
 // Chrome breaks layout when focusing input during transition
 const SEARCH_FOCUS_DELAY_MS = 400;
 
-const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
+const HeaderActions: FC<OwnProps & StateProps> = ({
   chatId,
   threadId,
   noMenu,
@@ -70,17 +71,22 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
   canSearch,
   canCall,
   canMute,
+  canViewStatistics,
   canLeave,
   canEnterVoiceChat,
   canCreateVoiceChat,
+  pendingJoinRequests,
   isRightColumnShown,
   canExpandActions,
-  joinChannel,
-  sendBotCommand,
-  openLocalTextSearch,
-  restartBot,
-  openCallFallbackConfirm,
 }) => {
+  const {
+    joinChannel,
+    sendBotCommand,
+    openLocalTextSearch,
+    restartBot,
+    requestCall,
+    requestNextManagementScreen,
+  } = getActions();
   // eslint-disable-next-line no-null/no-null
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -112,6 +118,10 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
     restartBot({ chatId });
   }, [chatId, restartBot]);
 
+  const handleJoinRequestsClick = useCallback(() => {
+    requestNextManagementScreen({ screen: ManagementScreens.JoinRequests });
+  }, [requestNextManagementScreen]);
+
   const handleSearchClick = useCallback(() => {
     openLocalTextSearch();
 
@@ -128,6 +138,23 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
       }, SEARCH_FOCUS_DELAY_MS);
     }
   }, [openLocalTextSearch]);
+
+  function handleRequestCall() {
+    requestCall({ userId: chatId });
+  }
+
+  const handleHotkeySearchClick = useCallback((e: KeyboardEvent) => {
+    if (!canSearch || !IS_PWA || e.shiftKey) {
+      return;
+    }
+
+    e.preventDefault();
+    handleSearchClick();
+  }, [canSearch, handleSearchClick]);
+
+  useHotkeys({
+    'Meta+F': handleHotkeySearchClick,
+  });
 
   const lang = useLang();
 
@@ -182,13 +209,28 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
               round
               color="translucent"
               size="smaller"
-              onClick={openCallFallbackConfirm}
+              // eslint-disable-next-line react/jsx-no-bind
+              onClick={handleRequestCall}
               ariaLabel="Call"
             >
               <i className="icon-phone" />
             </Button>
           )}
         </>
+      )}
+      {Boolean(pendingJoinRequests) && (
+        <Button
+          round
+          className="badge-button"
+          ripple={isRightColumnShown}
+          color="translucent"
+          size="smaller"
+          onClick={handleJoinRequestsClick}
+          ariaLabel={isChannel ? lang('SubscribeRequests') : lang('MemberRequests')}
+        >
+          <i className="icon-user" />
+          <div className="badge">{pendingJoinRequests}</div>
+        </Button>
       )}
       <Button
         ref={menuButtonRef}
@@ -217,6 +259,7 @@ const HeaderActions: FC<OwnProps & StateProps & DispatchProps> = ({
           canSearch={canSearch}
           canCall={canCall}
           canMute={canMute}
+          canViewStatistics={canViewStatistics}
           canLeave={canLeave}
           canEnterVoiceChat={canEnterVoiceChat}
           canCreateVoiceChat={canCreateVoiceChat}
@@ -259,6 +302,8 @@ export default memo(withGlobal<OwnProps>(
     const canEnterVoiceChat = ARE_CALLS_SUPPORTED && chat.isCallActive;
     const canCreateVoiceChat = ARE_CALLS_SUPPORTED && !chat.isCallActive
       && (chat.adminRights?.manageCall || (chat.isCreator && isChatBasicGroup(chat)));
+    const canViewStatistics = chat.fullInfo?.canViewStatistics;
+    const pendingJoinRequests = chat.fullInfo?.requestsPending;
 
     return {
       noMenu: false,
@@ -270,12 +315,11 @@ export default memo(withGlobal<OwnProps>(
       canSearch,
       canCall,
       canMute,
+      canViewStatistics,
       canLeave,
       canEnterVoiceChat,
       canCreateVoiceChat,
+      pendingJoinRequests,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'joinChannel', 'sendBotCommand', 'openLocalTextSearch', 'restartBot', 'openCallFallbackConfirm',
-  ]),
 )(HeaderActions));

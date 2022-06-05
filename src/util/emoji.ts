@@ -1,4 +1,5 @@
-import EMOJI_REGEX from '../lib/twemojiRegex';
+import EMOJI_REGEX, { removeVS16s } from '../lib/twemojiRegex';
+import withCache from './withCache';
 
 // Due to the fact that emoji from Apple do not contain some characters, it is necessary to remove them from emoji-data
 // https://github.com/iamcal/emoji-data/issues/136
@@ -18,7 +19,7 @@ export type EmojiData = {
 const EMOJI_EXCEPTIONS: [string | RegExp, string][] = [
   [/\u{1f3f3}\u200d\u{1f308}/gu, '\u{1f3f3}\ufe0f\u200d\u{1f308}'], // 🏳‍🌈
   [/\u{1f3f3}\u200d\u26a7\ufe0f/gu, '\u{1f3f3}\ufe0f\u200d\u26a7\ufe0f'], // 🏳️‍⚧️
-  [/\u{1f937}\u200d\u2642/gu, '\u{1f937}\u200d\u2642\ufe0f'], // 🤷‍♂️
+  [/\u{1f937}\u200d\u2642[^\ufe0f]/gu, '\u{1f937}\u200d\u2642\ufe0f'], // 🤷‍♂️
 ];
 
 function unifiedToNative(unified: string) {
@@ -26,6 +27,13 @@ function unifiedToNative(unified: string) {
   const codePoints = unicodes.map((i) => parseInt(i, 16));
 
   return String.fromCodePoint(...codePoints);
+}
+
+export const LOADED_EMOJIS = new Set<string>();
+
+export function handleEmojiLoad(event: React.SyntheticEvent<HTMLImageElement>) {
+  event.currentTarget.classList.add('open');
+  LOADED_EMOJIS.add(event.currentTarget.dataset.path!);
 }
 
 export function fixNonStandardEmoji(text: string) {
@@ -51,7 +59,7 @@ export function nativeToUnified(emoji: string) {
         if (emoji.charCodeAt(i + 1) >= 0xdc00 && emoji.charCodeAt(i + 1) <= 0xdfff) {
           pairs.push(
             (emoji.charCodeAt(i) - 0xd800) * 0x400
-              + (emoji.charCodeAt(i + 1) - 0xdc00) + 0x10000,
+            + (emoji.charCodeAt(i + 1) - 0xdc00) + 0x10000,
           );
         }
       } else if (emoji.charCodeAt(i) < 0xd800 || emoji.charCodeAt(i) > 0xdfff) {
@@ -64,6 +72,12 @@ export function nativeToUnified(emoji: string) {
 
   return code;
 }
+
+function nativeToUnifiedExtended(emoji: string) {
+  return nativeToUnified(removeVS16s(emoji));
+}
+
+export const nativeToUnifiedExtendedWithCache = withCache(nativeToUnifiedExtended);
 
 export function uncompressEmoji(data: EmojiRawData): EmojiData {
   const emojiData: EmojiData = { categories: [], emojis: {} };

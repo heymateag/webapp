@@ -1,7 +1,6 @@
 type Scheduler =
   typeof requestAnimationFrame
-  | typeof onTickEnd
-  | typeof runNow;
+  | typeof onTickEnd;
 
 export function debounce<F extends AnyToVoidFunction>(
   fn: F,
@@ -16,14 +15,12 @@ export function debounce<F extends AnyToVoidFunction>(
       clearTimeout(waitingTimeout);
       waitingTimeout = undefined;
     } else if (shouldRunFirst) {
-      // @ts-ignore
       fn(...args);
     }
 
     // eslint-disable-next-line no-restricted-globals
     waitingTimeout = self.setTimeout(() => {
       if (shouldRunLast) {
-        // @ts-ignore
         fn(...args);
       }
 
@@ -48,7 +45,6 @@ export function throttle<F extends AnyToVoidFunction>(
     if (!interval) {
       if (shouldRunFirst) {
         isPending = false;
-        // @ts-ignore
         fn(...args);
       }
 
@@ -62,7 +58,6 @@ export function throttle<F extends AnyToVoidFunction>(
         }
 
         isPending = false;
-        // @ts-ignore
         fn(...args);
       }, ms);
     }
@@ -81,10 +76,6 @@ export function throttleWithTickEnd<F extends AnyToVoidFunction>(fn: F) {
   return throttleWith(onTickEnd, fn);
 }
 
-export function throttleWithNow<F extends AnyToVoidFunction>(fn: F) {
-  return throttleWith(runNow, fn);
-}
-
 export function throttleWith<F extends AnyToVoidFunction>(schedulerFn: Scheduler, fn: F) {
   let waiting = false;
   let args: Parameters<F>;
@@ -97,25 +88,20 @@ export function throttleWith<F extends AnyToVoidFunction>(schedulerFn: Scheduler
 
       schedulerFn(() => {
         waiting = false;
-        // @ts-ignore
         fn(...args);
       });
     }
   };
 }
 
-export function onIdle(cb: NoneToVoidFunction) {
+export function onIdle(cb: NoneToVoidFunction, timeout?: number) {
   // eslint-disable-next-line no-restricted-globals
   if (self.requestIdleCallback) {
     // eslint-disable-next-line no-restricted-globals
-    self.requestIdleCallback(cb);
+    self.requestIdleCallback(cb, { timeout });
   } else {
     onTickEnd(cb);
   }
-}
-
-function runNow(fn: NoneToVoidFunction) {
-  fn();
 }
 
 export const pause = (ms: number) => new Promise<void>((resolve) => {

@@ -49,11 +49,10 @@
     @media (max-height: 640px) {
       max-height: calc(100vh - 10rem);
     }
-    @at-root .has-footer #{&} {
-      max-height: calc(100vh - 15rem);
-      @media (max-height: 640px) {
-        max-height: calc(100vh - 10rem);
-      }
+
+    // Disable fullscreen on double tap on mobile devices
+    .is-touch-env & {
+      pointer-events: none;
     }
   }
 
@@ -66,13 +65,13 @@
     height: 3.25rem;
     background-color: rgba(0, 0, 0, 0.5) !important;
     body:not(.animation-level-0) & {
-      transition: opacity .3s ease !important;
+      transition: opacity 0.3s ease !important;
     }
 
     .icon-play {
       font-size: 1.75rem;
       position: relative;
-      left: .125rem;
+      left: 0.125rem;
     }
   }
 

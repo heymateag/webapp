@@ -1,6 +1,7 @@
-import { ApiInitialArgs, ApiOnProgress, OnApiUpdate } from '../../types';
-import { Methods, MethodArgs, MethodResponse } from '../methods/types';
-import { WorkerMessageEvent, ThenArg, OriginRequest } from './types';
+import type { Api } from '../../../lib/gramjs';
+import type { ApiInitialArgs, ApiOnProgress, OnApiUpdate } from '../../types';
+import type { Methods, MethodArgs, MethodResponse } from '../methods/types';
+import type { WorkerMessageEvent, OriginRequest } from './types';
 
 import { DEBUG } from '../../../config';
 import generateIdFor from '../../../util/generateIdFor';
@@ -53,11 +54,36 @@ export function callApi<T extends keyof Methods>(fnName: T, ...args: MethodArgs<
     return undefined;
   }
 
-  return makeRequest({
+  const promise = makeRequest({
     type: 'callMethod',
     name: fnName,
     args,
-  }) as MethodResponse<T>;
+  });
+
+  // Some TypeScript magic to make sure `VirtualClass` is never returned from any method
+  if (DEBUG) {
+    (async () => {
+      try {
+        type ForbiddenTypes =
+          Api.VirtualClass<any>
+          | (Api.VirtualClass<any> | undefined)[];
+        type ForbiddenResponses =
+          ForbiddenTypes
+          | (AnyLiteral & { [k: string]: ForbiddenTypes });
+
+        // Unwrap all chained promises
+        const response = await promise;
+        // Make sure responses do not include `VirtualClass` instances
+        const allowedResponse: Exclude<typeof response, ForbiddenResponses> = response;
+        // Suppress "unused variable" constraint
+        void allowedResponse;
+      } catch (err) {
+        // Do noting
+      }
+    })();
+  }
+
+  return promise as MethodResponse<T>;
 }
 
 export function cancelApiProgress(progressCallback: ApiOnProgress) {
@@ -90,7 +116,7 @@ function subscribeToWorker(onUpdate: OnApiUpdate) {
     } else if (data.type === 'methodCallback') {
       requestStates.get(data.messageId)?.callback?.(...data.callbackArgs);
     } else if (data.type === 'unhandledError') {
-      throw data.error;
+      throw new Error(data.error?.message);
     }
   });
 }
@@ -105,7 +131,7 @@ function makeRequest(message: OriginRequest) {
   const requestState = { messageId } as RequestStates;
 
   // Re-wrap type because of `postMessage`
-  const promise: Promise<ThenArg<MethodResponse<keyof Methods>>> = new Promise((resolve, reject) => {
+  const promise: Promise<MethodResponse<keyof Methods>> = new Promise((resolve, reject) => {
     Object.assign(requestState, { resolve, reject });
   });
 
@@ -116,6 +142,7 @@ function makeRequest(message: OriginRequest) {
   }
 
   requestStates.set(messageId, requestState);
+
   promise
     .catch(() => undefined)
     .finally(() => {
@@ -135,19 +162,25 @@ const startedAt = Date.now();
 
 // Workaround for iOS sometimes stops interacting with worker
 function setupIosHealthCheck() {
-  window.addEventListener('focus', async () => {
-    try {
-      await Promise.race([
-        makeRequest({ type: 'ping' }),
-        pause(HEALTH_CHECK_TIMEOUT).then(() => Promise.reject(new Error('HEALTH_CHECK_TIMEOUT'))),
-      ]);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(err);
-
-      if (Date.now() - startedAt >= HEALTH_CHECK_MIN_DELAY) {
-        window.location.reload();
-      }
-    }
+  window.addEventListener('focus', () => {
+    void ensureWorkerPing();
+    // Sometimes a single check is not enough
+    setTimeout(() => ensureWorkerPing(), 1000);
   });
+}
+
+async function ensureWorkerPing() {
+  try {
+    await Promise.race([
+      makeRequest({ type: 'ping' }),
+      pause(HEALTH_CHECK_TIMEOUT).then(() => Promise.reject(new Error('HEALTH_CHECK_TIMEOUT'))),
+    ]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(err);
+
+    if (Date.now() - startedAt >= HEALTH_CHECK_MIN_DELAY) {
+      window.location.reload();
+    }
+  }
 }

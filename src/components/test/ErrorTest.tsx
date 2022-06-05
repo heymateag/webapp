@@ -1,5 +1,6 @@
-import { FC } from '../../lib/teact/teact';
-import React, { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React from '../../lib/teact/teact';
+import { withGlobal } from '../../global';
 
 type OwnProps = {
   parentRand: number;

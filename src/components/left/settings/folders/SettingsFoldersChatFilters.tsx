@@ -1,25 +1,23 @@
-import React, {
-  FC, memo, useMemo, useCallback,
-} from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../lib/teact/teactn';
+import type { FC } from '../../../../lib/teact/teact';
+import React, { memo, useMemo, useCallback } from '../../../../lib/teact/teact';
+import { getGlobal } from '../../../../global';
 
-import { GlobalActions } from '../../../../global/types';
-import { ApiChat } from '../../../../api/types';
-import { SettingsScreens } from '../../../../types';
+import { unique } from '../../../../util/iteratees';
 
+import { ALL_FOLDER_ID, ARCHIVED_FOLDER_ID } from '../../../../config';
+import { filterChatsByName } from '../../../../global/helpers';
 import useLang from '../../../../hooks/useLang';
-import { pick } from '../../../../util/iteratees';
-import searchWords from '../../../../util/searchWords';
-import { prepareChatList, getChatTitle } from '../../../../modules/helpers';
-import {
+import useHistoryBack from '../../../../hooks/useHistoryBack';
+import { useFolderManagerForOrderedIds } from '../../../../hooks/useFolderManager';
+import type {
   FoldersState,
   FolderEditDispatch,
+} from '../../../../hooks/reducers/useFoldersReducer';
+import {
   selectChatFilters,
 } from '../../../../hooks/reducers/useFoldersReducer';
-import useHistoryBack from '../../../../hooks/useHistoryBack';
 
 import SettingsFoldersChatsPicker from './SettingsFoldersChatsPicker';
-
 import Loading from '../../../ui/Loading';
 
 type OwnProps = {
@@ -27,72 +25,34 @@ type OwnProps = {
   state: FoldersState;
   dispatch: FolderEditDispatch;
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
-type StateProps = {
-  chatsById: Record<string, ApiChat>;
-  listIds?: string[];
-  orderedPinnedIds?: string[];
-  archivedListIds?: string[];
-  archivedPinnedIds?: string[];
-};
-
-type DispatchProps = Pick<GlobalActions, 'loadMoreChats'>;
-
-const SettingsFoldersChatFilters: FC<OwnProps & StateProps & DispatchProps> = ({
-  isActive,
-  onScreenSelect,
-  onReset,
+const SettingsFoldersChatFilters: FC<OwnProps> = ({
   mode,
   state,
   dispatch,
-  chatsById,
-  listIds,
-  orderedPinnedIds,
-  archivedListIds,
-  archivedPinnedIds,
-  loadMoreChats,
+  isActive,
+  onReset,
 }) => {
   const { chatFilter } = state;
   const { selectedChatIds, selectedChatTypes } = selectChatFilters(state, mode, true);
 
   const lang = useLang();
-  const chats = useMemo(() => {
-    const activeChatArrays = listIds
-      ? prepareChatList(chatsById, listIds, orderedPinnedIds, 'all')
-      : undefined;
-    const archivedChatArrays = archivedListIds
-      ? prepareChatList(chatsById, archivedListIds, archivedPinnedIds, 'archived')
-      : undefined;
 
-    if (!activeChatArrays && !archivedChatArrays) {
-      return undefined;
-    }
-
-    return [
-      ...(activeChatArrays
-        ? [...activeChatArrays.pinnedChats, ...activeChatArrays.otherChats]
-        : []
-      ),
-      ...(archivedChatArrays ? archivedChatArrays.otherChats : []),
-    ];
-  }, [chatsById, listIds, orderedPinnedIds, archivedListIds, archivedPinnedIds]);
+  const folderAllOrderedIds = useFolderManagerForOrderedIds(ALL_FOLDER_ID);
+  const folderArchivedOrderedIds = useFolderManagerForOrderedIds(ARCHIVED_FOLDER_ID);
 
   const displayedIds = useMemo(() => {
-    if (!chats) {
-      return undefined;
-    }
+    // No need for expensive global updates on chats, so we avoid them
+    const chatsById = getGlobal().chats.byId;
 
-    return chats
-      .filter((chat) => (
-        !chatFilter
-        || searchWords(getChatTitle(lang, chat), chatFilter)
-        || selectedChatIds.includes(chat.id)
-      ))
-      .map(({ id }) => id);
-  }, [chats, chatFilter, lang, selectedChatIds]);
+    const chatIds = [...folderAllOrderedIds || [], ...folderArchivedOrderedIds || []];
+    return unique([
+      ...selectedChatIds,
+      ...filterChatsByName(lang, chatIds, chatsById, chatFilter),
+    ]);
+  }, [folderAllOrderedIds, folderArchivedOrderedIds, selectedChatIds, lang, chatFilter]);
 
   const handleFilterChange = useCallback((newFilter: string) => {
     dispatch({
@@ -140,8 +100,10 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [mode, selectedChatIds, dispatch]);
 
-  useHistoryBack(isActive, onReset, onScreenSelect,
-    mode === 'included' ? SettingsScreens.FoldersIncludedChats : SettingsScreens.FoldersExcludedChats);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   if (!displayedIds) {
     return <Loading />;
@@ -157,28 +119,8 @@ const SettingsFoldersChatFilters: FC<OwnProps & StateProps & DispatchProps> = ({
       onSelectedIdsChange={handleSelectedIdsChange}
       onSelectedChatTypesChange={handleSelectedChatTypesChange}
       onFilterChange={handleFilterChange}
-      onLoadMore={loadMoreChats}
     />
   );
 };
 
-export default memo(withGlobal<OwnProps>(
-  (global): StateProps => {
-    const {
-      chats: {
-        byId: chatsById,
-        listIds,
-        orderedPinnedIds,
-      },
-    } = global;
-
-    return {
-      chatsById,
-      listIds: listIds.active,
-      orderedPinnedIds: orderedPinnedIds.active,
-      archivedPinnedIds: orderedPinnedIds.archived,
-      archivedListIds: listIds.archived,
-    };
-  },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadMoreChats']),
-)(SettingsFoldersChatFilters));
+export default memo(SettingsFoldersChatFilters);

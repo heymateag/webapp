@@ -1,25 +1,24 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
 
-import { GlobalActions } from '../../global/types';
-import { ApiGroupCall } from '../../api/types';
+import type { ApiGroupCall } from '../../api/types';
 
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 
 import Link from '../ui/Link';
+import { getActions } from '../../global';
 
 type OwnProps = {
   className?: string;
   groupCall?: Partial<ApiGroupCall>;
-  children: any;
+  children: React.ReactNode;
 };
 
-type DispatchProps = Pick<GlobalActions, 'joinGroupCall'>;
-
-const GroupCallLink: FC<OwnProps & DispatchProps> = ({
-  className, groupCall, joinGroupCall, children,
+const GroupCallLink: FC<OwnProps> = ({
+  className, groupCall, children,
 }) => {
+  const { joinGroupCall } = getActions();
+
   const handleClick = useCallback(() => {
     if (groupCall) {
       joinGroupCall({ id: groupCall.id, accessHash: groupCall.accessHash });
@@ -35,7 +34,4 @@ const GroupCallLink: FC<OwnProps & DispatchProps> = ({
   );
 };
 
-export default withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['joinGroupCall']),
-)(GroupCallLink);
+export default GroupCallLink;

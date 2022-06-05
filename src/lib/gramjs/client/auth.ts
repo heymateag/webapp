@@ -1,5 +1,4 @@
-// eslint-disable-next-line import/no-named-default
-import { default as Api } from '../tl/api';
+import Api from '../tl/api';
 import TelegramClient from './TelegramClient';
 import utils from '../Utils';
 import { sleep } from '../Helpers';
@@ -14,6 +13,7 @@ export interface UserAuthParams {
     onError: (err: Error) => void;
     forceSMS?: boolean;
     initialMethod?: 'phoneNumber' | 'qrCode';
+    shouldThrowIfUnauthorized?: boolean;
 }
 
 export interface BotAuthParams {
@@ -50,12 +50,12 @@ export async function authFlow(
     client._log.info('Signed in successfully as', utils.getDisplayName(me));
 }
 
-export async function checkAuthorization(client: TelegramClient) {
+export async function checkAuthorization(client: TelegramClient, shouldThrow = false) {
     try {
         await client.invoke(new Api.updates.GetState());
         return true;
-    } catch (e) {
-        if (e.message === 'Disconnect') throw e;
+    } catch (e: any) {
+        if (e.message === 'Disconnect' || shouldThrow) throw e;
         return false;
     }
 }
@@ -73,7 +73,7 @@ async function signInUser(
             if (typeof authParams.phoneNumber === 'function') {
                 try {
                     phoneNumber = await authParams.phoneNumber();
-                } catch (err) {
+                } catch (err: any) {
                     if (err.message === 'RESTART_AUTH_WITH_QR') {
                         return signInUserWithQrCode(client, apiCredentials, authParams);
                     }
@@ -92,7 +92,7 @@ async function signInUser(
             }
 
             break;
-        } catch (err) {
+        } catch (err: any) {
             if (typeof authParams.phoneNumber !== 'function') {
                 throw err;
             }
@@ -110,7 +110,7 @@ async function signInUser(
         try {
             try {
                 phoneCode = await authParams.phoneCode(isCodeViaApp);
-            } catch (err) {
+            } catch (err: any) {
                 // This is the support for changing phone number from the phone code screen.
                 if (err.message === 'RESTART_AUTH') {
                     return signInUser(client, apiCredentials, authParams);
@@ -136,7 +136,7 @@ async function signInUser(
             }
 
             return result.user;
-        } catch (err) {
+        } catch (err: any) {
             if (err.message === 'SESSION_PASSWORD_NEEDED') {
                 return signInWithPassword(client, apiCredentials, authParams);
             } else {
@@ -167,7 +167,7 @@ async function signInUser(
                 }
 
                 return user;
-            } catch (err) {
+            } catch (err: any) {
                 authParams.onError(err);
             }
         }
@@ -219,7 +219,7 @@ async function signInUserWithQrCode(
         // Either we receive an update that QR is successfully scanned,
         // or we receive a rejection caused by user going back to the regular auth form
         await Promise.race([updatePromise, inputPromise]);
-    } catch (err) {
+    } catch (err: any) {
         if (err.message === 'RESTART_AUTH') {
             return await signInUser(client, apiCredentials, authParams);
         }
@@ -249,7 +249,7 @@ async function signInUserWithQrCode(
                 return migratedResult.authorization.user;
             }
         }
-    } catch (err) {
+    } catch (err: any) {
         if (err.message === 'SESSION_PASSWORD_NEEDED') {
             return signInWithPassword(client, apiCredentials, authParams);
         }
@@ -258,7 +258,7 @@ async function signInUserWithQrCode(
     }
 
     // This is a workaround for TypeScript (never actually reached)
-    // eslint-disable-next-line no-throw-literal
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
     throw undefined;
 }
 
@@ -294,7 +294,7 @@ async function sendCode(
             phoneCodeHash: resendResult.phoneCodeHash,
             isCodeViaApp: resendResult.type instanceof Api.auth.SentCodeTypeApp,
         };
-    } catch (err) {
+    } catch (err: any) {
         if (err.message === 'AUTH_RESTART') {
             return sendCode(client, apiCredentials, phoneNumber, forceSMS);
         } else {
@@ -321,7 +321,7 @@ async function signInWithPassword(
             })) as Api.auth.Authorization;
 
             return user;
-        } catch (err) {
+        } catch (err: any) {
             authParams.onError(err);
         }
     }

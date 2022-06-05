@@ -1,5 +1,6 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useCallback, useMemo, useState, memo,
+  useCallback, useMemo, useState, memo,
 } from '../../lib/teact/teact';
 import { debounce } from '../../util/schedulers';
 
@@ -50,7 +51,6 @@ const RippleEffect: FC = () => {
     <div className="ripple-container" onMouseDown={handleMouseDown}>
       {ripples.map(({ x, y, size }) => (
         <span
-          // @ts-ignore
           style={`left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px;`}
         />
       ))}

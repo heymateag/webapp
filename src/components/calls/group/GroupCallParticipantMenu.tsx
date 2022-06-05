@@ -1,19 +1,20 @@
-import { GroupCallParticipant } from '../../../lib/secret-sauce';
+import type { GroupCallParticipant } from '../../../lib/secret-sauce';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useState,
+  memo, useCallback, useEffect, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { IAnchorPosition } from '../../../types';
-import { GlobalActions } from '../../../global/types';
+import type { IAnchorPosition } from '../../../types';
 
+import { GROUP_CALL_DEFAULT_VOLUME, GROUP_CALL_VOLUME_MULTIPLIER } from '../../../config';
+import { LOCAL_TGS_URLS } from '../../common/helpers/animatedAssets';
 import buildClassName from '../../../util/buildClassName';
-import useThrottle from '../../../hooks/useThrottle';
+import buildStyle from '../../../util/buildStyle';
+import useRunThrottled from '../../../hooks/useRunThrottled';
 import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
-import { selectIsAdminInActiveGroupCall } from '../../../modules/selectors/calls';
-import { pick } from '../../../util/iteratees';
-import { GROUP_CALL_DEFAULT_VOLUME, GROUP_CALL_VOLUME_MULTIPLIER } from '../../../config';
+import { selectIsAdminInActiveGroupCall } from '../../../global/selectors/calls';
 
 import Menu from '../../ui/Menu';
 import MenuItem from '../../ui/MenuItem';
@@ -36,10 +37,6 @@ type StateProps = {
   isAdmin: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'toggleGroupCallMute' | 'setGroupCallParticipantVolume' | 'toggleGroupCallPanel' | 'openChat' | 'requestToSpeak'
-)>;
-
 const VOLUME_ZERO = 0;
 const VOLUME_LOW = 50;
 const VOLUME_MEDIUM = 100;
@@ -49,19 +46,21 @@ const VOLUME_CHANGE_THROTTLE = 500;
 
 const SPEAKER_ICON_SIZE = 24;
 
-const GroupCallParticipantMenu: FC<OwnProps & StateProps & DispatchProps> = ({
+const GroupCallParticipantMenu: FC<OwnProps & StateProps> = ({
   participant,
   closeDropdown,
   isDropdownOpen,
   anchor,
-
   isAdmin,
-  toggleGroupCallMute,
-  setGroupCallParticipantVolume,
-  toggleGroupCallPanel,
-  openChat,
-  requestToSpeak,
 }) => {
+  const {
+    toggleGroupCallMute,
+    setGroupCallParticipantVolume,
+    toggleGroupCallPanel,
+    openChat,
+    requestToSpeak,
+  } = getActions();
+
   const lang = useLang();
   const [isDeleteUserModalOpen, openDeleteUserModal, closeDeleteUserModal] = useFlag();
 
@@ -84,7 +83,7 @@ const GroupCallParticipantMenu: FC<OwnProps & StateProps & DispatchProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const runThrottled = useThrottle(VOLUME_CHANGE_THROTTLE);
+  const runThrottled = useRunThrottled(VOLUME_CHANGE_THROTTLE);
 
   const handleRemove = useCallback((e: React.SyntheticEvent<any>) => {
     e.stopPropagation();
@@ -150,7 +149,7 @@ const GroupCallParticipantMenu: FC<OwnProps & StateProps & DispatchProps> = ({
         isOpen={isDropdownOpen}
         positionX="right"
         autoClose
-        style={anchor ? `right: 1rem; top: ${anchor.y}px;` : undefined}
+        style={buildStyle(anchor && `right: 1rem; top: ${anchor.y}px`)}
         onClose={closeDropdown}
         className="participant-menu"
       >
@@ -173,7 +172,7 @@ const GroupCallParticipantMenu: FC<OwnProps & StateProps & DispatchProps> = ({
               />
               <div className="info">
                 <AnimatedIcon
-                  name="Speaker"
+                  tgsUrl={LOCAL_TGS_URLS.Speaker}
                   playSegment={speakerIconPlaySegment}
                   size={SPEAKER_ICON_SIZE}
                 />
@@ -229,11 +228,4 @@ export default memo(withGlobal<OwnProps>(
       isAdmin: selectIsAdminInActiveGroupCall(global),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'setGroupCallParticipantVolume',
-    'toggleGroupCallMute',
-    'openChat',
-    'toggleGroupCallPanel',
-    'requestToSpeak',
-  ]),
 )(GroupCallParticipantMenu));

@@ -1,21 +1,22 @@
-import React, { FC, useCallback } from '../../../lib/teact/teact';
+import type { FC } from '../../../lib/teact/teact';
+import React, { useCallback } from '../../../lib/teact/teact';
 
-import { GlobalActions, GlobalState } from '../../../global/types';
-import { ApiMessage } from '../../../api/types';
-import { IAlbum, ISettings } from '../../../types';
-import { AlbumRectPart, IAlbumLayout } from './helpers/calculateAlbumLayout';
+import type { GlobalState } from '../../../global/types';
+import type { ApiMessage } from '../../../api/types';
+import type { IAlbum, ISettings } from '../../../types';
+import type { IAlbumLayout } from './helpers/calculateAlbumLayout';
+import { AlbumRectPart } from './helpers/calculateAlbumLayout';
 
-import { getMessageContent } from '../../../modules/helpers';
-import { getGlobal, withGlobal } from '../../../lib/teact/teactn';
-import { pick } from '../../../util/iteratees';
+import { getMessageContent, getMessageHtmlId, getMessageOriginalId } from '../../../global/helpers';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 import withSelectControl from './hocs/withSelectControl';
-import { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
 import {
   selectActiveDownloadIds,
   selectCanAutoLoadMedia,
   selectCanAutoPlayMedia,
   selectTheme,
-} from '../../../modules/selectors';
+} from '../../../global/selectors';
 
 import Photo from './Photo';
 import Video from './Video';
@@ -31,6 +32,7 @@ type OwnProps = {
   hasCustomAppendix?: boolean;
   lastSyncTime?: number;
   isOwn: boolean;
+  isProtected?: boolean;
   albumLayout: IAlbumLayout;
   onMediaClick: (messageId: number) => void;
 };
@@ -41,21 +43,21 @@ type StateProps = {
   activeDownloadIds: number[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'cancelSendingMessage'>;
-
-const Album: FC<OwnProps & StateProps & DispatchProps> = ({
+const Album: FC<OwnProps & StateProps> = ({
   album,
   observeIntersection,
   hasCustomAppendix,
   lastSyncTime,
   isOwn,
+  isProtected,
   albumLayout,
   onMediaClick,
   uploadsById,
   activeDownloadIds,
   theme,
-  cancelSendingMessage,
 }) => {
+  const { cancelSendingMessage } = getActions();
+
   const mediaCount = album.messages.length;
 
   const handleCancelUpload = useCallback((message: ApiMessage) => {
@@ -64,7 +66,7 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
 
   function renderAlbumMessage(message: ApiMessage, index: number) {
     const { photo, video } = getMessageContent(message);
-    const fileUpload = uploadsById[message.previousLocalId || message.id];
+    const fileUpload = uploadsById[getMessageOriginalId(message)];
     const uploadProgress = fileUpload?.progress;
     const { dimensions, sides } = albumLayout.layout[index];
 
@@ -80,13 +82,14 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
 
       return (
         <PhotoWithSelect
-          id={`album-media-${message.id}`}
+          id={`album-media-${getMessageHtmlId(message.id)}`}
           message={message}
           observeIntersection={observeIntersection}
           canAutoLoad={canAutoLoad}
           shouldAffectAppendix={shouldAffectAppendix}
           uploadProgress={uploadProgress}
           dimensions={dimensions}
+          isProtected={isProtected}
           onClick={onMediaClick}
           onCancelUpload={handleCancelUpload}
           isDownloading={activeDownloadIds.includes(message.id)}
@@ -96,7 +99,7 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
     } else if (video) {
       return (
         <VideoWithSelect
-          id={`album-media-${message.id}`}
+          id={`album-media-${getMessageHtmlId(message.id)}`}
           message={message}
           observeIntersection={observeIntersection}
           canAutoLoad={canAutoLoad}
@@ -104,6 +107,7 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
           uploadProgress={uploadProgress}
           lastSyncTime={lastSyncTime}
           dimensions={dimensions}
+          isProtected={isProtected}
           onClick={onMediaClick}
           onCancelUpload={handleCancelUpload}
           isDownloading={activeDownloadIds.includes(message.id)}
@@ -120,7 +124,6 @@ const Album: FC<OwnProps & StateProps & DispatchProps> = ({
   return (
     <div
       className="Album"
-      // @ts-ignore
       style={`width: ${containerWidth}px; height: ${containerHeight}px;`}
     >
       {album.messages.map(renderAlbumMessage)}
@@ -139,7 +142,4 @@ export default withGlobal<OwnProps>(
       activeDownloadIds,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'cancelSendingMessage',
-  ]),
 )(Album);

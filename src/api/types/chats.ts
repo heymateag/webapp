@@ -1,5 +1,7 @@
-import { ApiMessage, ApiPhoto } from './messages';
-import { ApiBotCommand } from './bots';
+import type { ApiMessage, ApiPhoto, ApiStickerSet } from './messages';
+import type { ApiBotCommand } from './bots';
+import type { ApiChatInviteImporter } from './misc';
+import type { ApiFakeType } from './users';
 
 type  ApiChatType = (
   'chatTypePrivate' | 'chatTypeSecret' |
@@ -18,6 +20,7 @@ export interface ApiChat {
   lastReadInboxMessageId?: number;
   unreadCount?: number;
   unreadMentionsCount?: number;
+  unreadReactionsCount?: number;
   isVerified?: boolean;
   isMuted?: boolean;
   isSignaturesShown?: boolean;
@@ -31,6 +34,8 @@ export interface ApiChat {
   isSupport?: boolean;
   photos?: ApiPhoto[];
   draftDate?: number;
+  isProtected?: boolean;
+  fakeType?: ApiFakeType;
 
   // Calls
   isCallActive?: boolean;
@@ -40,7 +45,8 @@ export interface ApiChat {
   isNotJoined?: boolean;
   isListed?: boolean;
   isCreator?: boolean;
-  isRestricted?: boolean;
+  isForbidden?: boolean; // Forbidden - can't send messages (user was kicked, for example)
+  isRestricted?: boolean; // Restricted - can't access the chat (user was banned or chat is violating rules)
   restrictionReason?: ApiRestrictionReason;
   adminRights?: ApiChatAdminRights;
   currentUserBannedRights?: ApiChatBannedRights;
@@ -51,16 +57,25 @@ export interface ApiChat {
     accessHash?: string;
   };
 
+  // Obtained from GetChatSettings
+  settings?: ApiChatSettings;
   // Obtained from GetFullChat / GetFullChannel
   fullInfo?: ApiChatFullInfo;
   // Obtained with UpdateUserTyping or UpdateChatUserTyping updates
   typingStatus?: ApiTypingStatus;
+
+  joinRequests?: ApiChatInviteImporter[];
+  sendAsIds?: string[];
+
+  unreadReactions?: number[];
+  unreadMentions?: number[];
 }
 
 export interface ApiTypingStatus {
   userId?: string;
   action: string;
   timestamp: number;
+  emoji?: string;
 }
 
 export interface ApiChatFullInfo {
@@ -83,6 +98,13 @@ export interface ApiChatFullInfo {
   };
   linkedChatId?: string;
   botCommands?: ApiBotCommand[];
+  enabledReactions?: string[];
+  sendAsId?: string;
+  canViewStatistics?: boolean;
+  recentRequesterIds?: string[];
+  requestsPending?: number;
+  statisticsDcId?: number;
+  stickerSet?: ApiStickerSet;
 }
 
 export interface ApiChatMember {
@@ -148,4 +170,11 @@ export interface ApiChatFolder {
   pinnedChatIds?: string[];
   includedChatIds: string[];
   excludedChatIds: string[];
+}
+
+export interface ApiChatSettings {
+  isAutoArchived?: boolean;
+  canReportSpam?: boolean;
+  canAddContact?: boolean;
+  canBlockContact?: boolean;
 }

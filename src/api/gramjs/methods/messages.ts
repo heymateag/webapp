@@ -1,57 +1,69 @@
 import { Api as GramJs } from '../../../lib/gramjs';
-import {
-  ApiChat,
+import type {
   ApiAttachment,
+  ApiChat,
+  ApiGlobalMessageSearchType,
   ApiMessage,
-  OnApiUpdate,
-  ApiMessageSearchType,
-  ApiUser,
-  ApiSticker,
-  ApiVideo,
-  ApiNewPoll,
   ApiMessageEntity,
+  ApiMessageSearchType,
+  ApiNewPoll,
   ApiOnProgress,
+  ApiReportReason,
+  ApiSticker,
   ApiThreadInfo,
+  ApiUser,
+  ApiVideo,
+  OnApiUpdate,
+  ApiSponsoredMessage,
+  ApiSendMessageAction,
+  ApiContact,
+} from '../../types';
+import {
   MAIN_THREAD_ID,
   MESSAGE_DELETED,
-  ApiGlobalMessageSearchType,
-  ApiReportReason,
 } from '../../types';
 
 import {
   ALL_FOLDER_ID,
-  DEBUG,
-  PINNED_MESSAGES_LIMIT,
+  DEBUG, MENTION_UNREAD_SLICE,
+  PINNED_MESSAGES_LIMIT, REACTION_UNREAD_SLICE,
   SUPPORTED_IMAGE_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
 import { invokeRequest, uploadFile } from './client';
 import {
   buildApiMessage,
+  buildLocalForwardedMessage,
   buildLocalMessage,
   buildWebPage,
-  buildLocalForwardedMessage,
+  buildApiSponsoredMessage,
 } from '../apiBuilders/messages';
 import { buildApiUser } from '../apiBuilders/users';
 import {
   buildInputEntity,
+  buildInputMediaDocument,
   buildInputPeer,
+  buildInputPoll,
+  buildInputReportReason,
+  buildMtpMessageEntity,
   generateRandomBigInt,
   getEntityTypeById,
-  buildInputMediaDocument,
-  buildInputPoll,
-  buildMtpMessageEntity,
   isMessageWithMedia,
   isServiceMessageWithMedia,
-  buildInputReportReason,
+  buildSendMessageAction,
 } from '../gramjsBuilders';
 import localDb from '../localDb';
 import { buildApiChatFromPreview } from '../apiBuilders/chats';
 import { fetchFile } from '../../../util/files';
-import { addMessageToLocalDb, resolveMessageApiChatId } from '../helpers';
+import {
+  addEntitiesWithPhotosToLocalDb,
+  addMessageToLocalDb,
+  deserializeBytes,
+  resolveMessageApiChatId,
+} from '../helpers';
 import { interpolateArray } from '../../../util/waveform';
 import { requestChatUpdate } from './chats';
-import { buildApiPeerId } from '../apiBuilders/peers';
+import { getApiChatIdFromMtpPeer } from '../apiBuilders/peers';
 
 const FAST_SEND_TIMEOUT = 1000;
 const INPUT_WAVEFORM_LENGTH = 63;
@@ -84,7 +96,7 @@ export async function fetchMessages({
       }),
       ...pagination,
     }), undefined, true);
-  } catch (err) {
+  } catch (err: any) {
     if (err.message === 'CHANNEL_PRIVATE') {
       onUpdate({
         '@type': 'updateChat',
@@ -136,7 +148,7 @@ export async function fetchMessage({ chat, messageId }: { chat: ApiChat; message
       undefined,
       true,
     );
-  } catch (err) {
+  } catch (err: any) {
     const { message } = err;
 
     // When fetching messages for the bot @replies, there may be situations when the user was banned
@@ -192,10 +204,12 @@ export function sendMessage(
     sticker,
     gif,
     poll,
+    contact,
     isSilent,
     scheduledAt,
     groupedId,
     noWebPage,
+    sendAs,
     serverTimeOffset,
   }: {
     chat: ApiChat;
@@ -206,16 +220,30 @@ export function sendMessage(
     sticker?: ApiSticker;
     gif?: ApiVideo;
     poll?: ApiNewPoll;
+    contact?: ApiContact;
     isSilent?: boolean;
     scheduledAt?: number;
     groupedId?: string;
     noWebPage?: boolean;
+    sendAs?: ApiUser | ApiChat;
     serverTimeOffset?: number;
   },
   onProgress?: ApiOnProgress,
 ) {
   const localMessage = buildLocalMessage(
-    chat, text, entities, replyingTo, attachment, sticker, gif, poll, groupedId, scheduledAt, serverTimeOffset,
+    chat,
+    text,
+    entities,
+    replyingTo,
+    attachment,
+    sticker,
+    gif,
+    poll,
+    contact,
+    groupedId,
+    scheduledAt,
+    sendAs,
+    serverTimeOffset,
   );
   console.log('wait me I am sending DM...!');
   onUpdate({
@@ -269,6 +297,13 @@ export function sendMessage(
       media = buildInputMediaDocument(gif);
     } else if (poll) {
       media = buildInputPoll(poll, randomId);
+    } else if (contact) {
+      media = new GramJs.InputMediaContact({
+        phoneNumber: contact.phoneNumber,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        vcard: '',
+      });
     }
 
     await prevQueue;
@@ -286,6 +321,7 @@ export function sendMessage(
       ...(replyingTo && { replyToMsgId: replyingTo }),
       ...(media && { media }),
       ...(noWebPage && { noWebpage: noWebPage }),
+      ...(sendAs && { sendAs: buildInputPeer(sendAs.id, sendAs.accessHash) }),
     }), true);
   })();
 
@@ -307,6 +343,7 @@ function sendGroupedMedia(
     groupedId,
     isSilent,
     scheduledAt,
+    sendAs,
   }: {
     chat: ApiChat;
     text?: string;
@@ -316,6 +353,7 @@ function sendGroupedMedia(
     groupedId: string;
     isSilent?: boolean;
     scheduledAt?: number;
+    sendAs?: ApiUser | ApiChat;
   },
   randomId: GramJs.long,
   localMessage: ApiMessage,
@@ -388,6 +426,7 @@ function sendGroupedMedia(
       replyToMsgId: replyingTo,
       ...(isSilent && { silent: isSilent }),
       ...(scheduledAt && { scheduleDate: scheduledAt }),
+      ...(sendAs && { sendAs: buildInputPeer(sendAs.id, sendAs.accessHash) }),
     }), true);
   })();
 
@@ -498,10 +537,9 @@ export async function rescheduleMessage({
 
 async function uploadMedia(localMessage: ApiMessage, attachment: ApiAttachment, onProgress: ApiOnProgress) {
   const {
-    filename, blobUrl, mimeType, quick, voice,
+    filename, blobUrl, mimeType, quick, voice, audio, previewBlobUrl,
   } = attachment;
 
-  const file = await fetchFile(blobUrl, filename);
   const patchedOnProgress: ApiOnProgress = (progress) => {
     if (onProgress.isCanceled) {
       patchedOnProgress.isCanceled = true;
@@ -509,7 +547,12 @@ async function uploadMedia(localMessage: ApiMessage, attachment: ApiAttachment, 
       onProgress(progress, localMessage.id);
     }
   };
+
+  const file = await fetchFile(blobUrl, filename);
   const inputFile = await uploadFile(file, patchedOnProgress);
+
+  const thumbFile = previewBlobUrl && await fetchFile(previewBlobUrl, filename);
+  const thumb = thumbFile ? await uploadFile(thumbFile) : undefined;
 
   const attributes: GramJs.TypeDocumentAttribute[] = [new GramJs.DocumentAttributeFilename({ fileName: filename })];
   if (quick) {
@@ -530,6 +573,15 @@ async function uploadMedia(localMessage: ApiMessage, attachment: ApiAttachment, 
     }
   }
 
+  if (audio) {
+    const { duration, title, performer } = audio;
+    attributes.push(new GramJs.DocumentAttributeAudio({
+      duration,
+      title,
+      performer,
+    }));
+  }
+
   if (voice) {
     const { duration, waveform } = voice;
     const { data: inputWaveform } = interpolateArray(waveform, INPUT_WAVEFORM_LENGTH);
@@ -544,6 +596,7 @@ async function uploadMedia(localMessage: ApiMessage, attachment: ApiAttachment, 
     file: inputFile,
     mimeType,
     attributes,
+    thumb,
   });
 }
 
@@ -660,6 +713,28 @@ export async function reportMessages({
     message: description,
   }));
 
+  return result;
+}
+
+export async function sendMessageAction({
+  peer, threadId, action,
+}: {
+  peer: ApiChat | ApiUser; threadId?: number; action: ApiSendMessageAction;
+}) {
+  const gramAction = buildSendMessageAction(action);
+  if (!gramAction) {
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.warn('Unsupported message action', action);
+    }
+    return undefined;
+  }
+
+  const result = await invokeRequest(new GramJs.messages.SetTyping({
+    peer: buildInputPeer(peer.id, peer.accessHash),
+    topMsgId: threadId,
+    action: gramAction,
+  }));
   return result;
 }
 
@@ -787,9 +862,9 @@ export async function requestThreadInfoUpdate({
 }
 
 export async function searchMessagesLocal({
-  chatOrUser, type, query, topMessageId, minDate, maxDate, ...pagination
+  chat, type, query, topMessageId, minDate, maxDate, ...pagination
 }: {
-  chatOrUser: ApiChat | ApiUser;
+  chat: ApiChat;
   type?: ApiMessageSearchType | ApiGlobalMessageSearchType;
   query?: string;
   topMessageId?: number;
@@ -826,7 +901,7 @@ export async function searchMessagesLocal({
   }
 
   const result = await invokeRequest(new GramJs.messages.Search({
-    peer: buildInputPeer(chatOrUser.id, chatOrUser.accessHash),
+    peer: buildInputPeer(chat.id, chat.accessHash),
     filter,
     q: query || '',
     topMsgId: topMessageId,
@@ -845,8 +920,9 @@ export async function searchMessagesLocal({
 
   updateLocalDb(result);
 
-  const messages = result.messages.map(buildApiMessage).filter<ApiMessage>(Boolean as any);
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
   const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  const messages = result.messages.map(buildApiMessage).filter<ApiMessage>(Boolean as any);
 
   let totalCount = messages.length;
   let nextOffsetId: number | undefined;
@@ -859,8 +935,9 @@ export async function searchMessagesLocal({
   }
 
   return {
-    messages,
+    chats,
     users,
+    messages,
     totalCount,
     nextOffsetId,
   };
@@ -928,7 +1005,7 @@ export async function searchMessagesGlobal({
     messages: result.messages,
   } as GramJs.messages.Messages);
 
-  const chats = result.chats.map((user) => buildApiChatFromPreview(user)).filter<ApiChat>(Boolean as any);
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
   const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
   const messages = result.messages.map(buildApiMessage).filter<ApiMessage>(Boolean as any);
 
@@ -971,7 +1048,7 @@ export async function sendPollVote({
   await invokeRequest(new GramJs.messages.SendVote({
     peer: buildInputPeer(id, accessHash),
     msgId: messageId,
-    options: options.map((option) => Buffer.from(option)),
+    options: options.map(deserializeBytes),
   }), true);
 }
 
@@ -990,7 +1067,7 @@ export async function loadPollOptionResults({
   const result = await invokeRequest(new GramJs.messages.GetPollVotes({
     peer: buildInputPeer(id, accessHash),
     id: messageId,
-    ...(option && { option: Buffer.from(option) }),
+    ...(option && { option: deserializeBytes(option) }),
     ...(offset && { offset }),
     ...(limit && { limit }),
   }));
@@ -1027,6 +1104,8 @@ export async function forwardMessages({
   serverTimeOffset,
   isSilent,
   scheduledAt,
+  sendAs,
+  withMyScore,
 }: {
   fromChat: ApiChat;
   toChat: ApiChat;
@@ -1034,6 +1113,8 @@ export async function forwardMessages({
   serverTimeOffset: number;
   isSilent?: boolean;
   scheduledAt?: number;
+  sendAs?: ApiUser | ApiChat;
+  withMyScore?: boolean;
 }) {
   const messageIds = messages.map(({ id }) => id);
   const randomIds = messages.map(generateRandomBigInt);
@@ -1055,8 +1136,10 @@ export async function forwardMessages({
     toPeer: buildInputPeer(toChat.id, toChat.accessHash),
     randomId: randomIds,
     id: messageIds,
-    ...(isSilent && { sil2ent: isSilent }),
+    withMyScore: withMyScore || undefined,
+    silent: isSilent || undefined,
     ...(scheduledAt && { scheduleDate: scheduledAt }),
+    ...(sendAs && { sendAs: buildInputPeer(sendAs.id, sendAs.accessHash) }),
   }), true);
 }
 
@@ -1120,19 +1203,10 @@ export async function sendScheduledMessages({ chat, ids }: { chat: ApiChat; ids:
 
 function updateLocalDb(result: (
   GramJs.messages.MessagesSlice | GramJs.messages.Messages | GramJs.messages.ChannelMessages |
-  GramJs.messages.DiscussionMessage
+  GramJs.messages.DiscussionMessage | GramJs.messages.SponsoredMessages
 )) {
-  result.users.forEach((user) => {
-    if (user instanceof GramJs.User) {
-      localDb.users[buildApiPeerId(user.id, 'user')] = user;
-    }
-  });
-
-  result.chats.forEach((chat) => {
-    if (chat instanceof GramJs.Chat || chat instanceof GramJs.Channel) {
-      localDb.chats[buildApiPeerId(chat.id, chat instanceof GramJs.Chat ? 'chat' : 'channel')] = chat;
-    }
-  });
+  addEntitiesWithPhotosToLocalDb(result.users);
+  addEntitiesWithPhotosToLocalDb(result.chats);
 
   result.messages.forEach((message) => {
     if ((message instanceof GramJs.Message && isMessageWithMedia(message))
@@ -1152,6 +1226,173 @@ export async function fetchPinnedMessages({ chat }: { chat: ApiChat }) {
       limit: PINNED_MESSAGES_LIMIT,
     },
   ));
+
+  if (
+    !result
+    || result instanceof GramJs.messages.MessagesNotModified
+    || !result.messages
+  ) {
+    return undefined;
+  }
+
+  updateLocalDb(result);
+
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
+  const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  const messages = result.messages.map(buildApiMessage).filter<ApiMessage>(Boolean as any);
+
+  return {
+    messages,
+    users,
+    chats,
+  };
+}
+
+export async function fetchSeenBy({ chat, messageId }: { chat: ApiChat; messageId: number }) {
+  const result = await invokeRequest(new GramJs.messages.GetMessageReadParticipants({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+    msgId: messageId,
+  }));
+
+  return result ? result.map(String) : undefined;
+}
+
+export async function fetchSendAs({
+  chat,
+}: {
+  chat: ApiChat;
+}) {
+  const result = await invokeRequest(new GramJs.channels.GetSendAs({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+  }));
+
+  if (!result) {
+    return undefined;
+  }
+
+  addEntitiesWithPhotosToLocalDb(result.users);
+  addEntitiesWithPhotosToLocalDb(result.chats);
+
+  const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
+
+  return {
+    users,
+    chats,
+    ids: result.peers.map(getApiChatIdFromMtpPeer),
+  };
+}
+
+export function saveDefaultSendAs({
+  sendAs, chat,
+}: {
+  sendAs: ApiChat | ApiUser; chat: ApiChat;
+}) {
+  return invokeRequest(new GramJs.messages.SaveDefaultSendAs({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+    sendAs: buildInputPeer(sendAs.id, sendAs.accessHash),
+  }));
+}
+
+export async function fetchSponsoredMessages({ chat }: { chat: ApiChat }) {
+  const result = await invokeRequest(new GramJs.channels.GetSponsoredMessages({
+    channel: buildInputPeer(chat.id, chat.accessHash),
+  }));
+
+  if (!result || !result.messages.length) {
+    return undefined;
+  }
+
+  updateLocalDb(result);
+
+  const messages = result.messages.map(buildApiSponsoredMessage).filter<ApiSponsoredMessage>(Boolean as any);
+  const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
+
+  return {
+    messages,
+    users,
+    chats,
+  };
+}
+
+export async function viewSponsoredMessage({ chat, random }: { chat: ApiChat; random: string }) {
+  await invokeRequest(new GramJs.channels.ViewSponsoredMessage({
+    channel: buildInputPeer(chat.id, chat.accessHash),
+    randomId: deserializeBytes(random),
+  }));
+}
+
+export function readAllMentions({
+  chat,
+}: {
+  chat: ApiChat;
+}) {
+  return invokeRequest(new GramJs.messages.ReadMentions({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+  }), true);
+}
+
+export function readAllReactions({
+  chat,
+}: {
+  chat: ApiChat;
+}) {
+  return invokeRequest(new GramJs.messages.ReadReactions({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+  }), true);
+}
+
+export async function fetchUnreadMentions({
+  chat, ...pagination
+}: {
+  chat: ApiChat;
+  offsetId?: number;
+  addOffset?: number;
+  maxId?: number;
+  minId?: number;
+}) {
+  const result = await invokeRequest(new GramJs.messages.GetUnreadMentions({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+    limit: MENTION_UNREAD_SLICE,
+    ...pagination,
+  }));
+
+  if (
+    !result
+    || result instanceof GramJs.messages.MessagesNotModified
+    || !result.messages
+  ) {
+    return undefined;
+  }
+
+  updateLocalDb(result);
+
+  const messages = result.messages.map(buildApiMessage).filter<ApiMessage>(Boolean as any);
+  const users = result.users.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  const chats = result.chats.map((c) => buildApiChatFromPreview(c)).filter<ApiChat>(Boolean as any);
+
+  return {
+    messages,
+    users,
+    chats,
+  };
+}
+
+export async function fetchUnreadReactions({
+  chat, ...pagination
+}: {
+  chat: ApiChat;
+  offsetId?: number;
+  addOffset?: number;
+  maxId?: number;
+  minId?: number;
+}) {
+  const result = await invokeRequest(new GramJs.messages.GetUnreadReactions({
+    peer: buildInputPeer(chat.id, chat.accessHash),
+    limit: REACTION_UNREAD_SLICE,
+    ...pagination,
+  }));
 
   if (
     !result

@@ -1,6 +1,6 @@
 import BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
-import {
+import type {
   OnApiUpdate, ApiUser, ApiChat, ApiPhoto,
 } from '../../types';
 
@@ -14,11 +14,10 @@ import {
   buildMtpPeerId,
   getEntityTypeById,
 } from '../gramjsBuilders';
-import { buildApiUser, buildApiUserFromFull } from '../apiBuilders/users';
+import { buildApiUser, buildApiUserFromFull, buildApiUsersAndStatuses } from '../apiBuilders/users';
 import { buildApiChatFromPreview } from '../apiBuilders/chats';
 import { buildApiPhoto } from '../apiBuilders/common';
-import localDb from '../localDb';
-import { addChatToLocalDb, addPhotoToLocalDb } from '../helpers';
+import { addEntitiesWithPhotosToLocalDb, addPhotoToLocalDb, addUserToLocalDb } from '../helpers';
 import { buildApiPeerId } from '../apiBuilders/peers';
 
 let onUpdate: OnApiUpdate;
@@ -98,7 +97,7 @@ export async function fetchTopUsers() {
     return undefined;
   }
 
-  const users = topPeers.users.map(buildApiUser).filter((user) => !!user && !user.isSelf) as ApiUser[];
+  const users = topPeers.users.map(buildApiUser).filter((user) => Boolean(user) && !user.isSelf) as ApiUser[];
   const ids = users.map(({ id }) => id);
 
   return {
@@ -115,12 +114,15 @@ export async function fetchContactList() {
 
   result.users.forEach((user) => {
     if (user instanceof GramJs.User) {
-      localDb.users[buildApiPeerId(user.id, 'user')] = user;
+      addUserToLocalDb(user, true);
     }
   });
 
+  const { users, userStatusesById } = buildApiUsersAndStatuses(result.users);
+
   return {
-    users: result.users.map(buildApiUser).filter<ApiUser>(Boolean as any),
+    users,
+    userStatusesById,
     chats: result.users.map((user) => buildApiChatFromPreview(user)).filter<ApiChat>(Boolean as any),
   };
 }
@@ -135,14 +137,14 @@ export async function fetchUsers({ users }: { users: ApiUser[] }) {
 
   result.forEach((user) => {
     if (user instanceof GramJs.User) {
-      localDb.users[buildApiPeerId(user.id, 'user')] = user;
+      addUserToLocalDb(user, true);
     }
   });
 
-  return result.map(buildApiUser).filter<ApiUser>(Boolean as any);
+  return buildApiUsersAndStatuses(result);
 }
 
-export function updateContact({
+export async function importContact({
   phone,
   firstName,
   lastName,
@@ -151,37 +153,46 @@ export function updateContact({
   firstName?: string;
   lastName?: string;
 }) {
-  return invokeRequest(new GramJs.contacts.ImportContacts({
+  const result = await invokeRequest(new GramJs.contacts.ImportContacts({
     contacts: [buildInputContact({
       phone: phone || '',
       firstName: firstName || '',
       lastName: lastName || '',
     })],
   }));
+
+  if (result instanceof GramJs.contacts.ImportedContacts && result.users.length) {
+    addUserToLocalDb(result.users[0]);
+  }
+
+  return result?.imported.length ? buildApiPeerId(result.imported[0].userId, 'user') : undefined;
 }
 
-export function addContact({
+export function updateContact({
   id,
   accessHash,
   phoneNumber = '',
   firstName = '',
   lastName = '',
+  shouldSharePhoneNumber = false,
 }: {
   id: string;
   accessHash?: string;
   phoneNumber?: string;
   firstName?: string;
   lastName?: string;
+  shouldSharePhoneNumber?: boolean;
 }) {
   return invokeRequest(new GramJs.contacts.AddContact({
     id: buildInputEntity(id, accessHash) as GramJs.InputUser,
     firstName,
     lastName,
     phone: phoneNumber,
+    ...(shouldSharePhoneNumber && { addPhonePrivacyException: shouldSharePhoneNumber }),
   }), true);
 }
 
-export async function deleteUser({
+export async function deleteContact({
   id,
   accessHash,
 }: {
@@ -200,7 +211,7 @@ export async function deleteUser({
   }
 
   onUpdate({
-    '@type': 'deleteUser',
+    '@type': 'deleteContact',
     id,
   });
 }
@@ -230,7 +241,7 @@ export async function fetchProfilePhotos(user?: ApiUser, chat?: ApiChat) {
   }
 
   const result = await searchMessagesLocal({
-    chatOrUser: chat!,
+    chat: chat!,
     type: 'profilePhoto',
     limit: PROFILE_PHOTOS_LIMIT,
   });
@@ -247,9 +258,17 @@ export async function fetchProfilePhotos(user?: ApiUser, chat?: ApiChat) {
   };
 }
 
+export function reportSpam(userOrChat: ApiUser | ApiChat) {
+  const { id, accessHash } = userOrChat;
+
+  return invokeRequest(new GramJs.messages.ReportSpam({
+    peer: buildInputPeer(id, accessHash),
+  }), true);
+}
+
 function updateLocalDb(result: (GramJs.photos.Photos | GramJs.photos.PhotosSlice | GramJs.messages.Chats)) {
   if ('chats' in result) {
-    result.chats.forEach(addChatToLocalDb);
+    addEntitiesWithPhotosToLocalDb(result.chats);
   }
 
   if ('photos' in result) {

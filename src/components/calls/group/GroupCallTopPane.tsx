@@ -1,15 +1,14 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo,
+  memo, useCallback, useEffect, useMemo,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiGroupCall, ApiUser } from '../../../api/types';
+import type { ApiChat, ApiGroupCall, ApiUser } from '../../../api/types';
 
-import { pick } from '../../../util/iteratees';
-import { selectChatGroupCall } from '../../../modules/selectors/calls';
+import { selectChatGroupCall } from '../../../global/selectors/calls';
 import buildClassName from '../../../util/buildClassName';
-import { selectChat } from '../../../modules/selectors';
+import { selectChat } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 
 import Button from '../../ui/Button';
@@ -29,18 +28,19 @@ type StateProps = {
   chatsById: Record<string, ApiChat>;
 };
 
-type DispatchProps = Pick<GlobalActions, 'joinGroupCall' | 'subscribeToGroupCallUpdates'>;
-
-const GroupCallTopPane: FC<OwnProps & StateProps & DispatchProps> = ({
+const GroupCallTopPane: FC<OwnProps & StateProps> = ({
   chatId,
   isActive,
   groupCall,
   hasPinnedOffset,
-  joinGroupCall,
-  subscribeToGroupCallUpdates,
   usersById,
   chatsById,
 }) => {
+  const {
+    joinGroupCall,
+    subscribeToGroupCallUpdates,
+  } = getActions();
+
   const lang = useLang();
 
   const handleJoinGroupCall = useCallback(() => {
@@ -132,8 +132,4 @@ export default memo(withGlobal<OwnProps>(
         && (global.groupCalls.activeGroupCallId !== groupCall?.id),
     };
   },
-  (setGlobal, actions) => pick(actions, [
-    'joinGroupCall',
-    'subscribeToGroupCallUpdates',
-  ]),
 )(GroupCallTopPane));

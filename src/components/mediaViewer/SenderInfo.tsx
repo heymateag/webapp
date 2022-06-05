@@ -1,10 +1,11 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiChat, ApiMessage, ApiUser } from '../../api/types';
+import type { ApiChat, ApiMessage, ApiUser } from '../../api/types';
 
-import { getSenderTitle, isUserId } from '../../modules/helpers';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
+import { getSenderTitle, isUserId } from '../../global/helpers';
 import { formatMediaDateTime } from '../../util/dateFormat';
 import renderText from '../common/helpers/renderText';
 import {
@@ -12,8 +13,7 @@ import {
   selectChatMessage,
   selectSender,
   selectUser,
-} from '../../modules/selectors';
-import { pick } from '../../util/iteratees';
+} from '../../global/selectors';
 import useLang from '../../hooks/useLang';
 
 import Avatar from '../common/Avatar';
@@ -31,21 +31,33 @@ type StateProps = {
   message?: ApiMessage;
 };
 
-type DispatchProps = Pick<GlobalActions, 'closeMediaViewer' | 'focusMessage'>;
+const ANIMATION_DURATION = 350;
 
-const SenderInfo: FC<OwnProps & StateProps & DispatchProps> = ({
+const SenderInfo: FC<OwnProps & StateProps> = ({
   chatId,
   messageId,
   sender,
   isAvatar,
   message,
-  closeMediaViewer,
-  focusMessage,
 }) => {
+  const {
+    closeMediaViewer,
+    focusMessage,
+    toggleChatInfo,
+  } = getActions();
+
   const handleFocusMessage = useCallback(() => {
     closeMediaViewer();
-    focusMessage({ chatId, messageId });
-  }, [chatId, focusMessage, messageId, closeMediaViewer]);
+
+    if (IS_SINGLE_COLUMN_LAYOUT) {
+      setTimeout(() => {
+        toggleChatInfo(false, { forceSyncOnIOs: true });
+        focusMessage({ chatId, messageId });
+      }, ANIMATION_DURATION);
+    } else {
+      focusMessage({ chatId, messageId });
+    }
+  }, [chatId, focusMessage, toggleChatInfo, messageId, closeMediaViewer]);
 
   const lang = useLang();
 
@@ -95,5 +107,4 @@ export default withGlobal<OwnProps>(
       sender: message && selectSender(global, message),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['closeMediaViewer', 'focusMessage']),
 )(SenderInfo);

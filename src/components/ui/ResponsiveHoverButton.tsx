@@ -1,10 +1,10 @@
-import React, {
-  FC, useRef, useCallback, memo,
-} from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { useRef, useCallback, memo } from '../../lib/teact/teact';
 
 import { IS_TOUCH_ENV } from '../../util/environment';
 
-import Button, { OwnProps as ButtonProps } from './Button';
+import type { OwnProps as ButtonProps } from './Button';
+import Button from './Button';
 
 type OwnProps = {
   onActivate: NoneToVoidFunction;
@@ -52,7 +52,7 @@ const ResponsiveHoverButton: FC<OwnProps> = ({ onActivate, ...buttonProps }) => 
       {...buttonProps}
       onMouseEnter={!IS_TOUCH_ENV ? handleMouseEnter : undefined}
       onMouseLeave={!IS_TOUCH_ENV ? handleMouseLeave : undefined}
-      onClick={IS_TOUCH_ENV ? onActivate : undefined}
+      onClick={onActivate}
     />
   );
 };

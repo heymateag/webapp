@@ -20,6 +20,11 @@
             "type": "image/png"
         }
     ],
+    "screenshots" : [{
+      "src": "screenshot.jpg",
+      "sizes": "1280x802",
+      "type": "image/jpeg"
+    }],
     "theme_color": "#ffffff",
     "background_color": "#ffffff",
     "display": "standalone"

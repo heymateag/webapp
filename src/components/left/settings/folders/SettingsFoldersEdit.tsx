@@ -1,19 +1,19 @@
+import type { FC } from '../../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../../../lib/teact/teact';
-import { withGlobal } from '../../../../lib/teact/teactn';
-
-import { GlobalActions } from '../../../../global/types';
-import { SettingsScreens } from '../../../../types';
+import { getActions, withGlobal } from '../../../../global';
 
 import { STICKER_SIZE_FOLDER_SETTINGS } from '../../../../config';
-import { findIntersectionWithSet, pick } from '../../../../util/iteratees';
-import { isUserId } from '../../../../modules/helpers';
-import getAnimationData from '../../../common/helpers/animatedAssets';
-import {
-  EXCLUDED_CHAT_TYPES,
+import { LOCAL_TGS_URLS } from '../../../common/helpers/animatedAssets';
+import { findIntersectionWithSet } from '../../../../util/iteratees';
+import { isUserId } from '../../../../global/helpers';
+import type {
   FolderEditDispatch,
   FoldersState,
+} from '../../../../hooks/reducers/useFoldersReducer';
+import {
+  EXCLUDED_CHAT_TYPES,
   INCLUDED_CHAT_TYPES,
   selectChatFilters,
 } from '../../../../hooks/reducers/useFoldersReducer';
@@ -21,13 +21,13 @@ import useLang from '../../../../hooks/useLang';
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 
 import ListItem from '../../../ui/ListItem';
-import AnimatedSticker from '../../../common/AnimatedSticker';
 import InputText from '../../../ui/InputText';
 import PrivateChatInfo from '../../../common/PrivateChatInfo';
 import GroupChatInfo from '../../../common/GroupChatInfo';
 import FloatingActionButton from '../../../ui/FloatingActionButton';
 import Spinner from '../../../ui/Spinner';
 import ShowMoreButton from '../../../ui/ShowMoreButton';
+import AnimatedIcon from '../../../common/AnimatedIcon';
 
 type OwnProps = {
   state: FoldersState;
@@ -35,7 +35,6 @@ type OwnProps = {
   onAddIncludedChats: () => void;
   onAddExcludedChats: () => void;
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
   onBack: () => void;
 };
@@ -45,8 +44,6 @@ type StateProps = {
   loadedArchivedChatIds?: string[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'editChatFolder' | 'addChatFolder' | 'loadMoreChats'>;
-
 const SUBMIT_TIMEOUT = 500;
 
 const INITIAL_CHATS_LIMIT = 5;
@@ -54,24 +51,21 @@ const INITIAL_CHATS_LIMIT = 5;
 const ERROR_NO_TITLE = 'Please provide a title for this folder.';
 const ERROR_NO_CHATS = 'ChatList.Filter.Error.Empty';
 
-const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsFoldersEdit: FC<OwnProps & StateProps> = ({
   state,
   dispatch,
   onAddIncludedChats,
   onAddExcludedChats,
   isActive,
-  onScreenSelect,
   onReset,
   onBack,
   loadedActiveChatIds,
   loadedArchivedChatIds,
-  editChatFolder,
-  addChatFolder,
-  loadMoreChats,
 }) => {
-  const [animationData, setAnimationData] = useState<Record<string, any>>();
-  const [isAnimationLoaded, setIsAnimationLoaded] = useState(false);
-  const handleAnimationLoad = useCallback(() => setIsAnimationLoaded(true), []);
+  const {
+    editChatFolder,
+    addChatFolder,
+  } = getActions();
 
   const [isIncludedChatsListExpanded, setIsIncludedChatsListExpanded] = useState(false);
   const [isExcludedChatsListExpanded, setIsExcludedChatsListExpanded] = useState(false);
@@ -84,12 +78,6 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
     selectedChatIds: excludedChatIds,
     selectedChatTypes: excludedChatTypes,
   } = selectChatFilters(state, 'excluded');
-
-  useEffect(() => {
-    if (!animationData) {
-      getAnimationData('FoldersNew').then(setAnimationData);
-    }
-  }, [animationData]);
 
   useEffect(() => {
     setIsIncludedChatsListExpanded(false);
@@ -119,33 +107,19 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
     loadedActiveChatIds, loadedArchivedChatIds,
   ]);
 
-  useEffect(() => {
-    if (
-      visibleIncludedChatIds.length < includedChatIds.length
-      || visibleExcludedChatIds.length < excludedChatIds.length
-    ) {
-      loadMoreChats({ listType: 'active' });
-    }
-  }, [
-    loadMoreChats,
-    excludedChatIds.length,
-    includedChatIds.length,
-    visibleExcludedChatIds.length,
-    visibleIncludedChatIds.length,
-  ]);
-
   const lang = useLang();
 
-  useHistoryBack(isActive, onBack, onScreenSelect, state.mode === 'edit'
-    ? SettingsScreens.FoldersEditFolder
-    : SettingsScreens.FoldersCreateFolder);
+  useHistoryBack({
+    isActive,
+    onBack,
+  });
 
-  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+  const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const { currentTarget } = event;
     dispatch({ type: 'setTitle', payload: currentTarget.value.trim() });
-  }
+  }, [dispatch]);
 
-  function handleSubmit() {
+  const handleSubmit = useCallback(() => {
     const { title } = state.folder;
 
     if (!title) {
@@ -168,7 +142,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
     setTimeout(() => {
       onReset();
     }, SUBMIT_TIMEOUT);
-  }
+  }, [addChatFolder, dispatch, editChatFolder, includedChatIds.length, includedChatTypes, onReset, state]);
 
   function renderChatType(key: string, mode: 'included' | 'excluded') {
     const chatType = mode === 'included'
@@ -223,6 +197,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
           <ShowMoreButton
             count={leftChatsCount}
             itemName="chat"
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={clickHandler}
           />
         )}
@@ -232,20 +207,14 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
 
   return (
     <div className="settings-fab-wrapper">
-      <div className="settings-content custom-scroll">
+      <div className="settings-content no-border custom-scroll">
         <div className="settings-content-header">
-          <div className="settings-content-icon">
-            {animationData && (
-              <AnimatedSticker
-                id="settingsFoldersEdit"
-                size={STICKER_SIZE_FOLDER_SETTINGS}
-                animationData={animationData}
-                play={isAnimationLoaded && String(state.folderId)}
-                noLoop
-                onLoad={handleAnimationLoad}
-              />
-            )}
-          </div>
+          <AnimatedIcon
+            size={STICKER_SIZE_FOLDER_SETTINGS}
+            tgsUrl={LOCAL_TGS_URLS.FoldersNew}
+            play={String(state.folderId)}
+            className="settings-content-icon"
+          />
 
           {state.mode === 'create' && (
             <p className="settings-item-description mb-3" dir={lang.isRtl ? 'rtl' : undefined}>
@@ -282,7 +251,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
           {renderChats('included')}
         </div>
 
-        <div className="settings-item no-border pt-3">
+        <div className="settings-item pt-3">
           <h4 className="settings-item-header mb-3" dir={lang.isRtl ? 'rtl' : undefined}>{lang('FilterExclude')}</h4>
 
           <ListItem
@@ -298,7 +267,7 @@ const SettingsFoldersEdit: FC<OwnProps & StateProps & DispatchProps> = ({
       </div>
 
       <FloatingActionButton
-        isShown={!!state.isTouched}
+        isShown={Boolean(state.isTouched)}
         disabled={state.isLoading}
         onClick={handleSubmit}
         ariaLabel={state.mode === 'edit' ? 'Save changes' : 'Create folder'}
@@ -322,5 +291,4 @@ export default memo(withGlobal<OwnProps>(
       loadedArchivedChatIds: listIds.archived,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['editChatFolder', 'addChatFolder', 'loadMoreChats']),
 )(SettingsFoldersEdit));

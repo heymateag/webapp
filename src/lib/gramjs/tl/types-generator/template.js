@@ -1,5 +1,6 @@
 // Not sure what they are for.
-const WEIRD_TYPES = new Set(['Bool', 'X', 'Type'])
+const RAW_TYPES = new Set(['Bool', 'X'])
+const FLAGS = ['flags', 'flags2'];
 
 module.exports = ({ types, constructors, functions }) => {
     function groupByKey(collection, key) {
@@ -32,7 +33,7 @@ module.exports = ({ types, constructors, functions }) => {
                 return `export class ${upperFirst(name)} extends VirtualClass<void> {};`
             }
 
-            let hasRequiredArgs = argKeys.some((argName) => argName !== 'flags' && !argsConfig[argName].isFlag)
+            let hasRequiredArgs = argKeys.some((argName) => !FLAGS.includes(argName) && !argsConfig[argName].isFlag)
 
             return `
       export class ${upperFirst(name)} extends VirtualClass<{
@@ -55,12 +56,13 @@ ${indent}};`.trim()
     function renderRequests(requests, indent) {
         return requests.map(({ name, argsConfig, result }) => {
             const argKeys = Object.keys(argsConfig)
+            const renderedResult = renderResult(result);
 
             if (!argKeys.length) {
-                return `export class ${upperFirst(name)} extends Request<void, ${renderResult(result)}> {};`
+                return `export class ${upperFirst(name)} extends Request<void, ${renderedResult}> {};`
             }
 
-            let hasRequiredArgs = argKeys.some((argName) => argName !== 'flags' && !argsConfig[argName].isFlag)
+            let hasRequiredArgs = argKeys.some((argName) => !FLAGS.includes(argName) && !argsConfig[argName].isFlag)
 
             return `
       export class ${upperFirst(name)} extends Request<Partial<{
@@ -68,7 +70,7 @@ ${indent}  ${argKeys.map((argName) => `
         ${renderArg(argName, argsConfig[argName])};
       `.trim())
             .join(`\n${indent}  `)}
-${indent}}${!hasRequiredArgs ? ` | void` : ''}>, ${renderResult(result)}> {
+${indent}}${!hasRequiredArgs ? ` | void` : ''}>, ${renderedResult}> {
 ${indent}  ${argKeys.map((argName) => `
         ${renderArg(argName, argsConfig[argName])};
       `.trim())
@@ -94,11 +96,11 @@ ${indent}};`.trim()
 
         const valueType = renderValueType(type, isVector, !skipConstructorId)
 
-        return `${argName === 'flags' ? '// ' : ''}${argName}${isFlag ? '?' : ''}: ${valueType}`
+        return `${FLAGS.includes(argName) ? '// ' : ''}${argName}${isFlag ? '?' : ''}: ${valueType}`
     }
 
     function renderValueType(type, isVector, isTlType) {
-        if (WEIRD_TYPES.has(type)) {
+        if (RAW_TYPES.has(type)) {
             return type
         }
 
@@ -148,8 +150,7 @@ namespace Api {
   type Client = any; // To be defined.
   type Utils = any; // To be defined.
 
-  type X = unknown;
-  type Type = unknown;
+  type X = AnyLiteral;
   type Bool = boolean;
   type int = number;
   type int128 = BigInteger;

@@ -1,10 +1,10 @@
-import { MouseEvent as ReactMouseEvent, RefObject } from 'react';
+import type { MouseEvent as ReactMouseEvent, RefObject } from 'react';
 
-import React, {
-  FC, useRef, useCallback, useState,
-} from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { useRef, useCallback, useState } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
+import buildStyle from '../../util/buildStyle';
 
 import Spinner from './Spinner';
 import RippleEffect from './RippleEffect';
@@ -14,11 +14,13 @@ import './Button.scss';
 export type OwnProps = {
   ref?: RefObject<HTMLButtonElement | HTMLAnchorElement>;
   type?: 'button' | 'submit' | 'reset';
-  children: any;
+  children: React.ReactNode;
   size?: 'default' | 'smaller' | 'tiny';
-  color?: 'primary' | 'secondary' | 'gray' | 'danger' | 'translucent' | 'translucent-white'
-  | 'dark' | 'hm-primary' | 'hm-primary-red';
+  color?: (
+    'primary' | 'secondary' | 'gray' | 'danger' | 'translucent' | 'translucent-white' | 'translucent-black' | 'dark' | 'hm-primary' | 'hm-primary-red'
+  );
   backgroundImage?: string;
+  id?: string;
   className?: string;
   round?: boolean;
   pill?: boolean;
@@ -26,6 +28,8 @@ export type OwnProps = {
   isText?: boolean;
   isLoading?: boolean;
   ariaLabel?: string;
+  ariaControls?: string;
+  hasPopup?: boolean;
   href?: string;
   download?: string;
   disabled?: boolean;
@@ -33,7 +37,9 @@ export type OwnProps = {
   faded?: boolean;
   tabIndex?: number;
   isRtl?: boolean;
-  withClickPropagation?: boolean;
+  noPreventDefault?: boolean;
+  shouldStopPropagation?: boolean;
+  style?: string;
   onClick?: (e: ReactMouseEvent<HTMLButtonElement, MouseEvent>) => void;
   onContextMenu?: (e: ReactMouseEvent<HTMLButtonElement, MouseEvent>) => void;
   onMouseDown?: (e: ReactMouseEvent<HTMLButtonElement>) => void;
@@ -48,6 +54,7 @@ const CLICKED_TIMEOUT = 400;
 const Button: FC<OwnProps> = ({
   ref,
   type = 'button',
+  id,
   onClick,
   onContextMenu,
   onMouseDown,
@@ -65,6 +72,8 @@ const Button: FC<OwnProps> = ({
   isText,
   isLoading,
   ariaLabel,
+  ariaControls,
+  hasPopup,
   href,
   download,
   disabled,
@@ -72,7 +81,9 @@ const Button: FC<OwnProps> = ({
   faded,
   tabIndex,
   isRtl,
-  withClickPropagation,
+  noPreventDefault,
+  shouldStopPropagation,
+  style,
 }) => {
   // eslint-disable-next-line no-null/no-null
   let elementRef = useRef<HTMLButtonElement | HTMLAnchorElement>(null);
@@ -104,29 +115,36 @@ const Button: FC<OwnProps> = ({
       onClick(e);
     }
 
+    if (shouldStopPropagation) e.stopPropagation();
+
     setIsClicked(true);
     setTimeout(() => {
       setIsClicked(false);
     }, CLICKED_TIMEOUT);
-  }, [disabled, onClick]);
+  }, [disabled, onClick, shouldStopPropagation]);
 
   const handleMouseDown = useCallback((e: ReactMouseEvent<HTMLButtonElement>) => {
-    if (!withClickPropagation) e.preventDefault();
+    if (!noPreventDefault) e.preventDefault();
+
     if (!disabled && onMouseDown) {
       onMouseDown(e);
     }
-  }, [onMouseDown, disabled, withClickPropagation]);
+  }, [disabled, noPreventDefault, onMouseDown]);
 
   if (href) {
     return (
       <a
         ref={elementRef as RefObject<HTMLAnchorElement>}
+        id={id}
         className={fullClassName}
         href={href}
         title={ariaLabel}
         download={download}
         tabIndex={tabIndex}
         dir={isRtl ? 'rtl' : undefined}
+        aria-label={ariaLabel}
+        aria-controls={ariaControls}
+        style={style}
       >
         {children}
         {!disabled && ripple && (
@@ -137,9 +155,9 @@ const Button: FC<OwnProps> = ({
   }
 
   return (
-    // eslint-disable-next-line react/button-has-type
     <button
       ref={elementRef as RefObject<HTMLButtonElement>}
+      id={id}
       type={type}
       className={fullClassName}
       onClick={handleClick}
@@ -149,18 +167,19 @@ const Button: FC<OwnProps> = ({
       onMouseLeave={onMouseLeave && !disabled ? onMouseLeave : undefined}
       onFocus={onFocus && !disabled ? onFocus : undefined}
       aria-label={ariaLabel}
+      aria-controls={ariaControls}
+      aria-haspopup={hasPopup}
       title={ariaLabel}
       tabIndex={tabIndex}
       dir={isRtl ? 'rtl' : undefined}
-      // @ts-ignore
-      style={backgroundImage ? `background-image: url(${backgroundImage})` : undefined}
+      style={buildStyle(backgroundImage && `background-image: url(${backgroundImage})`)}
     >
       {isLoading ? (
         <div>
           <span dir={isRtl ? 'auto' : undefined}>Please wait...</span>
           <Spinner color={isText ? 'blue' : 'white'} />
         </div>
-      ) : children }
+      ) : children}
       {!disabled && ripple && (
         <RippleEffect />
       )}

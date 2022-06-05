@@ -1,13 +1,15 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useCallback, useEffect, useRef, memo,
+  useCallback, useEffect, useRef, memo,
 } from '../../../lib/teact/teact';
-import usePrevious from '../../../hooks/usePrevious';
+import { getGlobal } from '../../../global';
 
-import { ApiUser } from '../../../api/types';
+import type { ApiUser } from '../../../api/types';
 
-import useShowTransition from '../../../hooks/useShowTransition';
 import buildClassName from '../../../util/buildClassName';
 import setTooltipItemVisible from '../../../util/setTooltipItemVisible';
+import usePrevious from '../../../hooks/usePrevious';
+import useShowTransition from '../../../hooks/useShowTransition';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 
 import ListItem from '../../ui/ListItem';
@@ -20,14 +22,12 @@ export type OwnProps = {
   onClose: () => void;
   onInsertUserName: (user: ApiUser, forceFocus?: boolean) => void;
   filteredUsers?: ApiUser[];
-  usersById?: Record<string, ApiUser>;
 };
 
 const MentionTooltip: FC<OwnProps> = ({
   isOpen,
   onClose,
   onInsertUserName,
-  usersById,
   filteredUsers,
 }) => {
   // eslint-disable-next-line no-null/no-null
@@ -35,13 +35,15 @@ const MentionTooltip: FC<OwnProps> = ({
   const { shouldRender, transitionClassNames } = useShowTransition(isOpen, undefined, undefined, false);
 
   const handleUserSelect = useCallback((userId: string, forceFocus = false) => {
-    const user = usersById?.[userId];
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
+    const user = usersById[userId];
     if (!user) {
       return;
     }
 
     onInsertUserName(user, forceFocus);
-  }, [usersById, onInsertUserName]);
+  }, [onInsertUserName]);
 
   const handleSelectMention = useCallback((member: ApiUser) => {
     handleUserSelect(member.id, true);
@@ -91,6 +93,7 @@ const MentionTooltip: FC<OwnProps> = ({
         <ListItem
           key={id}
           className="chat-item-clickable scroll-item"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={() => handleUserSelect(id)}
           focus={selectedMentionIndex === index}
         >

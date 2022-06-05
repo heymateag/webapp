@@ -1,12 +1,11 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useCallback, memo, useMemo, useState,
+  useCallback, memo, useMemo, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiChatFolder } from '../../api/types';
+import type { ApiChatFolder } from '../../api/types';
 
-import { pick } from '../../util/iteratees';
 import useLang from '../../hooks/useLang';
 
 import Modal from '../ui/Modal';
@@ -25,17 +24,16 @@ type StateProps = {
   folderOrderedIds?: number[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'editChatFolders'>;
-
-const ChatFolderModal: FC<OwnProps & StateProps & DispatchProps> = ({
+const ChatFolderModal: FC<OwnProps & StateProps> = ({
   isOpen,
   chatId,
   foldersById,
   folderOrderedIds,
   onClose,
   onCloseAnimationEnd,
-  editChatFolders,
 }) => {
+  const { editChatFolders } = getActions();
+
   const lang = useLang();
 
   const initialSelectedFolderIds = useMemo(() => {
@@ -63,8 +61,8 @@ const ChatFolderModal: FC<OwnProps & StateProps & DispatchProps> = ({
   }, [folderOrderedIds, foldersById]);
 
   const handleSubmit = useCallback(() => {
-    const idsToRemove = initialSelectedFolderIds.filter((id) => !selectedFolderIds.includes(id));
-    const idsToAdd = selectedFolderIds.filter((id) => !initialSelectedFolderIds.includes(id));
+    const idsToRemove = initialSelectedFolderIds.filter((id) => !selectedFolderIds.includes(id)).map(Number);
+    const idsToAdd = selectedFolderIds.filter((id) => !initialSelectedFolderIds.includes(id)).map(Number);
 
     editChatFolders({ chatId, idsToRemove, idsToAdd });
     onClose();
@@ -106,5 +104,4 @@ export default memo(withGlobal<OwnProps>(
       folderOrderedIds,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['editChatFolders']),
 )(ChatFolderModal));

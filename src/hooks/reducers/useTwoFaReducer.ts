@@ -1,4 +1,5 @@
-import useReducer, { StateReducer, Dispatch } from '../useReducer';
+import type { StateReducer, Dispatch } from '../useReducer';
+import useReducer from '../useReducer';
 
 export type TwoFaActions = (
   'setCurrentPassword' | 'setPassword' | 'setHint' | 'setEmail' | 'reset'
@@ -56,6 +57,8 @@ const twoFaReducer: StateReducer<TwoFaState, TwoFaActions> = (
   }
 };
 
-export default () => {
+const useTwoFaReducer = () => {
   return useReducer(twoFaReducer, INITIAL_STATE);
 };
+
+export default useTwoFaReducer;

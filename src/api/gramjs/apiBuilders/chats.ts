@@ -1,6 +1,6 @@
-import BigInt from 'big-integer';
+import type BigInt from 'big-integer';
 import { Api as GramJs } from '../../../lib/gramjs';
-import {
+import type {
   ApiChat,
   ApiChatAdminRights,
   ApiChatBannedRights,
@@ -8,6 +8,9 @@ import {
   ApiChatFolder,
   ApiChatMember,
   ApiRestrictionReason,
+  ApiExportedInvite,
+  ApiChatInviteImporter,
+  ApiChatSettings,
 } from '../../types';
 import { pick, pickTruthy } from '../../../util/iteratees';
 import {
@@ -31,6 +34,8 @@ function buildApiChatFieldsFromPeerEntity(
   const avatarHash = ('photo' in peerEntity) && peerEntity.photo && buildAvatarHash(peerEntity.photo);
   const isSignaturesShown = Boolean('signatures' in peerEntity && peerEntity.signatures);
   const hasPrivateLink = Boolean('hasLink' in peerEntity && peerEntity.hasLink);
+  const isScam = Boolean('scam' in peerEntity && peerEntity.scam);
+  const isFake = Boolean('fake' in peerEntity && peerEntity.fake);
 
   return {
     isMin,
@@ -49,11 +54,15 @@ function buildApiChatFieldsFromPeerEntity(
       ...(peerEntity.participantsCount && { membersCount: peerEntity.participantsCount }),
       joinDate: peerEntity.date,
     }),
+    ...((peerEntity instanceof GramJs.Chat || peerEntity instanceof GramJs.Channel) && {
+      isProtected: Boolean('noforwards' in peerEntity && peerEntity.noforwards),
+    }),
     ...(isSupport && { isSupport: true }),
     ...buildApiChatPermissions(peerEntity),
     ...(('creator' in peerEntity) && { isCreator: peerEntity.creator }),
     ...buildApiChatRestrictions(peerEntity),
     ...buildApiChatMigrationInfo(peerEntity),
+    fakeType: isScam ? 'scam' : (isFake ? 'fake' : undefined),
   };
 }
 
@@ -63,7 +72,8 @@ export function buildApiChatFromDialog(
   serverTimeOffset: number,
 ): ApiChat {
   const {
-    peer, folderId, unreadMark, unreadCount, unreadMentionsCount, notifySettings: { silent, muteUntil },
+    peer, folderId, unreadMark, unreadCount, unreadMentionsCount, unreadReactionsCount,
+    notifySettings: { silent, muteUntil },
     readOutboxMaxId, readInboxMaxId, draft,
   } = dialog;
   const isMuted = silent || (typeof muteUntil === 'number' && getServerTime(serverTimeOffset) < muteUntil);
@@ -77,6 +87,7 @@ export function buildApiChatFromDialog(
     lastReadInboxMessageId: readInboxMaxId,
     unreadCount,
     unreadMentionsCount,
+    unreadReactionsCount,
     isMuted,
     ...(unreadMark && { hasUnreadMark: true }),
     ...(draft instanceof GramJs.DraftMessage && { draftDate: draft.date }),
@@ -106,10 +117,17 @@ function buildApiChatPermissions(peerEntity: GramJs.TypeUser | GramJs.TypeChat):
 
 function buildApiChatRestrictions(peerEntity: GramJs.TypeUser | GramJs.TypeChat): {
   isNotJoined?: boolean;
+  isForbidden?: boolean;
   isRestricted?: boolean;
   restrictionReason?: ApiRestrictionReason;
 } {
-  if (peerEntity instanceof GramJs.ChatForbidden || peerEntity instanceof GramJs.ChannelForbidden) {
+  if (peerEntity instanceof GramJs.ChatForbidden) {
+    return {
+      isForbidden: true,
+    };
+  }
+
+  if (peerEntity instanceof GramJs.ChannelForbidden) {
     return {
       isRestricted: true,
     };
@@ -133,7 +151,6 @@ function buildApiChatRestrictions(peerEntity: GramJs.TypeUser | GramJs.TypeChat)
   if (peerEntity instanceof GramJs.Chat) {
     Object.assign(restrictions, {
       isNotJoined: peerEntity.left,
-      isRestricted: peerEntity.kicked,
     });
   }
 
@@ -300,6 +317,7 @@ export function buildChatTypingStatus(
   serverTimeOffset: number,
 ) {
   let action: string = '';
+  let emoticon: string | undefined;
   if (update.action instanceof GramJs.SendMessageCancelAction) {
     return undefined;
   } else if (update.action instanceof GramJs.SendMessageTypingAction) {
@@ -330,10 +348,16 @@ export function buildChatTypingStatus(
     action = 'lng_send_action_choose_sticker';
   } else if (update.action instanceof GramJs.SpeakingInGroupCallAction) {
     return undefined;
+  } else if (update.action instanceof GramJs.SendMessageEmojiInteractionSeen) {
+    action = 'lng_user_action_watching_animations';
+    emoticon = update.action.emoticon;
+  } else if (update.action instanceof GramJs.SendMessageEmojiInteraction) {
+    return undefined;
   }
 
   return {
     action,
+    ...(emoticon && { emoji: emoticon }),
     ...(!(update instanceof GramJs.UpdateUserTyping) && { userId: getApiChatIdFromMtpPeer(update.fromId) }),
     timestamp: Date.now() + serverTimeOffset * 1000,
   };
@@ -375,4 +399,64 @@ export function buildApiChatBotCommands(botInfos: GramJs.BotInfo[]) {
 
     return botCommands;
   }, [] as ApiBotCommand[]);
+}
+
+export function buildApiExportedInvite(invite: GramJs.ChatInviteExported): ApiExportedInvite {
+  const {
+    revoked,
+    date,
+    expireDate,
+    link,
+    permanent,
+    startDate,
+    usage,
+    usageLimit,
+    requested,
+    requestNeeded,
+    title,
+    adminId,
+  } = invite;
+  return {
+    isRevoked: revoked,
+    date,
+    expireDate,
+    link,
+    isPermanent: permanent,
+    startDate,
+    usage,
+    usageLimit,
+    isRequestNeeded: requestNeeded,
+    requested,
+    title,
+    adminId: buildApiPeerId(adminId, 'user'),
+  };
+}
+
+export function buildChatInviteImporter(importer: GramJs.ChatInviteImporter): ApiChatInviteImporter {
+  const {
+    userId,
+    date,
+    about,
+    requested,
+  } = importer;
+  return {
+    userId: buildApiPeerId(userId, 'user'),
+    date,
+    about,
+    isRequested: requested,
+  };
+}
+
+export function buildApiChatSettings({
+  autoarchived,
+  reportSpam,
+  addContact,
+  blockContact,
+}: GramJs.PeerSettings): ApiChatSettings {
+  return {
+    isAutoArchived: Boolean(autoarchived),
+    canReportSpam: Boolean(reportSpam),
+    canAddContact: Boolean(addContact),
+    canBlockContact: Boolean(blockContact),
+  };
 }

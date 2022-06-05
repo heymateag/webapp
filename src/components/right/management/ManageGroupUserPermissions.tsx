@@ -1,14 +1,13 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useState,
+  memo, useCallback, useEffect, useMemo, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { ApiChat, ApiChatBannedRights } from '../../../api/types';
+import type { ApiChat, ApiChatBannedRights } from '../../../api/types';
 import { ManagementScreens } from '../../../types';
-import { GlobalActions } from '../../../global/types';
 
-import { pick } from '../../../util/iteratees';
-import { selectChat } from '../../../modules/selectors';
+import { selectChat } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
 import useHistoryBack from '../../../hooks/useHistoryBack';
@@ -34,24 +33,26 @@ type StateProps = {
   isFormFullyDisabled?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'updateChatMemberBannedRights'>;
-
-const ManageGroupUserPermissions: FC<OwnProps & StateProps & DispatchProps> = ({
+const ManageGroupUserPermissions: FC<OwnProps & StateProps> = ({
   chat,
   selectedChatMemberId,
   onScreenSelect,
-  updateChatMemberBannedRights,
   isFormFullyDisabled,
   onClose,
   isActive,
 }) => {
+  const { updateChatMemberBannedRights } = getActions();
+
   const [permissions, setPermissions] = useState<ApiChatBannedRights>({});
   const [havePermissionChanged, setHavePermissionChanged] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isBanConfirmationDialogOpen, openBanConfirmationDialog, closeBanConfirmationDialog] = useFlag();
   const lang = useLang();
 
-  useHistoryBack(isActive, onClose);
+  useHistoryBack({
+    isActive,
+    onBack: onClose,
+  });
 
   const selectedChatMember = useMemo(() => {
     if (!chat || !chat.fullInfo || !chat.fullInfo.members) {
@@ -266,5 +267,4 @@ export default memo(withGlobal<OwnProps>(
 
     return { chat, isFormFullyDisabled };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['updateChatMemberBannedRights']),
 )(ManageGroupUserPermissions));

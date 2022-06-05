@@ -1,31 +1,34 @@
-import { MouseEvent as ReactMouseEvent } from 'react';
-import React, {
-  FC, useEffect, useCallback, memo,
-} from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { FC } from '../../lib/teact/teact';
+import React, { useEffect, useCallback, memo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiChat, ApiTypingStatus } from '../../api/types';
-import { GlobalActions, GlobalState } from '../../global/types';
+import type { ApiChat, ApiTypingStatus } from '../../api/types';
+import type { GlobalState } from '../../global/types';
 import { MediaViewerOrigin } from '../../types';
 
 import {
   getChatTypeString,
   getChatTitle,
   isChatSuperGroup,
-} from '../../modules/helpers';
-import { selectChat, selectChatMessages, selectChatOnlineCount } from '../../modules/selectors';
+} from '../../global/helpers';
+import { selectChat, selectChatMessages, selectChatOnlineCount } from '../../global/selectors';
 import renderText from './helpers/renderText';
-import { pick } from '../../util/iteratees';
-import useLang, { LangFn } from '../../hooks/useLang';
+import type { LangFn } from '../../hooks/useLang';
+import useLang from '../../hooks/useLang';
 
 import Avatar from './Avatar';
 import VerifiedIcon from './VerifiedIcon';
 import TypingStatus from './TypingStatus';
+import DotAnimation from './DotAnimation';
+import FakeIcon from './FakeIcon';
 
 type OwnProps = {
   chatId: string;
   typingStatus?: ApiTypingStatus;
   avatarSize?: 'small' | 'medium' | 'large' | 'jumbo';
+  status?: string;
+  withDots?: boolean;
   withMediaViewer?: boolean;
   withUsername?: boolean;
   withFullInfo?: boolean;
@@ -34,17 +37,19 @@ type OwnProps = {
   noRtl?: boolean;
 };
 
-type StateProps = {
-  chat?: ApiChat;
-  onlineCount?: number;
-  areMessagesLoaded: boolean;
-} & Pick<GlobalState, 'lastSyncTime'>;
+type StateProps =
+  {
+    chat?: ApiChat;
+    onlineCount?: number;
+    areMessagesLoaded: boolean;
+  }
+  & Pick<GlobalState, 'lastSyncTime'>;
 
-type DispatchProps = Pick<GlobalActions, 'loadFullChat' | 'openMediaViewer'>;
-
-const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
+const GroupChatInfo: FC<OwnProps & StateProps> = ({
   typingStatus,
   avatarSize = 'medium',
+  status,
+  withDots,
   withMediaViewer,
   withUsername,
   withFullInfo,
@@ -55,9 +60,12 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   onlineCount,
   areMessagesLoaded,
   lastSyncTime,
-  loadFullChat,
-  openMediaViewer,
 }) => {
+  const {
+    loadFullChat,
+    openMediaViewer,
+  } = getActions();
+
   const isSuperGroup = chat && isChatSuperGroup(chat);
   const { id: chatId, isMin, isRestricted } = chat || {};
 
@@ -84,9 +92,17 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
   }
 
   function renderStatusOrTyping() {
+    if (status) {
+      return withDots ? (
+        <DotAnimation className="status" content={status} />
+      ) : (
+        <span className="status" dir="auto">{status}</span>
+      );
+    }
+
     if (withUpdatingStatus && !areMessagesLoaded && !isRestricted) {
       return (
-        <span className="status" dir="auto">{lang('Updating')}</span>
+        <DotAnimation className="status" content={lang('Updating')} />
       );
     }
 
@@ -100,7 +116,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
 
     if (withChatType) {
       return (
-        <div className="status" dir="auto">{lang(getChatTypeString(chat))}</div>
+        <span className="status" dir="auto">{lang(getChatTypeString(chat))}</span>
       );
     }
 
@@ -109,11 +125,11 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
     const onlineStatus = onlineCount ? `, ${lang('OnlineCount', onlineCount, 'i')}` : undefined;
 
     return (
-      <div className="status">
+      <span className="status">
         {handle && <span className="handle">{handle}</span>}
         <span className="group-status">{groupStatus}</span>
         {onlineStatus && <span className="online-status">{onlineStatus}</span>}
-      </div>
+      </span>
     );
   }
 
@@ -129,6 +145,7 @@ const GroupChatInfo: FC<OwnProps & StateProps & DispatchProps> = ({
         <div className="title">
           <h3 dir="auto">{renderText(getChatTitle(lang, chat))}</h3>
           {chat.isVerified && <VerifiedIcon />}
+          {chat.fakeType && <FakeIcon fakeType={chat.fakeType} />}
         </div>
         {renderStatusOrTyping()}
       </div>
@@ -164,5 +181,4 @@ export default memo(withGlobal<OwnProps>(
       lastSyncTime, chat, onlineCount, areMessagesLoaded,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadFullChat', 'openMediaViewer']),
 )(GroupChatInfo));

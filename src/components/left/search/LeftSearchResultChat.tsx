@@ -1,16 +1,15 @@
-import React, {
-  FC, memo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
+import { withGlobal } from '../../../global';
 
-import { ApiChat, ApiUser } from '../../../api/types';
+import type { ApiChat, ApiUser } from '../../../api/types';
 
 import useChatContextActions from '../../../hooks/useChatContextActions';
 import useFlag from '../../../hooks/useFlag';
-import { isUserId, getPrivateChatUserId, selectIsChatMuted } from '../../../modules/helpers';
+import { isUserId, getPrivateChatUserId, selectIsChatMuted } from '../../../global/helpers';
 import {
   selectChat, selectUser, selectIsChatPinned, selectNotifySettings, selectNotifyExceptions,
-} from '../../../modules/selectors';
+} from '../../../global/selectors';
 import useSelectWithEnter from '../../../hooks/useSelectWithEnter';
 
 import PrivateChatInfo from '../../common/PrivateChatInfo';
@@ -27,35 +26,38 @@ type OwnProps = {
 
 type StateProps = {
   chat?: ApiChat;
-  privateChatUser?: ApiUser;
+  user?: ApiUser;
   isPinned?: boolean;
   isMuted?: boolean;
+  canChangeFolder?: boolean;
 };
 
 const LeftSearchResultChat: FC<OwnProps & StateProps> = ({
   chatId,
-  chat,
-  privateChatUser,
-  isPinned,
-  isMuted,
   withUsername,
   onClick,
+  chat,
+  user,
+  isPinned,
+  isMuted,
+  canChangeFolder,
 }) => {
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useFlag();
   const [isChatFolderModalOpen, openChatFolderModal, closeChatFolderModal] = useFlag();
 
   const contextActions = useChatContextActions({
     chat,
-    privateChatUser,
+    user,
     isPinned,
     isMuted,
+    canChangeFolder,
     handleDelete: openDeleteModal,
     handleChatFolderChange: openChatFolderModal,
   }, true);
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     onClick(chatId);
-  };
+  }, [chatId, onClick]);
 
   const buttonRef = useSelectWithEnter(handleClick);
 
@@ -93,7 +95,7 @@ export default memo(withGlobal<OwnProps>(
   (global, { chatId }): StateProps => {
     const chat = selectChat(global, chatId);
     const privateChatUserId = chat && getPrivateChatUserId(chat);
-    const privateChatUser = privateChatUserId ? selectUser(global, privateChatUserId) : undefined;
+    const user = privateChatUserId ? selectUser(global, privateChatUserId) : undefined;
     const isPinned = selectIsChatPinned(global, chatId);
     const isMuted = chat
       ? selectIsChatMuted(chat, selectNotifySettings(global), selectNotifyExceptions(global))
@@ -101,9 +103,10 @@ export default memo(withGlobal<OwnProps>(
 
     return {
       chat,
-      privateChatUser,
+      user,
       isPinned,
       isMuted,
+      canChangeFolder: Boolean(global.chatFolders.orderedIds?.length),
     };
   },
 )(LeftSearchResultChat));

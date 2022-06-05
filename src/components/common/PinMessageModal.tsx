@@ -1,9 +1,8 @@
-import React, { FC, useCallback, memo } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback, memo } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-
-import { selectChat, selectIsChatWithSelf, selectUser } from '../../modules/selectors';
+import { selectChat, selectIsChatWithSelf, selectUser } from '../../global/selectors';
 import {
   isUserId,
   getUserFirstOrLastName,
@@ -11,8 +10,7 @@ import {
   isChatBasicGroup,
   isChatSuperGroup,
   isChatChannel,
-} from '../../modules/helpers';
-import { pick } from '../../util/iteratees';
+} from '../../global/helpers';
 import useLang from '../../hooks/useLang';
 import renderText from './helpers/renderText';
 
@@ -36,9 +34,7 @@ type StateProps = {
   contactName?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, 'pinMessage'>;
-
-const PinMessageModal: FC<OwnProps & StateProps & DispatchProps> = ({
+const PinMessageModal: FC<OwnProps & StateProps> = ({
   isOpen,
   messageId,
   chatId,
@@ -48,8 +44,9 @@ const PinMessageModal: FC<OwnProps & StateProps & DispatchProps> = ({
   canPinForAll,
   contactName,
   onClose,
-  pinMessage,
 }) => {
+  const { pinMessage } = getActions();
+
   const handlePinMessageForAll = useCallback(() => {
     pinMessage({
       chatId, messageId, isUnpin: false,
@@ -106,9 +103,9 @@ export default memo(withGlobal<OwnProps>(
     const isPrivateChat = isUserId(chatId);
     const isChatWithSelf = selectIsChatWithSelf(global, chatId);
     const chat = selectChat(global, chatId);
-    const isChannel = !!chat && isChatChannel(chat);
-    const isGroup = !!chat && isChatBasicGroup(chat);
-    const isSuperGroup = !!chat && isChatSuperGroup(chat);
+    const isChannel = Boolean(chat) && isChatChannel(chat);
+    const isGroup = Boolean(chat) && isChatBasicGroup(chat);
+    const isSuperGroup = Boolean(chat) && isChatSuperGroup(chat);
     const canPinForAll = (isPrivateChat && !isChatWithSelf) || isSuperGroup || isGroup;
     const contactName = chat && isUserId(chat.id)
       ? getUserFirstOrLastName(selectUser(global, getPrivateChatUserId(chat)!))
@@ -124,5 +121,4 @@ export default memo(withGlobal<OwnProps>(
       contactName,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['pinMessage']),
 )(PinMessageModal));

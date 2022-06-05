@@ -1,8 +1,8 @@
-import {
-  addCallback, addReducer, getGlobal, removeCallback,
-} from '../lib/teact/teactn';
+import { addCallback, removeCallback } from '../lib/teact/teactn';
 
-import { GlobalState } from './types';
+import { addActionHandler, getGlobal } from './index';
+
+import type { GlobalState } from './types';
 import { MAIN_THREAD_ID } from '../api/types';
 
 import { onBeforeUnload, onIdle, throttle } from '../util/schedulers';
@@ -10,46 +10,44 @@ import {
   DEBUG,
   GLOBAL_STATE_CACHE_DISABLED,
   GLOBAL_STATE_CACHE_KEY,
-  GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT,
-  MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
+  GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT,
+  GLOBAL_STATE_CACHE_CHATS_WITH_MESSAGES_LIMIT,
+  MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN,
   DEFAULT_VOLUME,
   DEFAULT_PLAYBACK_RATE,
+  ALL_FOLDER_ID,
+  ARCHIVED_FOLDER_ID,
 } from '../config';
 import { IS_SINGLE_COLUMN_LAYOUT } from '../util/environment';
-import { ANIMATION_END_EVENT, ANIMATION_START_EVENT } from '../hooks/useHeavyAnimationCheck';
-import { pick } from '../util/iteratees';
-import { selectCurrentMessageList } from '../modules/selectors';
+import { isHeavyAnimating } from '../hooks/useHeavyAnimationCheck';
+import { pick, unique } from '../util/iteratees';
+import {
+  selectCurrentChat,
+  selectCurrentMessageList,
+  selectVisibleUsers,
+} from './selectors';
 import { hasStoredSession } from '../util/sessions';
-import { INITIAL_STATE } from './initial';
+import { INITIAL_STATE } from './initialState';
 import { parseLocationHash } from '../util/routing';
-import { LOCATION_HASH } from '../hooks/useHistoryBack';
-import { isUserId } from '../modules/helpers';
+import { isUserId } from './helpers';
+import { getOrderedIds } from '../util/folderManager';
+import { clearGlobalForLockScreen } from './reducers';
+import { encryptSession } from '../util/passcode';
 
 const UPDATE_THROTTLE = 5000;
 
 const updateCacheThrottled = throttle(() => onIdle(updateCache), UPDATE_THROTTLE, false);
 
 let isCaching = false;
-let isHeavyAnimating = false;
 let unsubscribeFromBeforeUnload: NoneToVoidFunction | undefined;
-
-setupHeavyAnimationListeners();
 
 export function initCache() {
   if (GLOBAL_STATE_CACHE_DISABLED) {
     return;
   }
 
-  addReducer('saveSession', () => {
-    if (isCaching) {
-      return;
-    }
-
-    setupCaching();
-  });
-
-  addReducer('reset', () => {
+  const resetCache = () => {
     localStorage.removeItem(GLOBAL_STATE_CACHE_KEY);
 
     if (!isCaching) {
@@ -57,7 +55,17 @@ export function initCache() {
     }
 
     clearCaching();
+  };
+
+  addActionHandler('saveSession', () => {
+    if (isCaching) {
+      return;
+    }
+
+    setupCaching();
   });
+
+  addActionHandler('reset', resetCache);
 }
 
 export function loadCache(initialState: GlobalState): GlobalState | undefined {
@@ -65,10 +73,12 @@ export function loadCache(initialState: GlobalState): GlobalState | undefined {
     return undefined;
   }
 
-  if (hasStoredSession(true)) {
+  const cache = readCache(initialState);
+
+  if (cache.passcode.hasPasscode || hasStoredSession(true)) {
     setupCaching();
 
-    return readCache(initialState);
+    return cache;
   } else {
     clearCaching();
 
@@ -115,7 +125,7 @@ function readCache(initialState: GlobalState): GlobalState {
     ...cached,
   };
 
-  const parsedMessageList = !IS_SINGLE_COLUMN_LAYOUT ? parseLocationHash(LOCATION_HASH) : undefined;
+  const parsedMessageList = !IS_SINGLE_COLUMN_LAYOUT ? parseLocationHash() : undefined;
 
   return {
     ...newState,
@@ -127,6 +137,7 @@ function readCache(initialState: GlobalState): GlobalState {
 }
 
 function migrateCache(cached: GlobalState, initialState: GlobalState) {
+  // Migrate from legacy setting names
   if ('shouldAutoDownloadMediaFromContacts' in cached.settings.byKey) {
     const {
       shouldAutoDownloadMediaFromContacts,
@@ -153,6 +164,7 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     };
   }
 
+  // Pre-fill settings with defaults
   cached.settings.byKey = {
     ...initialState.settings.byKey,
     ...cached.settings.byKey,
@@ -190,22 +202,87 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     cached.audioPlayer.playbackRate = DEFAULT_PLAYBACK_RATE;
   }
 
-  if (cached.groupCalls === undefined) {
+  if (cached.mediaViewer.volume === undefined) {
+    cached.mediaViewer.volume = DEFAULT_VOLUME;
+  }
+
+  if (cached.mediaViewer.playbackRate === undefined) {
+    cached.mediaViewer.playbackRate = DEFAULT_PLAYBACK_RATE;
+  }
+
+  if (!cached.groupCalls) {
     cached.groupCalls = initialState.groupCalls;
+  }
+
+  if (!cached.users.statusesById) {
+    cached.users.statusesById = {};
+  }
+
+  if (!cached.messages.sponsoredByChatId) {
+    cached.messages.sponsoredByChatId = {};
+  }
+
+  if (!cached.activeReactions) {
+    cached.activeReactions = {};
+  }
+
+  if (!cached.pollModal) {
+    cached.pollModal = {
+      isOpen: false,
+    };
+  }
+
+  if (!cached.attachMenu) {
+    cached.attachMenu = {
+      bots: {},
+    };
+  }
+
+  if (!cached.trustedBotIds) {
+    cached.trustedBotIds = [];
+  }
+
+  if (!cached.passcode) {
+    cached.passcode = {};
+  }
+
+  if (cached.activeSessions?.byHash === undefined) {
+    cached.activeSessions = {
+      byHash: {},
+      orderedHashes: [],
+    };
   }
 }
 
 function updateCache() {
-  if (!isCaching || isHeavyAnimating) {
-    return;
-  }
-
   const global = getGlobal();
-
-  if (global.isLoggingOut) {
+  if (!isCaching || global.isLoggingOut || isHeavyAnimating()) {
     return;
   }
 
+  forceUpdateCache();
+}
+
+export function forceUpdateCache(noEncrypt = false) {
+  const global = getGlobal();
+  const { hasPasscode, isScreenLocked } = global.passcode;
+  const serializedGlobal = serializeGlobal(global);
+
+  if (hasPasscode) {
+    if (!isScreenLocked && !noEncrypt) {
+      void encryptSession(undefined, serializedGlobal);
+    }
+
+    const serializedGlobalClean = JSON.stringify(clearGlobalForLockScreen(global));
+    localStorage.setItem(GLOBAL_STATE_CACHE_KEY, serializedGlobalClean);
+
+    return;
+  }
+
+  localStorage.setItem(GLOBAL_STATE_CACHE_KEY, serializedGlobal);
+}
+
+export function serializeGlobal(global: GlobalState) {
   const reducedGlobal: GlobalState = {
     ...INITIAL_STATE,
     ...pick(global, [
@@ -228,6 +305,11 @@ function updateCache() {
       playbackRate: global.audioPlayer.playbackRate,
       isMuted: global.audioPlayer.isMuted,
     },
+    mediaViewer: {
+      volume: global.mediaViewer.volume,
+      playbackRate: global.mediaViewer.playbackRate,
+      isMuted: global.mediaViewer.isMuted,
+    },
     isChatInfoShown: reduceShowChatInfo(global),
     users: reduceUsers(global),
     chats: reduceChats(global),
@@ -238,10 +320,17 @@ function updateCache() {
     settings: reduceSettings(global),
     chatFolders: reduceChatFolders(global),
     groupCalls: reduceGroupCalls(global),
+    availableReactions: reduceAvailableReactions(global),
+    isCallPanelVisible: undefined,
+    trustedBotIds: global.trustedBotIds,
+    passcode: pick(global.passcode, [
+      'isScreenLocked',
+      'hasPasscode',
+      'invalidAttemptsCount',
+    ]),
   };
 
-  const json = JSON.stringify(reducedGlobal);
-  localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
+  return JSON.stringify(reducedGlobal);
 }
 
 function reduceShowChatInfo(global: GlobalState): boolean {
@@ -251,45 +340,57 @@ function reduceShowChatInfo(global: GlobalState): boolean {
 }
 
 function reduceUsers(global: GlobalState): GlobalState['users'] {
-  const { users: { byId, selectedId } } = global;
-  const idsToSave = [
-    ...(global.chats.listIds.active || []).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT).filter(isUserId),
+  const { users: { byId, statusesById }, currentUserId } = global;
+  const { chatId: currentChatId } = selectCurrentMessageList(global) || {};
+  const visibleUserIds = selectVisibleUsers(global)?.map(({ id }) => id);
+
+  const idsToSave = unique([
+    ...currentUserId ? [currentUserId] : [],
+    ...currentChatId && isUserId(currentChatId) ? [currentChatId] : [],
+    ...visibleUserIds || [],
+    ...global.topPeers.userIds || [],
+    ...getOrderedIds(ALL_FOLDER_ID)?.filter(isUserId) || [],
+    ...getOrderedIds(ARCHIVED_FOLDER_ID)?.filter(isUserId) || [],
+    ...global.contactList?.userIds || [],
+    ...global.globalSearch.recentlyFoundChatIds?.filter(isUserId) || [],
     ...Object.keys(byId),
-  ].slice(0, GLOBAL_STATE_CACHE_USER_LIST_LIMIT);
+  ]).slice(0, GLOBAL_STATE_CACHE_USER_LIST_LIMIT);
 
   return {
     byId: pick(byId, idsToSave),
-    selectedId: window.innerWidth > MIN_SCREEN_WIDTH_FOR_STATIC_RIGHT_COLUMN ? selectedId : undefined,
+    statusesById: pick(statusesById, idsToSave),
   };
 }
 
 function reduceChats(global: GlobalState): GlobalState['chats'] {
-  const chatIdsToSave = [
-    ...(global.chats.listIds.active || []).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT),
-  ];
-  const { chatId: currentChatId } = selectCurrentMessageList(global) || {};
+  const { chats: { byId }, currentUserId } = global;
+  const currentChat = selectCurrentChat(global);
+  const idsToSave = unique([
+    ...currentUserId ? [currentUserId] : [],
+    ...currentChat ? [currentChat.id] : [],
+    ...getOrderedIds(ALL_FOLDER_ID) || [],
+    ...getOrderedIds(ARCHIVED_FOLDER_ID) || [],
+    ...global.globalSearch.recentlyFoundChatIds || [],
+    ...Object.keys(byId),
+  ]).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT);
 
   return {
     ...global.chats,
-    byId: pick(global.chats.byId, currentChatId ? [...chatIdsToSave, currentChatId] : chatIdsToSave),
-    listIds: {
-      active: chatIdsToSave,
-    },
     isFullyLoaded: {},
-    orderedPinnedIds: {
-      active: global.chats.orderedPinnedIds.active,
-    },
+    byId: pick(global.chats.byId, idsToSave),
   };
 }
 
 function reduceMessages(global: GlobalState): GlobalState['messages'] {
+  const { currentUserId } = global;
   const byChatId: GlobalState['messages']['byChatId'] = {};
-  const { chatId: currentChatId } = selectCurrentMessageList(global) || {};
-
+  const { chatId: currentChatId, threadId, type } = selectCurrentMessageList(global) || {};
   const chatIdsToSave = [
-    ...(global.chats.listIds.active || []).slice(0, GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT),
-    ...(currentChatId ? [currentChatId] : []),
+    ...currentChatId ? [currentChatId] : [],
+    ...currentUserId ? [currentUserId] : [],
+    ...getOrderedIds(ALL_FOLDER_ID)?.slice(0, GLOBAL_STATE_CACHE_CHATS_WITH_MESSAGES_LIMIT) || [],
   ];
+
   chatIdsToSave.forEach((chatId) => {
     const current = global.messages.byChatId[chatId];
     if (!current) {
@@ -311,7 +412,8 @@ function reduceMessages(global: GlobalState): GlobalState['messages'] {
 
   return {
     byChatId,
-    messageLists: [],
+    messageLists: currentChatId && threadId && type ? [{ chatId: currentChatId, threadId, type }] : [],
+    sponsoredByChatId: {},
   };
 }
 
@@ -338,16 +440,10 @@ function reduceGroupCalls(global: GlobalState): GlobalState['groupCalls'] {
     ...global.groupCalls,
     byId: {},
     activeGroupCallId: undefined,
-    isGroupCallPanelHidden: undefined,
-    isFallbackConfirmOpen: undefined,
   };
 }
 
-function setupHeavyAnimationListeners() {
-  document.addEventListener(ANIMATION_START_EVENT, () => {
-    isHeavyAnimating = true;
-  });
-  document.addEventListener(ANIMATION_END_EVENT, () => {
-    isHeavyAnimating = false;
-  });
+function reduceAvailableReactions(global: GlobalState): GlobalState['availableReactions'] {
+  return global.availableReactions
+    ?.map((r) => pick(r, ['reaction', 'staticIcon', 'title', 'isInactive']));
 }

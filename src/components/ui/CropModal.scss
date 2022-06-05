@@ -2,7 +2,7 @@
   background: var(--color-primary);
   cursor: pointer;
   transform: scale(1);
-  transition: transform .25s ease-in-out;
+  transition: transform 0.25s ease-in-out;
 
   &:hover {
     transform: scale(1.2);
@@ -18,7 +18,8 @@
     position: relative;
   }
 
-  .modal-content, #avatar-crop {
+  .modal-content,
+  #avatar-crop {
     overflow: hidden;
   }
 
@@ -35,7 +36,7 @@
     position: relative;
 
     &::before {
-      content: '';
+      content: "";
       display: block;
       padding-top: 100%;
     }
@@ -49,7 +50,7 @@
 
     .cr-viewport {
       border: none;
-      box-shadow: 0 0 2000px 2000px rgba(white, 0.5);
+      box-shadow: 0 0 2000px 2000px rgba(#7f7f7f, 0.5);
     }
 
     .cr-slider {

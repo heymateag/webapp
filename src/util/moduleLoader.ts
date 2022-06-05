@@ -1,4 +1,5 @@
 import { DEBUG } from '../config';
+import { createCallbackManager } from './callbacks';
 
 export enum Bundles {
   Auth,
@@ -23,11 +24,13 @@ export type BundleModules<B extends keyof ImportedBundles> = keyof ImportedBundl
 const LOAD_PROMISES: Partial<BundlePromises> = {};
 const MEMORY_CACHE: Partial<ImportedBundles> = {};
 
+const { addCallback, runCallbacks } = createCallbackManager();
+
 export async function loadModule<B extends Bundles, M extends BundleModules<B>>(bundleName: B, moduleName: M) {
   if (!LOAD_PROMISES[bundleName]) {
     switch (bundleName) {
       case Bundles.Auth:
-        LOAD_PROMISES[Bundles.Auth] = import('../bundles/auth');
+        LOAD_PROMISES[Bundles.Auth] = import(/* webpackChunkName: "BundleAuth" */ '../bundles/auth');
         break;
       case Bundles.Main:
         if (DEBUG) {
@@ -35,17 +38,17 @@ export async function loadModule<B extends Bundles, M extends BundleModules<B>>(
           console.log('>>> START LOAD MAIN BUNDLE');
         }
 
-        LOAD_PROMISES[Bundles.Main] = import('../bundles/main');
+        LOAD_PROMISES[Bundles.Main] = import(/* webpackChunkName: "BundleMain" */ '../bundles/main');
         break;
       case Bundles.Extra:
-        LOAD_PROMISES[Bundles.Extra] = import('../bundles/extra');
+        LOAD_PROMISES[Bundles.Extra] = import(/* webpackChunkName: "BundleExtra" */ '../bundles/extra');
         break;
       case Bundles.Calls:
-        LOAD_PROMISES[Bundles.Calls] = import('../bundles/calls');
+        LOAD_PROMISES[Bundles.Calls] = import(/* webpackChunkName: "BundleCalls" */ '../bundles/calls');
         break;
     }
 
-    (LOAD_PROMISES[bundleName] as Promise<ImportedBundles[B]>).then(handleBundleLoad);
+    (LOAD_PROMISES[bundleName] as Promise<ImportedBundles[B]>).then(runCallbacks);
   }
 
   const bundle = (await LOAD_PROMISES[bundleName]) as unknown as ImportedBundles[B];
@@ -67,16 +70,4 @@ export function getModuleFromMemory<B extends Bundles, M extends BundleModules<B
   return bundle[moduleName];
 }
 
-const listeners: NoneToVoidFunction[] = [];
-
-export function addLoadListener(listener: NoneToVoidFunction) {
-  if (!listeners.includes(listener)) {
-    listeners.push(listener);
-  }
-}
-
-function handleBundleLoad() {
-  listeners.forEach((listener) => {
-    listener();
-  });
-}
+export const addLoadListener = addCallback;

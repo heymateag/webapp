@@ -1,5 +1,5 @@
-import { DEBUG } from '../config';
-import { getDispatch } from '../lib/teact/teactn';
+import { DEBUG, DEBUG_MORE, IS_TEST } from '../config';
+import { getActions } from '../global';
 import { IS_ANDROID, IS_IOS, IS_SERVICE_WORKER_SUPPORTED } from './environment';
 import { notifyClientReady, playNotifySoundDebounced } from './notifications';
 
@@ -10,16 +10,17 @@ type WorkerAction = {
 
 function handleWorkerMessage(e: MessageEvent) {
   const action: WorkerAction = e.data;
-  if (DEBUG) {
+  if (DEBUG_MORE) {
     // eslint-disable-next-line no-console
     console.log('[SW] Message from worker', action);
   }
   if (!action.type) return;
-  const dispatch = getDispatch();
+  const dispatch = getActions();
+  const payload = action.payload;
   switch (action.type) {
     case 'focusMessage':
       if (dispatch.focusMessage) {
-        dispatch.focusMessage(action.payload);
+        dispatch.focusMessage(payload);
       }
       break;
     case 'playNotificationSound':
@@ -38,6 +39,17 @@ function subscribeToWorker() {
 if (IS_SERVICE_WORKER_SUPPORTED) {
   window.addEventListener('load', async () => {
     try {
+      if (!navigator.serviceWorker.controller) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        if (registrations.length) {
+          if (DEBUG) {
+            // eslint-disable-next-line no-console
+            console.log('[SW] Hard reload detected, re-enabling Service Worker');
+          }
+          await Promise.all(registrations.map((r) => r.unregister()));
+        }
+      }
+
       await navigator.serviceWorker.register(new URL('../serviceWorker.ts', import.meta.url));
 
       if (DEBUG) {
@@ -59,8 +71,8 @@ if (IS_SERVICE_WORKER_SUPPORTED) {
           console.error('[SW] ServiceWorker not available');
         }
 
-        if (!IS_IOS && !IS_ANDROID) {
-          getDispatch().showDialog({ data: { message: 'SERVICE_WORKER_DISABLED', hasErrorKey: true } });
+        if (!IS_IOS && !IS_ANDROID && !IS_TEST) {
+          getActions().showDialog({ data: { message: 'SERVICE_WORKER_DISABLED', hasErrorKey: true } });
         }
       }
     } catch (err) {

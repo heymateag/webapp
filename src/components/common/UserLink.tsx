@@ -1,30 +1,29 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
 
-import { GlobalActions } from '../../global/types';
-import { ApiChat, ApiUser } from '../../api/types';
+import type { ApiChat, ApiUser } from '../../api/types';
 
-import { pick } from '../../util/iteratees';
 import buildClassName from '../../util/buildClassName';
 
 import Link from '../ui/Link';
+import { getActions } from '../../global';
 
 type OwnProps = {
   className?: string;
   sender?: ApiUser | ApiChat;
-  children: any;
+  children: React.ReactNode;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openUserInfo'>;
-
-const UserLink: FC<OwnProps & DispatchProps> = ({
-  className, sender, openUserInfo, children,
+const UserLink: FC<OwnProps> = ({
+  className, sender, children,
 }) => {
+  const { openChat } = getActions();
+
   const handleClick = useCallback(() => {
     if (sender) {
-      openUserInfo({ id: sender.id });
+      openChat({ id: sender.id });
     }
-  }, [sender, openUserInfo]);
+  }, [sender, openChat]);
 
   if (!sender) {
     return children;
@@ -35,7 +34,4 @@ const UserLink: FC<OwnProps & DispatchProps> = ({
   );
 };
 
-export default withGlobal<OwnProps>(
-  undefined,
-  (setGlobal, actions): DispatchProps => pick(actions, ['openUserInfo']),
-)(UserLink);
+export default UserLink;

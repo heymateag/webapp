@@ -1,7 +1,7 @@
-import { RefObject } from 'react';
-import { getDispatch } from '../../../lib/teact/teactn';
+import type { RefObject } from 'react';
+import { getActions } from '../../../global';
 
-import { MessageListType } from '../../../global/types';
+import type { MessageListType } from '../../../global/types';
 
 import { IS_ANDROID, IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
@@ -16,7 +16,7 @@ export default function useMessageObservers(
   containerRef: RefObject<HTMLDivElement>,
   memoFirstUnreadIdRef: { current: number | undefined },
 ) {
-  const { markMessageListRead, markMessagesRead } = getDispatch();
+  const { markMessageListRead, markMentionsRead, animateUnreadReaction } = getActions();
 
   const {
     observe: observeIntersectionForMedia,
@@ -31,7 +31,6 @@ export default function useMessageObservers(
   } = useIntersectionObserver({
     rootRef: containerRef,
     throttleMs: INTERSECTION_THROTTLE_FOR_READING,
-    noAutoFreeze: true,
   }, (entries) => {
     if (type !== 'thread') {
       return;
@@ -39,6 +38,7 @@ export default function useMessageObservers(
 
     let maxId = 0;
     const mentionIds: number[] = [];
+    const reactionIds: number[] = [];
 
     entries.forEach((entry) => {
       const { isIntersecting, target } = entry;
@@ -57,6 +57,10 @@ export default function useMessageObservers(
       if (dataset.hasUnreadMention) {
         mentionIds.push(messageId);
       }
+
+      if (dataset.hasUnreadReaction) {
+        reactionIds.push(messageId);
+      }
     });
 
     if (memoFirstUnreadIdRef.current && maxId >= memoFirstUnreadIdRef.current) {
@@ -64,7 +68,11 @@ export default function useMessageObservers(
     }
 
     if (mentionIds.length) {
-      markMessagesRead({ messageIds: mentionIds });
+      markMentionsRead({ messageIds: mentionIds });
+    }
+
+    if (reactionIds.length) {
+      animateUnreadReaction({ messageIds: reactionIds });
     }
   });
 

@@ -1,24 +1,36 @@
-import React, {
-  FC, useCallback, useMemo, memo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useMemo } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { LeftColumnContent, ISettings } from '../../../types';
-import { ApiChat } from '../../../api/types';
+import type { ISettings } from '../../../types';
+import { LeftColumnContent, SettingsScreens } from '../../../types';
+import type { ApiChat } from '../../../api/types';
+import type { GlobalState } from '../../../global/types';
 
 import {
-  ANIMATION_LEVEL_MAX, APP_NAME, APP_VERSION, FEEDBACK_URL,HEYMATE_DOC_URL
+  ANIMATION_LEVEL_MAX,
+  APP_NAME, APP_VERSION,
+  BETA_CHANGELOG_URL,
+  BETA_DISCUSSION_CHAT_EN,
+  BETA_DISCUSSION_CHAT_RU,
+  DEBUG,
+  FEEDBACK_URL,
+  IS_BETA,
+  IS_TEST,
+  HEYMATE_DOC_URL,
 } from '../../../config';
-import { IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
+import { IS_PWA, IS_SINGLE_COLUMN_LAYOUT } from '../../../util/environment';
 import buildClassName from '../../../util/buildClassName';
-import { pick } from '../../../util/iteratees';
-import { isChatArchived } from '../../../modules/helpers';
 import { formatDateToString } from '../../../util/dateFormat';
-import { selectTheme } from '../../../modules/selectors';
 import switchTheme from '../../../util/switchTheme';
+import { setPermanentWebVersion } from '../../../util/permanentWebVersion';
+import { clearWebsync } from '../../../util/websync';
+import { selectCurrentMessageList, selectTheme } from '../../../global/selectors';
+import { isChatArchived } from '../../../global/helpers';
 import useLang from '../../../hooks/useLang';
-import { disableHistoryBack } from '../../../hooks/useHistoryBack';
+import useConnectionStatus from '../../../hooks/useConnectionStatus';
+import { useHotkeys } from '../../../hooks/useHotkeys';
+import { getPromptInstall } from '../../../util/installPrompt';
 
 import DropdownMenu from '../../ui/DropdownMenu';
 import MenuItem from '../../ui/MenuItem';
@@ -26,6 +38,8 @@ import Button from '../../ui/Button';
 import SearchInput from '../../ui/SearchInput';
 import PickerSelectedItem from '../../common/PickerSelectedItem';
 import Switcher from '../../ui/Switcher';
+import ShowTransition from '../../ui/ShowTransition';
+import ConnectionStatusOverlay from '../ConnectionStatusOverlay';
 
 import './LeftMainHeader.scss';
 
@@ -43,29 +57,28 @@ type OwnProps = {
   onReset: () => void;
 };
 
-type StateProps = {
-  searchQuery?: string;
-  isLoading: boolean;
-  currentUserId?: string;
-  globalSearchChatId?: string;
-  searchDate?: number;
-  theme: ISettings['theme'];
-  animationLevel: 0 | 1 | 2;
-  chatsById?: Record<string, ApiChat>;
-};
-
-type DispatchProps = Pick<GlobalActions, (
-  'openChat' | 'openTipsChat' | 'setGlobalSearchDate' | 'setGlobalSearchChatId' | 'setSettingOption'
-)>;
-
-const ANIMATION_LEVEL_OPTIONS = [0, 1, 2];
+type StateProps =
+  {
+    searchQuery?: string;
+    isLoading: boolean;
+    currentUserId?: string;
+    globalSearchChatId?: string;
+    searchDate?: number;
+    theme: ISettings['theme'];
+    animationLevel: 0 | 1 | 2;
+    chatsById?: Record<string, ApiChat>;
+    isMessageListOpen: boolean;
+    isConnectionStatusMinimized: ISettings['isConnectionStatusMinimized'];
+    areChatsLoaded?: boolean;
+    hasPasscode?: boolean;
+  }
+  & Pick<GlobalState, 'connectionState' | 'isSyncing' | 'canInstall'>;
 
 const PRODUCTION_HOSTNAME = 'web.telegram.org';
 const LEGACY_VERSION_URL = 'https://web.telegram.org/?legacy=1';
 const WEBK_VERSION_URL = 'https://web.telegram.org/k/';
-const PERMANENT_VERSION_KEY = 'kz_version';
 
-const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
+const LeftMainHeader: FC<OwnProps & StateProps> = ({
   content,
   contactsFilter,
   onSearchQuery,
@@ -86,11 +99,25 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   theme,
   animationLevel,
   chatsById,
-  openChat,
-  openTipsChat,
-  setGlobalSearchDate,
-  setSettingOption,
+  connectionState,
+  isSyncing,
+  isMessageListOpen,
+  isConnectionStatusMinimized,
+  areChatsLoaded,
+  hasPasscode,
+  canInstall,
 }) => {
+  const {
+    openChat,
+    setGlobalSearchDate,
+    setSettingOption,
+    setGlobalSearchChatId,
+    openChatByUsername,
+    lockScreen,
+    requestNextSettingsScreen,
+    skipLockOnUnload,
+  } = getActions();
+
   const lang = useLang();
   const hasMenu = content === LeftColumnContent.ChatList;
   const clearedDateSearchParam = { date: undefined };
@@ -114,7 +141,28 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     }, 0);
   }, [hasMenu, chatsById]);
 
-  const withOtherVersions = window.location.hostname === PRODUCTION_HOSTNAME;
+  const { connectionStatus, connectionStatusText, connectionStatusPosition } = useConnectionStatus(
+    lang, connectionState, isSyncing, isMessageListOpen, isConnectionStatusMinimized, !areChatsLoaded,
+  );
+
+  const handleLockScreenHotkey = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (hasPasscode) {
+      lockScreen();
+    } else {
+      requestNextSettingsScreen(SettingsScreens.PasscodeDisabled);
+    }
+  }, [hasPasscode, lockScreen, requestNextSettingsScreen]);
+
+  useHotkeys({
+    'Ctrl+Shift+L': handleLockScreenHotkey,
+    'Alt+Shift+L': handleLockScreenHotkey,
+    'Meta+Shift+L': handleLockScreenHotkey,
+    ...(IS_PWA && { 'Meta+L': handleLockScreenHotkey }),
+  });
+
+  const withOtherVersions = window.location.hostname === PRODUCTION_HOSTNAME || IS_TEST;
 
   const MainButton: FC<{ onTrigger: () => void; isOpen?: boolean }> = useMemo(() => {
     return ({ onTrigger, isOpen }) => (
@@ -124,6 +172,7 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
         size="smaller"
         color="translucent"
         className={isOpen ? 'active' : ''}
+        // eslint-disable-next-line react/jsx-no-bind
         onClick={hasMenu ? onTrigger : () => onReset()}
         ariaLabel={hasMenu ? lang('AccDescrOpenMenu2') : 'Return to chat list'}
       >
@@ -143,9 +192,19 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [searchQuery, onSearchQuery]);
 
+  const toggleConnectionStatus = useCallback(() => {
+    setSettingOption({ isConnectionStatusMinimized: !isConnectionStatusMinimized });
+  }, [isConnectionStatusMinimized, setSettingOption]);
+
   const handleSelectSaved = useCallback(() => {
     openChat({ id: currentUserId, shouldReplaceHistory: true });
   }, [currentUserId, openChat]);
+
+  const handleSelectPasscode = useCallback(() => {
+    requestNextSettingsScreen(
+      hasPasscode ? SettingsScreens.PasscodeEnabled : SettingsScreens.PasscodeDisabled,
+    );
+  }, [hasPasscode, requestNextSettingsScreen]);
 
   const handleDarkModeToggle = useCallback((e: React.SyntheticEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -156,25 +215,35 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     switchTheme(newTheme, animationLevel === ANIMATION_LEVEL_MAX);
   }, [animationLevel, setSettingOption, theme]);
 
-  const handleAnimationLevelChange = useCallback((e: React.SyntheticEvent<HTMLElement>) => {
-    e.stopPropagation();
+  const handleChangelogClick = useCallback(() => {
+    window.open(BETA_CHANGELOG_URL, '_blank');
+  }, []);
 
-    const newLevel = animationLevel === 0 ? 2 : 0;
-    ANIMATION_LEVEL_OPTIONS.forEach((_, i) => {
-      document.body.classList.toggle(`animation-level-${i}`, newLevel === i);
-    });
+  const handleRuDiscussionClick = useCallback(() => {
+    openChatByUsername({ username: BETA_DISCUSSION_CHAT_RU });
+  }, [openChatByUsername]);
 
-    setSettingOption({ animationLevel: newLevel });
-  }, [animationLevel, setSettingOption]);
+  const handleEnDiscussionClick = useCallback(() => {
+    openChatByUsername({ username: BETA_DISCUSSION_CHAT_EN });
+  }, [openChatByUsername]);
 
-  const handleSwitchToWebK = () => {
-    localStorage.setItem(PERMANENT_VERSION_KEY, JSON.stringify('K'));
-    disableHistoryBack();
-  };
+  const handleSwitchToWebK = useCallback(() => {
+    setPermanentWebVersion('K');
+    clearWebsync();
+    skipLockOnUnload();
+  }, [skipLockOnUnload]);
 
-  const handleOpenTipsChat = () => {
-    openTipsChat({ langCode: lang.code });
-  };
+  const handleSwitchToLegacy = useCallback(() => {
+    skipLockOnUnload();
+  }, [skipLockOnUnload]);
+
+  const handleOpenTipsChat = useCallback(() => {
+    openChatByUsername({ username: lang('Settings.TipsUsername') });
+  }, [lang, openChatByUsername]);
+
+  const handleLockScreen = useCallback(() => {
+    lockScreen();
+  }, [lockScreen]);
 
   const isSearchFocused = (
     Boolean(globalSearchChatId)
@@ -186,12 +255,14 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
     ? lang('SearchFriends')
     : lang('Search');
 
+  const versionString = IS_BETA ? `${APP_VERSION} Beta (${APP_REVISION})` : (DEBUG ? APP_REVISION : APP_VERSION);
+
   return (
     <div className="LeftMainHeader">
       <div id="LeftMainHeader" className="left-header">
         <DropdownMenu
           trigger={MainButton}
-          footer={`${APP_NAME} alpha ${APP_VERSION}`}
+          footer={`${APP_NAME} ${versionString}`}
         >
           <MenuItem
             icon="hm-wallet"
@@ -240,6 +311,13 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           </MenuItem>
           <MenuItem
             icon="icon-darkmode"
+            onClick={handleSelectPasscode}
+          >
+            {lang('Passcode')}
+            <span className="menu-item-badge">{lang('New')}</span>
+          </MenuItem>
+          <MenuItem
+            icon="darkmode"
             onClick={handleDarkModeToggle}
           >
             <span className="menu-item-name">{lang('lng_menu_night_mode')}</span>
@@ -248,17 +326,6 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
               label={lang(theme === 'dark' ? 'lng_settings_disable_night_theme' : 'lng_settings_enable_night_theme')}
               checked={theme === 'dark'}
               noAnimation
-            />
-          </MenuItem>
-          <MenuItem
-            icon="icon-animations"
-            onClick={handleAnimationLevelChange}
-          >
-            <span className="menu-item-name capitalize">{lang('Appearance.Animations').toLowerCase()}</span>
-            <Switcher
-              id="animations"
-              label="Toggle Animations"
-              checked={animationLevel > 0}
             />
           </MenuItem>
           <MenuItem
@@ -279,6 +346,28 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           >
             Help
           </MenuItem>
+          {IS_BETA && (
+            <>
+              <MenuItem
+                icon="permissions"
+                onClick={handleChangelogClick}
+              >
+                Beta Changelog
+              </MenuItem>
+              <MenuItem
+                icon="comments"
+                onClick={handleRuDiscussionClick}
+              >
+                Beta Discussion (ru)
+              </MenuItem>
+              <MenuItem
+                icon="comments"
+                onClick={handleEnDiscussionClick}
+              >
+                Beta Discussion (en)
+              </MenuItem>
+            </>
+          )}
           {withOtherVersions && (
             <>
               <MenuItem
@@ -291,11 +380,20 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
               <MenuItem
                 icon="char-W"
                 href={LEGACY_VERSION_URL}
-                onClick={disableHistoryBack}
+                onClick={handleSwitchToLegacy}
               >
                 Switch to Old Version
               </MenuItem>
             </>
+          )}
+          {canInstall && (
+            <MenuItem
+              icon="install"
+              onClick={getPromptInstall()}
+            >
+              Install App
+              <span className="menu-item-badge">{lang('New')}</span>
+            </MenuItem>
           )}
         </DropdownMenu>
         <SearchInput
@@ -304,13 +402,16 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
           className={globalSearchChatId || searchDate ? 'with-picker-item' : ''}
           value={contactsFilter || searchQuery}
           focused={isSearchFocused}
-          isLoading={isLoading}
+          isLoading={isLoading || connectionStatusPosition === 'minimized'}
+          spinnerColor={connectionStatusPosition === 'minimized' ? 'yellow' : undefined}
+          spinnerBackgroundColor={connectionStatusPosition === 'minimized' && theme === 'light' ? 'light' : undefined}
           placeholder={searchInputPlaceholder}
           autoComplete="off"
           canClose={Boolean(globalSearchChatId || searchDate)}
           onChange={onSearchQuery}
           onReset={onReset}
           onFocus={handleSearchFocus}
+          onSpinnerClick={connectionStatusPosition === 'minimized' ? toggleConnectionStatus : undefined}
         >
           {selectedSearchDate && (
             <PickerSelectedItem
@@ -332,6 +433,30 @@ const LeftMainHeader: FC<OwnProps & StateProps & DispatchProps> = ({
             />
           )}
         </SearchInput>
+        {hasPasscode && (
+          <Button
+            round
+            ripple={!IS_SINGLE_COLUMN_LAYOUT}
+            size="smaller"
+            color="translucent"
+            ariaLabel={`${lang('ShortcutsController.Others.LockByPasscode')} (Ctrl+Shift+L)`}
+            onClick={handleLockScreen}
+            className="passcode-lock"
+          >
+            <i className="icon-lock" />
+          </Button>
+        )}
+        <ShowTransition
+          isOpen={connectionStatusPosition === 'overlay'}
+          isCustom
+          className="connection-state-wrapper"
+        >
+          <ConnectionStatusOverlay
+            connectionStatus={connectionStatus}
+            connectionStatusText={connectionStatusText!}
+            onClick={toggleConnectionStatus}
+          />
+        </ShowTransition>
       </div>
     </div>
   );
@@ -342,9 +467,9 @@ export default memo(withGlobal<OwnProps>(
     const {
       query: searchQuery, fetchingStatus, chatId, date,
     } = global.globalSearch;
-    const { currentUserId } = global;
+    const { currentUserId, connectionState, isSyncing } = global;
     const { byId: chatsById } = global.chats;
-    const { animationLevel } = global.settings.byKey;
+    const { isConnectionStatusMinimized, animationLevel } = global.settings.byKey;
 
     return {
       searchQuery,
@@ -355,13 +480,13 @@ export default memo(withGlobal<OwnProps>(
       searchDate: date,
       theme: selectTheme(global),
       animationLevel,
+      connectionState,
+      isSyncing,
+      isMessageListOpen: Boolean(selectCurrentMessageList(global)),
+      isConnectionStatusMinimized,
+      areChatsLoaded: Boolean(global.chats.listIds.active),
+      hasPasscode: Boolean(global.passcode.hasPasscode),
+      canInstall: Boolean(global.canInstall),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openChat',
-    'openTipsChat',
-    'setGlobalSearchDate',
-    'setGlobalSearchChatId',
-    'setSettingOption',
-  ]),
 )(LeftMainHeader));

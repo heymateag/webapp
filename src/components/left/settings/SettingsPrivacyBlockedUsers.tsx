@@ -1,18 +1,14 @@
-import React, {
-  FC, memo, useCallback,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiCountryCode, ApiUser } from '../../../api/types';
-import { SettingsScreens } from '../../../types';
+import type { ApiChat, ApiCountryCode, ApiUser } from '../../../api/types';
 
 import { CHAT_HEIGHT_PX } from '../../../config';
 import { formatPhoneNumberWithCode } from '../../../util/phoneNumber';
-import { pick } from '../../../util/iteratees';
 import {
   getChatTitle, getUserFullName, isUserId,
-} from '../../../modules/helpers';
+} from '../../../global/helpers';
 import renderText from '../../common/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
 import useLang from '../../../hooks/useLang';
@@ -27,7 +23,6 @@ import BlockUserModal from './BlockUserModal';
 
 type OwnProps = {
   isActive?: boolean;
-  onScreenSelect: (screen: SettingsScreens) => void;
   onReset: () => void;
 };
 
@@ -38,25 +33,26 @@ type StateProps = {
   phoneCodeList: ApiCountryCode[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'unblockContact'>;
-
-const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps> = ({
   isActive,
-  onScreenSelect,
   onReset,
   chatsByIds,
   usersByIds,
   blockedIds,
   phoneCodeList,
-  unblockContact,
 }) => {
+  const { unblockContact } = getActions();
+
   const lang = useLang();
   const [isBlockUserModalOpen, openBlockUserModal, closeBlockUserModal] = useFlag();
   const handleUnblockClick = useCallback((contactId: string) => {
     unblockContact({ contactId });
   }, [unblockContact]);
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.PrivacyBlockedUsers);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   function renderContact(contactId: string, i: number, viewportOffset: number) {
     const isPrivate = isUserId(contactId);
@@ -100,7 +96,7 @@ const SettingsPrivacyBlockedUsers: FC<OwnProps & StateProps & DispatchProps> = (
   return (
     <div className="settings-fab-wrapper">
       <div className="settings-content infinite-scroll">
-        <div className="settings-item">
+        <div className="settings-item no-border">
           <p className="settings-item-description-larger mt-0 mb-2" dir={lang.isRtl ? 'rtl' : undefined}>
             {lang('BlockedUsersInfo')}
           </p>
@@ -158,5 +154,4 @@ export default memo(withGlobal<OwnProps>(
       phoneCodeList,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['unblockContact']),
 )(SettingsPrivacyBlockedUsers));

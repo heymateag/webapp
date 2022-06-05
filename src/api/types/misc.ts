@@ -1,4 +1,4 @@
-import { ApiDocument } from './messages';
+import type { ApiDocument, ApiPhoto } from './messages';
 import { ClientType, MediaStream } from '../../components/main/components/ZoomSdkService/types';
 
 export interface ApiInitialArgs {
@@ -7,6 +7,7 @@ export interface ApiInitialArgs {
   sessionData?: ApiSessionData;
   isTest?: boolean;
   isMovSupported?: boolean;
+  isWebmSupported?: boolean;
 }
 
 export interface ApiOnProgress {
@@ -33,6 +34,11 @@ export interface ApiAttachment {
     duration: number;
     waveform: number[];
   };
+  audio?: {
+    duration: number;
+    title?: string;
+    performer?: string;
+  };
   previewBlobUrl?: string;
 }
 
@@ -56,6 +62,8 @@ export interface ApiSession {
   ip: string;
   country: string;
   region: string;
+  areCallsEnabled: boolean;
+  areSecretChatsEnabled: boolean;
 }
 
 export interface ApiSessionData {
@@ -99,9 +107,34 @@ export type ApiFieldError = {
 
 export type ApiInviteInfo = {
   title: string;
+  about?: string;
   hash: string;
   isChannel?: boolean;
   participantsCount?: number;
+  isRequestNeeded?: true;
+  photo?: ApiPhoto;
+};
+
+export type ApiExportedInvite = {
+  isRevoked?: boolean;
+  isPermanent?: boolean;
+  link: string;
+  date: number;
+  startDate?: number;
+  expireDate?: number;
+  usageLimit?: number;
+  usage?: number;
+  isRequestNeeded?: boolean;
+  requested?: number;
+  title?: string;
+  adminId: string;
+};
+
+export type ApiChatInviteImporter = {
+  userId: string;
+  date: number;
+  isRequested?: boolean;
+  about?: string;
 };
 
 export interface ApiCountry {
@@ -115,4 +148,23 @@ export interface ApiCountryCode extends ApiCountry {
   countryCode: string;
   prefixes?: string[];
   patterns?: string[];
+}
+
+export interface ApiAppConfig {
+  emojiSounds: Record<string, string>;
+  defaultReaction: string;
+  seenByMaxChatMembers: number;
+  seenByExpiresAt: number;
+}
+
+export interface GramJsEmojiInteraction {
+  v: number;
+  a: {
+    i: number;
+    t: number;
+  }[];
+}
+
+export interface ApiEmojiInteraction {
+  timestamps: number[];
 }

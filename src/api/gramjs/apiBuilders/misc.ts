@@ -1,11 +1,13 @@
 import { Api as GramJs } from '../../../lib/gramjs';
 
-import { ApiCountry, ApiSession, ApiWallpaper } from '../../types';
-import { ApiPrivacySettings, ApiPrivacyKey, PrivacyVisibility } from '../../../types';
+import type {
+  ApiCountry, ApiSession, ApiWallpaper,
+} from '../../types';
+import type { ApiPrivacySettings, ApiPrivacyKey, PrivacyVisibility } from '../../../types';
 
 import { buildApiDocument } from './messages';
 import { buildApiPeerId, getApiChatIdFromMtpPeer } from './peers';
-import { flatten, pick } from '../../../util/iteratees';
+import { pick } from '../../../util/iteratees';
 import { getServerTime } from '../../../util/serverTime';
 
 export function buildApiWallpaper(wallpaper: GramJs.TypeWallPaper): ApiWallpaper | undefined {
@@ -34,6 +36,8 @@ export function buildApiSession(session: GramJs.Authorization): ApiSession {
     isOfficialApp: Boolean(session.officialApp),
     isPasswordPending: Boolean(session.passwordPending),
     hash: String(session.hash),
+    areCallsEnabled: !session.callRequestsDisabled,
+    areSecretChatsEnabled: !session.encryptedRequestsDisabled,
     ...pick(session, [
       'deviceModel', 'platform', 'systemVersion', 'appName', 'appVersion', 'dateCreated', 'dateActive',
       'ip', 'country', 'region',
@@ -49,6 +53,10 @@ export function buildPrivacyKey(key: GramJs.TypePrivacyKey): ApiPrivacyKey | und
       return 'lastSeen';
     case 'PrivacyKeyProfilePhoto':
       return 'profilePhoto';
+    case 'PrivacyKeyPhoneCall':
+      return 'phoneCall';
+    case 'PrivacyKeyPhoneP2P':
+      return 'phoneP2P';
     case 'PrivacyKeyForwards':
       return 'forwards';
     case 'PrivacyKeyChatInvite':
@@ -103,18 +111,20 @@ export function buildApiNotifyException(
   notifySettings: GramJs.TypePeerNotifySettings, peer: GramJs.TypePeer, serverTimeOffset: number,
 ) {
   const {
-    silent, muteUntil, showPreviews, sound,
+    silent, muteUntil, showPreviews, otherSound,
   } = notifySettings;
+
+  const hasSound = Boolean(otherSound && !(otherSound instanceof GramJs.NotificationSoundNone));
 
   return {
     chatId: getApiChatIdFromMtpPeer(peer),
     isMuted: silent || (typeof muteUntil === 'number' && getServerTime(serverTimeOffset) < muteUntil),
-    ...(sound === '' && { isSilent: true }),
+    ...(!hasSound && { isSilent: true }),
     ...(showPreviews !== undefined && { shouldShowPreviews: Boolean(showPreviews) }),
   };
 }
 
-function buildApiCountry(country: GramJs.help.Country, code?: GramJs.help.CountryCode) {
+function buildApiCountry(country: GramJs.help.Country, code: GramJs.help.CountryCode) {
   const {
     hidden, iso2, defaultName, name,
   } = country;
@@ -132,20 +142,18 @@ function buildApiCountry(country: GramJs.help.Country, code?: GramJs.help.Countr
 }
 
 export function buildApiCountryList(countries: GramJs.help.Country[]) {
-  const listByCode = flatten(
-    countries
-      .filter((country) => !country.hidden)
-      .map((country) => (
-        country.countryCodes.map((code) => buildApiCountry(country, code))
-      )),
-  )
+  const nonHiddenCountries = countries.filter(({ hidden }) => !hidden);
+  const listByCode = nonHiddenCountries
+    .map((country) => (
+      country.countryCodes.map((code) => buildApiCountry(country, code))
+    ))
+    .flat()
     .sort((a: ApiCountry, b: ApiCountry) => (
       a.name ? a.name.localeCompare(b.name!) : a.defaultName.localeCompare(b.defaultName)
     ));
 
-  const generalList = countries
-    .filter((country) => !country.hidden)
-    .map((country) => buildApiCountry(country))
+  const generalList = nonHiddenCountries
+    .map((country) => buildApiCountry(country, country.countryCodes[0]))
     .sort((a, b) => (
       a.name ? a.name.localeCompare(b.name!) : a.defaultName.localeCompare(b.defaultName)
     ));
@@ -154,4 +162,17 @@ export function buildApiCountryList(countries: GramJs.help.Country[]) {
     phoneCodes: listByCode,
     general: generalList,
   };
+}
+
+export function buildJson(json: GramJs.TypeJSONValue): any {
+  if (json instanceof GramJs.JsonNull) return undefined;
+  if (json instanceof GramJs.JsonString
+    || json instanceof GramJs.JsonBool
+    || json instanceof GramJs.JsonNumber) return json.value;
+  if (json instanceof GramJs.JsonArray) return json.value.map(buildJson);
+
+  return json.value.reduce((acc: Record<string, any>, el) => {
+    acc[el.key] = buildJson(el.value);
+    return acc;
+  }, {});
 }

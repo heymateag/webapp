@@ -2,10 +2,12 @@ import {
   DPR,
   IS_SINGLE_COLUMN_LAYOUT,
   IS_SAFARI,
+  IS_ANDROID,
 } from '../../util/environment';
 import WorkerConnector from '../../util/WorkerConnector';
 import { animate } from '../../util/animation';
 import cycleRestrict from '../../util/cycleRestrict';
+import generateIdFor from '../../util/generateIdFor';
 
 interface Params {
   noLoop?: boolean;
@@ -21,11 +23,10 @@ type Chunks = (Frames | undefined)[];
 const CHUNK_SIZE = 1;
 const MAX_WORKERS = 4;
 const HIGH_PRIORITY_QUALITY = IS_SINGLE_COLUMN_LAYOUT ? 0.75 : 1;
-const LOW_PRIORITY_QUALITY = 0.75;
-const HIGH_PRIORITY_MAX_FPS = 60;
-const LOW_PRIORITY_MAX_FPS = 30;
+const LOW_PRIORITY_QUALITY = IS_ANDROID ? 0.5 : 0.75;
 const HIGH_PRIORITY_CACHE_MODULO = IS_SAFARI ? 2 : 4;
 const LOW_PRIORITY_CACHE_MODULO = 0;
+const KEY_STORE = {};
 
 const workers = new Array(MAX_WORKERS).fill(undefined).map(
   () => new WorkerConnector(new Worker(new URL('./rlottie.worker.ts', import.meta.url))),
@@ -37,11 +38,11 @@ class RLottie {
 
   private imgSize!: number;
 
-  private key!: string;
+  private key = generateIdFor(KEY_STORE);
 
-  private msPerFrame!: number;
+  private msPerFrame = 1000 / 60;
 
-  private reduceFactor!: number;
+  private reduceFactor = 1;
 
   private cacheModulo!: number;
 
@@ -67,6 +68,8 @@ class RLottie {
 
   private isWaiting = true;
 
+  private isEnded = false;
+
   private isOnLoadFired = false;
 
   private isDestroyed = false;
@@ -84,12 +87,12 @@ class RLottie {
   private lastRenderAt?: number;
 
   constructor(
-    private id: string,
     private container: HTMLDivElement,
-    private animationData: AnyLiteral,
+    private tgsUrl: string,
     private params: Params = {},
     private onLoad?: () => void,
     private customColor?: [number, number, number],
+    private onEnded?: (isDestroyed?: boolean) => void,
   ) {
     this.initContainer();
     this.initConfig();
@@ -100,7 +103,11 @@ class RLottie {
     return this.isAnimating || this.isWaiting;
   }
 
-  play() {
+  play(forceRestart = false) {
+    if (this.isEnded && forceRestart) {
+      this.approxFrameIndex = Math.floor(0);
+    }
+
     this.stopFrameIndex = undefined;
     this.direction = 1;
     this.doPlay();
@@ -115,20 +122,6 @@ class RLottie {
 
     const currentChunkIndex = this.getChunkIndex(this.approxFrameIndex);
     this.chunks = this.chunks.map((chunk, i) => (i === currentChunkIndex ? chunk : undefined));
-  }
-
-  goToAndPlay(frameIndex: number) {
-    this.approxFrameIndex = Math.floor(frameIndex / this.reduceFactor);
-    this.stopFrameIndex = undefined;
-    this.direction = 1;
-    this.doPlay();
-  }
-
-  goToAndStop(frameIndex: number) {
-    this.approxFrameIndex = Math.floor(frameIndex / this.reduceFactor);
-    this.stopFrameIndex = Math.floor(frameIndex / this.reduceFactor);
-    this.direction = 1;
-    this.doPlay();
   }
 
   playSegment([startFrameIndex, stopFrameIndex]: [number, number]) {
@@ -184,14 +177,8 @@ class RLottie {
   }
 
   private initConfig() {
-    this.key = `${this.id}_${this.imgSize}`;
-
     const { isLowPriority } = this.params;
 
-    const maxFps = isLowPriority ? LOW_PRIORITY_MAX_FPS : HIGH_PRIORITY_MAX_FPS;
-    const sourceFps = this.animationData.fr || maxFps;
-    this.reduceFactor = sourceFps % maxFps === 0 ? sourceFps / maxFps : 1;
-    this.msPerFrame = 1000 / (sourceFps / this.reduceFactor);
     this.cacheModulo = isLowPriority ? LOW_PRIORITY_CACHE_MODULO : HIGH_PRIORITY_CACHE_MODULO;
     this.chunkSize = CHUNK_SIZE;
   }
@@ -200,17 +187,10 @@ class RLottie {
     this.canvas.remove();
   }
 
-  private onChangeData(framesCount: number) {
-    this.isWaiting = false;
-    this.framesCount = framesCount;
-    this.chunksCount = Math.ceil(framesCount / this.chunkSize);
-    this.isAnimating = false;
-
-    this.doPlay();
-  }
-
   setColor(newColor: [number, number, number] | undefined) {
     this.customColor = newColor;
+
+    // TODO Remove?
     if (this.customColor) {
       const imageData = this.ctx.getImageData(0, 0, this.imgSize, this.imgSize);
       const arr = imageData.data;
@@ -225,21 +205,6 @@ class RLottie {
     }
   }
 
-  changeData(animationData: AnyLiteral) {
-    this.pause();
-    this.animationData = animationData;
-    this.initConfig();
-
-    workers[this.workerIndex].request({
-      name: 'changeData',
-      args: [
-        this.key,
-        this.animationData,
-        this.onChangeData.bind(this),
-      ],
-    });
-  }
-
   private initRenderer() {
     this.workerIndex = cycleRestrict(MAX_WORKERS, ++lastWorkerIndex);
 
@@ -247,10 +212,9 @@ class RLottie {
       name: 'init',
       args: [
         this.key,
-        this.animationData,
+        this.tgsUrl,
         this.imgSize,
         this.params.isLowPriority,
-        this.reduceFactor,
         this.onRendererInit.bind(this),
       ],
     });
@@ -263,13 +227,42 @@ class RLottie {
     });
   }
 
-  private onRendererInit(framesCount: number) {
+  private onRendererInit(reduceFactor: number, msPerFrame: number, framesCount: number) {
+    this.reduceFactor = reduceFactor;
+    this.msPerFrame = msPerFrame;
     this.framesCount = framesCount;
     this.chunksCount = Math.ceil(framesCount / this.chunkSize);
 
     if (this.isWaiting) {
       this.doPlay();
     }
+  }
+
+  changeData(tgsUrl: string) {
+    this.pause();
+    this.tgsUrl = tgsUrl;
+    this.initConfig();
+
+    workers[this.workerIndex].request({
+      name: 'changeData',
+      args: [
+        this.key,
+        this.tgsUrl,
+        this.params.isLowPriority,
+        this.onChangeData.bind(this),
+      ],
+    });
+  }
+
+  private onChangeData(reduceFactor: number, msPerFrame: number, framesCount: number) {
+    this.reduceFactor = reduceFactor;
+    this.msPerFrame = msPerFrame;
+    this.framesCount = framesCount;
+    this.chunksCount = Math.ceil(framesCount / this.chunkSize);
+    this.isWaiting = false;
+    this.isAnimating = false;
+
+    this.doPlay();
   }
 
   private doPlay() {
@@ -289,6 +282,7 @@ class RLottie {
       this.lastRenderAt = undefined;
     }
 
+    this.isEnded = false;
     this.isAnimating = true;
     this.isWaiting = false;
 
@@ -316,8 +310,6 @@ class RLottie {
       if (this.cacheModulo && chunkIndex % this.cacheModulo === 0) {
         this.cleanupPrevChunk(chunkIndex);
       }
-
-      this.requestNextChunk(chunkIndex);
 
       if (frameIndex !== this.prevFrameIndex) {
         const frame = this.getFrame(frameIndex);
@@ -359,6 +351,8 @@ class RLottie {
       if (delta > 0 && (frameIndex === this.framesCount! - 1 || expectedNextFrameIndex > this.framesCount! - 1)) {
         if (this.params.noLoop) {
           this.isAnimating = false;
+          this.isEnded = true;
+          this.onEnded?.();
           return false;
         }
 
@@ -368,6 +362,8 @@ class RLottie {
       } else if (delta < 0 && (frameIndex === 0 || expectedNextFrameIndex < 0)) {
         if (this.params.noLoop) {
           this.isAnimating = false;
+          this.isEnded = true;
+          this.onEnded?.();
           return false;
         }
 
@@ -377,10 +373,10 @@ class RLottie {
       } else if (
         this.stopFrameIndex !== undefined
         && (frameIndex === this.stopFrameIndex
-        || (
-          (delta > 0 && expectedNextFrameIndex > this.stopFrameIndex)
-          || (delta < 0 && expectedNextFrameIndex < this.stopFrameIndex)
-        ))
+          || (
+            (delta > 0 && expectedNextFrameIndex > this.stopFrameIndex)
+            || (delta < 0 && expectedNextFrameIndex < this.stopFrameIndex)
+          ))
       ) {
         this.stopFrameIndex = undefined;
         this.isAnimating = false;

@@ -1,6 +1,7 @@
-import React, { FC, memo } from '../../../lib/teact/teact';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo } from '../../../lib/teact/teact';
 
-import { ApiBotCommand, ApiUser } from '../../../api/types';
+import type { ApiBotCommand, ApiUser } from '../../../api/types';
 
 import renderText from '../../common/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
@@ -30,6 +31,7 @@ const BotCommand: FC<OwnProps> = ({
       key={botCommand.command}
       className={buildClassName('BotCommand chat-item-clickable scroll-item', withAvatar && 'with-avatar')}
       multiline
+      // eslint-disable-next-line react/jsx-no-bind
       onClick={() => onClick(botCommand)}
       focus={focus}
     >

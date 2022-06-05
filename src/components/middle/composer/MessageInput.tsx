@@ -1,27 +1,28 @@
-import { ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useEffect, useRef, memo, useState, useCallback,
+  useEffect, useRef, memo, useState, useCallback,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { IAnchorPosition, ISettings } from '../../../types';
+import type { IAnchorPosition, ISettings } from '../../../types';
 
 import { EDITABLE_INPUT_ID } from '../../../config';
-import { selectCurrentMessageList, selectReplyingToId } from '../../../modules/selectors';
+import { selectReplyingToId } from '../../../global/selectors';
 import { debounce } from '../../../util/schedulers';
 import focusEditableElement from '../../../util/focusEditableElement';
 import buildClassName from '../../../util/buildClassName';
-import { pick } from '../../../util/iteratees';
 import {
   IS_ANDROID, IS_EMOJI_SUPPORTED, IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV,
 } from '../../../util/environment';
 import captureKeyboardListeners from '../../../util/captureKeyboardListeners';
 import useLayoutEffectWithPrevDeps from '../../../hooks/useLayoutEffectWithPrevDeps';
 import useFlag from '../../../hooks/useFlag';
+import { isHeavyAnimating } from '../../../hooks/useHeavyAnimationCheck';
+import useSendMessageAction from '../../../hooks/useSendMessageAction';
+import useLang from '../../../hooks/useLang';
 import parseEmojiOnlyString from '../../common/helpers/parseEmojiOnlyString';
 import { isSelectionInsideInput } from './helpers/selection';
-import useLang from '../../../hooks/useLang';
 import renderText from '../../common/helpers/renderText';
 
 import TextFormatter from './TextFormatter';
@@ -33,12 +34,14 @@ const TRANSITION_DURATION_FACTOR = 50;
 
 type OwnProps = {
   id: string;
+  chatId: string;
+  threadId: number;
   isAttachmentModalInput?: boolean;
   editableInputId?: string;
   html: string;
   placeholder: string;
   forcedPlaceholder?: string;
-  shouldSetFocus: boolean;
+  canAutoFocus: boolean;
   shouldSuppressFocus?: boolean;
   shouldSuppressTextFormatter?: boolean;
   onUpdate: (html: string) => void;
@@ -47,13 +50,10 @@ type OwnProps = {
 };
 
 type StateProps = {
-  currentChatId?: string;
   replyingToId?: number;
   noTabCapture?: boolean;
   messageSendKeyCombo?: ISettings['messageSendKeyCombo'];
 };
-
-type DispatchProps = Pick<GlobalActions, 'editLastMessage' | 'replyToNextMessage'>;
 
 const MAX_INPUT_HEIGHT = IS_SINGLE_COLUMN_LAYOUT ? 256 : 416;
 const TAB_INDEX_PRIORITY_TIMEOUT = 2000;
@@ -74,26 +74,30 @@ function clearSelection() {
   }
 }
 
-const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
+const MessageInput: FC<OwnProps & StateProps> = ({
   id,
+  chatId,
+  threadId,
   isAttachmentModalInput,
   editableInputId,
   html,
   placeholder,
   forcedPlaceholder,
-  shouldSetFocus,
+  canAutoFocus,
   shouldSuppressFocus,
   shouldSuppressTextFormatter,
-  onUpdate,
-  onSuppressedFocus,
-  onSend,
-  currentChatId,
   replyingToId,
   noTabCapture,
   messageSendKeyCombo,
-  editLastMessage,
-  replyToNextMessage,
+  onUpdate,
+  onSuppressedFocus,
+  onSend,
 }) => {
+  const {
+    editLastMessage,
+    replyToNextMessage,
+  } = getActions();
+
   // eslint-disable-next-line no-null/no-null
   const inputRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line no-null/no-null
@@ -104,6 +108,8 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
   const [isTextFormatterOpen, openTextFormatter, closeTextFormatter] = useFlag();
   const [textFormatterAnchorPosition, setTextFormatterAnchorPosition] = useState<IAnchorPosition>();
   const [selectedRange, setSelectedRange] = useState<Range>();
+
+  const sendMessageAction = useSendMessageAction(chatId, threadId);
 
   useEffect(() => {
     if (!isAttachmentModalInput) return;
@@ -124,9 +130,14 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
     }
   }, [html]);
 
+  const chatIdRef = useRef(chatId);
+  chatIdRef.current = chatId;
   const focusInput = useCallback(() => {
-    // Avoid focusing during animation
-    if (inputRef.current!.closest('.from, .to')) {
+    if (!inputRef.current) {
+      return;
+    }
+
+    if (isHeavyAnimating()) {
       setTimeout(focusInput, FOCUS_DELAY_MS);
       return;
     }
@@ -193,34 +204,20 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
     openTextFormatter();
   }
 
-  function handleMouseDown(event: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-    function handleMouseUp() {
-      processSelection();
-
-      event.target.removeEventListener('mouseup', handleMouseUp);
-    }
-
-    if (event.button !== 2) {
-      event.target.addEventListener('mouseup', handleMouseUp);
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    if (e.button !== 2) {
+      e.target.addEventListener('mouseup', processSelection, { once: true });
       return;
     }
 
-    if (isContextMenuOpenRef.current === true) {
+    if (isContextMenuOpenRef.current) {
       return;
     }
 
     isContextMenuOpenRef.current = true;
 
-    function closeContextMenuMouseListener() {
-      setTimeout(() => {
-        isContextMenuOpenRef.current = false;
-      }, CONTEXT_MENU_CLOSE_DELAY_MS);
-
-      window.removeEventListener('mouseup', closeContextMenuMouseListener);
-    }
-
-    function closeContextMenuKeyListener(e: KeyboardEvent) {
-      if (e.key !== 'Esc' && e.key !== 'Escape') {
+    function handleCloseContextMenu(e2: KeyboardEvent | MouseEvent) {
+      if (e2 instanceof KeyboardEvent && e2.key !== 'Esc' && e2.key !== 'Escape') {
         return;
       }
 
@@ -228,20 +225,15 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         isContextMenuOpenRef.current = false;
       }, CONTEXT_MENU_CLOSE_DELAY_MS);
 
-      window.removeEventListener('keydown', closeContextMenuKeyListener);
+      window.removeEventListener('keydown', handleCloseContextMenu);
+      window.removeEventListener('mousedown', handleCloseContextMenu);
     }
 
-    document.addEventListener('mousedown', closeContextMenuMouseListener);
-    document.addEventListener('keydown', closeContextMenuKeyListener);
+    document.addEventListener('mousedown', handleCloseContextMenu);
+    document.addEventListener('keydown', handleCloseContextMenu);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    function handleKeyUp() {
-      processSelection();
-
-      e.target.removeEventListener('keyup', handleKeyUp);
-    }
-
     if (!html.length && (e.metaKey || e.ctrlKey)) {
       const targetIndexDelta = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : undefined;
       if (targetIndexDelta) {
@@ -269,7 +261,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
       e.preventDefault();
       editLastMessage();
     } else {
-      e.target.addEventListener('keyup', handleKeyUp);
+      e.target.addEventListener('keyup', processSelection, { once: true });
     }
   }
 
@@ -277,6 +269,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
     const { innerHTML, textContent } = e.currentTarget;
 
     onUpdate(innerHTML === SAFARI_BR ? '' : innerHTML);
+    sendMessageAction({ type: 'typing' });
 
     // Reset focus on the input to remove any active styling when input is cleared
     if (
@@ -335,10 +328,10 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
       return;
     }
 
-    if (shouldSetFocus) {
+    if (canAutoFocus) {
       focusInput();
     }
-  }, [currentChatId, focusInput, replyingToId, shouldSetFocus]);
+  }, [chatId, focusInput, replyingToId, canAutoFocus]);
 
   useEffect(() => {
     if (noTabCapture) {
@@ -391,6 +384,7 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
         onMouseDown={handleMouseDown}
         onContextMenu={IS_ANDROID ? stopEvent : undefined}
         onTouchCancel={IS_ANDROID ? processSelection : undefined}
+        aria-label={placeholder}
       />
       <div ref={cloneRef} className={buildClassName(className, 'clone')} dir="auto" />
       {!forcedPlaceholder && <span className="placeholder-text" dir="auto">{placeholder}</span>}
@@ -407,16 +401,13 @@ const MessageInput: FC<OwnProps & StateProps & DispatchProps> = ({
 };
 
 export default memo(withGlobal<OwnProps>(
-  (global): StateProps => {
-    const { chatId: currentChatId, threadId } = selectCurrentMessageList(global) || {};
+  (global, { chatId, threadId }: OwnProps): StateProps => {
     const { messageSendKeyCombo } = global.settings.byKey;
 
     return {
-      currentChatId,
       messageSendKeyCombo,
-      replyingToId: currentChatId && threadId ? selectReplyingToId(global, currentChatId, threadId) : undefined,
-      noTabCapture: global.isPollModalOpen || global.payment.isPaymentModalOpen,
+      replyingToId: chatId && threadId ? selectReplyingToId(global, chatId, threadId) : undefined,
+      noTabCapture: global.pollModal.isOpen || global.payment.isPaymentModalOpen,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['editLastMessage', 'replyToNextMessage']),
 )(MessageInput));

@@ -1,11 +1,12 @@
-import React, { FC, useCallback } from '../../lib/teact/teact';
+import type { FC } from '../../lib/teact/teact';
+import React, { useCallback } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 
 import './Link.scss';
 
 type OwnProps = {
-  children: any;
+  children: React.ReactNode;
   className?: string;
   isRtl?: boolean;
   onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;

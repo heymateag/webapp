@@ -1,7 +1,12 @@
-import {
+import type { TeactNode } from '../lib/teact/teact';
+import type {
   ApiBotInlineMediaResult, ApiBotInlineResult, ApiBotInlineSwitchPm,
+  ApiChatInviteImporter,
+  ApiExportedInvite,
   ApiLanguage, ApiMessage, ApiShippingAddress, ApiStickerSet,
 } from '../api/types';
+
+export type TextPart = TeactNode;
 
 export enum LoadMoreDirection {
   Backwards,
@@ -80,6 +85,7 @@ export interface ISettings extends NotifySettings, Record<string, any> {
   canChangeSensitive?: boolean;
   timeFormat: TimeFormat;
   wasTimeFormatSetManually: boolean;
+  isConnectionStatusMinimized: boolean;
 }
 
 export interface ApiPrivacySettings {
@@ -156,6 +162,7 @@ export enum SettingsScreens {
   Notifications,
   DataStorage,
   Language,
+  ActiveSessions,
   General,
   GeneralChatBackground,
   GeneralChatBackgroundColor,
@@ -163,6 +170,8 @@ export enum SettingsScreens {
   PrivacyPhoneNumber,
   PrivacyLastSeen,
   PrivacyProfilePhoto,
+  PrivacyPhoneCall,
+  PrivacyPhoneP2P,
   PrivacyForwarding,
   PrivacyGroupChats,
   PrivacyPhoneNumberAllowedContacts,
@@ -171,11 +180,14 @@ export enum SettingsScreens {
   PrivacyLastSeenDeniedContacts,
   PrivacyProfilePhotoAllowedContacts,
   PrivacyProfilePhotoDeniedContacts,
+  PrivacyPhoneCallAllowedContacts,
+  PrivacyPhoneCallDeniedContacts,
+  PrivacyPhoneP2PAllowedContacts,
+  PrivacyPhoneP2PDeniedContacts,
   PrivacyForwardingAllowedContacts,
   PrivacyForwardingDeniedContacts,
   PrivacyGroupChatsAllowedContacts,
   PrivacyGroupChatsDeniedContacts,
-  PrivacyActiveSessions,
   PrivacyBlockedUsers,
   Folders,
   FoldersCreateFolder,
@@ -201,10 +213,20 @@ export enum SettingsScreens {
   TwoFaRecoveryEmail,
   TwoFaRecoveryEmailCode,
   TwoFaCongratulations,
+  QuickReaction,
+  PasscodeDisabled,
+  PasscodeNewPasscode,
+  PasscodeNewPasscodeConfirm,
+  PasscodeEnabled,
+  PasscodeChangePasscodeCurrent,
+  PasscodeChangePasscodeNew,
+  PasscodeChangePasscodeConfirm,
+  PasscodeTurnOff,
+  PasscodeCongratulations,
 }
 
 export type StickerSetOrRecent = Pick<ApiStickerSet, (
-  'id' | 'title' | 'count' | 'stickers' | 'hasThumbnail' | 'isAnimated'
+  'id' | 'title' | 'count' | 'stickers' | 'hasThumbnail' | 'isLottie' | 'isVideos'
 )>;
 
 export enum LeftColumnContent {
@@ -232,9 +254,10 @@ export enum GlobalSearchContent {
 
 export enum RightColumnContent {
   ChatInfo,
-  UserInfo,
   Search,
   Management,
+  Statistics,
+  MessageStatistics,
   StickerSearch,
   GifSearch,
   PollResults,
@@ -280,6 +303,21 @@ export enum ManagementProgress {
   Error,
 }
 
+export interface ManagementState {
+  isActive: boolean;
+  nextScreen?: ManagementScreens;
+  isUsernameAvailable?: boolean;
+  error?: string;
+  invites?: ApiExportedInvite[];
+  revokedInvites?: ApiExportedInvite[];
+  editingInvite?: ApiExportedInvite;
+  inviteInfo?: {
+    invite: ApiExportedInvite;
+    importers?: ApiChatInviteImporter[];
+    requesters?: ApiChatInviteImporter[];
+  };
+}
+
 export enum NewChatMembersProgress {
   Closed,
   InProgress,
@@ -288,7 +326,8 @@ export enum NewChatMembersProgress {
 
 export type ProfileTabType = 'members' | 'commonChats' | 'media' | 'documents' | 'links' | 'audio' | 'voice';
 export type SharedMediaType = 'media' | 'documents' | 'links' | 'audio' | 'voice';
-export type ApiPrivacyKey = 'phoneNumber' | 'lastSeen' | 'profilePhoto' | 'forwards' | 'chatInvite';
+export type ApiPrivacyKey = 'phoneNumber' | 'lastSeen' | 'profilePhoto' |
+'forwards' | 'chatInvite' | 'phoneCall' | 'phoneP2P';
 export type PrivacyVisibility = 'everybody' | 'contacts' | 'nonContacts' | 'nobody';
 
 export enum ProfileState {
@@ -302,6 +341,7 @@ export enum PaymentStep {
   Shipping,
   PaymentInfo,
   Checkout,
+  ConfirmPayment,
 }
 
 export const UPLOADING_WALLPAPER_SLUG = 'UPLOADING_WALLPAPER_SLUG';
@@ -314,12 +354,20 @@ export enum ManagementScreens {
   GroupType,
   GroupPermissions,
   GroupRemovedUsers,
+  ChannelRemovedUsers,
   GroupUserPermissionsCreate,
   GroupUserPermissions,
   ChatAdministrators,
   GroupRecentActions,
   ChatAdminRights,
+  ChatNewAdminRights,
   GroupMembers,
+  GroupAddAdmins,
+  Invites,
+  EditInvite,
+  Reactions,
+  InviteInfo,
+  JoinRequests,
 }
 
 export type ManagementType = 'user' | 'group' | 'channel';

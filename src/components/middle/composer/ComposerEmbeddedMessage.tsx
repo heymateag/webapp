@@ -1,10 +1,8 @@
-import React, {
-  FC, memo, useCallback, useEffect,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { memo, useCallback, useEffect } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiMessage, ApiUser } from '../../../api/types';
+import type { ApiChat, ApiMessage, ApiUser } from '../../../api/types';
 
 import {
   selectChat,
@@ -17,13 +15,14 @@ import {
   selectEditingId,
   selectEditingScheduledId,
   selectEditingMessage,
-} from '../../../modules/selectors';
+  selectIsChatWithSelf,
+} from '../../../global/selectors';
 import captureEscKeyListener from '../../../util/captureEscKeyListener';
-import { pick } from '../../../util/iteratees';
+import buildClassName from '../../../util/buildClassName';
+import { isUserId } from '../../../global/helpers';
+
 import useAsyncRendering from '../../right/hooks/useAsyncRendering';
 import useShowTransition from '../../../hooks/useShowTransition';
-import buildClassName from '../../../util/buildClassName';
-import { isUserId } from '../../../modules/helpers';
 
 import Button from '../../ui/Button';
 import EmbeddedMessage from '../../common/EmbeddedMessage';
@@ -39,22 +38,28 @@ type StateProps = {
   forwardedMessagesCount?: number;
 };
 
-type DispatchProps = Pick<GlobalActions, 'setReplyingToId' | 'setEditingId' | 'focusMessage' | 'exitForwardMode'>;
+type OwnProps = {
+  onClear?: () => void;
+};
 
 const FORWARD_RENDERING_DELAY = 300;
 
-const ComposerEmbeddedMessage: FC<StateProps & DispatchProps> = ({
+const ComposerEmbeddedMessage: FC<OwnProps & StateProps> = ({
   replyingToId,
   editingId,
   message,
   sender,
   shouldAnimate,
   forwardedMessagesCount,
-  setReplyingToId,
-  setEditingId,
-  focusMessage,
-  exitForwardMode,
+  onClear,
 }) => {
+  const {
+    setReplyingToId,
+    setEditingId,
+    focusMessage,
+    exitForwardMode,
+  } = getActions();
+
   const isShown = Boolean(
     ((replyingToId || editingId) && message)
     || (sender && forwardedMessagesCount),
@@ -76,7 +81,8 @@ const ComposerEmbeddedMessage: FC<StateProps & DispatchProps> = ({
     } else if (forwardedMessagesCount) {
       exitForwardMode();
     }
-  }, [replyingToId, editingId, forwardedMessagesCount, setReplyingToId, setEditingId, exitForwardMode]);
+    onClear?.();
+  }, [replyingToId, editingId, forwardedMessagesCount, onClear, setReplyingToId, setEditingId, exitForwardMode]);
 
   useEffect(() => (isShown ? captureEscKeyListener(clearEmbedded) : undefined), [isShown, clearEmbedded]);
 
@@ -113,7 +119,7 @@ const ComposerEmbeddedMessage: FC<StateProps & DispatchProps> = ({
   );
 };
 
-export default memo(withGlobal(
+export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const { chatId, threadId, type: messageListType } = selectCurrentMessageList(global) || {};
     if (!chatId || !threadId || !messageListType) {
@@ -121,7 +127,6 @@ export default memo(withGlobal(
     }
 
     const {
-      currentUserId,
       forwardMessages: { fromChatId, toChatId, messageIds: forwardMessageIds },
     } = global;
 
@@ -144,17 +149,24 @@ export default memo(withGlobal(
     let sender: ApiChat | ApiUser | undefined;
     if (replyingToId && message) {
       const { forwardInfo } = message;
-      const isChatWithSelf = chatId === currentUserId;
-
+      const isChatWithSelf = selectIsChatWithSelf(global, chatId);
       if (forwardInfo && (forwardInfo.isChannelPost || isChatWithSelf)) {
         sender = selectForwardedSender(global, message);
       }
 
-      if (!sender) {
+      if (!sender && !forwardInfo?.hiddenUserName) {
         sender = selectSender(global, message);
       }
     } else if (isForwarding) {
-      sender = isUserId(fromChatId!) ? selectUser(global, fromChatId!) : selectChat(global, fromChatId!);
+      if (message) {
+        sender = selectForwardedSender(global, message);
+        if (!sender) {
+          sender = selectSender(global, message);
+        }
+      }
+      if (!sender) {
+        sender = isUserId(fromChatId!) ? selectUser(global, fromChatId!) : selectChat(global, fromChatId!);
+      }
     }
 
     return {
@@ -166,10 +178,4 @@ export default memo(withGlobal(
       forwardedMessagesCount: isForwarding ? forwardMessageIds!.length : undefined,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'setReplyingToId',
-    'setEditingId',
-    'focusMessage',
-    'exitForwardMode',
-  ]),
 )(ComposerEmbeddedMessage));

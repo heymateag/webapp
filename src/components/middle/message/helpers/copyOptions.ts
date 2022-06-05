@@ -1,28 +1,38 @@
-import { ApiMediaFormat, ApiMessage } from '../../../../api/types';
+import type { ApiMessage } from '../../../../api/types';
+import { ApiMediaFormat } from '../../../../api/types';
 
 import * as mediaLoader from '../../../../util/mediaLoader';
 import {
+  getMessageContact,
   getMessageMediaHash,
   getMessagePhoto,
   getMessageText,
+  getMessageTextWithSpoilers,
   getMessageWebPagePhoto,
   getMessageWebPageVideo,
   hasMessageLocalBlobUrl,
-} from '../../../../modules/helpers';
+} from '../../../../global/helpers';
 import { CLIPBOARD_ITEM_SUPPORTED, copyImageToClipboard, copyTextToClipboard } from '../../../../util/clipboard';
+import getMessageIdsForSelectedText from '../../../../util/getMessageIdsForSelectedText';
 
 type ICopyOptions = {
   label: string;
+  icon: string;
   handler: () => void;
 }[];
 
 export function getMessageCopyOptions(
-  message: ApiMessage, afterEffect?: () => void, onCopyLink?: () => void,
+  message: ApiMessage,
+  afterEffect?: () => void,
+  onCopyLink?: () => void,
+  onCopyMessages?: (messageIds: number[]) => void,
+  onCopyNumber?: () => void,
 ): ICopyOptions {
   const options: ICopyOptions = [];
   const text = getMessageText(message);
   const photo = getMessagePhoto(message)
     || (!getMessageWebPageVideo(message) ? getMessageWebPagePhoto(message) : undefined);
+  const contact = getMessageContact(message);
   const mediaHash = getMessageMediaHash(message, 'inline');
   const canImageBeCopied = photo && (mediaHash || hasMessageLocalBlobUrl(message)) && CLIPBOARD_ITEM_SUPPORTED;
   const selection = window.getSelection();
@@ -30,13 +40,12 @@ export function getMessageCopyOptions(
   if (canImageBeCopied) {
     options.push({
       label: 'lng_context_copy_image',
+      icon: 'copy-media',
       handler: () => {
         Promise.resolve(mediaHash ? mediaLoader.fetch(mediaHash, ApiMediaFormat.BlobUrl) : photo!.blobUrl)
           .then(copyImageToClipboard);
 
-        if (afterEffect) {
-          afterEffect();
-        }
+        afterEffect?.();
       },
     });
   }
@@ -51,13 +60,17 @@ export function getMessageCopyOptions(
 
     options.push({
       label: getCopyLabel(hasSelection),
+      icon: 'copy',
       handler: () => {
-        const clipboardText = hasSelection && selection ? selection.toString() : text;
-        copyTextToClipboard(clipboardText);
-
-        if (afterEffect) {
-          afterEffect();
+        const messageIds = getMessageIdsForSelectedText();
+        if (messageIds?.length && onCopyMessages) {
+          onCopyMessages(messageIds);
+        } else {
+          const clipboardText = hasSelection && selection ? selection.toString() : getMessageTextWithSpoilers(message)!;
+          copyTextToClipboard(clipboardText);
         }
+
+        afterEffect?.();
       },
     });
   }
@@ -65,12 +78,23 @@ export function getMessageCopyOptions(
   if (onCopyLink) {
     options.push({
       label: 'lng_context_copy_message_link',
+      icon: 'link',
       handler: () => {
         onCopyLink();
 
-        if (afterEffect) {
-          afterEffect();
-        }
+        afterEffect?.();
+      },
+    });
+  }
+
+  if (contact && onCopyNumber) {
+    options.push({
+      label: 'lng_profile_copy_phone',
+      icon: 'copy',
+      handler: () => {
+        onCopyNumber();
+
+        afterEffect?.();
       },
     });
   }

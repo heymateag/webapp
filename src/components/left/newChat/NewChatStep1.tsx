@@ -1,15 +1,11 @@
-import React, {
-  FC, useCallback, useEffect, useMemo, memo,
-} from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { useCallback, useMemo, memo } from '../../../lib/teact/teact';
+import { getActions, getGlobal, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiChat, ApiUser } from '../../../api/types';
+import type { ApiChat } from '../../../api/types';
 
-import { pick, unique } from '../../../util/iteratees';
-import { throttle } from '../../../util/schedulers';
-import searchWords from '../../../util/searchWords';
-import { getUserFullName, isUserBot, sortChatIds } from '../../../modules/helpers';
+import { unique } from '../../../util/iteratees';
+import { filterUsersByName, isUserBot, sortChatIds } from '../../../global/helpers';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
@@ -27,8 +23,6 @@ export type OwnProps = {
 };
 
 type StateProps = {
-  currentUserId?: string;
-  usersById: Record<string, ApiUser>;
   chatsById: Record<string, ApiChat>;
   localContactIds?: string[];
   searchQuery?: string;
@@ -37,61 +31,39 @@ type StateProps = {
   globalUserIds?: string[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadContactList' | 'setGlobalSearchQuery'>;
-
-const runThrottled = throttle((cb) => cb(), 60000, true);
-
-const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
+const NewChatStep1: FC<OwnProps & StateProps> = ({
   isChannel,
   isActive,
   selectedMemberIds,
   onSelectedMemberIdsChange,
   onNextStep,
   onReset,
-  currentUserId,
-  usersById,
   chatsById,
   localContactIds,
   searchQuery,
   isSearching,
   localUserIds,
   globalUserIds,
-  loadContactList,
-  setGlobalSearchQuery,
 }) => {
-  // Due to the parent Transition, this component never gets unmounted,
-  // that's why we use throttled API call on every update.
-  useEffect(() => {
-    runThrottled(() => {
-      loadContactList();
-    });
-  });
+  const {
+    setGlobalSearchQuery,
+  } = getActions();
 
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   const handleFilterChange = useCallback((query: string) => {
     setGlobalSearchQuery({ query });
   }, [setGlobalSearchQuery]);
 
   const displayedIds = useMemo(() => {
-    const contactIds = localContactIds
-      ? sortChatIds(localContactIds.filter((id) => id !== currentUserId), chatsById)
-      : [];
-
-    if (!searchQuery) {
-      return contactIds;
-    }
-
-    const foundContactIds = contactIds.filter((id) => {
-      const user = usersById[id];
-      if (!user) {
-        return false;
-      }
-      const fullName = getUserFullName(user);
-      return fullName && searchWords(fullName, searchQuery);
-    });
+    // No need for expensive global updates on users, so we avoid them
+    const usersById = getGlobal().users.byId;
+    const foundContactIds = localContactIds ? filterUsersByName(localContactIds, usersById, searchQuery) : [];
 
     return sortChatIds(
       unique([
@@ -100,17 +72,17 @@ const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
         ...(globalUserIds || []),
       ]).filter((contactId) => {
         const user = usersById[contactId];
+        if (!user) {
+          return true;
+        }
 
-        return !user || !isUserBot(user) || user.canBeInvitedToGroup;
+        return !user.isSelf && (user.canBeInvitedToGroup || !isUserBot(user));
       }),
       chatsById,
       false,
       selectedMemberIds,
     );
-  }, [
-    localContactIds, chatsById, searchQuery, localUserIds, globalUserIds, selectedMemberIds,
-    currentUserId, usersById,
-  ]);
+  }, [localContactIds, chatsById, searchQuery, localUserIds, globalUserIds, selectedMemberIds]);
 
   const handleNextStep = useCallback(() => {
     if (selectedMemberIds.length || isChannel) {
@@ -160,9 +132,7 @@ const NewChatStep1: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global): StateProps => {
     const { userIds: localContactIds } = global.contactList || {};
-    const { byId: usersById } = global.users;
     const { byId: chatsById } = global.chats;
-    const { currentUserId } = global;
 
     const {
       query: searchQuery,
@@ -174,8 +144,6 @@ export default memo(withGlobal<OwnProps>(
     const { userIds: localUserIds } = localResults || {};
 
     return {
-      currentUserId,
-      usersById,
       chatsById,
       localContactIds,
       searchQuery,
@@ -184,5 +152,4 @@ export default memo(withGlobal<OwnProps>(
       localUserIds,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadContactList', 'setGlobalSearchQuery']),
 )(NewChatStep1));

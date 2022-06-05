@@ -1,69 +1,87 @@
-import { FC, memo, useEffect } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import type { FC } from '../../lib/teact/teact';
+import { memo, useCallback, useEffect } from '../../lib/teact/teact';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions, Thread } from '../../global/types';
-import { ApiMediaFormat, ApiMessage } from '../../api/types';
+import type { Thread } from '../../global/types';
+import type { ApiMessage } from '../../api/types';
+import { ApiMediaFormat } from '../../api/types';
 
 import * as mediaLoader from '../../util/mediaLoader';
 import download from '../../util/download';
 import {
   getMessageContentFilename, getMessageMediaHash,
-} from '../../modules/helpers';
-import { pick } from '../../util/iteratees';
+} from '../../global/helpers';
+
+import useRunDebounced from '../../hooks/useRunDebounced';
 
 type StateProps = {
-  activeDownloads: Record<number, number[]>;
-  messages: Record<number, {
+  activeDownloads: Record<string, number[]>;
+  messages: Record<string, {
     byId: Record<number, ApiMessage>;
     threadsById: Record<number, Thread>;
   }>;
 };
 
-type DispatchProps = Pick<GlobalActions, 'cancelMessageMediaDownload'>;
+const GLOBAL_UPDATE_DEBOUNCE = 1000;
 
-const startedDownloads = new Set<string>();
+const processedMessages = new Set<ApiMessage>();
+const downloadedMessages = new Set<ApiMessage>();
 
-const DownloadManager: FC<StateProps & DispatchProps> = ({
+const DownloadManager: FC<StateProps> = ({
   activeDownloads,
   messages,
-  cancelMessageMediaDownload,
 }) => {
+  const { cancelMessagesMediaDownload } = getActions();
+
+  const runDebounced = useRunDebounced(GLOBAL_UPDATE_DEBOUNCE, true);
+
+  const handleMessageDownloaded = useCallback((message: ApiMessage) => {
+    downloadedMessages.add(message);
+    runDebounced(() => {
+      if (downloadedMessages.size) {
+        cancelMessagesMediaDownload({ messages: Array.from(downloadedMessages) });
+        downloadedMessages.clear();
+      }
+    });
+  }, [cancelMessagesMediaDownload, runDebounced]);
+
   useEffect(() => {
-    Object.entries(activeDownloads).forEach(([chatId, messageIds]) => {
-      const activeMessages = messageIds.map((id) => messages[Number(chatId)].byId[id]);
-      activeMessages.forEach((message) => {
-        const downloadHash = getMessageMediaHash(message, 'download');
-        if (!downloadHash) {
-          cancelMessageMediaDownload({ message });
-          return;
+    const activeMessages = Object.entries(activeDownloads).map(([chatId, messageIds]) => (
+      messageIds.map((id) => messages[chatId].byId[id])
+    )).flat();
+
+    if (!activeMessages.length) {
+      processedMessages.clear();
+      return;
+    }
+
+    activeMessages.forEach((message) => {
+      if (processedMessages.has(message)) {
+        return;
+      }
+      processedMessages.add(message);
+      const downloadHash = getMessageMediaHash(message, 'download');
+      if (!downloadHash) {
+        handleMessageDownloaded(message);
+        return;
+      }
+
+      const mediaData = mediaLoader.getFromMemory(downloadHash);
+
+      if (mediaData) {
+        download(mediaData, getMessageContentFilename(message));
+        handleMessageDownloaded(message);
+        return;
+      }
+
+      mediaLoader.fetch(downloadHash, ApiMediaFormat.BlobUrl, true).then((result) => {
+        if (result) {
+          download(result, getMessageContentFilename(message));
         }
-
-        if (!startedDownloads.has(downloadHash)) {
-          const mediaData = mediaLoader.getFromMemory<ApiMediaFormat.BlobUrl>(downloadHash);
-          if (mediaData) {
-            startedDownloads.delete(downloadHash);
-            download(mediaData, getMessageContentFilename(message));
-            cancelMessageMediaDownload({ message });
-            return;
-          }
-
-          mediaLoader.fetch(downloadHash, ApiMediaFormat.BlobUrl, true).then((result) => {
-            startedDownloads.delete(downloadHash);
-            if (result) {
-              download(result, getMessageContentFilename(message));
-            }
-            cancelMessageMediaDownload({ message });
-          });
-
-          startedDownloads.add(downloadHash);
-        }
+        handleMessageDownloaded(message);
       });
     });
-  }, [
-    cancelMessageMediaDownload,
-    messages,
-    activeDownloads,
-  ]);
+  }, [messages, activeDownloads, cancelMessagesMediaDownload, handleMessageDownloaded]);
 
   return undefined;
 };
@@ -77,5 +95,4 @@ export default memo(withGlobal(
       messages,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['cancelMessageMediaDownload']),
 )(DownloadManager));

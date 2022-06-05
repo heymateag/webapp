@@ -1,75 +1,70 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useMemo, useRef, useState,
+  memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
 
-import { GlobalActions } from '../../global/types';
-import {
-  ApiChat, ApiMediaFormat, ApiMessage, ApiUser, ApiDimensions,
+import type {
+  ApiChat, ApiDimensions, ApiMessage, ApiUser,
 } from '../../api/types';
+import { ApiMediaFormat } from '../../api/types';
 import { MediaViewerOrigin } from '../../types';
 
-import { ANIMATION_END_DELAY } from '../../config';
-import { IS_IOS, IS_SINGLE_COLUMN_LAYOUT, IS_TOUCH_ENV } from '../../util/environment';
-import windowSize from '../../util/windowSize';
-import {
-  AVATAR_FULL_DIMENSIONS,
-  MEDIA_VIEWER_MEDIA_QUERY,
-  calculateMediaViewerDimensions,
-} from '../common/helpers/mediaDimensions';
-import {
-  selectChat,
-  selectChatMessage,
-  selectChatMessages,
-  selectCurrentMediaSearch,
-  selectListedIds,
-  selectOutlyingIds,
-  selectScheduledMessage,
-  selectScheduledMessages,
-  selectUser,
-} from '../../modules/selectors';
+import { getActions, withGlobal } from '../../global';
 import {
   getChatAvatarHash,
   getChatMediaMessageIds,
+  getMessageDocument,
   getMessageFileName,
   getMessageMediaFormat,
   getMessageMediaHash,
   getMessageMediaThumbDataUri,
   getMessagePhoto,
   getMessageVideo,
-  getMessageDocument,
-  isMessageDocumentPhoto,
-  isMessageDocumentVideo,
   getMessageWebPagePhoto,
   getMessageWebPageVideo,
   getPhotoFullDimensions,
-  getVideoDimensions, getMessageFileSize,
-} from '../../modules/helpers';
-import { pick } from '../../util/iteratees';
-import { captureEvents, SwipeDirection } from '../../util/captureEvents';
-import captureEscKeyListener from '../../util/captureEscKeyListener';
+  getVideoDimensions,
+  isMessageDocumentPhoto,
+  isMessageDocumentVideo,
+} from '../../global/helpers';
+import {
+  selectChat,
+  selectChatMessage,
+  selectChatMessages,
+  selectCurrentMediaSearch,
+  selectIsChatWithSelf,
+  selectListedIds,
+  selectOutlyingIds,
+  selectScheduledMessage,
+  selectScheduledMessages,
+  selectUser,
+} from '../../global/selectors';
 import { stopCurrentAudio } from '../../util/audioPlayer';
+import captureEscKeyListener from '../../util/captureEscKeyListener';
+import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
+import { ANIMATION_END_DELAY } from '../../config';
+import { AVATAR_FULL_DIMENSIONS, MEDIA_VIEWER_MEDIA_QUERY } from '../common/helpers/mediaDimensions';
+import windowSize from '../../util/windowSize';
+import { animateClosing, animateOpening } from './helpers/ghostAnimation';
+import { renderMessageText } from '../common/helpers/renderMessageText';
+
+import useBlurSync from '../../hooks/useBlurSync';
+import useFlag from '../../hooks/useFlag';
 import useForceUpdate from '../../hooks/useForceUpdate';
+import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
+import useHistoryBack from '../../hooks/useHistoryBack';
+import useLang from '../../hooks/useLang';
 import useMedia from '../../hooks/useMedia';
 import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
-import useBlurSync from '../../hooks/useBlurSync';
 import usePrevious from '../../hooks/usePrevious';
-import { dispatchHeavyAnimationEvent } from '../../hooks/useHeavyAnimationCheck';
-import { renderMessageText } from '../common/helpers/renderMessageText';
-import { animateClosing, animateOpening } from './helpers/ghostAnimation';
-import useLang from '../../hooks/useLang';
-import useHistoryBack from '../../hooks/useHistoryBack';
 
-import Spinner from '../ui/Spinner';
+import ReportModal from '../common/ReportModal';
+import Button from '../ui/Button';
 import ShowTransition from '../ui/ShowTransition';
 import Transition from '../ui/Transition';
-import Button from '../ui/Button';
-import SenderInfo from './SenderInfo';
 import MediaViewerActions from './MediaViewerActions';
-import MediaViewerFooter from './MediaViewerFooter';
-import VideoPlayer from './VideoPlayer';
-import ZoomControls from './ZoomControls';
-import PanZoom from './PanZoom';
+import MediaViewerSlides from './MediaViewerSlides';
+import SenderInfo from './SenderInfo';
 
 import './MediaViewer.scss';
 
@@ -78,6 +73,7 @@ type StateProps = {
   threadId?: number;
   messageId?: number;
   senderId?: string;
+  isChatWithSelf?: boolean;
   origin?: MediaViewerOrigin;
   avatarOwner?: ApiChat | ApiUser;
   profilePhotoIndex?: number;
@@ -87,27 +83,30 @@ type StateProps = {
   animationLevel: 0 | 1 | 2;
 };
 
-type DispatchProps = Pick<GlobalActions, 'openMediaViewer' | 'closeMediaViewer' | 'openForwardMenu' | 'focusMessage'>;
-
 const ANIMATION_DURATION = 350;
 
-const MediaViewer: FC<StateProps & DispatchProps> = ({
+const MediaViewer: FC<StateProps> = ({
   chatId,
   threadId,
   messageId,
   senderId,
+  isChatWithSelf,
   origin,
   avatarOwner,
   profilePhotoIndex,
   message,
   chatMessages,
   collectionIds,
-  openMediaViewer,
-  closeMediaViewer,
-  openForwardMenu,
-  focusMessage,
   animationLevel,
 }) => {
+  const {
+    openMediaViewer,
+    closeMediaViewer,
+    openForwardMenu,
+    focusMessage,
+    toggleChatInfo,
+  } = getActions();
+
   const isOpen = Boolean(avatarOwner || messageId);
 
   const isFromSharedMedia = origin === MediaViewerOrigin.SharedMedia;
@@ -121,21 +120,20 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
   const isDocumentPhoto = message ? isMessageDocumentPhoto(message) : false;
   const isDocumentVideo = message ? isMessageDocumentVideo(message) : false;
   const isVideo = Boolean(video || webPageVideo || isDocumentVideo);
-  const isPhoto = Boolean(!isVideo && (photo || webPagePhoto || isDocumentPhoto));
   const { isGif } = video || webPageVideo || {};
+  const isPhoto = Boolean(!isVideo && (photo || webPagePhoto || isDocumentPhoto));
   const isAvatar = Boolean(avatarOwner);
 
   /* Navigation */
-  const isSingleSlide = Boolean(webPagePhoto || webPageVideo);
+  const singleMessageId = webPagePhoto || webPageVideo ? messageId : undefined;
+
   const messageIds = useMemo(() => {
-    return isSingleSlide && messageId
-      ? [messageId]
+    return singleMessageId
+      ? [singleMessageId]
       : getChatMediaMessageIds(chatMessages || {}, collectionIds || [], isFromSharedMedia);
-  }, [isSingleSlide, messageId, chatMessages, collectionIds, isFromSharedMedia]);
+  }, [singleMessageId, chatMessages, collectionIds, isFromSharedMedia]);
 
   const selectedMediaMessageIndex = messageId ? messageIds.indexOf(messageId) : -1;
-  const isFirst = selectedMediaMessageIndex === 0 || selectedMediaMessageIndex === -1;
-  const isLast = selectedMediaMessageIndex === messageIds.length - 1 || selectedMediaMessageIndex === -1;
 
   /* Animation */
   const animationKey = useRef<number>();
@@ -143,16 +141,12 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
   if (isOpen && (!prevSenderId || prevSenderId !== senderId || !animationKey.current)) {
     animationKey.current = selectedMediaMessageIndex;
   }
-  const slideAnimation = animationLevel >= 1 ? 'mv-slide' : 'none';
   const headerAnimation = animationLevel === 2 ? 'slide-fade' : 'none';
   const isGhostAnimation = animationLevel === 2;
 
   /* Controls */
-  const [isFooterHidden, setIsFooterHidden] = useState<boolean>(false);
-  const [canPanZoomWrap, setCanPanZoomWrap] = useState(false);
-  const [isZoomed, setIsZoomed] = useState<boolean>(false);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [panDelta, setPanDelta] = useState({ x: 0, y: 0 });
+  const [isReportModalOpen, openReportModal, closeReportModal] = useFlag();
+  const [zoomLevelChange, setZoomLevelChange] = useState<number>(1);
 
   /* Media data */
   function getMediaHash(isFull?: boolean) {
@@ -181,13 +175,15 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
     undefined,
     isGhostAnimation && ANIMATION_DURATION,
   );
-  const { mediaData: fullMediaBlobUrl, loadProgress } = useMediaWithLoadProgress(
+  const { mediaData: fullMediaBlobUrl } = useMediaWithLoadProgress(
     getMediaHash(true),
     undefined,
     message && getMessageMediaFormat(message, 'viewerFull'),
     undefined,
     isGhostAnimation && ANIMATION_DURATION,
   );
+  const avatarPhoto = avatarOwner?.photos?.[profilePhotoIndex!];
+  const canReport = !!avatarPhoto && profilePhotoIndex! > 0 && !isChatWithSelf;
 
   const localBlobUrl = (photo || video) ? (photo || video)!.blobUrl : undefined;
   let bestImageData = (!isVideo && (localBlobUrl || fullMediaBlobUrl)) || previewBlobUrl || pictogramBlobUrl;
@@ -196,7 +192,6 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
     bestImageData = thumbDataUri;
   }
 
-  const videoSize = message ? getMessageFileSize(message) : undefined;
   const fileName = message
     ? getMessageFileName(message)
     : isAvatar
@@ -246,11 +241,12 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
   const prevOrigin = usePrevious(origin);
   const prevAvatarOwner = usePrevious<ApiChat | ApiUser | undefined>(avatarOwner);
   const prevBestImageData = usePrevious(bestImageData);
+  const textParts = message ? renderMessageText(message) : undefined;
+  const hasFooter = Boolean(textParts);
+
   useEffect(() => {
     if (isGhostAnimation && isOpen && !prevMessage && !prevAvatarOwner) {
       dispatchHeavyAnimationEvent(ANIMATION_DURATION + ANIMATION_END_DELAY);
-      const textParts = message ? renderMessageText(message) : undefined;
-      const hasFooter = Boolean(textParts);
       animateOpening(hasFooter, origin!, bestImageData!, dimensions, isVideo, message);
     }
 
@@ -260,70 +256,45 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
     }
   }, [
     isGhostAnimation, isOpen, origin, prevOrigin, message, prevMessage, prevAvatarOwner,
-    bestImageData, prevBestImageData, dimensions, isVideo,
+    bestImageData, prevBestImageData, dimensions, isVideo, hasFooter,
   ]);
-
-  useEffect(() => {
-    let timer: number | undefined;
-
-    if (isZoomed) {
-      setCanPanZoomWrap(true);
-    } else {
-      timer = window.setTimeout(() => {
-        setCanPanZoomWrap(false);
-      }, ANIMATION_DURATION);
-    }
-
-    return () => {
-      if (timer) {
-        window.clearTimeout(timer);
-      }
-    };
-  }, [isZoomed]);
-
-  const closeZoom = () => {
-    setIsZoomed(false);
-    setZoomLevel(1);
-    setPanDelta({ x: 0, y: 0 });
-  };
-
-  const handleZoomToggle = useCallback(() => {
-    setIsZoomed(!isZoomed);
-    setZoomLevel(!isZoomed ? 1.5 : 1);
-    if (isZoomed) {
-      setPanDelta({ x: 0, y: 0 });
-    }
-  }, [isZoomed]);
-
-  const handleZoomValue = useCallback((level: number, canCloseZoom = false) => {
-    setZoomLevel(level);
-    if (level === 1 && canCloseZoom) {
-      closeZoom();
-    }
-  }, []);
 
   const close = useCallback(() => {
     closeMediaViewer();
-    closeZoom();
   }, [closeMediaViewer]);
 
   const handleFooterClick = useCallback(() => {
     close();
-    focusMessage({ chatId, threadId, messageId });
-  }, [close, chatId, threadId, focusMessage, messageId]);
+
+    if (IS_SINGLE_COLUMN_LAYOUT) {
+      setTimeout(() => {
+        toggleChatInfo(false, { forceSyncOnIOs: true });
+        focusMessage({ chatId, threadId, messageId });
+      }, ANIMATION_DURATION);
+    } else {
+      focusMessage({ chatId, threadId, messageId });
+    }
+  }, [close, chatId, threadId, focusMessage, toggleChatInfo, messageId]);
 
   const handleForward = useCallback(() => {
-    openForwardMenu({ fromChatId: chatId, messageIds: [messageId] });
-    closeZoom();
+    openForwardMenu({
+      fromChatId: chatId,
+      messageIds: [messageId],
+    });
   }, [openForwardMenu, chatId, messageId]);
 
+  const selectMessage = useCallback((id?: number) => openMediaViewer({
+    chatId,
+    threadId,
+    messageId: id,
+    origin,
+  }, {
+    forceOnHeavyAnimation: true,
+  }), [chatId, openMediaViewer, origin, threadId]);
+
   useEffect(() => (isOpen ? captureEscKeyListener(() => {
-    if (isZoomed) {
-      closeZoom();
-    } else {
-      close();
-    }
-  }) : undefined), [close, isOpen, isZoomed]);
+    close();
+  }) : undefined), [close, isOpen]);
 
   useEffect(() => {
     if (isVideo && !isGif) {
@@ -344,168 +315,21 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
     };
   }, [isOpen]);
 
-  const getMessageId = useCallback((fromId: number, direction: number): number => {
-    let index = messageIds.indexOf(fromId);
+  const getMessageId = useCallback((fromId?: number, direction?: number): number | undefined => {
+    if (!fromId) return undefined;
+    const index = messageIds.indexOf(fromId);
     if ((direction === -1 && index > 0) || (direction === 1 && index < messageIds.length - 1)) {
-      index += direction;
+      return messageIds[index + direction];
     }
-
-    return messageIds[index];
+    return undefined;
   }, [messageIds]);
-
-  const selectPreviousMedia = useCallback(() => {
-    if (isFirst) {
-      return;
-    }
-
-    openMediaViewer({
-      chatId,
-      threadId,
-      messageId: messageId ? getMessageId(messageId, -1) : undefined,
-      origin,
-    });
-  }, [chatId, threadId, getMessageId, isFirst, messageId, openMediaViewer, origin]);
-
-  const selectNextMedia = useCallback(() => {
-    if (isLast) {
-      return;
-    }
-
-    openMediaViewer({
-      chatId,
-      threadId,
-      messageId: messageId ? getMessageId(messageId, 1) : undefined,
-      origin,
-    });
-  }, [chatId, threadId, getMessageId, isLast, messageId, openMediaViewer, origin]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'Left': // IE/Edge specific value
-        case 'ArrowLeft':
-          selectPreviousMedia();
-          break;
-
-        case 'Right': // IE/Edge specific value
-        case 'ArrowRight':
-          selectNextMedia();
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown, false);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown, false);
-    };
-  });
-
-  // Support for swipe gestures and closing on click
-  useEffect(() => {
-    const element = document.querySelector<HTMLDivElement>('.slide-container > .active, .slide-container > .to');
-    if (!element) {
-      return undefined;
-    }
-
-    const shouldCloseOnVideo = isGif && !IS_IOS;
-
-    return captureEvents(element, {
-      // eslint-disable-next-line max-len
-      excludedClosestSelector: `.backdrop, .navigation, .media-viewer-head, .media-viewer-footer${!shouldCloseOnVideo ? ', .VideoPlayer' : ''}`,
-      onClick: () => {
-        if (!isZoomed && !IS_TOUCH_ENV) {
-          close();
-        }
-      },
-      onSwipe: IS_TOUCH_ENV ? (e, direction) => {
-        if (direction === SwipeDirection.Right) {
-          selectPreviousMedia();
-        } else if (direction === SwipeDirection.Left) {
-          selectNextMedia();
-        } else if (!(e.target && (e.target as HTMLElement).closest('.MediaViewerFooter'))) {
-          close();
-        }
-
-        return true;
-      } : undefined,
-    });
-  }, [close, isFooterHidden, isGif, isPhoto, isZoomed, selectNextMedia, selectPreviousMedia]);
-
-  const handlePan = useCallback((x: number, y: number) => {
-    setPanDelta({ x, y });
-  }, []);
-
-  const handleToggleFooterVisibility = useCallback(() => {
-    if (IS_TOUCH_ENV && (isPhoto || isGif)) {
-      setIsFooterHidden(!isFooterHidden);
-    }
-  }, [isFooterHidden, isGif, isPhoto]);
 
   const lang = useLang();
 
-  useHistoryBack(isOpen, closeMediaViewer, openMediaViewer, {
-    chatId,
-    threadId,
-    messageId,
-    origin,
-    avatarOwnerId: avatarOwner && avatarOwner.id,
+  useHistoryBack({
+    isActive: isOpen,
+    onBack: closeMediaViewer,
   });
-
-  function renderSlide(isActive: boolean) {
-    if (isAvatar) {
-      return (
-        <div key={chatId} className="media-viewer-content">
-          {renderPhoto(
-            fullMediaBlobUrl || previewBlobUrl,
-            calculateMediaViewerDimensions(AVATAR_FULL_DIMENSIONS, false),
-            !IS_SINGLE_COLUMN_LAYOUT && !isZoomed,
-          )}
-        </div>
-      );
-    } else if (message) {
-      const textParts = renderMessageText(message);
-      const hasFooter = Boolean(textParts);
-
-      return (
-        <div
-          key={messageId}
-          className={`media-viewer-content ${hasFooter ? 'has-footer' : ''}`}
-          onClick={handleToggleFooterVisibility}
-        >
-          {isPhoto && renderPhoto(
-            localBlobUrl || fullMediaBlobUrl || previewBlobUrl || pictogramBlobUrl,
-            message && calculateMediaViewerDimensions(dimensions!, hasFooter),
-            !IS_SINGLE_COLUMN_LAYOUT && !isZoomed,
-          )}
-          {isVideo && (
-            <VideoPlayer
-              key={messageId}
-              url={localBlobUrl || fullMediaBlobUrl}
-              isGif={isGif}
-              posterData={bestImageData}
-              posterSize={message && calculateMediaViewerDimensions(dimensions!, hasFooter, true)}
-              loadProgress={loadProgress}
-              fileSize={videoSize!}
-              isMediaViewerOpen={isOpen}
-              noPlay={!isActive}
-              onClose={close}
-            />
-          )}
-          {textParts && (
-            <MediaViewerFooter
-              text={textParts}
-              onClick={handleFooterClick}
-              isHidden={isFooterHidden && (!isVideo || isGif)}
-              isForVideo={isVideo && !isGif}
-            />
-          )}
-        </div>
-      );
-    }
-
-    return undefined;
-  }
 
   function renderSenderInfo() {
     return isAvatar ? (
@@ -524,115 +348,83 @@ const MediaViewer: FC<StateProps & DispatchProps> = ({
   }
 
   return (
-    <ShowTransition
-      id="MediaViewer"
-      className={isZoomed ? 'zoomed' : ''}
-      isOpen={isOpen}
-    >
-      {() => (
-        <>
-          <div className="media-viewer-head" dir={lang.isRtl ? 'rtl' : undefined}>
-            {IS_SINGLE_COLUMN_LAYOUT && (
-              <Button
-                className="media-viewer-close"
-                round
-                size="smaller"
-                color="translucent-white"
-                ariaLabel={lang('Close')}
-                onClick={close}
-              >
-                <i className="icon-close" />
-              </Button>
-            )}
-            <Transition activeKey={animationKey.current!} name={headerAnimation}>
-              {renderSenderInfo}
-            </Transition>
-            <MediaViewerActions
-              mediaData={fullMediaBlobUrl || previewBlobUrl}
-              isVideo={isVideo}
-              isZoomed={isZoomed}
-              message={message}
-              fileName={fileName}
-              onCloseMediaViewer={close}
-              onForward={handleForward}
-              onZoomToggle={handleZoomToggle}
-              isAvatar={isAvatar}
-            />
-          </div>
-          <PanZoom
-            noWrap={!canPanZoomWrap}
-            canPan={isZoomed}
-            panDeltaX={panDelta.x}
-            panDeltaY={panDelta.y}
-            zoomLevel={zoomLevel}
-            onPan={handlePan}
+    <ShowTransition id="MediaViewer" isOpen={isOpen}>
+      <div className="media-viewer-head" dir={lang.isRtl ? 'rtl' : undefined}>
+        {IS_SINGLE_COLUMN_LAYOUT && (
+          <Button
+            className="media-viewer-close"
+            round
+            size="smaller"
+            color="translucent-white"
+            ariaLabel={lang('Close')}
+            onClick={close}
           >
-            <Transition
-              className="slide-container"
-              activeKey={selectedMediaMessageIndex}
-              name={slideAnimation}
-            >
-              {renderSlide}
-            </Transition>
-          </PanZoom>
-          {!isFirst && (
-            <button
-              type="button"
-              className={`navigation prev ${isVideo && !isGif && 'inline'}`}
-              aria-label={lang('AccDescrPrevious')}
-              dir={lang.isRtl ? 'rtl' : undefined}
-              onClick={selectPreviousMedia}
-            />
-          )}
-          {!isLast && (
-            <button
-              type="button"
-              className={`navigation next ${isVideo && !isGif && 'inline'}`}
-              aria-label={lang('Next')}
-              dir={lang.isRtl ? 'rtl' : undefined}
-              onClick={selectNextMedia}
-            />
-          )}
-          <ZoomControls
-            isShown={isZoomed}
-            onChangeZoom={handleZoomValue}
-          />
-        </>
-      )}
+            <i className="icon-close" />
+          </Button>
+        )}
+        <Transition activeKey={animationKey.current!} name={headerAnimation}>
+          {renderSenderInfo()}
+        </Transition>
+        <MediaViewerActions
+          mediaData={fullMediaBlobUrl || previewBlobUrl}
+          isVideo={isVideo}
+          message={message}
+          fileName={fileName}
+          canReport={canReport}
+          onReport={openReportModal}
+          onCloseMediaViewer={close}
+          onForward={handleForward}
+          zoomLevelChange={zoomLevelChange}
+          setZoomLevelChange={setZoomLevelChange}
+          isAvatar={isAvatar}
+        />
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={closeReportModal}
+          subject="media"
+          photo={avatarPhoto}
+          chatId={avatarOwner?.id}
+        />
+      </div>
+      <MediaViewerSlides
+        messageId={messageId}
+        getMessageId={getMessageId}
+        chatId={chatId}
+        isPhoto={isPhoto}
+        isGif={isGif}
+        threadId={threadId}
+        avatarOwnerId={avatarOwner && avatarOwner.id}
+        profilePhotoIndex={profilePhotoIndex}
+        origin={origin}
+        isOpen={isOpen}
+        hasFooter={hasFooter}
+        zoomLevelChange={zoomLevelChange}
+        isActive
+        isVideo={isVideo}
+        animationLevel={animationLevel}
+        onClose={close}
+        selectMessage={selectMessage}
+        onFooterClick={handleFooterClick}
+      />
     </ShowTransition>
   );
 };
 
-function renderPhoto(blobUrl?: string, imageSize?: ApiDimensions, canDrag?: boolean) {
-  return blobUrl
-    ? (
-      <img
-        src={blobUrl}
-        alt=""
-        // @ts-ignore teact feature
-        style={imageSize ? `width: ${imageSize.width}px` : ''}
-        draggable={Boolean(canDrag)}
-      />
-    )
-    : (
-      <div
-        className="spinner-wrapper"
-        // @ts-ignore teact feature
-        style={imageSize ? `width: ${imageSize.width}px` : ''}
-      >
-        <Spinner color="white" />
-      </div>
-    );
-}
-
 export default memo(withGlobal(
   (global): StateProps => {
     const {
-      chatId, threadId, messageId, avatarOwnerId, profilePhotoIndex, origin,
+      chatId,
+      threadId,
+      messageId,
+      avatarOwnerId,
+      profilePhotoIndex,
+      origin,
     } = global.mediaViewer;
     const {
       animationLevel,
     } = global.settings.byKey;
+
+    let isChatWithSelf = !!chatId && selectIsChatWithSelf(global, chatId);
 
     if (origin === MediaViewerOrigin.SearchResult) {
       if (!(chatId && messageId)) {
@@ -648,6 +440,7 @@ export default memo(withGlobal(
         chatId,
         messageId,
         senderId: message.senderId,
+        isChatWithSelf,
         origin,
         message,
         animationLevel,
@@ -656,11 +449,13 @@ export default memo(withGlobal(
 
     if (avatarOwnerId) {
       const sender = selectUser(global, avatarOwnerId) || selectChat(global, avatarOwnerId);
+      isChatWithSelf = selectIsChatWithSelf(global, avatarOwnerId);
 
       return {
         messageId: -1,
         senderId: avatarOwnerId,
         avatarOwner: sender,
+        isChatWithSelf,
         profilePhotoIndex: profilePhotoIndex || 0,
         animationLevel,
         origin,
@@ -704,6 +499,7 @@ export default memo(withGlobal(
       threadId,
       messageId,
       senderId: message.senderId,
+      isChatWithSelf,
       origin,
       message,
       chatMessages,
@@ -711,7 +507,4 @@ export default memo(withGlobal(
       animationLevel,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openMediaViewer', 'closeMediaViewer', 'openForwardMenu', 'focusMessage',
-  ]),
 )(MediaViewer));

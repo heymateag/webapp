@@ -1,15 +1,14 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC, useEffect, memo, useMemo, useCallback,
+  useEffect, memo, useMemo, useCallback,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { ApiStickerSet } from '../../api/types';
-import { GlobalActions } from '../../global/types';
-import { ObserveFn } from '../../hooks/useIntersectionObserver';
+import type { ApiStickerSet } from '../../api/types';
+import type { ObserveFn } from '../../hooks/useIntersectionObserver';
 
 import { STICKER_SIZE_SEARCH } from '../../config';
-import { pick } from '../../util/iteratees';
-import { selectShouldLoopStickers, selectStickerSet } from '../../modules/selectors';
+import { selectShouldLoopStickers, selectStickerSet } from '../../global/selectors';
 import useFlag from '../../hooks/useFlag';
 import useOnChange from '../../hooks/useOnChange';
 import useLang from '../../hooks/useLang';
@@ -31,14 +30,14 @@ type StateProps = {
   shouldPlay?: boolean;
 };
 
-type DispatchProps = Pick<GlobalActions, 'loadStickers' | 'toggleStickerSet'>;
-
 const STICKERS_TO_DISPLAY = 5;
 
-const StickerSetResult: FC<OwnProps & StateProps & DispatchProps> = ({
+const StickerSetResult: FC<OwnProps & StateProps> = ({
   stickerSetId, observeIntersection, set, shouldPlay,
-  loadStickers, toggleStickerSet, isSomeModalOpen, onModalToggle,
+  isSomeModalOpen, onModalToggle,
 }) => {
+  const { loadStickers, toggleStickerSet } = getActions();
+
   const lang = useLang();
   const isAdded = set && Boolean(set.installedDate);
   const areStickersLoaded = Boolean(set?.stickers);
@@ -103,7 +102,9 @@ const StickerSetResult: FC<OwnProps & StateProps & DispatchProps> = ({
             size={STICKER_SIZE_SEARCH}
             observeIntersection={observeIntersection}
             noAnimate={!shouldPlay || isModalOpen || isSomeModalOpen}
+            clickArg={undefined}
             onClick={openModal}
+            noContextMenu
           />
         ))}
       </div>
@@ -125,5 +126,4 @@ export default memo(withGlobal<OwnProps>(
       shouldPlay: selectShouldLoopStickers(global),
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, ['loadStickers', 'toggleStickerSet']),
 )(StickerSetResult));

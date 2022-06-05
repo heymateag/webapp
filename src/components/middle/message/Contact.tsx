@@ -1,17 +1,16 @@
-import React, { FC, useCallback } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import type { FC } from '../../../lib/teact/teact';
+import React, { useCallback } from '../../../lib/teact/teact';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { ApiUser, ApiContact, ApiCountryCode } from '../../../api/types';
+import type { ApiUser, ApiContact, ApiCountryCode } from '../../../api/types';
 
-import { selectUser } from '../../../modules/selectors';
+import { selectUser } from '../../../global/selectors';
 import { formatPhoneNumberWithCode } from '../../../util/phoneNumber';
+import buildClassName from '../../../util/buildClassName';
 
 import Avatar from '../../common/Avatar';
 
 import './Contact.scss';
-import { pick } from '../../../util/iteratees';
-import buildClassName from '../../../util/buildClassName';
 
 type OwnProps = {
   contact: ApiContact;
@@ -22,26 +21,29 @@ type StateProps = {
   phoneCodeList: ApiCountryCode[];
 };
 
-type DispatchProps = Pick<GlobalActions, 'openUserInfo'>;
+const UNREGISTERED_CONTACT_ID = '0';
 
-const Contact: FC<OwnProps & StateProps & DispatchProps> = ({
-  contact, user, openUserInfo, phoneCodeList,
+const Contact: FC<OwnProps & StateProps> = ({
+  contact, user, phoneCodeList,
 }) => {
+  const { openChat } = getActions();
+
   const {
     firstName,
     lastName,
     phoneNumber,
     userId,
   } = contact;
+  const isRegistered = userId !== UNREGISTERED_CONTACT_ID;
 
   const handleClick = useCallback(() => {
-    openUserInfo({ id: userId });
-  }, [openUserInfo, userId]);
+    openChat({ id: userId });
+  }, [openChat, userId]);
 
   return (
     <div
-      className={buildClassName('Contact', Boolean(userId) && 'interactive')}
-      onClick={userId ? handleClick : undefined}
+      className={buildClassName('Contact', isRegistered && 'interactive')}
+      onClick={isRegistered ? handleClick : undefined}
     >
       <Avatar size="large" user={user} text={firstName || lastName} />
       <div className="contact-info">
@@ -60,7 +62,4 @@ export default withGlobal<OwnProps>(
       phoneCodeList,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'openUserInfo',
-  ]),
 )(Contact);

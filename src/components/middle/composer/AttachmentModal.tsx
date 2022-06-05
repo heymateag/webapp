@@ -1,22 +1,27 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useEffect, useRef,
+  memo, useCallback, useEffect, useRef,
 } from '../../../lib/teact/teact';
 
-import { ApiAttachment, ApiChatMember, ApiUser } from '../../../api/types';
+import type { ApiAttachment, ApiChatMember } from '../../../api/types';
 
 import {
   CONTENT_TYPES_WITH_PREVIEW,
   EDITABLE_INPUT_MODAL_ID,
+  SUPPORTED_AUDIO_CONTENT_TYPES,
   SUPPORTED_IMAGE_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
 import { getFileExtension } from '../../common/helpers/documentInfo';
 import captureEscKeyListener from '../../../util/captureEscKeyListener';
+
 import usePrevious from '../../../hooks/usePrevious';
 import useMentionTooltip from './hooks/useMentionTooltip';
 import useEmojiTooltip from './hooks/useEmojiTooltip';
 import useLang from '../../../hooks/useLang';
 import useFlag from '../../../hooks/useFlag';
+import useContextMenuHandlers from '../../../hooks/useContextMenuHandlers';
+import { useStateRef } from '../../../hooks/useStateRef';
 
 import Button from '../../ui/Button';
 import Modal from '../../ui/Modal';
@@ -24,46 +29,61 @@ import File from '../../common/File';
 import MessageInput from './MessageInput';
 import MentionTooltip from './MentionTooltip';
 import EmojiTooltip from './EmojiTooltip.async';
+import CustomSendMenu from './CustomSendMenu.async';
 
 import './AttachmentModal.scss';
 
 export type OwnProps = {
+  chatId: string;
+  threadId: number;
   attachments: ApiAttachment[];
   caption: string;
+  canShowCustomSendMenu?: boolean;
   isReady?: boolean;
+  isChatWithSelf?: boolean;
   currentUserId?: string;
   groupChatMembers?: ApiChatMember[];
-  usersById?: Record<string, ApiUser>;
   recentEmojis: string[];
   baseEmojiKeywords?: Record<string, string[]>;
   emojiKeywords?: Record<string, string[]>;
+  shouldSchedule?: boolean;
   addRecentEmoji: AnyToVoidFunction;
   onCaptionUpdate: (html: string) => void;
   onSend: () => void;
   onFileAppend: (files: File[], isQuick: boolean) => void;
   onClear: () => void;
+  onSendSilent: () => void;
+  onSendScheduled: () => void;
 };
 
 const DROP_LEAVE_TIMEOUT_MS = 150;
 
 const AttachmentModal: FC<OwnProps> = ({
+  chatId,
+  threadId,
   attachments,
   caption,
+  canShowCustomSendMenu,
   isReady,
+  isChatWithSelf,
   currentUserId,
   groupChatMembers,
-  usersById,
   recentEmojis,
   baseEmojiKeywords,
   emojiKeywords,
+  shouldSchedule,
   addRecentEmoji,
   onCaptionUpdate,
   onSend,
   onFileAppend,
   onClear,
+  onSendSilent,
+  onSendScheduled,
 }) => {
+  const captionRef = useStateRef(caption);
   // eslint-disable-next-line no-null/no-null
-  const hideTimeoutRef = useRef<number>(null);
+  const mainButtonRef = useStateRef<HTMLButtonElement | null>(null);
+  const hideTimeoutRef = useRef<number>();
   const prevAttachments = usePrevious(attachments);
   const renderingAttachments = attachments.length ? attachments : prevAttachments;
   const isOpen = Boolean(attachments.length);
@@ -75,19 +95,18 @@ const AttachmentModal: FC<OwnProps> = ({
     isMentionTooltipOpen, closeMentionTooltip, insertMention, mentionFilteredUsers,
   } = useMentionTooltip(
     isOpen,
-    caption,
+    captionRef,
     onCaptionUpdate,
     EDITABLE_INPUT_MODAL_ID,
     groupChatMembers,
     undefined,
     currentUserId,
-    usersById,
   );
   const {
     isEmojiTooltipOpen, closeEmojiTooltip, filteredEmojis, insertEmoji,
   } = useEmojiTooltip(
     isOpen,
-    caption,
+    captionRef,
     recentEmojis,
     EDITABLE_INPUT_MODAL_ID,
     onCaptionUpdate,
@@ -98,11 +117,22 @@ const AttachmentModal: FC<OwnProps> = ({
 
   useEffect(() => (isOpen ? captureEscKeyListener(onClear) : undefined), [isOpen, onClear]);
 
+  const {
+    isContextMenuOpen: isCustomSendMenuOpen,
+    handleContextMenu,
+    handleContextMenuClose,
+    handleContextMenuHide,
+  } = useContextMenuHandlers(mainButtonRef, !canShowCustomSendMenu || !isOpen);
+
   const sendAttachments = useCallback(() => {
     if (isOpen) {
-      onSend();
+      if (shouldSchedule) {
+        onSendScheduled();
+      } else {
+        onSend();
+      }
     }
-  }, [isOpen, onSend]);
+  }, [isOpen, onSendScheduled, onSend, shouldSchedule]);
 
   const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
     const { relatedTarget: toTarget, target: fromTarget } = e;
@@ -147,6 +177,7 @@ const AttachmentModal: FC<OwnProps> = ({
 
     if (hideTimeoutRef.current) {
       window.clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = undefined;
     }
   }
 
@@ -156,7 +187,7 @@ const AttachmentModal: FC<OwnProps> = ({
 
   const areAllPhotos = renderingAttachments.every((a) => SUPPORTED_IMAGE_CONTENT_TYPES.has(a.mimeType));
   const areAllVideos = renderingAttachments.every((a) => SUPPORTED_VIDEO_CONTENT_TYPES.has(a.mimeType));
-  const areAllAudios = renderingAttachments.every((a) => a.mimeType.startsWith('audio/'));
+  const areAllAudios = renderingAttachments.every((a) => SUPPORTED_AUDIO_CONTENT_TYPES.has(a.mimeType));
 
   let title = '';
   if (areAllPhotos) {
@@ -180,14 +211,29 @@ const AttachmentModal: FC<OwnProps> = ({
           <i className="icon-close" />
         </Button>
         <div className="modal-title">{title}</div>
-        <Button
-          color="primary"
-          size="smaller"
-          className="modal-action-button"
-          onClick={sendAttachments}
-        >
-          {lang('Send')}
-        </Button>
+        <div className="AttachmentModal--send-wrapper">
+          <Button
+            ref={mainButtonRef}
+            color="primary"
+            size="smaller"
+            className="modal-action-button"
+            onClick={sendAttachments}
+            onContextMenu={canShowCustomSendMenu ? handleContextMenu : undefined}
+          >
+            {lang('Send')}
+          </Button>
+          {canShowCustomSendMenu && (
+            <CustomSendMenu
+              isOpen={isCustomSendMenuOpen}
+              isOpenToBottom
+              onSendSilent={!isChatWithSelf ? onSendSilent : undefined}
+              onSendSchedule={onSendScheduled}
+              onClose={handleContextMenuClose}
+              onCloseAnimationEnd={handleContextMenuHide}
+              isSavedMessages={isChatWithSelf}
+            />
+          )}
+        </div>
       </div>
     );
   }
@@ -235,7 +281,6 @@ const AttachmentModal: FC<OwnProps> = ({
             onClose={closeMentionTooltip}
             onInsertUserName={insertMention}
             filteredUsers={mentionFilteredUsers}
-            usersById={usersById}
           />
           <EmojiTooltip
             isOpen={isEmojiTooltipOpen}
@@ -246,13 +291,15 @@ const AttachmentModal: FC<OwnProps> = ({
           />
           <MessageInput
             id="caption-input-text"
+            chatId={chatId}
+            threadId={threadId}
             isAttachmentModalInput
             html={caption}
             editableInputId={EDITABLE_INPUT_MODAL_ID}
             placeholder={lang('Caption')}
             onUpdate={onCaptionUpdate}
-            onSend={onSend}
-            shouldSetFocus={Boolean(attachments.length)}
+            onSend={sendAttachments}
+            canAutoFocus={Boolean(isReady && attachments.length)}
           />
         </div>
       </div>

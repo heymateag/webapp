@@ -1,37 +1,53 @@
-import React, {
-  FC, FC_withDebug, Props, useEffect, useState,
-} from './teact';
+import type { FC, FC_withDebug, Props } from './teact';
+import React, { useEffect, useState } from './teact';
 
 import { DEBUG, DEBUG_MORE } from '../../config';
 import useForceUpdate from '../../hooks/useForceUpdate';
 import generateIdFor from '../../util/generateIdFor';
-import { throttleWithRaf } from '../../util/schedulers';
+import { fastRaf, throttleWithTickEnd } from '../../util/schedulers';
 import arePropsShallowEqual, { getUnequalProps } from '../../util/arePropsShallowEqual';
 import { orderBy } from '../../util/iteratees';
-import { GlobalState, GlobalActions, ActionTypes } from '../../global/types';
 import { handleError } from '../../util/handleError';
+import { isHeavyAnimating } from '../../hooks/useHeavyAnimationCheck';
 
 export default React;
 
-type ActionPayload = AnyLiteral;
+type GlobalState =
+  AnyLiteral
+  & { DEBUG_capturedId?: number };
+type ActionNames = string;
+type ActionPayload = any;
 
-type Reducer = (
+interface ActionOptions {
+  forceOnHeavyAnimation?: boolean;
+  // Workaround for iOS gesture history navigation
+  forceSyncOnIOs?: boolean;
+}
+
+type Actions = Record<ActionNames, (payload?: ActionPayload, options?: ActionOptions) => void>;
+
+type ActionHandler = (
   global: GlobalState,
-  actions: GlobalActions,
+  actions: Actions,
   payload: any,
-) => GlobalState | void;
+) => GlobalState | void | Promise<void>;
 
-type MapStateToProps<OwnProps = undefined> = ((global: GlobalState, ownProps: OwnProps) => AnyLiteral | null);
-type MapActionsToProps = ((setGlobal: Function, actions: GlobalActions) => Partial<GlobalActions> | null);
+type MapStateToProps<OwnProps = undefined> = ((global: GlobalState, ownProps: OwnProps) => AnyLiteral);
 
 let currentGlobal = {} as GlobalState;
 
-const reducers: Record<string, Reducer[]> = {};
+// eslint-disable-next-line @typescript-eslint/naming-convention
+let DEBUG_currentCapturedId: number | undefined;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const DEBUG_releaseCapturedIdThrottled = throttleWithTickEnd(() => {
+  DEBUG_currentCapturedId = undefined;
+});
+
+const actionHandlers: Record<string, ActionHandler[]> = {};
 const callbacks: Function[] = [updateContainers];
-const actions = {} as GlobalActions;
+const actions = {} as Actions;
 const containers = new Map<string, {
   mapStateToProps: MapStateToProps<any>;
-  mapReducersToProps: MapActionsToProps;
   ownProps: Props;
   mappedProps?: Props;
   forceUpdate: Function;
@@ -40,40 +56,76 @@ const containers = new Map<string, {
   DEBUG_componentName: string;
 }>();
 
-function runCallbacks() {
+const runCallbacksThrottled = throttleWithTickEnd(runCallbacks);
+
+function runCallbacks(forceOnHeavyAnimation = false) {
+  if (!forceOnHeavyAnimation && isHeavyAnimating()) {
+    fastRaf(runCallbacksThrottled);
+    return;
+  }
+
   callbacks.forEach((cb) => cb(currentGlobal));
 }
 
-const runCallbacksThrottled = throttleWithRaf(runCallbacks);
-
-// `noThrottle = true` is used as a workaround for iOS gesture history navigation
-export function setGlobal(newGlobal?: GlobalState, noThrottle = false) {
+export function setGlobal(newGlobal?: GlobalState, options?: ActionOptions) {
   if (typeof newGlobal === 'object' && newGlobal !== currentGlobal) {
+    if (DEBUG) {
+      if (newGlobal.DEBUG_capturedId && newGlobal.DEBUG_capturedId !== DEBUG_currentCapturedId) {
+        throw new Error('[TeactN.setGlobal] Attempt to set an outdated global');
+      }
+
+      DEBUG_currentCapturedId = undefined;
+    }
+
     currentGlobal = newGlobal;
-    if (!noThrottle) {
-      runCallbacksThrottled();
+    if (options?.forceSyncOnIOs) {
+      runCallbacks(true);
     } else {
-      runCallbacks();
+      runCallbacksThrottled(options?.forceOnHeavyAnimation);
     }
   }
 }
 
 export function getGlobal() {
+  if (DEBUG) {
+    DEBUG_currentCapturedId = Math.random();
+    currentGlobal = {
+      ...currentGlobal,
+      DEBUG_capturedId: DEBUG_currentCapturedId,
+    };
+    DEBUG_releaseCapturedIdThrottled();
+  }
+
   return currentGlobal;
 }
 
-export function getDispatch() {
+export function getActions() {
   return actions;
 }
 
-function onDispatch(name: string, payload?: ActionPayload, noThrottle?: boolean) {
-  if (reducers[name]) {
-    reducers[name].forEach((reducer) => {
-      const newGlobal = reducer(currentGlobal, actions, payload);
-      if (newGlobal) {
-        setGlobal(newGlobal, noThrottle);
+let actionQueue: NoneToVoidFunction[] = [];
+
+function handleAction(name: string, payload?: ActionPayload, options?: ActionOptions) {
+  actionQueue.push(() => {
+    actionHandlers[name]?.forEach((handler) => {
+      const response = handler(DEBUG ? getGlobal() : currentGlobal, actions, payload);
+      if (!response || typeof response.then === 'function') {
+        return;
       }
+
+      setGlobal(response as GlobalState, options);
     });
+  });
+
+  if (actionQueue.length === 1) {
+    try {
+      while (actionQueue.length) {
+        actionQueue[0]();
+        actionQueue.shift();
+      }
+    } finally {
+      actionQueue = [];
+    }
   }
 }
 
@@ -87,17 +139,14 @@ function updateContainers() {
   // eslint-disable-next-line no-restricted-syntax
   for (const container of containers.values()) {
     const {
-      mapStateToProps, mapReducersToProps, ownProps, mappedProps, forceUpdate,
+      mapStateToProps, ownProps, mappedProps, forceUpdate,
     } = container;
 
     let newMappedProps;
 
     try {
-      newMappedProps = {
-        ...mapStateToProps(currentGlobal, ownProps),
-        ...mapReducersToProps(setGlobal, actions),
-      };
-    } catch (err) {
+      newMappedProps = mapStateToProps(currentGlobal, ownProps);
+    } catch (err: any) {
       handleError(err);
 
       return;
@@ -141,16 +190,16 @@ function updateContainers() {
   }
 }
 
-export function addReducer(name: ActionTypes, reducer: Reducer) {
-  if (!reducers[name]) {
-    reducers[name] = [];
+export function addActionHandler(name: ActionNames, handler: ActionHandler) {
+  if (!actionHandlers[name]) {
+    actionHandlers[name] = [];
 
-    actions[name] = (payload?: ActionPayload, noThrottle = false) => {
-      onDispatch(name, payload, noThrottle);
+    actions[name] = (payload?: ActionPayload, options?: ActionOptions) => {
+      handleAction(name, payload, options);
     };
   }
 
-  reducers[name].push(reducer);
+  actionHandlers[name].push(handler);
 }
 
 export function addCallback(cb: Function) {
@@ -166,7 +215,6 @@ export function removeCallback(cb: Function) {
 
 export function withGlobal<OwnProps>(
   mapStateToProps: MapStateToProps<OwnProps> = () => ({}),
-  mapReducersToProps: MapActionsToProps = () => ({}),
 ) {
   return (Component: FC) => {
     return function TeactNContainer(props: OwnProps) {
@@ -185,7 +233,6 @@ export function withGlobal<OwnProps>(
       if (!container) {
         container = {
           mapStateToProps,
-          mapReducersToProps,
           ownProps: props,
           areMappedPropsChanged: false,
           forceUpdate,
@@ -204,11 +251,8 @@ export function withGlobal<OwnProps>(
         container.ownProps = props;
 
         try {
-          container.mappedProps = {
-            ...mapStateToProps(currentGlobal, props),
-            ...mapReducersToProps(setGlobal, actions),
-          };
-        } catch (err) {
+          container.mappedProps = mapStateToProps(currentGlobal, props);
+        } catch (err: any) {
           handleError(err);
         }
       }
@@ -219,12 +263,52 @@ export function withGlobal<OwnProps>(
   };
 }
 
+export function typify<ProjectGlobalState, ActionPayloads, NonTypedActionNames extends string = never>() {
+  type NonTypedActionPayloads = {
+    [ActionName in NonTypedActionNames]: ActionPayload;
+  };
+
+  type ProjectActionTypes =
+    ActionPayloads
+    & NonTypedActionPayloads;
+
+  type ProjectActionNames = keyof ProjectActionTypes;
+
+  type ProjectActions = {
+    [ActionName in ProjectActionNames]: (
+      payload?: ProjectActionTypes[ActionName],
+      options?: ActionOptions,
+    ) => void;
+  };
+
+  type ActionHandlers = {
+    [ActionName in keyof ProjectActionTypes]: (
+      global: ProjectGlobalState,
+      actions: ProjectActions,
+      payload: ProjectActionTypes[ActionName],
+    ) => ProjectGlobalState | void | Promise<void>;
+  };
+
+  return {
+    getGlobal: getGlobal as () => ProjectGlobalState,
+    setGlobal: setGlobal as (state: ProjectGlobalState, options?: ActionOptions) => void,
+    getActions: getActions as () => ProjectActions,
+    addActionHandler: addActionHandler as <ActionName extends ProjectActionNames>(
+      name: ActionName,
+      handler: ActionHandlers[ActionName],
+    ) => void,
+    withGlobal: withGlobal as <OwnProps>(
+      mapStateToProps: ((global: ProjectGlobalState, ownProps: OwnProps) => AnyLiteral),
+    ) => (Component: FC) => FC<OwnProps>,
+  };
+}
+
 if (DEBUG) {
   (window as any).getGlobal = getGlobal;
 
   document.addEventListener('dblclick', () => {
     // eslint-disable-next-line no-console
-    console.log(
+    console.warn(
       'GLOBAL CONTAINERS',
       orderBy(
         Array.from(containers.values())

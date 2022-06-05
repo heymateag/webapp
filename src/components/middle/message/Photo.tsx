@@ -1,19 +1,22 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, useCallback, useLayoutEffect, useRef, useState,
+  useCallback, useLayoutEffect, useRef, useState,
 } from '../../../lib/teact/teact';
 
-import { ApiMessage } from '../../../api/types';
-import { ISettings } from '../../../types';
-import { IMediaDimensions } from './helpers/calculateAlbumLayout';
+import type { ApiMessage } from '../../../api/types';
+import type { ISettings } from '../../../types';
+import type { IMediaDimensions } from './helpers/calculateAlbumLayout';
 
+import { CUSTOM_APPENDIX_ATTRIBUTE } from '../../../config';
 import {
   getMessagePhoto,
   getMessageWebPagePhoto,
   getMessageMediaHash,
   getMediaTransferState,
   isOwnMessage,
-} from '../../../modules/helpers';
-import { ObserveFn, useIsIntersecting } from '../../../hooks/useIntersectionObserver';
+} from '../../../global/helpers';
+import type { ObserveFn } from '../../../hooks/useIntersectionObserver';
+import { useIsIntersecting } from '../../../hooks/useIntersectionObserver';
 import useMediaWithLoadProgress from '../../../hooks/useMediaWithLoadProgress';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useBlurredMediaThumbRef from './hooks/useBlurredMediaThumbRef';
@@ -39,12 +42,12 @@ export type OwnProps = {
   dimensions?: IMediaDimensions & { isSmall?: boolean };
   nonInteractive?: boolean;
   isDownloading: boolean;
+  isProtected?: boolean;
+  withAspectRatio?: boolean;
   theme: ISettings['theme'];
   onClick?: (id: number) => void;
   onCancelUpload?: (message: ApiMessage) => void;
 };
-
-const CUSTOM_APPENDIX_ATTRIBUTE = 'data-has-custom-appendix';
 
 const Photo: FC<OwnProps> = ({
   id,
@@ -60,6 +63,8 @@ const Photo: FC<OwnProps> = ({
   nonInteractive,
   shouldAffectAppendix,
   isDownloading,
+  isProtected,
+  withAspectRatio,
   theme,
   onClick,
   onCancelUpload,
@@ -142,8 +147,9 @@ const Photo: FC<OwnProps> = ({
     width === height && 'square-image',
   );
 
+  const aspectRatio = withAspectRatio ? `aspect-ratio: ${(width / height).toFixed(3)}/ 1` : '';
   const style = dimensions
-    ? `width: ${width}px; height: ${height}px; left: ${dimensions.x}px; top: ${dimensions.y}px;`
+    ? `width: ${width}px; height: ${height}px; left: ${dimensions.x}px; top: ${dimensions.y}px;${aspectRatio}`
     : '';
 
   return (
@@ -151,15 +157,13 @@ const Photo: FC<OwnProps> = ({
       id={id}
       ref={ref}
       className={className}
-      // @ts-ignore teact feature
       style={style}
       onClick={isUploading ? undefined : handleClick}
     >
       <canvas
         ref={thumbRef}
         className="thumbnail"
-        // @ts-ignore teact feature
-        style={`width: ${width}px; height: ${height}px`}
+        style={`width: ${width}px; height: ${height}px;${aspectRatio}`}
       />
       <img
         src={fullMediaData}
@@ -167,7 +171,9 @@ const Photo: FC<OwnProps> = ({
         width={width}
         height={height}
         alt=""
+        draggable={!isProtected}
       />
+      {isProtected && <span className="protector" />}
       {shouldRenderSpinner && !shouldRenderDownloadButton && (
         <div className={`media-loading ${spinnerClassNames}`}>
           <ProgressSpinner progress={transferProgress} onClick={isUploading ? handleClick : undefined} />

@@ -1,20 +1,18 @@
+import type { FC } from '../../lib/teact/teact';
 import React, {
-  FC,
   memo,
   useCallback,
   useMemo,
 } from '../../lib/teact/teact';
-import { withGlobal } from '../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../global';
 
-import { GlobalActions } from '../../global/types';
-import { ApiMessage } from '../../api/types';
+import type { ApiMessage } from '../../api/types';
 
 import { IS_SINGLE_COLUMN_LAYOUT } from '../../util/environment';
-import { getMessageMediaHash } from '../../modules/helpers';
+import { getMessageMediaHash } from '../../global/helpers';
 import useLang from '../../hooks/useLang';
 import useMediaWithLoadProgress from '../../hooks/useMediaWithLoadProgress';
-import { selectIsDownloading } from '../../modules/selectors';
-import { pick } from '../../util/iteratees';
+import { selectIsDownloading, selectIsMessageProtected } from '../../global/selectors';
 
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
@@ -25,36 +23,43 @@ import './MediaViewerActions.scss';
 
 type StateProps = {
   isDownloading: boolean;
+  isProtected?: boolean;
 };
 
 type OwnProps = {
   mediaData?: string;
   isVideo: boolean;
-  isZoomed: boolean;
+  zoomLevelChange: number;
   message?: ApiMessage;
   fileName?: string;
   isAvatar?: boolean;
+  canReport?: boolean;
+  onReport: NoneToVoidFunction;
   onCloseMediaViewer: NoneToVoidFunction;
   onForward: NoneToVoidFunction;
-  onZoomToggle: NoneToVoidFunction;
+  setZoomLevelChange: (change: number) => void;
 };
 
-type DispatchProps = Pick<GlobalActions, 'downloadMessageMedia' | 'cancelMessageMediaDownload'>;
-
-const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
+const MediaViewerActions: FC<OwnProps & StateProps> = ({
   mediaData,
   isVideo,
-  isZoomed,
   message,
   fileName,
   isAvatar,
   isDownloading,
+  isProtected,
+  canReport,
+  onReport,
   onCloseMediaViewer,
+  zoomLevelChange,
+  setZoomLevelChange,
   onForward,
-  onZoomToggle,
-  downloadMessageMedia,
-  cancelMessageMediaDownload,
 }) => {
+  const {
+    downloadMessageMedia,
+    cancelMessageMediaDownload,
+  } = getActions();
+
   const { loadProgress: downloadProgress } = useMediaWithLoadProgress(
     message && getMessageMediaHash(message, 'download'),
     !isDownloading,
@@ -62,11 +67,21 @@ const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const handleDownloadClick = useCallback(() => {
     if (isDownloading) {
-      cancelMessageMediaDownload({ message });
+      cancelMessageMediaDownload({ message: message! });
     } else {
-      downloadMessageMedia({ message });
+      downloadMessageMedia({ message: message! });
     }
   }, [cancelMessageMediaDownload, downloadMessageMedia, isDownloading, message]);
+
+  const handleZoomOut = useCallback(() => {
+    const change = zoomLevelChange < 0 ? zoomLevelChange : 0;
+    setZoomLevelChange(change - 1);
+  }, [setZoomLevelChange, zoomLevelChange]);
+
+  const handleZoomIn = useCallback(() => {
+    const change = zoomLevelChange > 0 ? zoomLevelChange : 0;
+    setZoomLevelChange(change + 1);
+  }, [setZoomLevelChange, zoomLevelChange]);
 
   const lang = useLang();
 
@@ -85,7 +100,44 @@ const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
     );
   }, []);
 
+  function renderDownloadButton() {
+    if (isProtected) {
+      return undefined;
+    }
+
+    return isVideo ? (
+      <Button
+        round
+        size="smaller"
+        color="translucent-white"
+        ariaLabel={lang('AccActionDownload')}
+        onClick={handleDownloadClick}
+      >
+        {isDownloading ? (
+          <ProgressSpinner progress={downloadProgress} size="s" onClick={handleDownloadClick} />
+        ) : (
+          <i className="icon-download" />
+        )}
+      </Button>
+    ) : (
+      <Button
+        href={mediaData}
+        download={fileName}
+        round
+        size="smaller"
+        color="translucent-white"
+        ariaLabel={lang('AccActionDownload')}
+      >
+        <i className="icon-download" />
+      </Button>
+    );
+  }
+
   if (IS_SINGLE_COLUMN_LAYOUT) {
+    if (isProtected) {
+      return undefined;
+    }
+
     return (
       <div className="MediaViewerActions-mobile">
         <DropdownMenu
@@ -116,6 +168,14 @@ const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
               {lang('AccActionDownload')}
             </MenuItem>
           )}
+          {canReport && (
+            <MenuItem
+              icon="flag"
+              onClick={onReport}
+            >
+              {lang('ReportPeer.Report')}
+            </MenuItem>
+          )}
         </DropdownMenu>
         {isDownloading && <ProgressSpinner progress={downloadProgress} size="s" noCross />}
       </div>
@@ -124,54 +184,47 @@ const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
 
   return (
     <div className="MediaViewerActions">
-      {!isAvatar && (
-        <>
-          <Button
-            round
-            size="smaller"
-            color="translucent-white"
-            ariaLabel={lang('Forward')}
-            onClick={onForward}
-          >
-            <i className="icon-forward" />
-          </Button>
-        </>
-      )}
-      {isVideo ? (
+      {!isAvatar && !isProtected && (
         <Button
           round
           size="smaller"
           color="translucent-white"
-          ariaLabel={lang('AccActionDownload')}
-          onClick={handleDownloadClick}
+          ariaLabel={lang('Forward')}
+          onClick={onForward}
         >
-          {isDownloading ? (
-            <ProgressSpinner progress={downloadProgress} size="s" onClick={handleDownloadClick} />
-          ) : (
-            <i className="icon-download" />
-          )}
-        </Button>
-      ) : (
-        <Button
-          href={mediaData}
-          download={fileName}
-          round
-          size="smaller"
-          color="translucent-white"
-          ariaLabel={lang('AccActionDownload')}
-        >
-          <i className="icon-download" />
+          <i className="icon-forward" />
         </Button>
       )}
+      {renderDownloadButton()}
       <Button
         round
         size="smaller"
         color="translucent-white"
-        ariaLabel={isZoomed ? 'Zoom Out' : 'Zoom In'}
-        onClick={onZoomToggle}
+        ariaLabel={lang('MediaZoomOut')}
+        onClick={handleZoomOut}
       >
-        <i className={isZoomed ? 'icon-zoom-out' : 'icon-zoom-in'} />
+        <i className="icon-zoom-out" />
       </Button>
+      <Button
+        round
+        size="smaller"
+        color="translucent-white"
+        ariaLabel={lang('MediaZoomIn')}
+        onClick={handleZoomIn}
+      >
+        <i className="icon-zoom-in" />
+      </Button>
+      {canReport && (
+        <Button
+          round
+          size="smaller"
+          color="translucent-white"
+          ariaLabel={lang(isVideo ? 'PeerInfo.ReportProfileVideo' : 'PeerInfo.ReportProfilePhoto')}
+          onClick={onReport}
+        >
+          <i className="icon-flag" />
+        </Button>
+      )}
       <Button
         round
         size="smaller"
@@ -188,13 +241,11 @@ const MediaViewerActions: FC<OwnProps & StateProps & DispatchProps> = ({
 export default memo(withGlobal<OwnProps>(
   (global, { message }): StateProps => {
     const isDownloading = message ? selectIsDownloading(global, message) : false;
+    const isProtected = selectIsMessageProtected(global, message);
 
     return {
       isDownloading,
+      isProtected,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'downloadMessageMedia',
-    'cancelMessageMediaDownload',
-  ]),
 )(MediaViewerActions));

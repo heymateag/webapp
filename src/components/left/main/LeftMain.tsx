@@ -1,33 +1,26 @@
-/* eslint-disable max-len */
+import type { FC } from 'teact/teact';
 import React, {
-  FC,
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
+  memo, useCallback, useEffect, useRef, useState,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
 
-import { GlobalState, GlobalActions } from '../../../global/types';
-import { LeftColumnContent, SettingsScreens } from '../../../types';
-import { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
+import {getActions, withGlobal} from "../../../global";
+
+import type { SettingsScreens } from '../../../types';
+import { LeftColumnContent } from '../../../types';
+import type { FolderEditDispatch } from '../../../hooks/reducers/useFoldersReducer';
 
 import { IS_TOUCH_ENV } from '../../../util/environment';
-import { pick } from '../../../util/iteratees';
 import buildClassName from '../../../util/buildClassName';
-import useBrowserOnline from '../../../hooks/useBrowserOnline';
 import useFlag from '../../../hooks/useFlag';
 import useShowTransition from '../../../hooks/useShowTransition';
 import useLang from '../../../hooks/useLang';
 
 import Transition from '../../ui/Transition';
 import LeftMainHeader from './LeftMainHeader';
-import ConnectionState from '../ConnectionState';
 import ChatFolders from './ChatFolders';
 import LeftSearch from '../search/LeftSearch.async';
 import ContactList from './ContactList.async';
 import NewChatButton from '../NewChatButton';
-import ShowTransition from '../../ui/ShowTransition';
 import Button from '../../ui/Button';
 
 import './LeftMain.scss';
@@ -45,18 +38,13 @@ type OwnProps = {
   onReset: () => void;
 };
 
-// eslint-disable-next-line max-len
-type DispatchProps = Pick<GlobalActions, 'setShowHeymateScheduleMiddle' | 'setShowHeymateWalletMiddle' | 'setShowHeymateManageOfferMiddle'>;
-
-type StateProps = Pick<GlobalState, 'connectionState'>;
-
 const TRANSITION_RENDER_COUNT = Object.keys(LeftColumnContent).length / 2;
 const BUTTON_CLOSE_DELAY_MS = 250;
 const APP_OUTDATED_TIMEOUT = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 let closeTimeout: number | undefined;
 
-const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
+const LeftMain: FC<OwnProps> = ({
   content,
   searchQuery,
   searchDate,
@@ -67,15 +55,12 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
   onContentChange,
   onScreenSelect,
   onReset,
-  connectionState,
-  setShowHeymateScheduleMiddle,
-  setShowHeymateWalletMiddle,
-  setShowHeymateManageOfferMiddle,
 }) => {
   const [isNewChatButtonShown, setIsNewChatButtonShown] = useState(IS_TOUCH_ENV);
 
-  const isBrowserOnline = useBrowserOnline();
-  const isConnecting = !isBrowserOnline || connectionState === 'connectionStateConnecting';
+  const { setShowHeymateScheduleMiddle,
+    setShowHeymateWalletMiddle,
+    setShowHeymateManageOfferMiddle} = getActions();
 
   const isMouseInside = useRef(false);
   const [width, setWidth] = useState(0);
@@ -207,20 +192,12 @@ const LeftMain: FC<OwnProps & StateProps & DispatchProps> = ({
         onReset={onReset}
         shouldSkipTransition={shouldSkipTransition}
       />
-      <ShowTransition
-        isOpen={isConnecting}
-        isCustom
-        className="connection-state-wrapper opacity-transition slow"
-      >
-        {() => <ConnectionState />}
-      </ShowTransition>
       <Transition
         name={shouldSkipTransition ? 'none' : 'zoom-fade'}
         renderCount={TRANSITION_RENDER_COUNT}
         activeKey={content}
         shouldCleanup
         cleanupExceptionKey={LeftColumnContent.ChatList}
-        className={isConnecting ? 'pull-down' : undefined}
       >
         {(isActive) => {
           switch (content) {
@@ -293,7 +270,12 @@ function useAppOutdatedCheck() {
   return [shouldRender, transitionClassNames, handleUpdateClick] as const;
 }
 
-export default withGlobal<OwnProps>(
-  (global): StateProps => pick(global, ['connectionState', 'showHeymateScheduleMiddle', 'showHeymateManageOfferMiddle']),
-  (setGlobal, actions): DispatchProps => pick(actions, ['setShowHeymateScheduleMiddle', 'setShowHeymateWalletMiddle', 'setShowHeymateManageOfferMiddle']),
+export default withGlobal(
+  (global) => {
+    return {
+      authState: global.authState,
+      isScreenLocked: global.passcode?.isScreenLocked,
+      hasPasscode: global.passcode?.hasPasscode,
+    };
+  },
 )(LeftMain);

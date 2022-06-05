@@ -1,18 +1,18 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useEffect, useCallback, useRef,
+  memo, useEffect, useCallback, useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
-import { SettingsScreens, ThemeKey, UPLOADING_WALLPAPER_SLUG } from '../../../types';
-import { ApiWallpaper } from '../../../api/types';
+import type { ThemeKey } from '../../../types';
+import { SettingsScreens, UPLOADING_WALLPAPER_SLUG } from '../../../types';
+import type { ApiWallpaper } from '../../../api/types';
 
 import { DARK_THEME_PATTERN_COLOR, DEFAULT_PATTERN_COLOR } from '../../../config';
-import { pick } from '../../../util/iteratees';
 import { throttle } from '../../../util/schedulers';
 import { openSystemFilesDialog } from '../../../util/systemFilesDialog';
 import { getAverageColor, getPatternColor, rgb2hex } from '../../../util/colors';
-import { selectTheme } from '../../../modules/selectors';
+import { selectTheme } from '../../../global/selectors';
 import useLang from '../../../hooks/useLang';
 import useHistoryBack from '../../../hooks/useHistoryBack';
 
@@ -36,15 +36,11 @@ type StateProps = {
   theme: ThemeKey;
 };
 
-type DispatchProps = Pick<GlobalActions, (
-  'loadWallpapers' | 'uploadWallpaper' | 'setThemeSettings'
-)>;
-
 const SUPPORTED_TYPES = 'image/jpeg';
 
 const runThrottled = throttle((cb) => cb(), 60000, true);
 
-const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
+const SettingsGeneralBackground: FC<OwnProps & StateProps> = ({
   isActive,
   onScreenSelect,
   onReset,
@@ -52,10 +48,13 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
   isBlurred,
   loadedWallpapers,
   theme,
-  loadWallpapers,
-  uploadWallpaper,
-  setThemeSettings,
 }) => {
+  const {
+    loadWallpapers,
+    uploadWallpaper,
+    setThemeSettings,
+  } = getActions();
+
   const themeRef = useRef<string>();
   themeRef.current = theme;
   // Due to the parent Transition, this component never gets unmounted,
@@ -111,7 +110,10 @@ const SettingsGeneralBackground: FC<OwnProps & StateProps & DispatchProps> = ({
 
   const lang = useLang();
 
-  useHistoryBack(isActive, onReset, onScreenSelect, SettingsScreens.GeneralChatBackground);
+  useHistoryBack({
+    isActive,
+    onBack: onReset,
+  });
 
   const isUploading = loadedWallpapers?.[0] && loadedWallpapers[0].slug === UPLOADING_WALLPAPER_SLUG;
 
@@ -177,7 +179,4 @@ export default memo(withGlobal<OwnProps>(
       theme,
     };
   },
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'loadWallpapers', 'uploadWallpaper', 'setThemeSettings',
-  ]),
 )(SettingsGeneralBackground));

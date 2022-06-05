@@ -1,19 +1,20 @@
+import type { FC } from '../../../lib/teact/teact';
 import React, {
-  FC, memo, useCallback, useMemo,
+  memo, useCallback, useMemo, useRef,
 } from '../../../lib/teact/teact';
-import { withGlobal } from '../../../lib/teact/teactn';
+import { getActions, withGlobal } from '../../../global';
 
-import { GlobalActions } from '../../../global/types';
 import { LoadMoreDirection, MediaViewerOrigin } from '../../../types';
 
 import { MEMO_EMPTY_ARRAY } from '../../../util/memo';
 import { SLIDE_TRANSITION_DURATION } from '../../../config';
-import { createMapStateToProps, StateProps } from './helpers/createMapStateToProps';
-import { pick } from '../../../util/iteratees';
+import type { StateProps } from './helpers/createMapStateToProps';
+import { createMapStateToProps } from './helpers/createMapStateToProps';
 import buildClassName from '../../../util/buildClassName';
 import { throttle } from '../../../util/schedulers';
 import useLang from '../../../hooks/useLang';
 import useAsyncRendering from '../../right/hooks/useAsyncRendering';
+import { useIntersectionObserver } from '../../../hooks/useIntersectionObserver';
 
 import InfiniteScroll from '../../ui/InfiniteScroll';
 import Media from '../../common/Media';
@@ -25,22 +26,34 @@ export type OwnProps = {
   searchQuery?: string;
 };
 
-type DispatchProps = Pick<GlobalActions, ('searchMessagesGlobal' | 'openMediaViewer')>;
-
 const CURRENT_TYPE = 'media';
+const INTERSECTION_THROTTLE = 500;
+
 const runThrottled = throttle((cb) => cb(), 500, true);
 
-const MediaResults: FC<OwnProps & StateProps & DispatchProps> = ({
+const MediaResults: FC<OwnProps & StateProps> = ({
   searchQuery,
   searchChatId,
   isLoading,
   globalMessagesByChatId,
   foundIds,
   lastSyncTime,
-  searchMessagesGlobal,
-  openMediaViewer,
+  isChatProtected,
 }) => {
+  const {
+    searchMessagesGlobal,
+    openMediaViewer,
+  } = getActions();
+
+  // eslint-disable-next-line no-null/no-null
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const lang = useLang();
+
+  const { observe: observeIntersectionForMedia } = useIntersectionObserver({
+    rootRef: containerRef,
+    throttleMs: INTERSECTION_THROTTLE,
+  });
 
   const handleLoadMore = useCallback(({ direction }: { direction: LoadMoreDirection }) => {
     if (lastSyncTime && direction === LoadMoreDirection.Backwards) {
@@ -82,6 +95,8 @@ const MediaResults: FC<OwnProps & StateProps & DispatchProps> = ({
             key={message.id}
             idPrefix="search-media"
             message={message}
+            isProtected={isChatProtected || message.isProtected}
+            observeIntersection={observeIntersectionForMedia}
             onClick={handleSelectMedia}
           />
         ))}
@@ -109,7 +124,7 @@ const MediaResults: FC<OwnProps & StateProps & DispatchProps> = ({
   );
 
   return (
-    <div className="LeftSearch">
+    <div ref={containerRef} className="LeftSearch">
       <InfiniteScroll
         className={classNames}
         items={foundMessages}
@@ -133,8 +148,4 @@ const MediaResults: FC<OwnProps & StateProps & DispatchProps> = ({
 
 export default memo(withGlobal<OwnProps>(
   createMapStateToProps(CURRENT_TYPE),
-  (setGlobal, actions): DispatchProps => pick(actions, [
-    'searchMessagesGlobal',
-    'openMediaViewer',
-  ]),
 )(MediaResults));
