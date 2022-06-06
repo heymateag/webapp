@@ -348,6 +348,7 @@ const MiddleColumn: FC<StateProps & DispatchProps> = ({
               messageListType={renderingMessageListType}
               isReady={isReady}
               handleSwitchTab={handleSwitchTab}
+              activeTab={activeTab}
             />
             <Transition
               name={shouldSkipHistoryAnimations ? 'none' : animationLevel === ANIMATION_LEVEL_MAX ? 'slide' : 'fade'}

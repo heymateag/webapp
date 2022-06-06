@@ -67,7 +67,7 @@ class OfferPurchase {
       const payAmount = amount.sub(new BN(balance.toString()));
       let url = this.mainNet ? RAMP_PRODUCTION_URL : RAMP_STAGING_URL;
       const apiKey = this.mainNet ? RAMP_MAIN_API_KEY : RAMP_RINKEBY_API_KEY;
-      url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}&swapAsset=${swapAsset}`;
+      url += `?userAddress=${this.address}&hostApiKey=${apiKey}&swapAmount=${payAmount}&swapAsset=${swapAsset.toUpperCase()}`;
       window.open(url, '_blank');
       return undefined;
     } else {

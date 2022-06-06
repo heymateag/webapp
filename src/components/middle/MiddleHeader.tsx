@@ -86,6 +86,7 @@ type OwnProps = {
   threadId: number;
   messageListType: MessageListType;
   isReady?: boolean;
+  activeTab?: number;
   handleSwitchTab?: () => void;
 };
 
@@ -124,6 +125,7 @@ GlobalActions,
 
 const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   chatId,
+  activeTab,
   threadId,
   messageListType,
   isReady,
@@ -467,7 +469,7 @@ const MiddleHeader: FC<OwnProps & StateProps & DispatchProps> = ({
   return (
     showHeymateScheduleMiddle ? (
       <div className="MiddleHeader schedule-header" ref={componentRef}>
-        <ScheduleHeader handleSwitchTab={handleSwitchTab} />
+        <ScheduleHeader handleSwitchTab={handleSwitchTab} activeTab={activeTab} />
       </div>
     ) : showHeymateWalletMiddle ? (
       <div className="MiddleHeader schedule-header" ref={componentRef}>
